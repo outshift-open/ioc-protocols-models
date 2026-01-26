@@ -5,7 +5,7 @@ metadata:
 {{- if  .Values.namespace }}
   name: {{ .Values.namespace }}
 {{- else }}
-  name: platform-demo
+  name: ioc-cfn-protocols-models
 {{- end }}
   labels:
 {{- if  .Values.imageSignatureVerification }}
