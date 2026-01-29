@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "ioc-cfn-protocols-models"
+version = "0.1.0"
+description = "Platform Demo IOC CFN Protocols Models Service"
+authors = ["Your Organization"]
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+Flask = ">=2.0.2"
+prometheus-flask-exporter = ">=0.18.3"
+requests = "*"
+Werkzeug = ">=2.2.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.0.0"
+pytest-cov = ">=3.0.0"
+black = ">=22.0.0"
+flake8 = ">=4.0.0"
+mypy = ">=0.950"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

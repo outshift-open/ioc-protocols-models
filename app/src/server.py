@@ -9,7 +9,11 @@ from health_check import check_self, HealthState
 
 
 # static information as metric
-metrics.info('app_info', 'Application info', version=os.environ.get("APPLICATION_VERSION", "NOT_FOUND"))
+metrics.info(
+    "app_info",
+    "Application info",
+    version=os.environ.get("APPLICATION_VERSION", "NOT_FOUND"),
+)
 
 
 @app.route("/")
@@ -20,7 +24,7 @@ def hello():
     <li><a href='{grafana_dashboard_url}'>Grafana Dashboard</a> (if deployed to ETI Platform)</li>
     """.format(
         service_name=service_name,
-        grafana_dashboard_url=os.environ.get("METRICS_DASHBOARD_URL")
+        grafana_dashboard_url=os.environ.get("METRICS_DASHBOARD_URL"),
     )
     # Return HTML to render for the page
     return """
@@ -35,7 +39,10 @@ def hello():
         </ul>
         </body>
     <html>
-    """.format(observability_links_html)
+    """.format(
+        observability_links_html
+    )
+
 
 @app.route("/env")
 def env_var():
@@ -60,12 +67,16 @@ def env_var():
         os.environ.get("CONFIGMAP_OVERLAY_EXAMPLE"),
         os.environ.get("APPLICATION_VERSION"),
         os.environ.get("MOCK_DB_UPTIME"),
-        os.environ.get("MOCK_FOO_UPTIME")
+        os.environ.get("MOCK_FOO_UPTIME"),
     )
 
+
 @app.route("/foo")
-@metrics.counter('foo', 'Number of requests for /foo',
-         labels={'path': '/foo', 'method': lambda: request.method})
+@metrics.counter(
+    "foo",
+    "Number of requests for /foo",
+    labels={"path": "/foo", "method": lambda: request.method},
+)
 def foo():
     # Return a 404 response for /foo
     return """
@@ -79,16 +90,20 @@ def foo():
 
 ##### Health Endpoint Example
 
+
 @app.route("/healthz")
-@metrics.counter('healthz', 'Number of requests for /healthz',
-         labels={'path': '/healthz', 'method': lambda: request.method})
+@metrics.counter(
+    "healthz",
+    "Number of requests for /healthz",
+    labels={"path": "/healthz", "method": lambda: request.method},
+)
 def healthz():
     """Example /healthz endpoint for a service.
     This endpoint is for demonstration only; the reported health states and
     "upstream" services do not reflect the health or dependencies of this
     demo service.
     """
-    
+
     # self health check implemented in health_check.py
     service_state = check_self()
 
@@ -97,7 +112,7 @@ def healthz():
     response_body = {
         "service_name": service_name,
         "service_state": service_state.name,
-        "last_updated": timestamp
+        "last_updated": timestamp,
     }
 
     # Capture service health as status code for k8s liveness probe
@@ -108,7 +123,9 @@ def healthz():
     elif (service_state == HealthState.DOWN) or (service_state == HealthState.UNKNOWN):
         response_code = 500
 
-    return Response(json.dumps(response_body), status=response_code, mimetype='application/json')
+    return Response(
+        json.dumps(response_body), status=response_code, mimetype="application/json"
+    )
 
 
 @app.errorhandler(404)
@@ -122,8 +139,18 @@ def page_not_found(e):
     </html>
     """
 
-if __name__ == "__main__":
+
+def main():
+    """Main entry point for the application"""
     log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
     app.logger.setLevel(logging.getLevelName(log_level))
-    app.logger.info("Starting up the '{}' demo app! Version: '{}'".format(service_name, os.environ.get("APPLICATION_VERSION")))
-    app.run(host='0.0.0.0')
+    app.logger.info(
+        "Starting up the '{}' demo app! Version: '{}'".format(
+            service_name, os.environ.get("APPLICATION_VERSION")
+        )
+    )
+    app.run(host="0.0.0.0")
+
+
+if __name__ == "__main__":
+    main()

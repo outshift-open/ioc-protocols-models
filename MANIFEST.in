@@ -1,0 +1,10 @@
+include README.md
+include CONTRIBUTING.md
+include LICENSE
+include pyproject.toml
+include setup.py
+recursive-include app *.py
+recursive-include deploy *.yaml *.yml *.json
+recursive-include scripts *.sh
+global-exclude __pycache__
+global-exclude *.py[co]
