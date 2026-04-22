@@ -1,0 +1,253 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+protocol/ie/l9.py — Interaction Engine specialisation of the L9 header builder.
+
+SSTP L9 headers are carried inside Interaction Engine protocol events.
+The wire envelope is governed by ``interaction_engine_protocol v1.0.0``
+(schema: protocol/ie/interaction_engine_protocol.schema.json).
+This module constructs and validates the ``l9_header`` field within those
+envelopes; it does not define the envelope fields themselves.
+
+The :class:`IEL9HeaderBuilder` subclasses :class:`~protocol.l9_base.L9HeaderBuilder`
+and maps IE event types to SSTP kinds:
+
+    turn_ingested        → intent
+    peer_turn            → delegation
+    repair_required      → query
+    repair_applied       → delegation
+    decision_emitted     → commit
+    episode_persisted    → memory_delta
+    conversation_terminated / agent_* → knowledge
+
+The module-level :func:`build_l9_header` is the backwards-compatible
+convenience function used by IE orchestrators.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Iterable, List
+
+from sstp.l9_base import (
+    L9HeaderBuilder,
+    normalize_use_case,
+    schema_trust_level_for_kind,
+    schema_version_for_kind,
+)
+
+# ── IE protocol identifiers ───────────────────────────────────────────────────
+
+INTERACTION_ENGINE_PROTOCOL: str = "interaction_engine_protocol"
+INTERACTION_ENGINE_PROTOCOL_VERSION: str = "1.0.0"
+
+# ── IE event-type mappings ────────────────────────────────────────────────────
+
+_EVENT_TYPE_ALIASES: Dict[str, str] = {
+    "message": "peer_turn",
+    "peer_repair": "repair_applied",
+    "repair_applied": "repair_applied",
+    "conversation_terminated": "conversation_terminated",
+}
+
+_KIND_BY_EVENT_TYPE: Dict[str, str] = {
+    "turn_ingested": "intent",
+    "peer_turn": "delegation",
+    "repair_required": "query",
+    "repair_applied": "delegation",
+    "decision_emitted": "commit",
+    "episode_persisted": "memory_delta",
+    "conversation_terminated": "knowledge",
+    "agent_request": "delegation",
+    "agent_response": "commit",
+    "agent_error": "knowledge",
+    "agent_shutdown": "knowledge",
+    "agent_shutdown_ack": "knowledge",
+}
+
+_SCHEMA_TOPIC_BY_EVENT_TYPE: Dict[str, tuple[str, str]] = {
+    "turn_ingested": ("intake", "turn"),
+    "peer_turn": ("coordination", "peer_message"),
+    "repair_required": ("coordination", "repair_request"),
+    "repair_applied": ("coordination", "repair_message"),
+    "decision_emitted": ("coordination", "decision"),
+    "episode_persisted": ("memory", "episode_delta"),
+    "conversation_terminated": ("coordination", "termination_notice"),
+    "agent_request": ("runtime", "agent_request"),
+    "agent_response": ("runtime", "agent_response"),
+    "agent_error": ("runtime", "agent_error"),
+    "agent_shutdown": ("runtime", "agent_shutdown"),
+    "agent_shutdown_ack": ("runtime", "agent_shutdown_ack"),
+}
+
+# Short-TTL event types (1 day instead of the 7-day default)
+_SHORT_TTL_EVENT_TYPES: frozenset = frozenset(
+    {"peer_turn", "repair_required", "repair_applied"}
+)
+
+
+# ── IE-specific helper functions ──────────────────────────────────────────────
+
+
+def canonical_event_type(event_type: str) -> str:
+    """Normalise an IE event_type string, resolving aliases."""
+    candidate = str(event_type).strip().lower()
+    return _EVENT_TYPE_ALIASES.get(candidate, candidate)
+
+
+def kind_for_event_type(event_type: str) -> str:
+    """Return the SSTP kind for an IE event_type string."""
+    return _KIND_BY_EVENT_TYPE.get(canonical_event_type(event_type), "knowledge")
+
+
+def schema_id_for(
+    use_case: str,
+    event_type: str,
+    kind: str,
+    schema_trust_level: str,
+) -> str:
+    """Return the canonical schema URN for an IE (use_case, event_type, kind)."""
+    normalized_use_case = normalize_use_case(use_case)
+    area, topic = _SCHEMA_TOPIC_BY_EVENT_TYPE.get(
+        canonical_event_type(event_type), ("coordination", kind)
+    )
+    version = schema_version_for_kind(kind)
+    if schema_trust_level == "certified":
+        return f"urn:ioc:{normalized_use_case}:{area}:{topic}:v{version}"
+    return f"urn:ioc:draft:{normalized_use_case}:{area}:{topic}:v{version}"
+
+
+# ── IEL9HeaderBuilder ─────────────────────────────────────────────────────────
+
+
+class IEL9HeaderBuilder(L9HeaderBuilder):
+    """Interaction Engine specialisation of :class:`~protocol.l9_base.L9HeaderBuilder`.
+
+    Maps IE event types to SSTP kinds and derives IE-specific schema URNs.
+    Instantiate once or use the module-level :func:`build_l9_header` convenience
+    function.
+    """
+
+    def kind_for_event_type(self, event_type: str) -> str:
+        return kind_for_event_type(event_type)
+
+    def schema_id_for(
+        self,
+        use_case: str,
+        event_type: str,
+        kind: str,
+        schema_trust_level: str,
+    ) -> str:
+        return schema_id_for(use_case, event_type, kind, schema_trust_level)
+
+    def ttl_for_event_type(self, event_type: str) -> int:
+        return 86400 if event_type in _SHORT_TTL_EVENT_TYPES else 604800
+
+    def build(  # type: ignore[override]
+        self,
+        *,
+        use_case: str,
+        event_type: str,
+        sender: str,
+        receiver: str | None,
+        timestamp_ms: int,
+        cognition_profile_id: str | None = "adaptive_communication:v1",
+        cognition_protocol: str | None = "IE",
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Build an IE L9 header, normalising the event_type alias first."""
+        return super().build(
+            use_case=use_case,
+            event_type=canonical_event_type(event_type),
+            sender=sender,
+            receiver=receiver,
+            timestamp_ms=timestamp_ms,
+            cognition_profile_id=cognition_profile_id,
+            cognition_protocol=cognition_protocol,
+            **kwargs,
+        )
+
+
+# ── Module-level convenience function (backwards-compatible public API) ───────
+
+_DEFAULT_BUILDER = IEL9HeaderBuilder()
+
+
+def build_l9_header(
+    *,
+    use_case: str,
+    event_type: str,
+    sender: str,
+    receiver: str | None,
+    timestamp_ms: int,
+    tenant_id: str | None = None,
+    sensitivity: str = "internal",
+    propagation: str = "restricted",
+    sequence_number: int | None = None,
+    turn_depth: int | None = None,
+    utterance: str = "",
+    parent_ids: Iterable[str] | None = None,
+    confidence_score: float | None = None,
+    risk_score: float | None = None,
+    state_object_id: str | None = None,
+    logical_clock: str | None = None,
+    merge_strategy: str = "merge",
+    provenance_sources: Iterable[str] | None = None,
+    provenance_transforms: Iterable[str] | None = None,
+    payload_refs: List[Dict[str, str]] | None = None,
+    schema_inline: Dict[str, Any] | None = None,
+    schema_trust_level: str | None = None,
+    message_id: str | None = None,
+    ontology_ref: str | None = None,
+    cognition_profile_id: str | None = "adaptive_communication:v1",
+    cognition_protocol: str | None = "IE",
+) -> Dict[str, Any]:
+    """Build an Interaction Engine SSTP L9 header dict.
+
+    Convenience wrapper around :class:`IEL9HeaderBuilder`.  This is the
+    function called by IE orchestrators to stamp each event with an SSTP
+    L9 header.
+
+    The ``event_type`` is normalised via :func:`canonical_event_type` so
+    aliases like ``"message"`` resolve correctly.
+    """
+    return _DEFAULT_BUILDER.build(
+        use_case=use_case,
+        event_type=event_type,
+        sender=sender,
+        receiver=receiver,
+        timestamp_ms=timestamp_ms,
+        tenant_id=tenant_id,
+        sensitivity=sensitivity,
+        propagation=propagation,
+        sequence_number=sequence_number,
+        turn_depth=turn_depth,
+        utterance=utterance,
+        parent_ids=parent_ids,
+        confidence_score=confidence_score,
+        risk_score=risk_score,
+        state_object_id=state_object_id,
+        logical_clock=logical_clock,
+        merge_strategy=merge_strategy,
+        provenance_sources=provenance_sources,
+        provenance_transforms=provenance_transforms,
+        payload_refs=payload_refs,
+        schema_inline=schema_inline,
+        schema_trust_level=schema_trust_level,
+        message_id=message_id,
+        ontology_ref=ontology_ref,
+        cognition_profile_id=cognition_profile_id,
+        cognition_protocol=cognition_protocol,
+    )
+
+
+__all__ = [
+    "INTERACTION_ENGINE_PROTOCOL",
+    "INTERACTION_ENGINE_PROTOCOL_VERSION",
+    "canonical_event_type",
+    "kind_for_event_type",
+    "schema_id_for",
+    "IEL9HeaderBuilder",
+    "build_l9_header",
+]

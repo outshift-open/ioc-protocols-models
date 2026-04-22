@@ -1,0 +1,476 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "protocol/interaction_engine_protocol.schema.json",
+  "title": "Interaction Engine Protocol Event",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "protocol",
+    "version",
+    "use_case",
+    "run_id",
+    "conversation_id",
+    "phase",
+    "event_type",
+    "sender",
+    "message",
+    "repair",
+    "timestamp_ms"
+  ],
+  "properties": {
+    "protocol": {
+      "type": "string",
+      "const": "interaction_engine_protocol"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "use_case": {
+      "type": "string",
+      "minLength": 1
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Deprecated compatibility field. Prefer use_case."
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "conversation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "ingest",
+        "tom_update",
+        "peer_dialogue",
+        "domain_action",
+        "coordination",
+        "persist"
+      ]
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "turn_ingested",
+        "peer_turn",
+        "alignment_assessed",
+        "repair_required",
+        "repair_applied",
+        "decision_emitted",
+        "episode_persisted"
+      ]
+    },
+    "sender": {
+      "type": "string",
+      "minLength": 1
+    },
+    "receiver": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "message": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "sequence_number",
+        "turn_depth",
+        "utterance",
+        "inferred_intent",
+        "contingency_mode",
+        "out_of_bound",
+        "repaired",
+        "derailment_cause"
+      ],
+      "properties": {
+        "sequence_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "turn_depth": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "utterance": {
+          "type": "string"
+        },
+        "inferred_intent": {
+          "type": "string"
+        },
+        "contingency_mode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "out_of_bound": {
+          "type": "boolean"
+        },
+        "repaired": {
+          "type": "boolean"
+        },
+        "derailment_cause": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "alignment": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "task_goal": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "aligned": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "alignment_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "disagreement_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "rationale": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "repair": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "required",
+        "strategy",
+        "trigger_sequence_number"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "strategy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "trigger_sequence_number": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "tom_snapshot": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "trust": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "urgency": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "safety_focus": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "budget_confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "price_or_cost_sensitivity": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "intent_or_follow_through": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "l9_header": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "protocol",
+        "version",
+        "kind",
+        "message_id",
+        "dt_created",
+        "origin",
+        "semantic_context",
+        "policy_labels",
+        "provenance",
+        "state_object_id",
+        "parent_ids",
+        "logical_clock",
+        "confidence_score",
+        "risk_score",
+        "ttl_seconds",
+        "merge_strategy",
+        "payload_refs"
+      ],
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "SSTP",
+            "CSTP",
+            "LSTP"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "const": "0"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "intent",
+            "delegation",
+            "knowledge",
+            "query",
+            "commit",
+            "memory_delta",
+            "evidence_bundle"
+          ]
+        },
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dt_created": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "origin": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "actor_id",
+            "tenant_id",
+            "attestation"
+          ],
+          "properties": {
+            "actor_id": { "type": "string", "minLength": 1 },
+            "tenant_id": { "type": "string", "minLength": 1 },
+            "attestation": { "type": "string", "minLength": 1 }
+          }
+        },
+        "semantic_context": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "schema_id",
+            "schema_version",
+            "encoding",
+            "schema_trust_level"
+          ],
+          "properties": {
+            "schema_id": { "type": "string", "minLength": 1 },
+            "schema_version": { "type": "string", "minLength": 1 },
+            "encoding": {
+              "type": "string",
+              "enum": [
+                "json",
+                "structured_text",
+                "hybrid",
+                "cstp_ref",
+                "lstp_ref"
+              ]
+            },
+            "schema_trust_level": {
+              "type": "string",
+              "enum": [
+                "inline",
+                "draft",
+                "certified"
+              ]
+            }
+          }
+        },
+        "policy_labels": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "sensitivity",
+            "propagation",
+            "retention_policy"
+          ],
+          "properties": {
+            "sensitivity": {
+              "type": "string",
+              "enum": [
+                "public",
+                "internal",
+                "restricted",
+                "confidential"
+              ]
+            },
+            "propagation": {
+              "type": "string",
+              "enum": [
+                "forward",
+                "restricted",
+                "no_forward"
+              ]
+            },
+            "retention_policy": { "type": "string", "minLength": 1 }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "sources",
+            "transforms"
+          ],
+          "properties": {
+            "sources": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "transforms": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "state_object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "logical_clock": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "confidence_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "risk_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "merge_strategy": {
+          "type": "string",
+          "enum": [
+            "add",
+            "replace",
+            "merge",
+            "crdt"
+          ]
+        },
+        "payload_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "type",
+              "ref"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "inline",
+                  "cstp",
+                  "lstp",
+                  "external"
+                ]
+              },
+              "ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

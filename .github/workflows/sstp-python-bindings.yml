@@ -1,0 +1,36 @@
+name: SSTP Python Bindings
+
+on:
+  push:
+    paths:
+      - 'SSTP/language-bindings/Python/**'
+      - 'SSTP/JSON schema/**'
+  pull_request:
+    paths:
+      - 'SSTP/language-bindings/Python/**'
+      - 'SSTP/JSON schema/**'
+
+jobs:
+  validate:
+    name: Validate Python bindings
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: SSTP/language-bindings/Python
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install package and dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Type-check
+        run: mypy src/sstp/ --ignore-missing-imports
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short

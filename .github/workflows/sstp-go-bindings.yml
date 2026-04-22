@@ -1,0 +1,33 @@
+name: SSTP Go Bindings
+
+on:
+  push:
+    paths:
+      - 'SSTP/language-bindings/Go/**'
+      - 'SSTP/JSON schema/**'
+  pull_request:
+    paths:
+      - 'SSTP/language-bindings/Go/**'
+      - 'SSTP/JSON schema/**'
+
+jobs:
+  validate:
+    name: Validate Go bindings
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: SSTP/language-bindings/Go
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Run tests
+        run: go test ./tests/... -v
