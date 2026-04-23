@@ -118,11 +118,9 @@ jobs:
   #     # GHCR Login for docker build runner
   #     github-app-id: ${{ secrets.GHA_APP_ID }}
   #     github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
-      #caller-github-token: ${{ secrets.GITHUB_TOKEN }}
   #     # GHCR Login for docker scan
   #     github-app-id: ${{ secrets.GHA_APP_ID }}
   #     github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
-      #caller-github-token: ${{ secrets.GITHUB_TOKEN }}
 
   #   with:
   #     runner: ${{ vars.DEFAULT_ARC_RUNNERS }}
@@ -154,7 +152,6 @@ jobs:
   #    vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
   #    github-app-id: ${{ secrets.GHA_APP_ID }}
   #    github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
-      #caller-github-token: ${{ secrets.GITHUB_TOKEN }}
 
   ################################## Helm Publish #################################
   #################################################################################
