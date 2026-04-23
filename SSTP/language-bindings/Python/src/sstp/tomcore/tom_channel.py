@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from sstp.tomcore.cognition import TheoryOfMindEngine
 from sstp.ie.tom import TOMPairChannelBase
@@ -63,24 +63,31 @@ class TOMPairChannel(TOMPairChannelBase):
         self,
         utterance: str,
         task_goal: str,
+        speaker: str | None = None,
+        listener: str | None = None,
+        speaker_belief: Dict[str, Any] | None = None,
+        history: List[str] | None = None,
         schema: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Return task-alignment assessment for a single utterance, or neutral stub if disabled."""
         if not self.enabled:
             return {
-                "actor": "peer_agent",
-                "task_goal": task_goal,
-                "aligned": True,
-                "alignment_score": 1.0,
-                "rationale": "tom_disabled",
-                "tom_enabled": False,
+                "aligned": True, "alignment_score": 1.0, "disagreement_score": 0.0,
+                "derailed": False, "derailment_cause": None,
+                "ambiguous": False, "ambiguity_score": 0.0,
+                "judge_confidence": 1.0, "critique": "tom_disabled",
             }
-        return {
-            **self.tom_engine.assess_task_alignment(
-                actor="peer_agent", task_goal=task_goal, utterance=utterance, schema=schema
-            ),
-            "tom_enabled": True,
-        }
+        if hasattr(self.tom_engine, "ie_utterance_judge"):
+            return self.tom_engine.ie_utterance_judge(
+                utterance=utterance,
+                task_goal=task_goal,
+                speaker=speaker or self.agent_a,
+                listener=listener or self.agent_b,
+                speaker_belief=speaker_belief or {},
+                history=history,
+            )
+        # fallback for engines that don't implement ie_utterance_judge
+        return self.tom_engine.assess_task_alignment(speaker or self.agent_a, task_goal, utterance, schema)
 
     # ── State update ──────────────────────────────────────────────────────────
 

@@ -219,6 +219,53 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
             "confidence": current_confidence,
         }
 
+    # ── Utterance judge ────────────────────────────────────────────────────────
+
+    def ie_utterance_judge(
+        self,
+        utterance: str,
+        task_goal: str,
+        speaker: str,
+        listener: str,
+        speaker_belief: Dict[str, Any],
+        history: List[str] | None = None,
+    ) -> Dict[str, Any]:
+        """Call the LLM ie_utterance_judge task and normalise the result."""
+        result = self.llm.complete_json("ie_utterance_judge", {
+            "utterance": utterance,
+            "task_goal": task_goal,
+            "speaker": speaker,
+            "listener": listener,
+            "speaker_belief": speaker_belief,
+            "history": (history or [])[-4:],
+        })
+        derailed = bool(result.get("derailed", False))
+        ambiguous = bool(result.get("ambiguous", False))
+        alignment_score = max(0.0, min(1.0, float(result.get("alignment_score", 0.25 if derailed else 0.82))))
+        aligned = bool(result.get("aligned", not derailed and alignment_score >= 0.55))
+        ambiguity_score = max(0.0, min(1.0, float(result.get("ambiguity_score", 0.0))))
+        judge_confidence = max(0.0, min(1.0, float(result.get("judge_confidence", 0.85))))
+        critique = str(result.get("critique", ""))
+        verdict = {
+            "derailed": derailed,
+            "derailment_cause": result.get("derailment_cause") or None,
+            "ambiguous": ambiguous,
+            "ambiguity_score": round(ambiguity_score, 4),
+            "alignment_score": round(alignment_score, 4),
+            "aligned": aligned,
+            "judge_confidence": round(judge_confidence, 4),
+            "critique": critique,
+            "disagreement_score": round(max(0.0, min(1.0, 1.0 - alignment_score)), 4),
+        }
+        LOGGER.debug(
+            "ie_judge %s->%s derailed=%s cause=%s ambiguous=%s score=%.4f confidence=%.4f",
+            speaker, listener,
+            verdict["derailed"], verdict["derailment_cause"],
+            verdict["ambiguous"], verdict["alignment_score"],
+            verdict["judge_confidence"],
+        )
+        return verdict
+
     # ── Inter-agent analysis ───────────────────────────────────────────────────
 
     def analyze_inter_agent_tom(

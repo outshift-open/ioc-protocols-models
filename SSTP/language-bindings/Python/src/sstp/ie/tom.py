@@ -275,6 +275,41 @@ class TheoryOfMindEngineBase(ABC):
         """Return drift detection signals for agent_id."""
         return {"agent_id": agent_id, "ema_alignment": 1.0, "anchor_gap": 0.0, "change_log": [], "confidence": 0.5}
 
+    def ie_utterance_judge(
+        self,
+        utterance: str,
+        task_goal: str,
+        speaker: str,
+        listener: str,
+        speaker_belief: Dict[str, Any],
+        history: List[str] | None = None,
+    ) -> Dict[str, Any]:
+        """Evaluate a peer-agent utterance for derailment and ambiguity.
+
+        Returns a dict with:
+          derailed (bool), derailment_cause (str|None),
+          ambiguous (bool), ambiguity_score (float 0..1),
+          alignment_score (float 0..1), aligned (bool),
+          judge_confidence (float 0..1), critique (str),
+          disagreement_score (float 0..1).
+
+        Default implementation falls back to assess_task_alignment for engines
+        that have not implemented the judge.
+        """
+        result = self.assess_task_alignment(speaker, task_goal, utterance)
+        alignment_score = float(result.get("alignment_score") or 0.82)
+        return {
+            "derailed": not result.get("aligned", True) or alignment_score < 0.55,
+            "derailment_cause": None,
+            "ambiguous": False,
+            "ambiguity_score": 0.0,
+            "alignment_score": round(alignment_score, 4),
+            "aligned": result.get("aligned", True),
+            "judge_confidence": 0.70,
+            "critique": str(result.get("rationale", "")),
+            "disagreement_score": round(max(0.0, min(1.0, 1.0 - alignment_score)), 4),
+        }
+
 
 class TOMPairChannelBase(ABC):
     """Contract for a ToM alignment/repair channel scoped to one agent pair.
