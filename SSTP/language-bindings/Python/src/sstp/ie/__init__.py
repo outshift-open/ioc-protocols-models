@@ -28,12 +28,25 @@ from .tom import (
     GraphNode,
     KnowledgeGraphNode,
     KnowledgeGraphVisualization,
-    SocialState,
     TheoryOfMindEngineBase,
-    TheoryOfMindState,
     TOMPairChannelBase,
     normalize_alignment,
     normalize_tom_snapshot,
+)
+from .assertion import (
+    AgentIdentity,
+    AssertionVerificationError,
+    UtteranceAssertion,
+    build_assertion,
+    verify_assertion,
+)
+from .message import (
+    IEMessage,
+    IEDeclaration,
+    IEUtterance,
+    IEClarificationRequest,
+    IEClarificationResponse,
+    IERepair,
 )
 
 __all__ = [
@@ -46,8 +59,6 @@ __all__ = [
     "schema_id_for",
     "InteractionProtocolAdapter",
     # ToM types and interfaces
-    "TheoryOfMindState",
-    "SocialState",
     "KnowledgeGraphNode",
     "AgentResponsibility",
     "DiscourseEntry",
@@ -58,4 +69,17 @@ __all__ = [
     "normalize_alignment",
     "TheoryOfMindEngineBase",
     "TOMPairChannelBase",
+    # Assertion types
+    "AgentIdentity",
+    "UtteranceAssertion",
+    "AssertionVerificationError",
+    "build_assertion",
+    "verify_assertion",
+    # IE message envelopes
+    "IEMessage",
+    "IEDeclaration",
+    "IEUtterance",
+    "IEClarificationRequest",
+    "IEClarificationResponse",
+    "IERepair",
 ]

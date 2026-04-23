@@ -34,9 +34,9 @@ class TOMPairChannel(TOMPairChannelBase):
 
     def assess(
         self,
-        speaker_view: Dict[str, float],
-        listener_view: Dict[str, float],
-        subject_view: Dict[str, float],
+        speaker_view: Dict[str, Any],
+        listener_view: Dict[str, Any],
+        subject_view: Dict[str, Any],
         task_goal: str,
     ) -> Dict[str, Any]:
         """Return inter-agent TOM metrics, or a neutral stub if disabled."""
@@ -86,11 +86,11 @@ class TOMPairChannel(TOMPairChannelBase):
 
     def update(
         self,
-        view: Dict[str, float],
+        view: Dict[str, Any],
         utterance: str,
         task_goal: str,
         actor: str = "peer_agent",
-    ) -> Dict[str, float]:
+    ) -> Dict[str, Any]:
         """Update the TOM belief for the listener side; returns updated view. No-op if disabled."""
         if self.enabled:
             return self.tom_engine.update(view, utterance, task_goal=task_goal, actor=actor)

@@ -9,6 +9,7 @@ from sstp.tomcore.cognition import TheoryOfMindEngine
 from sstp.tomcore.interaction import InteractionEngine
 from sstp.tomcore.tom_channel import TOMPairChannel
 from sstp.ie.l9 import build_l9_header
+from sstp.ie.assertion import AgentIdentity
 
 LOGGER = logging.getLogger("ioc")
 
@@ -53,17 +54,23 @@ class Orchestrator:
         peer_alignment_events: List[Dict[str, Any]] = []
         message_number = max(1, start_message_number)
 
-        agent_tom: Dict[str, Dict[str, float]] = {
-            "orchestrator": {**customer_tom, "trust": min(1.0, customer_tom.get("trust", 0.6) + 0.05)},
-            "fmc": {**customer_tom, "urgency": min(1.0, customer_tom.get("urgency", 0.5) + 0.1)},
-            "sfdc": {
-                **customer_tom,
-                "budget_confidence": min(1.0, customer_tom.get("budget_confidence", 0.5) + 0.1),
-                "price_sensitivity": max(0.0, customer_tom.get("price_sensitivity", 0.5) - 0.05),
-            },
-        }
-
         pair_sequence = [("orchestrator", "fmc"), ("fmc", "sfdc"), ("sfdc", "orchestrator")]
+
+        # Seed initial beliefs from role descriptions
+        session_context = {"task_goal": task_goal}
+        agent_roles = {
+            "orchestrator": "Coordinate multi-agent dialogue and ensure task alignment",
+            "fmc": "Manage field operations and customer urgency resolution",
+            "sfdc": "Handle commercial terms, pricing, and budget alignment",
+        }
+        agent_beliefs: Dict[str, Dict[str, Any]] = {}
+        all_agents = {a for pair in pair_sequence for a in pair}
+        for agent in all_agents:
+            role = agent_roles.get(agent, f"{agent} peer agent")
+            if hasattr(tom_engine, "seed_belief"):
+                agent_beliefs[agent] = tom_engine.seed_belief(agent, role, session_context)
+            else:
+                agent_beliefs[agent] = {"role": role, "objective": role, "context_summary": "", "inferred_constraints": [], "confidence": 0.6}
 
         # One TOMPairChannel per pair — set enabled=False on any channel to
         # disable TOM for that pair while SSTP remains active for all agents.
@@ -87,15 +94,20 @@ class Orchestrator:
 
         for turn_depth in range(depth):
             for speaker, listener in pair_sequence:
-                listener_state = agent_tom[listener]
+                listener_state = agent_beliefs[listener]
                 channel = channels[f"{speaker}<->{listener}"]
-                speaker_view = {k: agent_tom[speaker].get(k, 0.0) for k in tom_engine.dimensions}
-                listener_view = {k: listener_state.get(k, 0.0) for k in tom_engine.dimensions}
+                speaker_view = agent_beliefs[speaker]
+                listener_view = agent_beliefs[listener]
                 pair_metrics = channel.assess(speaker_view, listener_view, listener_state, task_goal)
+                drift = tom_engine.drift_signals(listener) if hasattr(tom_engine, "drift_signals") else {}
+                ambiguity_result = tom_engine.detect_ambiguity(listener_state.get("objective", ""), task_goal, listener) if hasattr(tom_engine, "detect_ambiguity") else {}
                 contingency = self.interaction.adaptive_contingency(
                     alignment_score=pair_metrics["alignment_score"],
                     disagreement=pair_metrics["disagreement_score"],
-                    urgency=listener_state.get("urgency", 0.5),
+                    urgency=listener_state.get("confidence", 0.5),
+                    anchor_gap=drift.get("anchor_gap", 0.0),
+                    ema_alignment=drift.get("ema_alignment", 1.0),
+                    ambiguity_score=ambiguity_result.get("ambiguity_score", 0.0),
                 )
 
                 allow_derail = random.random() < derail_probability and turn_depth > 0
@@ -104,7 +116,7 @@ class Orchestrator:
                     contingency=contingency,
                     allow_derail=allow_derail,
                     speaker=speaker,
-                    speaker_tom=agent_tom[speaker],
+                    speaker_tom=agent_beliefs[speaker],
                     task_goal=task_goal,
                 )
                 alignment = channel.assess_utterance(utterance, task_goal)
@@ -215,7 +227,7 @@ class Orchestrator:
                     repair = self.interaction.adaptive_repair_utterance(
                         listener=speaker,
                         contingency="repair_alignment",
-                        listener_tom=agent_tom[speaker],
+                        listener_tom=agent_beliefs[speaker],
                     )
                     repair_turn = self.interaction.process_turn(listener, repair)
                     repair_turn.repaired = True
@@ -266,10 +278,11 @@ class Orchestrator:
                     message_number += 1
 
                 actor_label = "peer_agent" if speaker != "customer" else "customer"
-                channel.update(agent_tom[listener], utterance, task_goal, actor=actor_label)
+                updated = channel.update(agent_beliefs[listener], utterance, task_goal, actor=actor_label)
+                agent_beliefs[listener] = updated
 
         pairwise_summary = tom_engine.analyze_pairwise_agent_tom(
-            agent_tom,
+            agent_beliefs,
             task_goal=task_goal,
         )
         return peer_turns, peer_interactions, pairwise_summary, out_of_bound_events, peer_alignment_events, log

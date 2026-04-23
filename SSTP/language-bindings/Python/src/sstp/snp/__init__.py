@@ -92,8 +92,6 @@ from sstp.ie.tom import (
     GraphNode,
     KnowledgeGraphNode,
     KnowledgeGraphVisualization,
-    SocialState,
-    TheoryOfMindState,
     normalize_alignment,
     normalize_tom_snapshot,
 )
@@ -185,8 +183,6 @@ __all__ = [
     "build_snp_payload",
     "snp_event_type_for_operation",
     # TOM wire types
-    "TheoryOfMindState",
-    "SocialState",
     "KnowledgeGraphNode",
     "AgentResponsibility",
     "DiscourseEntry",

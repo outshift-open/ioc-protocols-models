@@ -23,40 +23,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 
-# ── Core ToM State ─────────────────────────────────────────────────────────────
-
-
-@dataclass
-class TheoryOfMindState:
-    """Scalar belief model of a subject using application-defined dimensions.
-
-    Dimensions are keyed by application-specific names (e.g. "trust",
-    "urgency", "follow_through", "buy_intent").  No field names are
-    prescribed at the protocol level; applications supply their own
-    dimension vocabulary when constructing the engine.
-    """
-
-    dimensions: Dict[str, float] = field(default_factory=dict)
-
-    def get(self, key: str, default: float = 0.0) -> float:
-        return self.dimensions.get(key, default)
-
-    def to_dict(self) -> Dict[str, float]:
-        return dict(self.dimensions)
-
-
-@dataclass
-class SocialState(TheoryOfMindState):
-    """Extended ToM state with multi-agent alignment tracking and repair signals.
-
-    Adds engine-level coordination signals on top of the base dimension model.
-    """
-
-    agent_alignment: Dict[str, float] = field(default_factory=dict)
-    derailment_detected: bool = False
-    repair_depth: int = 0
-
-
 # ── Knowledge Graph Types ──────────────────────────────────────────────────────
 
 
@@ -250,28 +216,64 @@ class TheoryOfMindEngineBase(ABC):
     @abstractmethod
     def analyze_inter_agent_tom(
         self,
-        subject_view: Dict[str, float],
-        left_view: Dict[str, float],
-        right_view: Dict[str, float],
+        subject_view: Dict[str, Any],
+        left_view: Dict[str, Any],
+        right_view: Dict[str, Any],
         task_goal: str,
     ) -> Dict[str, Any]:
         """Return pairwise dimension agreements between two agent views."""
 
     @abstractmethod
     def analyze_pairwise_agent_tom(
-        self, agent_views: Dict[str, Dict[str, float]], task_goal: str
+        self, agent_views: Dict[str, Dict[str, Any]], task_goal: str
     ) -> Dict[str, Any]:
         """Return all-pairs alignment analysis across a set of agents."""
 
     @abstractmethod
     def update(
         self,
-        view: Dict[str, float],
+        view: Dict[str, Any],
         utterance: str,
         task_goal: str,
         actor: str = "agent",
-    ) -> Dict[str, float]:
+    ) -> Dict[str, Any]:
         """Update the belief state given a new utterance; return updated view."""
+
+    @abstractmethod
+    def seed_belief(self, agent_id: str, role_description: str, session_context: Dict[str, Any]) -> Dict[str, Any]:
+        """Seed initial belief for an agent from role description and session context.
+        Stores a frozen anchor and initialises EMA/change_log for this agent.
+        Returns the initial belief dict: {role, objective, context_summary, inferred_constraints, confidence}.
+        """
+
+    @abstractmethod
+    def detect_ambiguity(self, utterance: str, task_goal: str, agent_id: str | None = None) -> Dict[str, Any]:
+        """Detect ambiguity in an utterance relative to the agent's current belief.
+        Returns {ambiguous: bool, ambiguity_score: float, ambiguous_spans: list, plausible_interpretations: list}.
+        """
+
+    @abstractmethod
+    def update_belief(self, agent_id: str, utterance: str, task_goal: str) -> Dict[str, Any]:
+        """Update the semantic belief for agent_id given a new utterance.
+        Updates EMA alignment and appends to change_log.
+        Returns the updated belief dict.
+        """
+
+    def belief_models(self) -> Dict[str, Dict[str, Any]]:
+        """Return all current belief dicts keyed by agent_id."""
+        return {}
+
+    def utterance_history(self) -> Dict[str, List[str]]:
+        """Return utterance history keyed by agent_id."""
+        return {}
+
+    def attribution_scores(self) -> Dict[str, float]:
+        """Return attribution accuracy scores keyed by pair key."""
+        return {}
+
+    def drift_signals(self, agent_id: str) -> Dict[str, Any]:
+        """Return drift detection signals for agent_id."""
+        return {"agent_id": agent_id, "ema_alignment": 1.0, "anchor_gap": 0.0, "change_log": [], "confidence": 0.5}
 
 
 class TOMPairChannelBase(ABC):
@@ -285,9 +287,9 @@ class TOMPairChannelBase(ABC):
     @abstractmethod
     def assess(
         self,
-        speaker_view: Dict[str, float],
-        listener_view: Dict[str, float],
-        subject_view: Dict[str, float],
+        speaker_view: Dict[str, Any],
+        listener_view: Dict[str, Any],
+        subject_view: Dict[str, Any],
         task_goal: str,
     ) -> Dict[str, Any]:
         """Return inter-agent ToM metrics, or a neutral stub if disabled."""
@@ -302,18 +304,15 @@ class TOMPairChannelBase(ABC):
     @abstractmethod
     def update(
         self,
-        view: Dict[str, float],
+        view: Dict[str, Any],
         utterance: str,
         task_goal: str,
         actor: str = "peer_agent",
-    ) -> Dict[str, float]:
+    ) -> Dict[str, Any]:
         """Update the ToM belief for the listener side; returns updated view. No-op if disabled."""
 
 
 __all__ = [
-    # Core state types
-    "TheoryOfMindState",
-    "SocialState",
     # Knowledge graph types
     "KnowledgeGraphNode",
     "AgentResponsibility",

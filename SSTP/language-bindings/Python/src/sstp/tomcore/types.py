@@ -17,6 +17,8 @@ class Turn:
     timestamp_ms: int
     message_number: int = 0
     repaired: bool = False
+    assertion: object = None  # UtteranceAssertion | None — typed as object to avoid circular import
+    pending_clarification: bool = False
 
 
 __all__ = ["Turn"]
