@@ -70,7 +70,7 @@ jobs:
   call-docker-build-push:
     name: Call Docker Build Panoptica Scan & Push
     needs: [ checkout-unit-tests ]
-    uses: cisco-eti/gh-reusable-workflows/.github/workflows/build-push-docker.yaml@production
+    uses: cisco-eti/gh-reusable-workflows/.github/workflows/build-push-docker.yaml@fix/ghcr-x-access-token-only
 
     secrets:
       # Only needed if with:ecr-enabled or with:gar-enabled is true below
@@ -81,9 +81,11 @@ jobs:
       # vault-venture-approle-role-id: ${{secrets.VAULT_SECURECN_APPROLE_ROLE_ID}}
       # vault-venture-approle-secret-id: ${{secrets.VAULT_SECURECN_APPROLE_SECRET_ID}}
       #######
-      ghcr-username: ${{ secrets.GHCR_USERNAME }}
-      ghcr-token: ${{ secrets.GHCR_TOKEN }}
-      ghcr-org-token: ${{ secrets.GHCR_TOKEN }}
+      github-app-id: ${{ secrets.GHA_APP_ID }}
+      github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+      caller-github-token: ${{ secrets.GITHUB_TOKEN }}
+      github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+      caller-github-token: ${{ secrets.GITHUB_TOKEN }}
 
     with:
       ### REQUIRED
@@ -110,17 +112,19 @@ jobs:
   #   name: Call Corona & Blackduck scan
   #   if: github.ref == 'refs/heads/main'
   #   needs: [ call-docker-build-push ]
-  #   uses: cisco-eti/gh-reusable-workflows/.github/workflows/corona-blackduck-scan.yaml@production
+  #   uses: cisco-eti/gh-reusable-workflows/.github/workflows/corona-blackduck-scan.yaml@fix/ghcr-x-access-token-only
 
   #   secrets:
   #     vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
   #     vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
   #     # GHCR Login for docker build runner
-  #     ghcr-username: ${{ secrets.GHCR_USERNAME }}
-  #     ghcr-token: ${{ secrets.GHCR_TOKEN }}
+  #     github-app-id: ${{ secrets.GHA_APP_ID }}
+  #     github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+      caller-github-token: ${{ secrets.GITHUB_TOKEN }}
   #     # GHCR Login for docker scan
-  #     ghcr-org-username: ${{ secrets.GHCR_USERNAME }}
-  #     ghcr-org-token: ${{ secrets.GHCR_TOKEN }}
+  #     github-app-id: ${{ secrets.GHA_APP_ID }}
+  #     github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+      caller-github-token: ${{ secrets.GITHUB_TOKEN }}
 
   #   with:
   #     runner: ${{ vars.DEFAULT_ARC_RUNNERS }}
@@ -144,21 +148,22 @@ jobs:
   #call-sonar-scan:
   #  name: Call SonarQube scan
   #  needs: [ call-corona-blackduck-scan ]
-  #  uses: cisco-eti/gh-reusable-workflows/.github/workflows/sonar-scan.yaml@production
+  #  uses: cisco-eti/gh-reusable-workflows/.github/workflows/sonar-scan.yaml@fix/ghcr-x-access-token-only
   #  with:
   #    sonar-properties-file: "./build/sonar-project.properties"
   #  secrets:
   #    vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
   #    vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
-  #    ghcr-username: ${{ secrets.GHCR_USERNAME }}
-  #    ghcr-token: ${{ secrets.GHCR_TOKEN }}
+  #    github-app-id: ${{ secrets.GHA_APP_ID }}
+  #    github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+      caller-github-token: ${{ secrets.GITHUB_TOKEN }}
 
   ################################## Helm Publish #################################
   #################################################################################
   call-helm-publish:
     name: Helm publish
     needs: [ call-docker-build-push ]
-    uses: cisco-eti/gh-reusable-workflows/.github/workflows/helm-publish.yaml@production
+    uses: cisco-eti/gh-reusable-workflows/.github/workflows/helm-publish.yaml@fix/ghcr-x-access-token-only
     with:
       runner-group: ${{ vars.DEFAULT_ARC_RUNNERS }}
       enable-private-ecr: false
@@ -168,8 +173,9 @@ jobs:
       enable-chartmuseum: true
     secrets:
       # GHCR Login for docker build runner
-      ghcr-username: ${{ secrets.GHCR_USERNAME }}
-      ghcr-token: ${{ secrets.GHCR_TOKEN }}
+      github-app-id: ${{ secrets.GHA_APP_ID }}
+      github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+      caller-github-token: ${{ secrets.GITHUB_TOKEN }}
       vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
       vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
 
@@ -178,7 +184,7 @@ jobs:
   call-trigger-cd:
     name: Trigger CD
     needs: [ call-helm-publish ]
-    uses: cisco-eti/gh-reusable-workflows/.github/workflows/trigger-deploy.yaml@production
+    uses: cisco-eti/gh-reusable-workflows/.github/workflows/trigger-deploy.yaml@fix/ghcr-x-access-token-only
     with:
       deployment-repo: "${{ github.repository }}-deployment"
       # Always we update "a" and "b" deployment values file, value is optional arg
@@ -186,11 +192,13 @@ jobs:
 
     secrets:
       # GHCR Login for docker build runner
-      ghcr-username: ${{ secrets.GHCR_USERNAME }}
-      ghcr-token: ${{ secrets.GHCR_TOKEN }}
+      github-app-id: ${{ secrets.GHA_APP_ID }}
+      github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+      caller-github-token: ${{ secrets.GITHUB_TOKEN }}
       # GHCR Login for docker scan
-      ghcr-org-username: ${{ secrets.GHCR_USERNAME }}
-      ghcr-org-token: ${{ secrets.GHCR_TOKEN }}
+      github-app-id: ${{ secrets.GHA_APP_ID }}
+      github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+      caller-github-token: ${{ secrets.GITHUB_TOKEN }}
       vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
       vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
 
