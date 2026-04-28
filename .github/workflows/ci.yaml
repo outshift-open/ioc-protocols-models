@@ -175,22 +175,24 @@ jobs:
 
   ################################## Trigger Deployment ###########################
   #################################################################################
-  call-trigger-cd:
-    name: Trigger CD
-    needs: [ call-helm-publish ]
-    uses: cisco-eti/gh-reusable-workflows/.github/workflows/trigger-deploy.yaml@fix/ghcr-x-access-token-only
-    with:
-      runner-group: arc-runner-set
-      deployment-repo: "${{ github.repository }}-deployment"
-      # Always we update "a" and "b" deployment values file, value is optional arg
-      client-payload: '{"app-repository": "${{ github.repository }}", "values-file-path": "applications/${{ github.event.repository.name }}", "property-path": "tagversion", "value": ""}'
-
-    secrets:
-      # GitHub App authentication
-      github-app-id: ${{ secrets.GHA_APP_ID }}
-      github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
-      vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
-      vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
+  # NOTE: Commented out because the deployment repo (ioc-cfn-protocols-models-deployment) doesn't exist
+  # Uncomment when the deployment repo is created and the GitHub App is installed on it
+  # call-trigger-cd:
+  #   name: Trigger CD
+  #   needs: [ call-helm-publish ]
+  #   uses: cisco-eti/gh-reusable-workflows/.github/workflows/trigger-deploy.yaml@fix/ghcr-x-access-token-only
+  #   with:
+  #     runner-group: arc-runner-set
+  #     deployment-repo: "${{ github.repository }}-deployment"
+  #     # Always we update "a" and "b" deployment values file, value is optional arg
+  #     client-payload: '{"app-repository": "${{ github.repository }}", "values-file-path": "applications/${{ github.event.repository.name }}", "property-path": "tagversion", "value": ""}'
+  #
+  #   secrets:
+  #     # GitHub App authentication
+  #     github-app-id: ${{ secrets.GHA_APP_ID }}
+  #     github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+  #     vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+  #     vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
 
   ################################## Send Status for PR Checks ###########################
   ########################################################################################
@@ -198,7 +200,7 @@ jobs:
   reusable-workflow-ci-status:
     name: Reusable Workflow CI Status
     # This should be an array of ALL active jobs that are used/run
-    needs: [ checkout-unit-tests,call-docker-build-push, call-helm-publish, call-trigger-cd ]
+    needs: [ checkout-unit-tests,call-docker-build-push, call-helm-publish ]
     if: always()
     runs-on:
       group: arc-runner-set
