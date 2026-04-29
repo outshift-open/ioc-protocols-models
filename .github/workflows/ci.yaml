@@ -70,7 +70,7 @@ jobs:
   call-docker-build-push:
     name: Call Docker Build Panoptica Scan & Push
     needs: [ checkout-unit-tests ]
-    uses: cisco-eti/gh-reusable-workflows/.github/workflows/build-push-docker.yaml@fix/ghcr-x-access-token-only
+    uses: cisco-eti/gh-reusable-workflows/.github/workflows/build-push-docker.yaml@production
 
     secrets:
       # Only needed if with:ecr-enabled or with:gar-enabled is true below
@@ -110,7 +110,7 @@ jobs:
   #   name: Call Corona & Blackduck scan
   #   if: github.ref == 'refs/heads/main'
   #   needs: [ call-docker-build-push ]
-  #   uses: cisco-eti/gh-reusable-workflows/.github/workflows/corona-blackduck-scan.yaml@fix/ghcr-x-access-token-only
+  #   uses: cisco-eti/gh-reusable-workflows/.github/workflows/corona-blackduck-scan.yaml@production
 
   #   secrets:
   #     vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
@@ -144,7 +144,7 @@ jobs:
   #call-sonar-scan:
   #  name: Call SonarQube scan
   #  needs: [ call-corona-blackduck-scan ]
-  #  uses: cisco-eti/gh-reusable-workflows/.github/workflows/sonar-scan.yaml@fix/ghcr-x-access-token-only
+  #  uses: cisco-eti/gh-reusable-workflows/.github/workflows/sonar-scan.yaml@production
   #  with:
   #    sonar-properties-file: "./build/sonar-project.properties"
   #  secrets:
@@ -158,7 +158,7 @@ jobs:
   call-helm-publish:
     name: Helm publish
     needs: [ call-docker-build-push ]
-    uses: cisco-eti/gh-reusable-workflows/.github/workflows/helm-publish.yaml@fix/ghcr-x-access-token-only
+    uses: cisco-eti/gh-reusable-workflows/.github/workflows/helm-publish.yaml@production
     with:
       runner-group: arc-runner-set
       enable-private-ecr: false
@@ -180,7 +180,7 @@ jobs:
   # call-trigger-cd:
   #   name: Trigger CD
   #   needs: [ call-helm-publish ]
-  #   uses: cisco-eti/gh-reusable-workflows/.github/workflows/trigger-deploy.yaml@fix/ghcr-x-access-token-only
+  #   uses: cisco-eti/gh-reusable-workflows/.github/workflows/trigger-deploy.yaml@production
   #   with:
   #     runner-group: arc-runner-set
   #     deployment-repo: "${{ github.repository }}-deployment"
