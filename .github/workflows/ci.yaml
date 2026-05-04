@@ -29,13 +29,13 @@ jobs:
   checkout-unit-tests:
     name: checkout & unit test
     runs-on:
-      group: ${{ vars.DEFAULT_ARC_RUNNERS }}
+      group: arc-runner-set
     container:
       image:  ${{ vars.DEFAULT_CONTAINER_RUNNER }}
       options: --user root
       credentials:
-        username: ${{ secrets.GHCR_USERNAME }}
-        password: ${{ secrets.GHCR_TOKEN }}
+        username: x-access-token
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout repository
@@ -81,13 +81,13 @@ jobs:
       # vault-venture-approle-role-id: ${{secrets.VAULT_SECURECN_APPROLE_ROLE_ID}}
       # vault-venture-approle-secret-id: ${{secrets.VAULT_SECURECN_APPROLE_SECRET_ID}}
       #######
-      ghcr-username: ${{ secrets.GHCR_USERNAME }}
-      ghcr-token: ${{ secrets.GHCR_TOKEN }}
-      ghcr-org-token: ${{ secrets.GHCR_TOKEN }}
+      github-app-id: ${{ secrets.GHA_APP_ID }}
+      github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+      caller-github-token: ${{ secrets.GITHUB_TOKEN }}
 
     with:
       ### REQUIRED
-      runner-group: ${{ vars.DEFAULT_ARC_RUNNERS }}
+      runner-group: arc-runner-set
       ### Docker image name
       image-name: "${{ github.event.repository.name }}"
 
@@ -116,11 +116,11 @@ jobs:
   #     vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
   #     vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
   #     # GHCR Login for docker build runner
-  #     ghcr-username: ${{ secrets.GHCR_USERNAME }}
-  #     ghcr-token: ${{ secrets.GHCR_TOKEN }}
+  #     github-app-id: ${{ secrets.GHA_APP_ID }}
+  #     github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
   #     # GHCR Login for docker scan
-  #     ghcr-org-username: ${{ secrets.GHCR_USERNAME }}
-  #     ghcr-org-token: ${{ secrets.GHCR_TOKEN }}
+  #     github-app-id: ${{ secrets.GHA_APP_ID }}
+  #     github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
 
   #   with:
   #     runner: ${{ vars.DEFAULT_ARC_RUNNERS }}
@@ -150,8 +150,8 @@ jobs:
   #  secrets:
   #    vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
   #    vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
-  #    ghcr-username: ${{ secrets.GHCR_USERNAME }}
-  #    ghcr-token: ${{ secrets.GHCR_TOKEN }}
+  #    github-app-id: ${{ secrets.GHA_APP_ID }}
+  #    github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
 
   ################################## Helm Publish #################################
   #################################################################################
@@ -160,39 +160,39 @@ jobs:
     needs: [ call-docker-build-push ]
     uses: cisco-eti/gh-reusable-workflows/.github/workflows/helm-publish.yaml@production
     with:
-      runner-group: ${{ vars.DEFAULT_ARC_RUNNERS }}
+      runner-group: arc-runner-set
       enable-private-ecr: false
       enable-public-ecr: false
       chart-path: "deploy/charts/${{ github.event.repository.name }}"
       #ecr-public-registry-alias: ${{ vars.ECR_PUBLIC_REGISTRY_ALIAS}}
       enable-chartmuseum: true
     secrets:
-      # GHCR Login for docker build runner
-      ghcr-username: ${{ secrets.GHCR_USERNAME }}
-      ghcr-token: ${{ secrets.GHCR_TOKEN }}
+      # GitHub App authentication
+      github-app-id: ${{ secrets.GHA_APP_ID }}
+      github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
       vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
       vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
 
   ################################## Trigger Deployment ###########################
   #################################################################################
-  call-trigger-cd:
-    name: Trigger CD
-    needs: [ call-helm-publish ]
-    uses: cisco-eti/gh-reusable-workflows/.github/workflows/trigger-deploy.yaml@production
-    with:
-      deployment-repo: "${{ github.repository }}-deployment"
-      # Always we update "a" and "b" deployment values file, value is optional arg
-      client-payload: '{"app-repository": "${{ github.repository }}", "values-file-path": "applications/${{ github.event.repository.name }}", "property-path": "tagversion", "value": ""}'
-
-    secrets:
-      # GHCR Login for docker build runner
-      ghcr-username: ${{ secrets.GHCR_USERNAME }}
-      ghcr-token: ${{ secrets.GHCR_TOKEN }}
-      # GHCR Login for docker scan
-      ghcr-org-username: ${{ secrets.GHCR_USERNAME }}
-      ghcr-org-token: ${{ secrets.GHCR_TOKEN }}
-      vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
-      vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
+  # NOTE: Commented out because the deployment repo (ioc-cfn-protocols-models-deployment) doesn't exist
+  # Uncomment when the deployment repo is created and the GitHub App is installed on it
+  # call-trigger-cd:
+  #   name: Trigger CD
+  #   needs: [ call-helm-publish ]
+  #   uses: cisco-eti/gh-reusable-workflows/.github/workflows/trigger-deploy.yaml@production
+  #   with:
+  #     runner-group: arc-runner-set
+  #     deployment-repo: "${{ github.repository }}-deployment"
+  #     # Always we update "a" and "b" deployment values file, value is optional arg
+  #     client-payload: '{"app-repository": "${{ github.repository }}", "values-file-path": "applications/${{ github.event.repository.name }}", "property-path": "tagversion", "value": ""}'
+  #
+  #   secrets:
+  #     # GitHub App authentication
+  #     github-app-id: ${{ secrets.GHA_APP_ID }}
+  #     github-app-private-key: ${{ secrets.GHA_APP_PRIVATE_KEY }}
+  #     vault-approle-role-id: ${{ secrets.VAULT_APPROLE_ROLE_ID }}
+  #     vault-approle-secret-id: ${{ secrets.VAULT_APPROLE_SECRET_ID }}
 
   ################################## Send Status for PR Checks ###########################
   ########################################################################################
@@ -200,10 +200,10 @@ jobs:
   reusable-workflow-ci-status:
     name: Reusable Workflow CI Status
     # This should be an array of ALL active jobs that are used/run
-    needs: [ checkout-unit-tests,call-docker-build-push, call-helm-publish, call-trigger-cd ]
+    needs: [ checkout-unit-tests,call-docker-build-push, call-helm-publish ]
     if: always()
     runs-on:
-      group: ${{ vars.DEFAULT_ARC_RUNNERS }}
+      group: arc-runner-set
     steps:
       - name: report failure
         if: ${{ cancelled() || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'failure') }}
