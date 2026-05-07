@@ -30,7 +30,6 @@ class UtteranceAssertion:
     content: str
     content_hash: str        # SHA-256(content)
     timestamp_ms: int
-    sequence_number: int
     prev_utterance_hash: str  # SHA-256 of previous assertion content from this agent; "" for first
     parent_ids: List[str]     # utterance_ids being responded to
     signature: str            # HMAC-SHA256(signing_key, canonical_payload)
@@ -52,7 +51,6 @@ def _canonical(assertion: UtteranceAssertion) -> str:
         "session_id": assertion.session_id,
         "content_hash": assertion.content_hash,
         "timestamp_ms": assertion.timestamp_ms,
-        "sequence_number": assertion.sequence_number,
         "prev_utterance_hash": assertion.prev_utterance_hash,
     }, sort_keys=True)
 
@@ -61,7 +59,6 @@ def build_assertion(
     identity: AgentIdentity,
     content: str,
     task_goal: str,
-    sequence_number: int,
     prev_utterance_hash: str = "",
     parent_ids: List[str] | None = None,
     event_type: str = "utterance",
@@ -77,7 +74,6 @@ def build_assertion(
         content=content,
         content_hash=content_hash,
         timestamp_ms=timestamp_ms,
-        sequence_number=sequence_number,
         prev_utterance_hash=prev_utterance_hash,
         parent_ids=parent_ids or [],
         signature="",
@@ -103,8 +99,6 @@ def verify_assertion(
         prev_hash = hashlib.sha256(prev_assertion.content.encode()).hexdigest()
         if assertion.prev_utterance_hash != prev_hash:
             raise AssertionVerificationError(assertion.utterance_id, assertion.agent_id, "chain_broken")
-        if assertion.sequence_number <= prev_assertion.sequence_number:
-            raise AssertionVerificationError(assertion.utterance_id, assertion.agent_id, "sequence_gap")
 
 
 __all__ = ["AgentIdentity", "UtteranceAssertion", "AssertionVerificationError", "build_assertion", "verify_assertion"]

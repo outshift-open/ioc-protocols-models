@@ -157,7 +157,6 @@ class InteractionProtocolAdapter:
         event_type: str,
         sender: str,
         receiver: str | None,
-        sequence_number: int | None,
         turn_depth: int | None,
         utterance: str,
         inferred_intent: str,
@@ -168,7 +167,7 @@ class InteractionProtocolAdapter:
         alignment: Dict[str, Any] | None,
         repair_required: bool,
         repair_strategy: str | None,
-        trigger_sequence_number: int | None,
+        trigger_message_id: str | None,
         tom_snapshot: Dict[str, Any] | None,
         timestamp_ms: int,
         l9_header: Dict[str, Any] | None = None,
@@ -190,7 +189,6 @@ class InteractionProtocolAdapter:
             sender=sender,
             receiver=receiver,
             timestamp_ms=max(0, timestamp_ms),
-            sequence_number=sequence_number,
             turn_depth=turn_depth,
             utterance=utterance,
             confidence_score=cls._as_float(normalized_alignment.get("alignment_score")),
@@ -207,7 +205,6 @@ class InteractionProtocolAdapter:
             "sender": sender,
             "receiver": receiver,
             "message": {
-                "sequence_number": sequence_number,
                 "turn_depth": turn_depth,
                 "utterance": utterance,
                 "inferred_intent": inferred_intent,
@@ -220,7 +217,7 @@ class InteractionProtocolAdapter:
             "repair": {
                 "required": repair_required,
                 "strategy": repair_strategy,
-                "trigger_sequence_number": trigger_sequence_number,
+                "trigger_message_id": trigger_message_id,
             },
             "tom_snapshot": tom_snapshot
             if tom_snapshot is not None
@@ -457,7 +454,6 @@ class InteractionProtocolAdapter:
                     event_type=event_type,
                     sender=sender,
                     receiver=receiver,
-                    sequence_number=round_num,
                     turn_depth=None,
                     utterance=utterance,
                     inferred_intent=action or kind,
@@ -468,7 +464,7 @@ class InteractionProtocolAdapter:
                     alignment=None,
                     repair_required=(event_type == "repair_required"),
                     repair_strategy=None,
-                    trigger_sequence_number=None,
+                    trigger_message_id=None,
                     tom_snapshot=None,
                     timestamp_ms=_next_ts(),
                     l9_header=existing_l9 if isinstance(existing_l9, dict) else None,
@@ -516,9 +512,11 @@ class InteractionProtocolAdapter:
         }
         peer_message_numbers.discard(None)
 
+        last_peer_turn_message_id: str | None = None
+
         for turn in turns:
-            sequence_number = cls._as_int(getattr(turn, "message_number", None))
-            if sequence_number is not None and sequence_number in peer_message_numbers:
+            turn_msg_num = cls._as_int(getattr(turn, "message_number", None))
+            if turn_msg_num is not None and turn_msg_num in peer_message_numbers:
                 continue
 
             events.append(
@@ -530,7 +528,6 @@ class InteractionProtocolAdapter:
                     event_type="turn_ingested",
                     sender=str(getattr(turn, "speaker", "unknown")),
                     receiver=None,
-                    sequence_number=sequence_number,
                     turn_depth=None,
                     utterance=str(getattr(turn, "utterance", "")),
                     inferred_intent=str(getattr(turn, "inferred_intent", "unknown")),
@@ -541,7 +538,7 @@ class InteractionProtocolAdapter:
                     alignment=None,
                     repair_required=False,
                     repair_strategy=None,
-                    trigger_sequence_number=None,
+                    trigger_message_id=None,
                     tom_snapshot=final_tom,
                     timestamp_ms=cls._as_int(getattr(turn, "timestamp_ms", None)) or next_ts(),
                 )
@@ -563,7 +560,6 @@ class InteractionProtocolAdapter:
             interaction_type = str(_p.get("type", ""))
 
             if interaction_type == "peer_turn":
-                sequence_number = cls._as_int(_p.get("message_number"))
                 alignment = cls._normalize_alignment(_p.get("alignment"), _p.get("task_goal"))
                 events.append(
                     cls._build_event(
@@ -574,7 +570,6 @@ class InteractionProtocolAdapter:
                         event_type="peer_turn",
                         sender=str(_p.get("speaker", "unknown")),
                         receiver=str(_p.get("listener", "")) or None,
-                        sequence_number=sequence_number,
                         turn_depth=cls._as_int(_p.get("depth")),
                         utterance=str(_p.get("utterance", "")),
                         inferred_intent="peer_message",
@@ -589,18 +584,18 @@ class InteractionProtocolAdapter:
                         alignment=alignment,
                         repair_required=bool(_p.get("repair_required", False)),
                         repair_strategy=None,
-                        trigger_sequence_number=None,
+                        trigger_message_id=None,
                         tom_snapshot=final_tom,
                         timestamp_ms=next_ts(),
                         l9_header=_l9,
                     )
                 )
+                last_peer_turn_message_id = events[-1]["message_id"]
 
             elif interaction_type == "repair_required":
                 trigger = _p.get("trigger", {})
                 if not isinstance(trigger, dict):
                     trigger = {}
-                trigger_sequence = cls._as_int(_p.get("trigger_message_number"))
                 events.append(
                     cls._build_event(
                         domain="healthcare",
@@ -610,7 +605,6 @@ class InteractionProtocolAdapter:
                         event_type="repair_required",
                         sender=str(_p.get("speaker", "unknown")),
                         receiver=str(_p.get("listener", "")) or None,
-                        sequence_number=trigger_sequence,
                         turn_depth=cls._as_int(_p.get("depth")),
                         utterance=str(trigger.get("utterance", "")),
                         inferred_intent="repair_required",
@@ -629,7 +623,7 @@ class InteractionProtocolAdapter:
                             if _p.get("repair_strategy") is not None
                             else None
                         ),
-                        trigger_sequence_number=trigger_sequence,
+                        trigger_message_id=last_peer_turn_message_id,
                         tom_snapshot=final_tom,
                         timestamp_ms=next_ts(),
                         l9_header=_l9,
@@ -637,7 +631,6 @@ class InteractionProtocolAdapter:
                 )
 
             elif interaction_type == "peer_repair":
-                sequence_number = cls._as_int(_p.get("message_number"))
                 triggered_by = _p.get("triggered_by", {})
                 if not isinstance(triggered_by, dict):
                     triggered_by = {}
@@ -650,7 +643,6 @@ class InteractionProtocolAdapter:
                         event_type="repair_applied",
                         sender=str(_p.get("speaker", "unknown")),
                         receiver=str(_p.get("listener", "")) or None,
-                        sequence_number=sequence_number,
                         turn_depth=cls._as_int(_p.get("depth")),
                         utterance=str(_p.get("utterance", "")),
                         inferred_intent="repair",
@@ -669,7 +661,7 @@ class InteractionProtocolAdapter:
                             if _p.get("repair_strategy") is not None
                             else None
                         ),
-                        trigger_sequence_number=cls._as_int(triggered_by.get("message_number")),
+                        trigger_message_id=triggered_by.get("message_id") or last_peer_turn_message_id,
                         tom_snapshot=final_tom,
                         timestamp_ms=next_ts(),
                         l9_header=_l9,
@@ -695,7 +687,6 @@ class InteractionProtocolAdapter:
                 event_type="decision_emitted",
                 sender="coordinator",
                 receiver=None,
-                sequence_number=None,
                 turn_depth=None,
                 utterance=str(getattr(care_plan, "primary_action", "")),
                 inferred_intent="decision",
@@ -706,7 +697,7 @@ class InteractionProtocolAdapter:
                 alignment=cls._normalize_alignment(fused_alignment),
                 repair_required=False,
                 repair_strategy=None,
-                trigger_sequence_number=None,
+                trigger_message_id=None,
                 tom_snapshot=final_tom,
                 timestamp_ms=base_ts,
                 extra={
@@ -733,7 +724,6 @@ class InteractionProtocolAdapter:
                 event_type="episode_persisted",
                 sender="memory_service",
                 receiver=None,
-                sequence_number=None,
                 turn_depth=None,
                 utterance=f"episode:{episode_id}",
                 inferred_intent="persist",
@@ -744,7 +734,7 @@ class InteractionProtocolAdapter:
                 alignment=None,
                 repair_required=False,
                 repair_strategy=None,
-                trigger_sequence_number=None,
+                trigger_message_id=None,
                 tom_snapshot=final_tom,
                 timestamp_ms=base_ts + 1,
                 extra={"decision": {"stored": True, "episode_id": episode_id}},
@@ -818,7 +808,6 @@ class InteractionProtocolAdapter:
             return base_ts + fallback_step
 
         events: List[Dict[str, Any]] = []
-        sequence = 1
 
         for turn in ingest_turns:
             events.append(
@@ -830,7 +819,6 @@ class InteractionProtocolAdapter:
                     event_type="turn_ingested",
                     sender=str(getattr(turn, "speaker", "unknown")),
                     receiver=None,
-                    sequence_number=sequence,
                     turn_depth=None,
                     utterance=str(getattr(turn, "utterance", "")),
                     inferred_intent=str(getattr(turn, "inferred_intent", "unknown")),
@@ -841,14 +829,13 @@ class InteractionProtocolAdapter:
                     alignment=None,
                     repair_required=False,
                     repair_strategy=None,
-                    trigger_sequence_number=None,
+                    trigger_message_id=None,
                     tom_snapshot=final_tom,
                     timestamp_ms=cls._as_int(getattr(turn, "timestamp_ms", None)) or next_ts(),
                 )
             )
-            sequence += 1
 
-        last_trigger_sequence: int | None = None
+        last_peer_turn_message_id: str | None = None
         if peer_interactions:
             for interaction in peer_interactions:
                 # Support new wire format {**l9_header, "payload": {...app_fields...}} and
@@ -863,7 +850,6 @@ class InteractionProtocolAdapter:
                 interaction_type = str(_p.get("type", ""))
 
                 if interaction_type == "peer_turn":
-                    sequence_number = cls._as_int(_p.get("message_number")) or sequence
                     events.append(
                         cls._build_event(
                             domain="fmc",
@@ -873,7 +859,6 @@ class InteractionProtocolAdapter:
                             event_type="peer_turn",
                             sender=str(_p.get("speaker", "unknown")),
                             receiver=str(_p.get("listener", "")) or None,
-                            sequence_number=sequence_number,
                             turn_depth=cls._as_int(_p.get("depth")),
                             utterance=str(_p.get("utterance", "")),
                             inferred_intent="peer_message",
@@ -888,20 +873,18 @@ class InteractionProtocolAdapter:
                             alignment=cls._normalize_alignment(_p.get("alignment"), _p.get("task_goal")),
                             repair_required=bool(_p.get("repair_required", False)),
                             repair_strategy=None,
-                            trigger_sequence_number=None,
+                            trigger_message_id=None,
                             tom_snapshot=final_tom,
                             timestamp_ms=next_ts(),
                             l9_header=_l9,
                         )
                     )
-                    last_trigger_sequence = sequence_number
-                    sequence = max(sequence, sequence_number + 1)
+                    last_peer_turn_message_id = events[-1]["message_id"]
 
                 elif interaction_type == "repair_required":
                     trigger = _p.get("trigger", {})
                     if not isinstance(trigger, dict):
                         trigger = {}
-                    trigger_sequence = cls._as_int(_p.get("trigger_message_number")) or last_trigger_sequence
                     events.append(
                         cls._build_event(
                             domain="fmc",
@@ -911,7 +894,6 @@ class InteractionProtocolAdapter:
                             event_type="repair_required",
                             sender=str(_p.get("speaker", "unknown")),
                             receiver=str(_p.get("listener", "")) or None,
-                            sequence_number=trigger_sequence,
                             turn_depth=cls._as_int(_p.get("depth")),
                             utterance=str(trigger.get("utterance", "")),
                             inferred_intent="repair_required",
@@ -930,7 +912,7 @@ class InteractionProtocolAdapter:
                                 if _p.get("repair_strategy") is not None
                                 else "re-anchor_to_budget_margin_timeline"
                             ),
-                            trigger_sequence_number=trigger_sequence,
+                            trigger_message_id=last_peer_turn_message_id,
                             tom_snapshot=final_tom,
                             timestamp_ms=next_ts(),
                             l9_header=_l9,
@@ -938,7 +920,6 @@ class InteractionProtocolAdapter:
                     )
 
                 elif interaction_type == "peer_repair":
-                    sequence_number = cls._as_int(_p.get("message_number")) or sequence
                     triggered_by = _p.get("triggered_by", {})
                     if not isinstance(triggered_by, dict):
                         triggered_by = {}
@@ -951,7 +932,6 @@ class InteractionProtocolAdapter:
                             event_type="repair_applied",
                             sender=str(_p.get("speaker", "unknown")),
                             receiver=str(_p.get("listener", "")) or None,
-                            sequence_number=sequence_number,
                             turn_depth=cls._as_int(_p.get("depth")),
                             utterance=str(_p.get("utterance", "")),
                             inferred_intent="repair",
@@ -970,13 +950,12 @@ class InteractionProtocolAdapter:
                                 if _p.get("repair_strategy") is not None
                                 else "re-anchor_to_budget_margin_timeline"
                             ),
-                            trigger_sequence_number=cls._as_int(triggered_by.get("message_number")) or last_trigger_sequence,
+                            trigger_message_id=triggered_by.get("message_id") or last_peer_turn_message_id,
                             tom_snapshot=final_tom,
                             timestamp_ms=next_ts(),
                             l9_header=_l9,
                         )
                     )
-                    sequence = max(sequence, sequence_number + 1)
         else:
             alignment_index = 0
             for turn in peer_turns:
@@ -995,7 +974,6 @@ class InteractionProtocolAdapter:
                             event_type="repair_applied",
                             sender=sender,
                             receiver=cls._extract_receiver_from_utterance(utterance),
-                            sequence_number=sequence,
                             turn_depth=None,
                             utterance=utterance,
                             inferred_intent="repair",
@@ -1006,12 +984,11 @@ class InteractionProtocolAdapter:
                             alignment=None,
                             repair_required=False,
                             repair_strategy="re-anchor_to_budget_margin_timeline",
-                            trigger_sequence_number=last_trigger_sequence,
+                            trigger_message_id=last_peer_turn_message_id,
                             tom_snapshot=final_tom,
                             timestamp_ms=ts_value,
                         )
                     )
-                    sequence += 1
                     continue
 
                 alignment_event: Dict[str, Any] = {}
@@ -1044,7 +1021,6 @@ class InteractionProtocolAdapter:
                         event_type="peer_turn",
                         sender=sender,
                         receiver=listener,
-                        sequence_number=sequence,
                         turn_depth=depth,
                         utterance=utterance,
                         inferred_intent=str(getattr(turn, "inferred_intent", "peer_message")),
@@ -1055,14 +1031,13 @@ class InteractionProtocolAdapter:
                         alignment=cls._normalize_alignment(alignment_event.get("alignment"), alignment_event.get("task_goal")),
                         repair_required=out_of_bound,
                         repair_strategy=None,
-                        trigger_sequence_number=None,
+                        trigger_message_id=None,
                         tom_snapshot=final_tom,
                         timestamp_ms=ts_value,
                     )
                 )
 
-                last_trigger_sequence = sequence
-                sequence += 1
+                last_peer_turn_message_id = events[-1]["message_id"]
 
                 if out_of_bound:
                     events.append(
@@ -1074,7 +1049,6 @@ class InteractionProtocolAdapter:
                             event_type="repair_required",
                             sender=sender,
                             receiver=listener,
-                            sequence_number=last_trigger_sequence,
                             turn_depth=depth,
                             utterance=utterance,
                             inferred_intent="repair_required",
@@ -1085,7 +1059,7 @@ class InteractionProtocolAdapter:
                             alignment=None,
                             repair_required=True,
                             repair_strategy="re-anchor_to_budget_margin_timeline",
-                            trigger_sequence_number=last_trigger_sequence,
+                            trigger_message_id=last_peer_turn_message_id,
                             tom_snapshot=final_tom,
                             timestamp_ms=ts_value,
                         )
@@ -1102,7 +1076,6 @@ class InteractionProtocolAdapter:
                 event_type="decision_emitted",
                 sender="orchestrator",
                 receiver=None,
-                sequence_number=sequence,
                 turn_depth=None,
                 utterance=(
                     f"final_offer vin={getattr(offer, 'vin', '')} final_price={getattr(offer, 'final_price_eur', '')}"
@@ -1115,7 +1088,7 @@ class InteractionProtocolAdapter:
                 alignment=cls._normalize_alignment(inter_alignment, inter_agent_tom.get("task_goal")),
                 repair_required=False,
                 repair_strategy=None,
-                trigger_sequence_number=None,
+                trigger_message_id=None,
                 tom_snapshot=final_tom,
                 timestamp_ms=base_ts,
                 extra={
@@ -1138,7 +1111,6 @@ class InteractionProtocolAdapter:
                 event_type="episode_persisted",
                 sender="memory_service",
                 receiver=None,
-                sequence_number=None,
                 turn_depth=None,
                 utterance=f"episode:{episode_id}",
                 inferred_intent="persist",
@@ -1149,7 +1121,7 @@ class InteractionProtocolAdapter:
                 alignment=None,
                 repair_required=False,
                 repair_strategy=None,
-                trigger_sequence_number=None,
+                trigger_message_id=None,
                 tom_snapshot=final_tom,
                 timestamp_ms=base_ts + 1,
                 extra={"decision": {"stored": True, "episode_id": episode_id}},
@@ -1190,8 +1162,7 @@ class InteractionProtocolAdapter:
         ingest_turns = turns[:ingest_count]
 
         events: List[Dict[str, Any]] = []
-        sequence = 1
-        last_turn_sequence: int | None = None
+        last_peer_turn_message_id: str | None = None
 
         for turn in ingest_turns:
             events.append(
@@ -1203,7 +1174,6 @@ class InteractionProtocolAdapter:
                     event_type="turn_ingested",
                     sender=str(getattr(turn, "speaker", "proxy")),
                     receiver=None,
-                    sequence_number=sequence,
                     turn_depth=None,
                     utterance=str(getattr(turn, "utterance", "")),
                     inferred_intent=str(getattr(turn, "inferred_intent", "coordination")),
@@ -1214,13 +1184,11 @@ class InteractionProtocolAdapter:
                     alignment=None,
                     repair_required=False,
                     repair_strategy=None,
-                    trigger_sequence_number=None,
+                    trigger_message_id=None,
                     tom_snapshot=final_tom,
                     timestamp_ms=cls._as_int(getattr(turn, "timestamp_ms", None)) or next_ts(),
                 )
             )
-            last_turn_sequence = sequence
-            sequence += 1
 
         for interaction in peer_interactions:
             if not isinstance(interaction, dict):
@@ -1229,7 +1197,6 @@ class InteractionProtocolAdapter:
             interaction_type = str(interaction.get("type", ""))
 
             if interaction_type == "peer_turn":
-                sequence_number = cls._as_int(interaction.get("message_number")) or sequence
                 events.append(
                     cls._build_event(
                         domain="travel",
@@ -1239,7 +1206,6 @@ class InteractionProtocolAdapter:
                         event_type="peer_turn",
                         sender=str(interaction.get("speaker", "unknown")),
                         receiver=str(interaction.get("listener", "")) or None,
-                        sequence_number=sequence_number,
                         turn_depth=cls._as_int(interaction.get("depth")),
                         utterance=str(interaction.get("utterance", "")),
                         inferred_intent="peer_message",
@@ -1254,17 +1220,15 @@ class InteractionProtocolAdapter:
                         alignment=cls._normalize_alignment(interaction.get("alignment"), interaction.get("task_goal")),
                         repair_required=bool(interaction.get("repair_required", False)),
                         repair_strategy=None,
-                        trigger_sequence_number=None,
+                        trigger_message_id=None,
                         tom_snapshot=final_tom,
                         timestamp_ms=next_ts(),
                         l9_header=interaction.get("l9_header") if isinstance(interaction.get("l9_header"), dict) else None,
                     )
                 )
-                last_turn_sequence = sequence_number
-                sequence = max(sequence, sequence_number + 1)
+                last_peer_turn_message_id = events[-1]["message_id"]
 
             elif interaction_type == "repair_required":
-                trigger_sequence = cls._as_int(interaction.get("trigger_message_number")) or last_turn_sequence
                 events.append(
                     cls._build_event(
                         domain="travel",
@@ -1274,7 +1238,6 @@ class InteractionProtocolAdapter:
                         event_type="repair_required",
                         sender=str(interaction.get("speaker", "unknown")),
                         receiver=str(interaction.get("listener", "")) or None,
-                        sequence_number=trigger_sequence,
                         turn_depth=cls._as_int(interaction.get("depth")),
                         utterance="",
                         inferred_intent="repair_required",
@@ -1289,7 +1252,7 @@ class InteractionProtocolAdapter:
                             if interaction.get("repair_strategy") is not None
                             else "re-anchor_to_constraints_and_governance"
                         ),
-                        trigger_sequence_number=trigger_sequence,
+                        trigger_message_id=last_peer_turn_message_id,
                         tom_snapshot=final_tom,
                         timestamp_ms=next_ts(),
                         l9_header=interaction.get("l9_header") if isinstance(interaction.get("l9_header"), dict) else None,
@@ -1297,7 +1260,6 @@ class InteractionProtocolAdapter:
                 )
 
             elif interaction_type == "peer_repair":
-                sequence_number = cls._as_int(interaction.get("message_number")) or sequence
                 events.append(
                     cls._build_event(
                         domain="travel",
@@ -1307,7 +1269,6 @@ class InteractionProtocolAdapter:
                         event_type="repair_applied",
                         sender=str(interaction.get("speaker", "unknown")),
                         receiver=str(interaction.get("listener", "")) or None,
-                        sequence_number=sequence_number,
                         turn_depth=cls._as_int(interaction.get("depth")),
                         utterance=str(interaction.get("utterance", "")),
                         inferred_intent="repair",
@@ -1322,14 +1283,12 @@ class InteractionProtocolAdapter:
                             if interaction.get("repair_strategy") is not None
                             else "re-anchor_to_constraints_and_governance"
                         ),
-                        trigger_sequence_number=last_turn_sequence,
+                        trigger_message_id=last_peer_turn_message_id,
                         tom_snapshot=final_tom,
                         timestamp_ms=next_ts(),
                         l9_header=interaction.get("l9_header") if isinstance(interaction.get("l9_header"), dict) else None,
                     )
                 )
-                last_turn_sequence = sequence_number
-                sequence = max(sequence, sequence_number + 1)
 
         accepted_count = cls._as_int(getattr(episode, "accepted_count", None)) or 0
         rejected_count = cls._as_int(getattr(episode, "rejected_count", None)) or 0
@@ -1344,7 +1303,6 @@ class InteractionProtocolAdapter:
                 event_type="decision_emitted",
                 sender="decision_engine",
                 receiver="validated_truth_store",
-                sequence_number=sequence,
                 turn_depth=None,
                 utterance=f"approved={accepted_count} rejected={rejected_count}",
                 inferred_intent="decision",
@@ -1355,7 +1313,7 @@ class InteractionProtocolAdapter:
                 alignment=None,
                 repair_required=False,
                 repair_strategy=None,
-                trigger_sequence_number=None,
+                trigger_message_id=None,
                 tom_snapshot=final_tom,
                 timestamp_ms=base_ts,
                 extra={
@@ -1378,7 +1336,6 @@ class InteractionProtocolAdapter:
                 event_type="episode_persisted",
                 sender="memory_service",
                 receiver=None,
-                sequence_number=None,
                 turn_depth=None,
                 utterance=f"episode:{episode_id}",
                 inferred_intent="persist",
@@ -1389,7 +1346,7 @@ class InteractionProtocolAdapter:
                 alignment=None,
                 repair_required=False,
                 repair_strategy=None,
-                trigger_sequence_number=None,
+                trigger_message_id=None,
                 tom_snapshot=final_tom,
                 timestamp_ms=base_ts + 1,
                 extra={"decision": {"stored": True, "episode_id": episode_id}},

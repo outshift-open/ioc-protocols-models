@@ -154,7 +154,6 @@ def _message_id_seed(
     event_type: str,
     sender: str,
     receiver: str | None,
-    sequence_number: int | None,
     turn_depth: int | None,
     utterance: str,
     timestamp_ms: int,
@@ -165,7 +164,6 @@ def _message_id_seed(
             str(event_type).strip().lower(),
             str(sender or "unknown"),
             str(receiver or "none"),
-            str(sequence_number if sequence_number is not None else "none"),
             str(turn_depth if turn_depth is not None else "none"),
             utterance,
             str(max(0, timestamp_ms)),
@@ -249,14 +247,12 @@ class L9HeaderBuilder:
         tenant_id: str | None = None,
         sensitivity: str = "internal",
         propagation: str = "restricted",
-        sequence_number: int | None = None,
         turn_depth: int | None = None,
         utterance: str = "",
         parent_ids: Iterable[str] | None = None,
         confidence_score: float | None = None,
         risk_score: float | None = None,
         state_object_id: str | None = None,
-        logical_clock: str | None = None,
         merge_strategy: str = "merge",
         provenance_sources: Iterable[str] | None = None,
         provenance_transforms: Iterable[str] | None = None,
@@ -273,6 +269,16 @@ class L9HeaderBuilder:
         Normalises all inputs, derives the kind and schema URN from the
         protocol-specific hooks, and returns a plain dict ready to embed
         as an ``l9_header`` field in any protocol event.
+
+        ``parent_ids`` is reserved for RPC request/response pairing: a
+        response carries the request's ``message_id`` here.  General causal
+        chaining (e.g. repair chains) is enforced at the delivery layer via
+        parent-gated dispatch, not in this field.
+
+        ``turn_depth`` represents the nesting level of this message.
+        Sub-protocol events that fire *inside* an enclosing exchange (e.g. an
+        IE correction inside an SNP turn) MUST carry ``turn_depth = parent + 1``
+        and a child ``state_object_id`` scoped to the enclosing exchange.
         """
         normalized_use_case = normalize_use_case(use_case)
         canonical_type = str(event_type).strip().lower()
@@ -287,7 +293,6 @@ class L9HeaderBuilder:
                     event_type=canonical_type,
                     sender=sender,
                     receiver=receiver,
-                    sequence_number=sequence_number,
                     turn_depth=turn_depth,
                     utterance=utterance,
                     timestamp_ms=timestamp_ms,
@@ -336,18 +341,13 @@ class L9HeaderBuilder:
             "state_object_id": state_object_id
             or f"urn:ioc:{normalized_use_case}:state:shared_dialogue",
             "parent_ids": parent_id_list,
-            "logical_clock": logical_clock
-            or (
-                f"lamport:{sequence_number}"
-                if sequence_number is not None
-                else None
-            ),
             "confidence_score": confidence_score,
             "risk_score": risk_score,
             "ttl_seconds": self.ttl_for_event_type(canonical_type),
             "merge_strategy": merge_strategy,
             "payload_refs": payload_ref_list,
         }
+
         if schema_inline:
             header["semantic_context"]["schema_inline"] = dict(schema_inline)
         return header
