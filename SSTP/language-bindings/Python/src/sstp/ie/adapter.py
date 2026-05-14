@@ -741,17 +741,9 @@ class InteractionProtocolAdapter:
             )
         )
 
-        # Sort by Lamport clock so all events are in causal order regardless of
-        # insertion order.  Events without a logical_clock (e.g. decision_emitted,
-        # episode_persisted) are stable-sorted to the end.
-        def _lamport_key(e: Dict[str, Any]) -> int:
-            lc = e.get("logical_clock") or ""
-            if lc and ":" in lc:
-                return int(lc.split(":")[1])
-            return 10**9  # terminal events go last
-
-        events.sort(key=_lamport_key)
-
+        # Events are already in causal insertion order: the loop above appends
+        # them in trace sequence and terminal events (decision_emitted,
+        # episode_persisted) are appended after the loop.
         return events
 
     @classmethod

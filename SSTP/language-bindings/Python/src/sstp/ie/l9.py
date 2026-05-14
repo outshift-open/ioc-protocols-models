@@ -207,8 +207,29 @@ def build_l9_header(
     function called by IE orchestrators to stamp each event with an SSTP
     L9 header.
 
-    The ``event_type`` is normalised via :func:`canonical_event_type` so
+    ``event_type`` is normalised via :func:`canonical_event_type` so
     aliases like ``"message"`` resolve correctly.
+
+    The returned dict includes these envelope fields:
+
+    ``message_id`` — UUID (UUIDv5 derived from event inputs, or caller-
+        supplied).  The sole message identifier on the wire.  There is no
+        sequence number or Lamport clock in the IE L9 header.
+
+    ``dt_created`` — ISO 8601 wall-clock timestamp (UTC) derived from
+        ``timestamp_ms``.  Intended for audit and observability only;
+        no ordering or monotonicity is guaranteed.
+
+    ``parent_ids`` — list of ``message_id`` values for RPC pairing
+        (response carries its request's id).  Causal repair links
+        (``repair_applied`` → ``peer_turn``) are carried in the event
+        payload's ``repair.trigger_message_id`` field, not here.
+
+    All other envelope fields (``kind``, ``schema_id``, ``schema_version``,
+    ``schema_trust_level``, ``cognition_profile_id``, ``cognition_protocol``,
+    ``ttl_seconds``, ``origin``, ``policy_labels``, ``provenance``,
+    ``state_object_id``, ``merge_strategy``, ``payload_refs``) are derived
+    automatically from the event type and use-case.
     """
     return _DEFAULT_BUILDER.build(
         use_case=use_case,
