@@ -22,6 +22,7 @@ from l9.goal_intent import GoalIntentKind
 from l9.planning import PlanningKind
 from l9.communication import CommunicationKind
 from l9.validation import ValidationKind
+from l9.message import L9, L9Header, L9Payload, L9Phase, L9Kind, L9MessageType
 
 
 class L9Protocol(BaseModel):
@@ -56,10 +57,17 @@ class L9Protocol(BaseModel):
 
 __all__ = [
     "L9Protocol",
+    # message envelope
+    "L9",
+    "L9Header",
+    "L9Payload",
+    "L9Phase",
+    "L9Kind",
+    "L9MessageType",
     # shared
     "Knowledge",
     "EvidenceBundle",
-    # re-export kind classes for convenience
+    # kind classes
     "AgentHiringKind",
     "GoalIntentKind",
     "PlanningKind",
