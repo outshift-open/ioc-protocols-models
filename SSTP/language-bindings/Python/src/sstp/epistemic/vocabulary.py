@@ -4,18 +4,25 @@
 """
 epistemic/vocabulary.py — Speech act vocabulary and epistemic block builder.
 
-Defines the five SpeechAct types, three TaskPhase values, and five BeliefStatus
+Defines the five SpeechAct types, four TaskPhase values, and six BeliefStatus
 values that qualify every L9 message epistemically. Also provides:
 
 - make_epistemic_block(): construct a validated epistemic dict for the wire
-- infer_snp_speech_act(): deterministically infer SpeechAct from SNP ACCEPT context
-  without extra wire messages
+- infer_snp_epistemic(): deterministically infer (SpeechAct, TaskPhase) from SNP
+  operation context without extra wire messages
+- infer_snp_speech_act(): backward-compatible wrapper returning SpeechAct only
+
+TaskPhase alignment with Marks et al. team process taxonomy:
+  TASKWORK      — individual domain work; NOT a Marks team process
+  TRANSITION    — mission analysis, goal spec, strategy formulation, role assignment
+  ACTION        — coordination during execution (Marks: monitoring + coordination)
+  INTERPERSONAL — conflict management, deference, repair
 """
 
 from __future__ import annotations
 
 import enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class SpeechAct(str, enum.Enum):
@@ -28,19 +35,33 @@ class SpeechAct(str, enum.Enum):
 
 
 class TaskPhase(str, enum.Enum):
-    """The three phases of a team process."""
-    TRANSITION    = "transition"    # goal-setting, role assignment, delegation
-    ACTION        = "action"        # independent belief formation — no peer influence yet
-    INTERPERSONAL = "interpersonal" # alignment, negotiation, repair
+    """The four phases qualifying epistemic acts.
+
+    TASKWORK is not a Marks team process — it is individual domain work done
+    before or outside peer coordination.  The other three follow Marks et al. [57].
+    """
+    TASKWORK      = "taskwork"      # individual domain work — NOT a team process
+    TRANSITION    = "transition"    # goal-setting, role assignment, strategy formulation
+    ACTION        = "action"        # coordination during execution (monitoring + negotiation)
+    INTERPERSONAL = "interpersonal" # conflict, deference, repair
 
 
 class BeliefStatus(str, enum.Enum):
     """The lifecycle state of an asserted belief."""
     ASSERTED   = "asserted"    # sender currently holds this belief
     DEFERRED   = "deferred"    # sender withholds judgement
-    RETRACTED  = "retracted"   # sender withdraws a prior assertion
+    RETRACTED  = "retracted"   # sender withdraws a prior assertion without replacement
+    REVISED    = "revised"     # sender replaces a prior assertion with a new one
     CHALLENGED = "challenged"  # sender's assertion has been challenged by a peer
     UNRESOLVED = "unresolved"  # epistemic clarification failed after max attempts
+
+
+class RepairReason(str, enum.Enum):
+    """Why a repair_required message was emitted (Layer 3: IE semantic repair)."""
+    DELIVERY_FAILURE     = "delivery_failure"      # message never arrived
+    GROUNDING_FAILURE    = "grounding_failure"      # arrived but contingency check failed
+    UNGROUNDABLE_NOVELTY = "ungroundable_novelty"  # presupposes context receiver doesn't have
+    SCOPE_MISMATCH       = "scope_mismatch"        # response scope doesn't overlap utterance scope
 
 
 def make_epistemic_block(
@@ -52,6 +73,8 @@ def make_epistemic_block(
     scope: List[str] | None = None,
     deferred_to: Optional[str] = None,
     challenges: List[str] | None = None,
+    repair_reason: RepairReason | str | None = None,
+    addresses_evidence: List[str] | None = None,
 ) -> Dict[str, Any]:
     """Return a validated epistemic block for inclusion in an L9 header."""
     def _val(v: Any) -> str:
@@ -69,7 +92,45 @@ def make_epistemic_block(
         block["deferred_to"] = str(deferred_to)
     if challenges:
         block["challenges"] = list(challenges)
+    if repair_reason is not None:
+        block["repair_reason"] = _val(repair_reason)
+    if addresses_evidence:
+        block["addresses_evidence"] = list(addresses_evidence)
     return block
+
+
+def infer_snp_epistemic(
+    *,
+    operation: str,
+    ctrl_position_key: str,
+    member_position_key: str,
+    ctrl_conf: float,
+    member_conf: float,
+    accept_threshold: float = 0.1,
+) -> Tuple[SpeechAct, TaskPhase]:
+    """Infer (SpeechAct, TaskPhase) from SNP operation context — no wire messages needed.
+
+    PROPOSE          → (BELIEF_ASSERTION,    TRANSITION)   strategy commitment
+    NEGOTIATE        → (BELIEF_ASSERTION,    ACTION)       coordination round
+    ACCEPT genuine   → (BELIEF_ASSERTION,    ACTION)       coordination resolved
+    ACCEPT forced    → (DELIBERATION_PASS,   INTERPERSONAL) social compliance
+    COUNTER_PROPOSAL → (ALIGNMENT_CHALLENGE, INTERPERSONAL) conflict
+    REJECT           → (ALIGNMENT_CHALLENGE, INTERPERSONAL) conflict
+    """
+    op = operation.lower()
+    if op == "propose":
+        return SpeechAct.BELIEF_ASSERTION, TaskPhase.TRANSITION
+    if op == "negotiate":
+        return SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION
+    if op == "accept":
+        if ctrl_position_key == member_position_key:
+            return SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION
+        if ctrl_conf >= member_conf + accept_threshold:
+            return SpeechAct.DELIBERATION_PASS, TaskPhase.INTERPERSONAL
+        return SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION
+    if op in ("counter_proposal", "reject"):
+        return SpeechAct.ALIGNMENT_CHALLENGE, TaskPhase.INTERPERSONAL
+    return SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION
 
 
 def infer_snp_speech_act(
@@ -81,29 +142,21 @@ def infer_snp_speech_act(
     member_conf: float,
     accept_threshold: float = 0.1,
 ) -> SpeechAct:
-    """Infer the SpeechAct for an SNP operation from local context — no wire messages needed.
+    """Backward-compatible wrapper — returns SpeechAct only.
 
-    For ACCEPT: genuine BELIEF_ASSERTION if positions matched; DELIBERATION_PASS if
-    the controller's confidence dominated by >= accept_threshold.
-    For COUNTER_PROPOSAL / REJECT: always ALIGNMENT_CHALLENGE.
-    For PROPOSE / NEGOTIATE: always BELIEF_ASSERTION.
-    For all others: BELIEF_ASSERTION as default.
+    Prefer infer_snp_epistemic() which also returns the correct TaskPhase.
     """
-    op = operation.lower()
-    if op in ("accept",):
-        if ctrl_position_key == member_position_key:
-            return SpeechAct.BELIEF_ASSERTION
-        if ctrl_conf >= member_conf + accept_threshold:
-            return SpeechAct.DELIBERATION_PASS
-        return SpeechAct.BELIEF_ASSERTION
-    if op in ("counter_proposal", "reject"):
-        return SpeechAct.ALIGNMENT_CHALLENGE
-    if op in ("propose", "negotiate"):
-        return SpeechAct.BELIEF_ASSERTION
-    return SpeechAct.BELIEF_ASSERTION
+    return infer_snp_epistemic(
+        operation=operation,
+        ctrl_position_key=ctrl_position_key,
+        member_position_key=member_position_key,
+        ctrl_conf=ctrl_conf,
+        member_conf=member_conf,
+        accept_threshold=accept_threshold,
+    )[0]
 
 
 __all__ = [
-    "SpeechAct", "TaskPhase", "BeliefStatus",
-    "make_epistemic_block", "infer_snp_speech_act",
+    "SpeechAct", "TaskPhase", "BeliefStatus", "RepairReason",
+    "make_epistemic_block", "infer_snp_epistemic", "infer_snp_speech_act",
 ]

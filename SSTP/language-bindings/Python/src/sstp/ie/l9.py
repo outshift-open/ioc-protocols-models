@@ -12,15 +12,20 @@ This module constructs and validates the ``l9_header`` field within those
 envelopes; it does not define the envelope fields themselves.
 
 The :class:`IEL9HeaderBuilder` subclasses :class:`~protocol.l9_base.L9HeaderBuilder`
-and maps IE event types to SSTP kinds:
+and maps IE event types to SSTP kinds (4 kinds in this flow):
 
-    turn_ingested        → intent
-    peer_turn            → delegation
-    repair_required      → query
-    repair_applied       → delegation
-    decision_emitted     → commit
-    episode_persisted    → memory_delta
-    conversation_terminated / agent_* → knowledge
+    peer_turn              → delegation
+    repair_required        → query
+    repair_applied         → delegation
+    agent_request          → delegation
+    decision_emitted       → commit
+    agent_response         → commit
+    episode_persisted      → commit
+    prior_query            → knowledge
+    prior_injection        → knowledge
+    rule_update            → knowledge
+    outcome_reported       → knowledge
+    conversation_terminated / agent_* / turn_ingested → knowledge
 
 The module-level :func:`build_l9_header` is the backwards-compatible
 convenience function used by IE orchestrators.
@@ -30,6 +35,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List
 
+from sstp.epistemic.vocabulary import SpeechAct, TaskPhase, make_epistemic_block
 from sstp.l9_base import (
     L9HeaderBuilder,
     normalize_use_case,
@@ -52,38 +58,71 @@ _EVENT_TYPE_ALIASES: Dict[str, str] = {
 }
 
 _KIND_BY_EVENT_TYPE: Dict[str, str] = {
-    "turn_ingested": "intent",
-    "peer_turn": "delegation",
-    "repair_required": "query",
-    "repair_applied": "delegation",
-    "decision_emitted": "commit",
-    "episode_persisted": "memory_delta",
+    "turn_ingested":           "knowledge",    # internal intake; no longer intent
+    "peer_turn":               "delegation",
+    "repair_required":         "query",
+    "repair_applied":          "delegation",
+    "decision_emitted":        "commit",
+    "episode_persisted":       "commit",       # was memory_delta; simplified to commit
     "conversation_terminated": "knowledge",
-    "agent_request": "delegation",
-    "agent_response": "commit",
-    "agent_error": "knowledge",
-    "agent_shutdown": "knowledge",
-    "agent_shutdown_ack": "knowledge",
+    "agent_request":           "delegation",
+    "agent_response":          "commit",
+    "agent_error":             "knowledge",
+    "agent_shutdown":          "knowledge",
+    "agent_shutdown_ack":      "knowledge",
+    "epistemic_clarification": "query",
+    # SemanticMemory interactions (Coordinator ↔ SemanticMemory agent)
+    "prior_query":             "knowledge",
+    "prior_injection":         "knowledge",
+    "rule_update":             "knowledge",
+    "outcome_reported":        "knowledge",
 }
 
 _SCHEMA_TOPIC_BY_EVENT_TYPE: Dict[str, tuple[str, str]] = {
-    "turn_ingested": ("intake", "turn"),
-    "peer_turn": ("coordination", "peer_message"),
-    "repair_required": ("coordination", "repair_request"),
-    "repair_applied": ("coordination", "repair_message"),
-    "decision_emitted": ("coordination", "decision"),
-    "episode_persisted": ("memory", "episode_delta"),
+    "turn_ingested":           ("intake", "turn"),
+    "peer_turn":               ("coordination", "peer_message"),
+    "repair_required":         ("coordination", "repair_request"),
+    "repair_applied":          ("coordination", "repair_message"),
+    "decision_emitted":        ("coordination", "decision"),
+    "episode_persisted":       ("memory", "episode_commit"),
     "conversation_terminated": ("coordination", "termination_notice"),
-    "agent_request": ("runtime", "agent_request"),
-    "agent_response": ("runtime", "agent_response"),
-    "agent_error": ("runtime", "agent_error"),
-    "agent_shutdown": ("runtime", "agent_shutdown"),
-    "agent_shutdown_ack": ("runtime", "agent_shutdown_ack"),
+    "agent_request":           ("runtime", "agent_request"),
+    "agent_response":          ("runtime", "agent_response"),
+    "agent_error":             ("runtime", "agent_error"),
+    "agent_shutdown":          ("runtime", "agent_shutdown"),
+    "agent_shutdown_ack":      ("runtime", "agent_shutdown_ack"),
+    "epistemic_clarification": ("coordination", "epistemic_repair"),
+    # SemanticMemory interactions
+    "prior_query":             ("memory", "prior_query"),
+    "prior_injection":         ("memory", "prior_injection"),
+    "rule_update":             ("memory", "rule_update"),
+    "outcome_reported":        ("memory", "outcome_reported"),
+}
+
+# Default (SpeechAct, TaskPhase) per IE event_type — used when caller passes epistemic=None.
+_IE_DEFAULT_EPISTEMIC: Dict[str, tuple] = {
+    "turn_ingested":           (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
+    "peer_turn":               (SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION),
+    "repair_required":         (SpeechAct.HELP_REQUEST,     TaskPhase.INTERPERSONAL),
+    "repair_applied":          (SpeechAct.BELIEF_ASSERTION, TaskPhase.INTERPERSONAL),
+    "decision_emitted":        (SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION),
+    "episode_persisted":       (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
+    "agent_request":           (SpeechAct.TASK_HANDOFF,     TaskPhase.TRANSITION),
+    "agent_response":          (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
+    "agent_error":             (SpeechAct.HELP_REQUEST,     TaskPhase.INTERPERSONAL),
+    "agent_shutdown":          (SpeechAct.BELIEF_ASSERTION, TaskPhase.TRANSITION),
+    "agent_shutdown_ack":      (SpeechAct.BELIEF_ASSERTION, TaskPhase.TRANSITION),
+    "epistemic_clarification": (SpeechAct.HELP_REQUEST,     TaskPhase.INTERPERSONAL),
+    # SemanticMemory interactions — all TASKWORK (pre-episode priors and post-episode updates)
+    "prior_query":             (SpeechAct.HELP_REQUEST,     TaskPhase.TASKWORK),
+    "prior_injection":         (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
+    "rule_update":             (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
+    "outcome_reported":        (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
 }
 
 # Short-TTL event types (1 day instead of the 7-day default)
 _SHORT_TTL_EVENT_TYPES: frozenset = frozenset(
-    {"peer_turn", "repair_required", "repair_applied"}
+    {"peer_turn", "repair_required", "repair_applied", "epistemic_clarification"}
 )
 
 
@@ -156,10 +195,21 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
         cognition_protocol: str | None = "IE",
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        """Build an IE L9 header, normalising the event_type alias first."""
+        """Build an IE L9 header, normalising the event_type alias first.
+
+        If epistemic is not provided by the caller, a default block is inferred
+        from the event_type. Callers may pass an explicit epistemic block to
+        override the default (e.g. for agent_response carrying TASKWORK vs ACTION).
+        """
+        canonical = canonical_event_type(event_type)
+        if kwargs.get("epistemic") is None:
+            sa, tp = _IE_DEFAULT_EPISTEMIC.get(
+                canonical, (SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION)
+            )
+            kwargs["epistemic"] = make_epistemic_block(speech_act=sa, task_phase=tp)
         return super().build(
             use_case=use_case,
-            event_type=canonical_event_type(event_type),
+            event_type=canonical,
             sender=sender,
             receiver=receiver,
             timestamp_ms=timestamp_ms,
@@ -200,6 +250,8 @@ def build_l9_header(
     ontology_ref: str | None = None,
     cognition_profile_id: str | None = "adaptive_communication:v1",
     cognition_protocol: str | None = "IE",
+    epistemic: Dict[str, Any] | None = None,
+    state_sequence: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Build an Interaction Engine SSTP L9 header dict.
 
@@ -256,6 +308,8 @@ def build_l9_header(
         ontology_ref=ontology_ref,
         cognition_profile_id=cognition_profile_id,
         cognition_protocol=cognition_protocol,
+        epistemic=epistemic,
+        state_sequence=state_sequence,
     )
 
 

@@ -23,8 +23,9 @@ are the backwards-compatible public API used by the semantic_negotiation package
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable
+from typing import Any, Dict, Iterable, List, Optional
 
+from sstp.epistemic.vocabulary import SpeechAct, TaskPhase, make_epistemic_block
 from sstp.l9_base import (
     L9HeaderBuilder,
     L9_PROTOCOL,
@@ -45,6 +46,11 @@ SNP_ONTOLOGY_REFERENCE: str = "protocol/ontology/snp_ontology.ttl"
 
 # ── SNP operation vocabulary ──────────────────────────────────────────────────
 
+# Default (SpeechAct, TaskPhase) per SNP operation — used when caller passes epistemic=None.
+# ACCEPT defaults to ACTION/genuine; callers with confidence context should pass an
+# explicit block via infer_snp_epistemic() to get DELIBERATION_PASS/INTERPERSONAL if forced.
+_SNP_DEFAULT_EPISTEMIC: Dict[str, tuple] = {}  # populated after NegotiationOperation is defined
+
 
 class NegotiationOperation:
     """SNP operation vocabulary (§1.1 of SEMANTIC_NEGOTIATION_PROTOCOL.md)."""
@@ -63,6 +69,18 @@ class NegotiationOperation:
         COUNTER_PROPOSAL, ACCEPT, REJECT, NEGOTIATE,
     })
     TERMINAL: frozenset = frozenset({ACCEPT, REJECT})
+
+
+_SNP_DEFAULT_EPISTEMIC = {
+    NegotiationOperation.PROPOSE:           (SpeechAct.BELIEF_ASSERTION,    TaskPhase.TRANSITION),
+    NegotiationOperation.CONSIDER_PROPOSAL: (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
+    NegotiationOperation.EVALUATE_PROPOSAL: (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
+    NegotiationOperation.REVIEW_PROPOSAL:   (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
+    NegotiationOperation.COUNTER_PROPOSAL:  (SpeechAct.ALIGNMENT_CHALLENGE, TaskPhase.INTERPERSONAL),
+    NegotiationOperation.NEGOTIATE:         (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
+    NegotiationOperation.ACCEPT:            (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
+    NegotiationOperation.REJECT:            (SpeechAct.ALIGNMENT_CHALLENGE, TaskPhase.INTERPERSONAL),
+}
 
 
 class NegotiationStatus:
@@ -120,10 +138,23 @@ def build_snp_payload(
     negotiation_id: str | None = None,
     payload_hash: str | None = None,
     proposal_payload: Dict[str, Any] | None = None,
+    posterior: Optional[float] = None,
+    supporting_evidence: Optional[List[str]] = None,
+    against_evidence: Optional[List[str]] = None,
+    reasoning_summary: Optional[str] = None,
+    addresses_evidence: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Build a NegotiationPayload for use inside an Interaction Engine event.
 
     Implements §3.2 of SEMANTIC_NEGOTIATION_PROTOCOL.md.
+
+    Layer 4 reasoning chain fields (PROPOSE and COUNTER_PROPOSAL):
+        posterior            — Bayesian posterior for the asserted conclusion
+        supporting_evidence  — concept_ids supporting the conclusion
+        against_evidence     — concept_ids arguing against the conclusion
+        reasoning_summary    — human-readable synthesis (LLM-generated)
+        addresses_evidence   — concept_ids from the prior PROPOSE that this
+                               COUNTER_PROPOSAL engages with (IE Layer 3 check)
     """
     if operation not in NegotiationOperation.ALL:
         raise ValueError(f"Invalid SNP operation: {operation!r}")
@@ -140,8 +171,22 @@ def build_snp_payload(
         out["negotiation_id"] = negotiation_id
     if payload_hash is not None:
         out["payload_hash"] = payload_hash
-    if proposal_payload is not None:
-        out["proposal_payload"] = proposal_payload
+
+    reasoning: Dict[str, Any] = {}
+    if posterior is not None:
+        reasoning["posterior"] = round(float(posterior), 4)
+    if supporting_evidence:
+        reasoning["supporting_evidence"] = list(supporting_evidence)
+    if against_evidence:
+        reasoning["against_evidence"] = list(against_evidence)
+    if reasoning_summary:
+        reasoning["reasoning_summary"] = str(reasoning_summary)
+    if addresses_evidence:
+        reasoning["addresses_evidence"] = list(addresses_evidence)
+
+    merged = {**(proposal_payload or {}), **reasoning}
+    if merged:
+        out["proposal_payload"] = merged
     return out
 
 
@@ -197,8 +242,21 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         message_id: str | None = None,
         cognition_profile_id: str | None = "semantic_alignment:v1",
         cognition_protocol: str | None = "SNP",
+        epistemic: Dict[str, Any] | None = None,
+        state_sequence: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
-        """Build an SNP L9 header from an SNP *operation* (§3.1 mapping)."""
+        """Build an SNP L9 header from an SNP *operation* (§3.1 mapping).
+
+        If epistemic is None, a default block is inferred from the operation.
+        Callers with position/confidence context should pass an explicit block
+        via infer_snp_epistemic() to get accurate DELIBERATION_PASS annotation
+        for forced ACCEPTs.
+        """
+        if epistemic is None:
+            sa, tp = _SNP_DEFAULT_EPISTEMIC.get(
+                operation, (SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION)
+            )
+            epistemic = make_epistemic_block(speech_act=sa, task_phase=tp)
         event_type = snp_event_type_for_operation(operation)
         return self.build(
             use_case=use_case,
@@ -224,6 +282,8 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
             message_id=message_id,
             cognition_profile_id=cognition_profile_id,
             cognition_protocol=cognition_protocol,
+            epistemic=epistemic,
+            state_sequence=state_sequence,
         )
 
 
@@ -252,6 +312,8 @@ def build_snp_l9_header(
     message_id: str | None = None,
     cognition_profile_id: str | None = "semantic_alignment:v1",
     cognition_protocol: str | None = "SNP",
+    epistemic: Dict[str, Any] | None = None,
+    state_sequence: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Build an SSTP L9 header for a Semantic Negotiation sub-protocol message.
 
@@ -278,6 +340,8 @@ def build_snp_l9_header(
         message_id=message_id,
         cognition_profile_id=cognition_profile_id,
         cognition_protocol=cognition_protocol,
+        epistemic=epistemic,
+        state_sequence=state_sequence,
     )
 
 

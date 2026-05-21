@@ -79,7 +79,7 @@ L9_VERSION: str = "0"
 
 # ── Shared utilities ──────────────────────────────────────────────────────────
 
-_CERTIFIED_KINDS: frozenset = frozenset({"commit", "memory_delta"})
+_CERTIFIED_KINDS: frozenset = frozenset({"commit"})
 
 # ── Schema lifecycle stages (§5 of the canonical model spec) ─────────────────
 #
@@ -263,6 +263,8 @@ class L9HeaderBuilder:
         ontology_ref: str | None = None,
         cognition_profile_id: str | None = None,
         cognition_protocol: str | None = None,
+        epistemic: Dict[str, Any] | None = None,
+        state_sequence: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Assemble the common L9 envelope dict.
 
@@ -345,6 +347,8 @@ class L9HeaderBuilder:
             "risk_score": risk_score,
             "ttl_seconds": self.ttl_for_event_type(canonical_type),
             "merge_strategy": merge_strategy,
+            "epistemic": epistemic,
+            "state_sequence": state_sequence,
             "payload_refs": payload_ref_list,
         }
 
