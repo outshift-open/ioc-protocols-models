@@ -80,7 +80,7 @@ class L9Phase(int, Enum):
 
 
 class L9Kind(str, Enum):
-    UTTER          = "utter"  #Question: is this BASE COMM 
+    UTTER          = "Utter"  #Question: is this BASE COMM 
     INTENT         = "Intent"
     KNOWLEDGE      = "Knowledge"
     REPAIR         = "Repair"
@@ -106,6 +106,7 @@ class L9Kind(str, Enum):
 
 class L9SubKind(str, Enum):
     intent_ambiguity_detector   = "intent_ambiguity_detector"
+    intent_ambiguity_issue_finder = "intent_ambiguity_issue_finder"
     intent_contingency_detector = "intent_contingency_detector"
     repair_template             = "repair_template"
     repair_negotiation          = "repair_negotiation"
