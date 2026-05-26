@@ -140,6 +140,17 @@ from .l9_bridge import (
     build_repair_applied,
 )
 
+# ── Panel negotiation bus ─────────────────────────────────────────────────────
+from .panel_bus import (
+    IERepairExhausted,
+    PanelBus,
+    StarNegotiation,
+    RingNegotiation,
+    PanelNegotiationBus,
+    PanelNegotiationStar,
+    PanelNegotiationRing,
+)
+
 # ── Discriminated union ───────────────────────────────────────────────────────
 
 STPMessage = Annotated[
@@ -244,4 +255,12 @@ __all__ = [
     "build_negotiate_envelope",
     "build_repair_required",
     "build_repair_applied",
+    # Panel negotiation bus
+    "IERepairExhausted",
+    "PanelBus",
+    "StarNegotiation",
+    "RingNegotiation",
+    "PanelNegotiationBus",
+    "PanelNegotiationStar",
+    "PanelNegotiationRing",
 ]

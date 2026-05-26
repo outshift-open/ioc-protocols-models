@@ -48,6 +48,9 @@ from .message import (
     IEClarificationResponse,
     IERepair,
 )
+from .agent_bus import AgentBus
+from .epistemic_store import EpistemicStore
+from .ie_engine import IEEngine, IEEngineConfig
 
 __all__ = [
     "INTERACTION_ENGINE_PROTOCOL",
@@ -82,4 +85,9 @@ __all__ = [
     "IEClarificationRequest",
     "IEClarificationResponse",
     "IERepair",
+    # SDK: domain-agnostic bus, store, and engine
+    "AgentBus",
+    "EpistemicStore",
+    "IEEngine",
+    "IEEngineConfig",
 ]

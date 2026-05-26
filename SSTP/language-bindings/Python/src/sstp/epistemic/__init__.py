@@ -12,6 +12,14 @@ from sstp.epistemic.stores import (
     BeliefRevision, BeliefState,
     ArgumentOutcome, PredictionRecord, PeerInteractionRecord,
     AgentBeliefStore, PeerInteractionStore,
+    CommonGround, CommonGroundStore,
+    TeamGroundedTruth, ConvergenceStore,
+    SemanticRule, SemanticRuleStore,
+)
+from sstp.epistemic.bayes import (
+    LikelihoodEntry, LikelihoodTable,
+    compute_posterior, normalize_posteriors,
+    BayesianPanelConfig, BayesianVote, BayesianPanelResult, BayesianPanel,
 )
 
 __all__ = [
@@ -24,4 +32,11 @@ __all__ = [
     "BeliefRevision", "BeliefState",
     "ArgumentOutcome", "PredictionRecord", "PeerInteractionRecord",
     "AgentBeliefStore", "PeerInteractionStore",
+    "CommonGround", "CommonGroundStore",
+    "TeamGroundedTruth", "ConvergenceStore",
+    "SemanticRule", "SemanticRuleStore",
+    # Bayesian inference
+    "LikelihoodEntry", "LikelihoodTable",
+    "compute_posterior", "normalize_posteriors",
+    "BayesianPanelConfig", "BayesianVote", "BayesianPanelResult", "BayesianPanel",
 ]

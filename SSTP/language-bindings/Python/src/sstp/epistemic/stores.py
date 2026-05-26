@@ -463,11 +463,71 @@ class ConvergenceStore:
         return [t for (_, uc, _), t in self._store.items() if uc == use_case]
 
 
+# ── SemanticRuleStore ─────────────────────────────────────────────────────────
+
+
+@dataclass
+class SemanticRule:
+    """A stabilised rule written from a TeamGroundedTruth convergence event.
+
+    The payload is opaque to the store — application-defined content (e.g. a
+    drug interaction dict, a risk threshold, a routing policy fragment).
+    prior_for() reads confidence as the prior for the next episode.
+    """
+
+    concept_id: str             # URI identifying the rule/concept
+    use_case: str
+    confidence: float           # posterior confidence stabilised at convergence
+    provenance_weight: float    # 1.0 - SCR of the episode that produced it
+    source_episode_id: str      # TeamGroundedTruth episode that stabilised it
+    payload: dict               # opaque; application-defined
+    recorded_at_ms: int
+
+
+class SemanticRuleStore:
+    """Append-only store of stabilised rules written from TeamGroundedTruth.
+
+    Provides SemanticMemory-level read access: ``prior_for`` returns the
+    confidence of the most recent rule, or 0.5 (uniform) if none is recorded.
+    """
+
+    def __init__(self) -> None:
+        self._store: Dict[tuple, List[SemanticRule]] = {}
+
+    def _key(self, concept_id: str, use_case: str) -> tuple:
+        return (concept_id, use_case)
+
+    def record(self, rule: SemanticRule) -> None:
+        key = self._key(rule.concept_id, rule.use_case)
+        if key not in self._store:
+            self._store[key] = []
+        self._store[key].append(rule)
+
+    def latest(self, concept_id: str, use_case: str = "") -> Optional[SemanticRule]:
+        candidates = self._store.get(self._key(concept_id, use_case), [])
+        return candidates[-1] if candidates else None
+
+    def all_for_use_case(self, use_case: str) -> List[SemanticRule]:
+        return [
+            rule
+            for (_, uc), rules in self._store.items()
+            if uc == use_case
+            for rule in rules
+        ]
+
+    def prior_for(self, concept_id: str, use_case: str = "") -> float:
+        """Returns confidence of latest rule, or 0.5 (uniform) if none recorded."""
+        rule = self.latest(concept_id, use_case)
+        return rule.confidence if rule is not None else 0.5
+
+
 __all__ = [
     "BeliefRevision",
     "BeliefState",
     "CommonGround",
     "TeamGroundedTruth",
+    "SemanticRule",
+    "SemanticRuleStore",
     "ArgumentOutcome",
     "PredictionRecord",
     "PeerInteractionRecord",
