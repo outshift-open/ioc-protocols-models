@@ -33,13 +33,19 @@ def test_transport_is_str():
 # ── IE header builder ─────────────────────────────────────────────────────────
 
 IE_EVENT_KINDS = [
-    ("turn_ingested",   "intent"),
-    ("peer_turn",       "delegation"),
-    ("repair_required", "query"),
-    ("repair_applied",  "delegation"),
-    ("decision_emitted","commit"),
-    ("episode_persisted","memory_delta"),
-    ("conversation_terminated","knowledge"),
+    # 5-value session-flow vocabulary
+    ("turn_ingested",          "exchange"),
+    ("peer_turn",              "exchange"),
+    ("repair_required",        "contingency"),
+    ("repair_applied",         "commit"),
+    ("decision_emitted",       "convergence"),
+    ("episode_persisted",      "convergence"),
+    ("conversation_terminated","convergence"),
+    ("rule_update",            "convergence"),
+    ("agent_request",          "exchange"),
+    ("prior_query",            "exchange"),
+    ("prior_injection",        "exchange"),
+    ("outcome_reported",       "exchange"),
 ]
 
 @pytest.mark.parametrize("event_type,expected_kind", IE_EVENT_KINDS)
@@ -50,14 +56,14 @@ def test_ie_kind_mapping(event_type, expected_kind):
 def test_ie_build_l9_header_structure():
     header = build_l9_header(
         use_case="healthcare",
-        event_type="turn_ingested",
+        event_type="peer_turn",
         sender="agent-1",
         receiver="agent-2",
         timestamp_ms=int(time.time() * 1000),
     )
     assert header["protocol"] == "SSTP"
     assert header["version"] == L9_VERSION
-    assert header["kind"] == "intent"
+    assert header["kind"] == "exchange"
     assert "message_id" in header
     assert header["semantic_context"]["cognition_protocol"] == "IE"
 
@@ -75,12 +81,14 @@ def test_snp_build_l9_header_structure():
         sender="panel-agent-1",
         receiver="panel-agent-2",
         timestamp_ms=int(time.time() * 1000),
+        proposal_id="prop-001",
     )
     assert header["protocol"] == "SSTP"
     assert "message_id" in header
     assert header["semantic_context"]["cognition_protocol"] == "SNP"
+    assert header["kind"] == "exchange"
 
 
 def test_snp_operations_are_strings():
-    for op in NegotiationOperation:
+    for op in NegotiationOperation.ALL:
         assert isinstance(op, str)

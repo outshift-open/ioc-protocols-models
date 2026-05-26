@@ -331,10 +331,14 @@ class TOMPairChannelBase(ABC):
 
     @abstractmethod
     def assess_utterance(
-        self, utterance: str, task_goal: str,
+        self,
+        utterance: str,
+        task_goal: str,
         schema: Optional[Dict[str, Any]] = None,
+        listener_belief: Optional[Dict[str, Any]] = None,
+        listener_prior_utterance: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Return task-alignment assessment for a single utterance."""
+        """Return task-alignment and grounding assessment for a single utterance."""
 
     @abstractmethod
     def update(

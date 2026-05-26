@@ -11,11 +11,14 @@ Full specification: protocol/snp/SEMANTIC_NEGOTIATION_PROTOCOL.md
 :class:`SNPL9HeaderBuilder` subclasses :class:`~protocol.l9_base.L9HeaderBuilder`
 and maps SNP operation vocabulary (§1.1) to SSTP event_types and then to SSTP kinds:
 
-    propose / consider_proposal / evaluate_proposal / …  → peer_turn   → delegation
-    accept / reject                                       → decision_emitted → commit
+    propose (session-open)              → peer_turn          → intent
+    consider / evaluate / review / …   → peer_turn          → exchange
+    counter_proposal                    → peer_turn          → contingency
+    accept / reject                     → decision_emitted   → commit
+    group convergence                   → convergence_emitted→ convergence
 
-Rule: SNP does NOT add new SSTP base kinds.  Negotiation semantics are
-represented at the payload level via an ``operation`` field.
+Rule: SNP does NOT add new SSTP base kinds beyond the 5-value vocabulary.
+Negotiation semantics are represented at the payload level via an ``operation`` field.
 
 The module-level :func:`build_snp_l9_header` and :func:`build_snp_payload`
 are the backwards-compatible public API used by the semantic_negotiation package.
@@ -107,18 +110,19 @@ _SNP_OPERATION_TO_EVENT_TYPE: Dict[str, str] = {
     NegotiationOperation.REJECT:            "decision_emitted",
 }
 
-# SSTP kind for each SNP-derived event_type (peer_turn → delegation, decision_emitted → commit)
+# SSTP kind for each SNP-derived event_type (session-flow vocabulary)
 _SNP_EVENT_TYPE_TO_KIND: Dict[str, str] = {
-    "peer_turn": "delegation",
-    "decision_emitted": "commit",
+    "peer_turn":          "exchange",     # iterative discussion turns
+    "decision_emitted":   "commit",       # individual terminal signal
+    "convergence_emitted":"convergence",  # group closure; multicast
 }
-
 
 def snp_event_type_for_operation(operation: str) -> str:
     """Return the canonical SSTP event_type for an SNP operation (§3.1).
 
     The result feeds into the SSTP kind rule:
-    ``peer_turn`` → ``delegation``, ``decision_emitted`` → ``commit``.
+    ``peer_turn`` → ``exchange``, ``decision_emitted`` → ``commit``,
+    ``convergence_emitted`` → ``convergence``.
     """
     result = _SNP_OPERATION_TO_EVENT_TYPE.get(operation)
     if result is None:
@@ -203,7 +207,7 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
     """
 
     def kind_for_event_type(self, event_type: str) -> str:
-        return _SNP_EVENT_TYPE_TO_KIND.get(event_type, "knowledge")
+        return _SNP_EVENT_TYPE_TO_KIND.get(event_type, "exchange")
 
     def schema_id_for(
         self,

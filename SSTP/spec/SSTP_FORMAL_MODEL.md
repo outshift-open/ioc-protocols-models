@@ -87,26 +87,42 @@ Alias(x) = x for all other x
 
 ### 3.4 Semantic Kinds
 
+Five session-flow kinds. Each describes the role of a message in the session lifecycle, not its sub-protocol semantics.
+
 ```text
-Kind := intent | delegation | query | commit | memory_delta | knowledge
+Kind := intent | exchange | contingency | commit | convergence
 ```
 
-The implemented classification relation is:
+| Kind | Session role |
+|---|---|
+| `intent` | Session-initiating message; triggers service selection and session establishment |
+| `exchange` | Normal in-session turn; sub-protocol carries semantics |
+| `contingency` | Opens a branching sub-session (repair, clarification, epistemic challenge) |
+| `commit` | Closes a contingency branch; the parent session resumes |
+| `convergence` | Closes the outer session; multicast to all participants; all epistemic states stabilize |
+
+The classification relation:
 
 ```text
-KindOf(turn_ingested) = intent
-KindOf(peer_turn) = delegation
-KindOf(repair_required) = query
-KindOf(repair_applied) = delegation
-KindOf(decision_emitted) = commit
-KindOf(episode_persisted) = memory_delta
-KindOf(conversation_terminated) = knowledge
-KindOf(agent_request) = delegation
-KindOf(agent_response) = commit
-KindOf(agent_error) = knowledge
-KindOf(agent_shutdown) = knowledge
-KindOf(agent_shutdown_ack) = knowledge
-KindOf(x) = knowledge for any unrecognized canonical x
+KindOf(turn_ingested)           = exchange
+KindOf(peer_turn)               = exchange
+KindOf(repair_required)         = contingency
+KindOf(repair_applied)          = commit
+KindOf(epistemic_clarification) = contingency
+KindOf(decision_emitted)        = convergence
+KindOf(episode_persisted)       = convergence
+KindOf(conversation_terminated) = convergence
+KindOf(rule_update)             = convergence
+KindOf(agent_request)           = exchange
+KindOf(agent_response)          = exchange
+KindOf(agent_error)             = exchange
+KindOf(agent_shutdown)          = exchange
+KindOf(agent_shutdown_ack)      = exchange
+KindOf(prior_query)             = exchange
+KindOf(prior_injection)         = exchange
+KindOf(outcome_reported)        = exchange
+KindOf(convergence_emitted)     = convergence
+KindOf(x)                       = exchange for any unrecognized canonical x
 ```
 
 ### 3.5 Schema Trust Levels
@@ -115,19 +131,19 @@ KindOf(x) = knowledge for any unrecognized canonical x
 SchemaTrustLevel := draft | certified
 ```
 
-The implemented trust-level rule is:
+`commit` and `convergence` are certified kinds — they carry terminal, state-stabilizing decisions that cross session or memory boundaries.
 
 ```text
-TrustLevelOf(commit) = certified
-TrustLevelOf(memory_delta) = certified
+TrustLevelOf(commit)      = certified
+TrustLevelOf(convergence) = certified
 TrustLevelOf(any other kind) = draft
 ```
 
 ### 3.6 Schema Version Rule
 
 ```text
-SchemaVersionOf(commit) = "1.0"
-SchemaVersionOf(memory_delta) = "1.0"
+SchemaVersionOf(commit)      = "1.0"
+SchemaVersionOf(convergence) = "1.0"
 SchemaVersionOf(any other kind) = "0.1"
 ```
 
@@ -206,24 +222,32 @@ Provenance := {
 ### 5.2 SSTP Header
 
 ```text
+EpistemicBlock := {
+  speech_act:        String,   -- belief_assertion | alignment_challenge | help_request | task_handoff | deliberation_pass
+  task_phase:        String,   -- taskwork | transition | action | interpersonal
+  social_compliance: Bool,     -- true when speech_act = deliberation_pass
+}
+
 SSTPHeader := {
-  protocol: "SSTP",
-  version: "0",
-  kind: Kind,
-  message_id: UuidString,
-  dt_created: Iso8601Utc,
-  origin: Origin,
+  protocol:         "SSTP",
+  version:          "0",
+  kind:             Kind,
+  message_id:       UuidString,
+  dt_created:       Iso8601Utc,
+  origin:           Origin,
   semantic_context: SemanticContext,
-  policy_labels: PolicyLabels,
-  provenance: Provenance,
-  state_object_id: String,
-  parent_ids: Seq[UuidString],
-  logical_clock: Option[String],
+  policy_labels:    PolicyLabels,
+  provenance:       Provenance,
+  state_object_id:  String,
+  parent_ids:       Seq[UuidString],
+  turn_depth:       Option[Int],
   confidence_score: Option[Float],
-  risk_score: Option[Float],
-  ttl_seconds: Int,
-  merge_strategy: String,
-  payload_refs: Seq[PayloadRef],
+  risk_score:       Option[Float],
+  ttl_seconds:      Int,
+  merge_strategy:   String,
+  payload_refs:     Seq[PayloadRef],
+  epistemic:        Option[EpistemicBlock],
+  state_sequence:   Option[Map[String, JsonValue]],
 }
 ```
 
@@ -234,7 +258,9 @@ Field constraints:
 3. payload_refs MUST be non-empty.
 4. parent_ids MAY be empty.
 5. confidence_score and risk_score MAY be null.
-6. logical_clock MAY be null.
+6. epistemic SHOULD be present on all peer-dialogue messages; MAY be null on runtime IPC messages.
+7. turn_depth MUST be present and greater than zero on `contingency` messages; MAY be null otherwise.
+8. A `contingency` message MUST carry a child `state_object_id` scoped to its parent exchange.
 
 ### 5.3 Generic Runtime Envelope
 
@@ -515,6 +541,60 @@ procedure ShutdownRemoteActor()
 4. after timeout, the transport owner may close the connection and terminate the worker by out-of-band means
 ```
 
+### 7.8 InitiateSession
+
+The first message in a session MUST carry `kind = intent`. It triggers service selection and session establishment.
+
+```text
+procedure InitiateSession(use_case, sender, receiver, intent_payload, profile)
+1. state_object_id := new session identifier, e.g. "urn:ioc:{use_case}:session:{UUID4()}"
+2. emit BuildEnvelope(event_type = "peer_turn", kind_override = "intent",
+     state_object_id = state_object_id, parent_ids = [],
+     payload = intent_payload)
+3. service routing resolves the receiving endpoint from the intent payload
+4. session state is established at both sender and receiver
+5. subsequent messages in this session use the same state_object_id with kind = exchange
+```
+
+### 7.9 ContingencyBranch
+
+A `contingency` message opens a branching sub-session. The parent session is held while the branch executes. A subsequent `commit` closes the branch and resumes the parent.
+
+```text
+procedure OpenContingencyBranch(parent_message_id, parent_state_object_id, branch_payload, profile)
+1. child_state_object_id := parent_state_object_id + ":branch:" + UUID4()
+2. child_turn_depth := parent_turn_depth + 1
+3. emit BuildEnvelope(event_type = "repair_required", kind_override = "contingency",
+     state_object_id = child_state_object_id,
+     turn_depth = child_turn_depth,
+     parent_ids = [parent_message_id],
+     payload = branch_payload)
+4. parent session is held pending branch resolution
+
+procedure CloseContingencyBranch(branch_message_id, parent_session_context, resolution_payload, profile)
+1. emit BuildEnvelope(event_type = "repair_applied", kind_override = "commit",
+     state_object_id = parent_session_context.state_object_id,
+     turn_depth = null,
+     parent_ids = [branch_message_id],
+     payload = resolution_payload)
+2. parent session resumes from the point it was held
+```
+
+### 7.10 ConvergeSession
+
+A `convergence` message closes the outer session. It MUST be multicast to all participant_ids. All epistemic states stabilize at this point.
+
+```text
+procedure ConvergeSession(session_id, participant_ids, convergence_payload, profile)
+1. emit BuildEnvelope(event_type = "convergence_emitted", kind_override = "convergence",
+     state_object_id = session_id,
+     parent_ids = [last_exchange_message_id],
+     payload = convergence_payload)
+   for each p in participant_ids (multicast delivery)
+2. each recipient updates epistemic state per the ConvergenceResult in the payload
+3. session is closed; no further exchange messages are valid on this state_object_id
+```
+
 ## 8. State Machines
 
 ### 8.1 Message Causality State Machine
@@ -602,6 +682,15 @@ Idle
 10. Protocol boundary invariant:
     Domain payload fields and deployment policy tables are external to SSTP semantics and MUST NOT alter the rules above except through the explicit deployment profile functions.
 
+11. Session initiation invariant:
+    The first message in any session MUST carry `kind = intent`. Service routing resolves only on this message. Subsequent messages in the session MUST NOT carry `kind = intent`.
+
+12. Contingency nesting invariant:
+    A `contingency` message MUST carry `turn_depth > 0` and a child `state_object_id` distinct from the parent session's `state_object_id`. A `commit` that closes a branch MUST reference the `contingency` message in `parent_ids`.
+
+13. Convergence delivery invariant:
+    A `convergence` message MUST be delivered to all `participant_ids` listed in the session or convergence payload. No further `exchange` messages are valid on the same `state_object_id` after a `convergence` is delivered.
+
 ## 10. Example Instantiations From Hospital3
 
 These examples are informative only.
@@ -615,7 +704,7 @@ event_type      = peer_turn
 sender          = actor_A
 receiver        = actor_B
 state_object_id = urn:ioc:{use_case}:state:shared_dialogue
-kind            = delegation
+kind            = exchange
 ttl_seconds     = 86400
 ```
 
@@ -743,11 +832,11 @@ MapOperationToEventType(op):
 By base SSTP rules:
 
 ```text
-KindOf(peer_turn) = delegation
-KindOf(decision_emitted) = commit
+KindOf(peer_turn)        = exchange
+KindOf(decision_emitted) = convergence
 ```
 
-Therefore terminal agreement outcomes are represented as `decision_emitted` events with `kind = commit`, while iterative discussion steps remain `peer_turn` with `kind = delegation`.
+Therefore terminal agreement outcomes are represented as `decision_emitted` events with `kind = convergence`, while iterative discussion steps remain `peer_turn` with `kind = exchange`.
 
 ### 12.4 Adaptation Procedures
 
@@ -792,6 +881,6 @@ procedure VerifyProposalIntegrity(proposal_id)
 1. Base SSTP invariants in Section 9 remain mandatory.
 2. `payload.profile` MUST equal `semantic_negotiation` for this adaptation.
 3. `payload.operation` MUST be one of the profile operations above.
-4. `accept` and `reject` SHOULD map to `decision_emitted` and thus `kind = commit`.
+4. `accept` and `reject` SHOULD map to `decision_emitted` and thus `kind = convergence`.
 5. Every non-initial negotiation step SHOULD include a causal parent in `parent_ids`.
 6. Proposal finalization SHOULD be gated by successful payload integrity verification.

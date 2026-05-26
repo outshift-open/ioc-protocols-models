@@ -1,276 +1,282 @@
 # IE Subprotocol Specification
 
-**Version:** 1.0  
-**Status:** Draft  
-**Copyright 2026 Cisco Systems, Inc. and its affiliates**  
+**Version:** 2.0
+**Status:** Normative
+**Copyright 2026 Cisco Systems, Inc. and its affiliates**
 **SPDX-License-Identifier: Apache-2.0**
 
 ---
 
 ## 1. Overview
 
-The **IE (Interaction Engine) subprotocol** governs structured multi-agent dialogue within SSTP sessions. It defines the message types, assertion chain, agent identity model, belief state semantics, and contingency decision logic that together guarantee verifiable, intent-aligned peer communication.
+The **IE (Interaction Engine) subprotocol** is the pairwise inter-agent grounding protocol. Its sole purpose is to ensure that when agent A says Y to agent B, B has correctly understood and integrated Y before the session proceeds.
+
+IE is not a transport layer, a security layer, or a message-sequencing layer. IE is a **semantic fidelity layer**: it verifies that each exchange produces genuine grounded understanding between agent pairs, and records that understanding as `CommonGround`.
+
+IE runs beneath SNP. All SNP operations (propose, consider, evaluate, counter_proposal, accept, reject) are carried over IE sessions. IE does not interpret SNP payloads — SNP semantics live in the payload; IE governs the grounding quality of the exchange that carries them.
 
 ### Scope
 
-- Per-utterance identity, integrity, and chain linkage via `UtteranceAssertion`
-- A declaration handshake that roots each agent's assertion chain at session start
-- Semantic belief state management: seeding, incremental update, drift detection
-- Ambiguity detection and repair decision logic
-- Wire message envelopes for all IE event types
+- Defining canonical event types and their mapping to L9 `kind`
+- Specifying the grounding verification invariant
+- Defining `CommonGround` as the output of verified grounding
+- Defining speech acts and task phases as epistemic annotations
+- Specifying how IE reads and writes `BeliefState`
+- Specifying Theory of Mind (ToM) integration at pre- and post-utterance
+- Specifying the repair decision tree using the current `contingency_mode` values
 
 ### Non-Goals
 
-- Transport framing (handled by SSTP L9)
-- Persistent storage of belief history (caller responsibility)
-- Cross-session state continuity
+- Transport framing (SSTP L9)
+- Domain-specific payload schema
+- Multi-party convergence (SNP)
+- Cross-session semantic memory (SemanticMemory store)
+
+### Reference
+
+Epistemic data structures (`BeliefState`, `CommonGround`, `PeerInteractionRecord`, etc.) are defined in `EPISTEMIC_DATA_STRUCTURES.md`. The L9 header and kind vocabulary are defined in `SSTP_FORMAL_MODEL.md`.
 
 ---
 
-## 2. Message Types
+## 2. Event Types
 
-| `event_type`               | Direction         | Description                                                              |
-|----------------------------|-------------------|--------------------------------------------------------------------------|
-| `declaration`              | broadcast         | Sent once per agent at session start; roots the assertion chain          |
-| `utterance`                | peer-to-peer      | A standard content-bearing turn in the dialogue                          |
-| `clarification_request`    | peer-to-peer      | Issued when ambiguity score > 0.6; belief update is held pending reply   |
-| `clarification_response`   | peer-to-peer      | Resolves a previously issued clarification request                       |
-| `repair`                   | peer-to-peer      | Triggered when invariants are violated or drift exceeds thresholds       |
+IE uses the following event types. Each maps to an L9 `kind` per `SSTP_FORMAL_MODEL.md §3.4`.
 
----
+| `event_type`               | L9 `kind`    | Description |
+|----------------------------|--------------|-------------|
+| `peer_turn`                | `exchange`   | Normal in-session utterance; primary grounding vehicle |
+| `repair_required`          | `contingency`| Opens a grounding repair branch; main session held |
+| `repair_applied`           | `commit`     | Closes a repair branch; main session resumes; `CommonGround` is recorded |
+| `epistemic_clarification`  | `contingency`| Opens a clarification branch for epistemic disagreement or belief conflict |
+| `decision_emitted`         | `convergence`| Closes the session with a terminal decision |
+| `episode_persisted`        | `convergence`| Memory write; closes episodic scope |
+| `conversation_terminated`  | `convergence`| Session terminated (unrecoverable or clean) |
+| `agent_request`            | `exchange`   | Runtime RPC request |
+| `agent_response`           | `exchange`   | Runtime RPC response |
+| `prior_query`              | `exchange`   | Read from semantic memory |
+| `prior_injection`          | `exchange`   | Inject prior into an agent's `BeliefState` from semantic memory |
+| `rule_update`              | `convergence`| Write a `TeamGroundedTruth` to semantic memory; stabilizes epistemic state |
+| `outcome_reported`         | `exchange`   | Informational outcome report; does not close session |
 
-## 3. Declaration Handshake
-
-Before peer dialogue begins, every participating agent **must** broadcast a signed `IEDeclaration` as the root of its assertion chain.
-
-**Procedure:**
-
-1. Agent constructs an `IEDeclaration` with `sequence_number = 1`, `prev_utterance_hash = ""`, and `event_type = "declaration"`.
-2. Agent signs the declaration using its `signing_key` (see §5).
-3. Declaration is broadcast to all peers before any `utterance` messages are sent.
-4. Receiving agents verify the declaration's signature. On failure: raise `AssertionVerificationError`; session is aborted.
-5. All subsequent assertions from this agent must chain from this declaration.
+The `epistemic` block in the L9 header SHOULD be present on all `peer_turn`, `repair_required`, `repair_applied`, and `epistemic_clarification` messages.
 
 ---
 
-## 4. Agent Identity
+## 3. Grounding Verification
 
+### 3.1 The Core IE Invariant
+
+> When A asserts Y to B, B's response is epistemically sufficient only if it is **contingent on the specific content of Y**. A response that could have been produced without Y is not grounds for updating common ground.
+
+Formal definition:
+
+```text
+GroundingVerified(A_message_id, B_response_id) =
+    B_response.addresses_evidence contains A_message_id
+    AND B_response.confidence_score reflects engagement with A's specific reasoning
+    AND B_response.epistemic.speech_act ≠ deliberation_pass
 ```
-AgentIdentity {
-    agent_id:    str       # Unique agent identifier within the session
-    role:        str       # Semantic role (e.g., "orchestrator", "fmc", "sfdc")
-    session_id:  str       # UUID identifying this dialogue session
-    signing_key: bytes     # HMAC-SHA256 key, derived via HMAC(session_secret, agent_id)
+
+`contingency_verified` in `CommonGround` is the boolean outcome of this check.
+
+### 3.2 Grounding Failure
+
+If `GroundingVerified = False`, IE MUST emit `repair_required` with:
+
+```text
+repair_reason = "grounding_failure"
+parent_ids    = [A_message_id, B_response_id]
+```
+
+This is a **semantic repair** event, not a delivery retry. The session is held pending repair. The failed exchange does NOT update `BeliefState`.
+
+### 3.3 Grounding Success
+
+If `GroundingVerified = True` for a `peer_turn` pair (A→B), IE records `CommonGround`:
+
+```text
+CommonGround {
+  holder_id:            A.agent_id,
+  confirmer_id:         B.agent_id,
+  concept_id:           topic of the assertion,
+  use_case:             session use_case,
+  episode_id:           state_object_id,
+  grounding_confidence: A's confidence that B correctly integrated the belief,
+  holder_confidence:    A's public_confidence at grounding time,
+  confirmer_confidence: B's public_confidence after grounding,
+  contingency_verified: True,
+  speech_acts:          [A's speech_act, B's speech_act],
+  grounding_message_ids:[A_message_id, B_response_id],
+  formed_at_ms:         now,
 }
 ```
 
-The `signing_key` is derived per-agent per-session using HMAC:
-
-```
-signing_key = HMAC-SHA256(session_secret, agent_id.encode())
-```
-
-The `session_secret` is established out-of-band before session start and never transmitted.
+`CommonGround.contingency_verified` MUST be `True`. A `CommonGround` with `contingency_verified = False` MUST NOT be created.
 
 ---
 
-## 5. UtteranceAssertion Structure
+## 4. Speech Acts and Task Phases
 
-Every IE turn is wrapped in an `UtteranceAssertion`:
+Every L9 header on a peer-dialogue message SHOULD carry an `EpistemicBlock`:
 
-```
-UtteranceAssertion {
-    utterance_id:         str    # UUID
-    agent_id:             str    # Originating agent
-    session_id:           str    # Session UUID
-    task_goal:            str    # The declared task goal for this session
-    content:              str    # The utterance text
-    content_hash:         str    # SHA-256(content), hex-encoded
-    timestamp_ms:         int    # Unix epoch milliseconds at creation
-    sequence_number:      int    # Monotonically increasing per agent; starts at 1
-    prev_utterance_hash:  str    # SHA-256(prev_assertion.content); "" for the first assertion
-    parent_ids:           list   # utterance_ids this assertion responds to (may be empty)
-    signature:            str    # HMAC-SHA256(signing_key, canonical_payload), hex-encoded
-    event_type:           str    # One of the types in §2; default "utterance"
+```text
+EpistemicBlock := {
+  speech_act:        SpeechAct,
+  task_phase:        TaskPhase,
+  social_compliance: Bool,     -- true when speech_act = deliberation_pass
 }
 ```
 
----
+### 4.1 Speech Acts
 
-## 6. Signing
+| `speech_act`          | Meaning |
+|-----------------------|---------|
+| `belief_assertion`    | Asserting a position with supporting reasoning |
+| `alignment_challenge` | Challenging another agent's position with counter-evidence |
+| `help_request`        | Requesting clarification or information |
+| `task_handoff`        | Delegating work to another agent |
+| `deliberation_pass`   | Expressing a position shift driven by social pressure, not grounded argument |
 
-The assertion signature is computed over the **canonical JSON payload** of the following fields, serialised with `sort_keys=True` and no extra whitespace:
+`deliberation_pass` MUST set `social_compliance = True` in `EpistemicBlock`. It contributes to the agent's `social_compliance_ratio` but MUST NOT trigger a `CommonGround` record.
 
-```json
-{
-  "utterance_id":        "<uuid>",
-  "agent_id":            "<agent_id>",
-  "session_id":          "<session_id>",
-  "content_hash":        "<sha256 hex>",
-  "timestamp_ms":        <int>,
-  "sequence_number":     <int>,
-  "prev_utterance_hash": "<sha256 hex or empty string>"
-}
-```
+### 4.2 Task Phases
 
-Signing algorithm:
+| `task_phase`    | Description |
+|-----------------|-------------|
+| `taskwork`      | Individual prior formation; no peer contact |
+| `transition`    | Committing independent priors to the shared space |
+| `action`        | IE-grounded exchanges; positions update for traceable reasons |
+| `interpersonal` | Surfaced when grounding fails or conflict persists; epistemically weakest |
 
-```
-signature = HMAC-SHA256(signing_key, canonical_json.encode('utf-8')).hexdigest()
-```
-
-`content` and `task_goal` are intentionally excluded from the signed payload to allow redaction.  Their integrity is covered by `content_hash`.
+`interpersonal` phase exchanges carry the lowest epistemic weight. `ArgumentOutcome` records with `task_phase = interpersonal` are discounted in the `PeerInteractionRecord`.
 
 ---
 
-## 7. Verification
+## 5. Belief State Integration
 
-Receivers **must** verify every incoming assertion in order:
+IE reads and writes `BeliefState` (defined in `EPISTEMIC_DATA_STRUCTURES.md §6`).
 
-1. **Content hash**: Recompute `SHA-256(assertion.content)` and compare to `assertion.content_hash`.
-2. **Signature**: Recompute `HMAC-SHA256(signing_key, canonical_payload)` and compare to `assertion.signature` using a constant-time comparison.
-3. **Chain integrity**: If a previous assertion from this agent exists, verify `assertion.prev_utterance_hash == SHA-256(prev_assertion.content)`.
-4. **Sequence gap**: Verify `assertion.sequence_number > prev_assertion.sequence_number`.
+### 5.1 On `peer_turn` — grounding verified
 
-### On Verification Failure
+1. Determine the concept being asserted (from payload or epistemic annotation)
+2. Record `BeliefRevision` with `cause = grounded_argument`
+3. Call `AgentBeliefStore.record_revision(B.agent_id, concept_id, use_case, soid, revision, new_status="asserted")`
+4. Append `(argument_concept_id, Δ)` to `BeliefState.likelihoods`
+5. Update `BeliefState.posterior`
+6. Record `CommonGround` (§3.3)
 
-If any check fails, raise `AssertionVerificationError(utterance_id, agent_id, reason)`.  
-**No repair is attempted.** The session must be aborted.
+### 5.2 On `peer_turn` — grounding not verified
 
-`reason` values: `content_hash_mismatch`, `signature_invalid`, `chain_broken`, `sequence_gap`.
+1. Hold the belief update
+2. Emit `repair_required`
+3. Do NOT update `BeliefState`; do NOT record `CommonGround`
 
----
+### 5.3 On `repair_applied`
 
-## 8. Belief State
+1. If repair succeeded: apply the held belief update with `cause = repair_resolution`
+2. Record `CommonGround` with `contingency_verified = True`
+3. Resume parent session
 
-The IE subprotocol maintains a **semantic belief dict** per agent — not a float vector.
+### 5.4 On `prior_injection`
 
-```python
-belief = {
-    "role":                str,    # Agent role as declared
-    "objective":           str,    # Current inferred task objective
-    "context_summary":     str,    # Running natural-language summary of observed context
-    "inferred_constraints": list,  # Constraints extracted from utterances
-    "confidence":          float,  # [0.0, 1.0] current belief confidence
-}
-```
+1. Extract prior value and prior_weight from payload
+2. Call `AgentBeliefStore.set_prior(agent_id, concept_id, use_case, prior, prior_weight)`
+3. Record `BeliefRevision` with `cause = semantic_memory`, `message_id = None`
+4. `BeliefState.prior` is set once at episode open; it is NOT updated by subsequent `prior_injection` calls in the same episode
 
-### 8.1 Belief Seeding
+### 5.5 On `deliberation_pass`
 
-```
-seed_belief(agent_id, role_description, session_context) → belief dict
-```
-
-- Calls LLM task `tom_belief_seed` with `agent_id`, `role_description`, `task_goal`, `session_context`.
-- Stores the result as `_beliefs[agent_id]`.
-- **Freezes** the result as `_anchors[agent_id]` — the anchor is never mutated after seeding.
-- Initialises `_ema_alignments[agent_id] = 1.0` and `_change_logs[agent_id] = []`.
-
-### 8.2 Belief Update
-
-```
-update_belief(agent_id, utterance, task_goal) → belief dict
-```
-
-- Calls LLM task `tom_belief_update` with current belief and new utterance.
-- Updates `objective`, `context_summary`, `inferred_constraints`, `confidence` in place.
-- Appends utterance to `_utterance_history[agent_id]` (capped at 10 entries).
-- Appends `change_summary` to `_change_logs[agent_id]` (capped at 10 entries).
-- Calls `assess_task_alignment` to obtain an alignment score, then updates EMA.
-
-### 8.3 EMA Alignment
-
-Exponential Moving Average alignment tracks belief trajectory stability:
-
-```
-ema[t] = α × alignment_score[t] + (1 − α) × ema[t−1]
-```
-
-Where `α = 0.3` and `ema[0] = 1.0`.
+1. Record `BeliefRevision` with `cause = social_compliance`
+2. Update `BeliefState.public_confidence` but NOT `BeliefState.posterior`
+3. Do NOT record `CommonGround`
+4. Increment `social_compliance_ratio`
 
 ---
 
-## 9. Drift Detection
+## 6. Theory of Mind Integration
 
-```
-drift_signals(agent_id) → {
-    "agent_id":      str,
-    "ema_alignment": float,   # Current EMA alignment value
-    "anchor_gap":    float,   # |current_confidence − anchor_confidence|
-    "change_log":    list,    # Last ≤ 10 change summaries
-    "confidence":    float,   # Current belief confidence
-}
-```
+IE uses the ToM layer at two points per peer_turn exchange.
 
-**anchor_gap** measures confidence drift from the seeded anchor:
+### 6.1 Pre-utterance — 1st-order ToM
 
-```
-anchor_gap = |_beliefs[agent_id]["confidence"] − _anchors[agent_id]["confidence"]|
-```
+Before A sends an assertion to B:
 
----
+1. Read `AgentBeliefStore.current_belief(B.agent_id, concept_id, use_case)`
+2. If B's `posterior` is already close to A's intended position, a `belief_assertion` may not move B — consider whether to assert or take a different approach
+3. If B has `status = committed`, A must use `alignment_challenge` rather than `belief_assertion`
 
-## 10. Ambiguity Detection
+### 6.2 Pre-utterance — 2nd-order ToM
 
-```
-detect_ambiguity(utterance, task_goal, agent_id=None) → {
-    "ambiguous":                bool,
-    "ambiguity_score":          float,  # [0.0, 1.0]
-    "ambiguous_spans":          list,   # Substrings identified as ambiguous
-    "plausible_interpretations": list,  # Possible readings
-}
-```
+Before A sends an assertion of a specific `argument_type` to B:
 
-Calls LLM task `detect_ambiguity` with the utterance, task goal, and current agent belief (if `agent_id` is supplied).
+1. Consult `PeerInteractionStore.get_peer_record(A.agent_id, B.agent_id, use_case)`
+2. If A's planned `argument_type` is in `PeerInteractionRecord.argument_types_ignored`, reformulate the argument or probe first
+3. Check `evidence_weights` for the target `concept_id` — weight A's framing toward concepts B historically values highly
+4. Record a `PredictionRecord` with `predicted_confidence` before sending — this MUST be genuine pre-utterance
 
-When `ambiguous == True` and `ambiguity_score > 0.6`:
-- Belief update for this utterance is **held**.
-- The engine returns a `request_clarification` contingency.
-- An `IEClarificationRequest` should be emitted with `ambiguous_spans` and `plausible_interpretations`.
+### 6.3 Post-response — update loop
+
+After receiving B's response:
+
+1. Record `ArgumentOutcome`:
+   - `contingent`: was B's response contingent on A's specific reasoning?
+   - `moved`: did B's `public_confidence` shift beyond noise threshold?
+   - `move_cause`: `grounded_argument` | `social_compliance` | `no_move`
+2. Fill in `PredictionRecord.actual_confidence` and compute `prediction_error`
+3. Call `PeerInteractionStore.record_argument_outcome(A.agent_id, B.agent_id, use_case, outcome)`
+4. Call `PeerInteractionStore.record_prediction(A.agent_id, B.agent_id, use_case, pred)`
+5. Update `argument_types_that_move` / `argument_types_ignored` accordingly
 
 ---
 
-## 11. Repair Decision Tree
+## 7. Repair Decision Tree
 
-Contingency selection is evaluated in strict priority order:
+Contingency selection is evaluated in strict priority order. The `contingency_mode` values used here are those implemented in the reference runtime.
 
-| Priority | Condition                                    | Contingency              |
-|----------|----------------------------------------------|--------------------------|
-| 1        | `invariants_violated` is non-empty           | `repair_hard_stop`       |
-| 2        | `ambiguity_score > 0.6`                      | `request_clarification`  |
-| 3        | `anchor_gap > 0.3` OR `ema_alignment < 0.45` | `repair_anchor`          |
-| 4        | `alignment_score < 0.55` OR `disagreement > 0.35` | `repair_alignment`  |
-| 5        | `urgency > 0.72`                             | `expedite_decision`      |
-| default  | (none of the above)                          | `normal_alignment`       |
+| Priority | Condition | `contingency_mode` | L9 `kind` |
+|----------|-----------|-------------------|-----------|
+| 1 | `GroundingVerified = False` | `repair_required` | `contingency` |
+| 2 | `ambiguity_score > 0.6` | `request_clarification` | `contingency` |
+| 3 | `anchor_gap > 0.3` or `ema_alignment < 0.45` | `repair_anchor` | `contingency` |
+| 4 | `alignment_score < 0.55` or `disagreement > 0.35` | `repair_alignment` | `contingency` |
+| 5 | `urgency > 0.72` | `expedite_decision` | `contingency` |
+| default | (none of the above) | `normal_alignment` | — (no contingency) |
 
 ### Contingency Semantics
 
-- **`repair_hard_stop`**: An invariant has been violated. Session must be paused; emit an `IERepair` with `repair_strategy = "hard_stop"`.
-- **`request_clarification`**: Ambiguity is too high to proceed. Emit `IEClarificationRequest`; hold belief update until `IEClarificationResponse` received.
-- **`repair_anchor`**: Confidence drift from anchor is large or EMA has decayed. Re-anchor agent to its original objective.
-- **`repair_alignment`**: Alignment or disagreement score indicates misalignment. Restate alignment constraints.
-- **`expedite_decision`**: Urgency is high; constrain response to fast-path terms only.
-- **`normal_alignment`**: Proceed with standard aligned turn.
+- **`repair_required`**: Grounding failed — B's response was not contingent on A's reasoning. Semantic repair, not delivery retry. Session is held. After successful `repair_applied`, `CommonGround` is recorded.
+- **`request_clarification`**: Ambiguity too high to proceed. Emit `epistemic_clarification` (`kind = contingency`); hold belief update until clarification response received.
+- **`repair_anchor`**: Confidence has drifted significantly from the agent's taskwork prior. Re-anchor the agent to its independent prior before proceeding.
+- **`repair_alignment`**: Alignment score or disagreement indicates positions are misaligned without grounded reasoning. Restate alignment constraints.
+- **`expedite_decision`**: Urgency exceeds threshold; constrain response to fast-path terms.
+- **`normal_alignment`**: Proceed with standard aligned turn; no contingency branch.
+
+All contingency modes other than `normal_alignment` emit with `kind = contingency`. Resolution emits with `kind = commit`.
 
 ---
 
-## 12. Error Types
+## 8. Episode Close
 
-| Exception                   | When raised                                                        |
-|-----------------------------|--------------------------------------------------------------------|
-| `AssertionVerificationError` | Content hash, signature, chain, or sequence check fails          |
+At episode close (on `decision_emitted`, `episode_persisted`, or `conversation_terminated`):
 
-Constructor signature:
-```python
-AssertionVerificationError(utterance_id: str, agent_id: str, reason: str)
-```
+1. For each agent pair `(A, B)` that exchanged during the episode:
+   a. Collect all `ArgumentOutcome` and `PredictionRecord` accumulated in the episodic buffer
+   b. Call `PeerInteractionStore.promote_outcomes_for_pair(A.agent_id, B.agent_id, use_case, soid, outcomes, predictions)`
+2. `CommonGround` records are already written turn-by-turn; no promotion needed
+3. `BeliefState` is cross-episode; no promotion needed
 
 ---
 
-## 13. Implementation Notes
+## 9. Invariants
 
-- `hmac.new` is used in the reference implementation (Python standard library `hmac` module).
-- All SHA-256 digests are hex-encoded strings (64 hex characters).
-- `sequence_number` starts at 1 for each agent; 0 is reserved to indicate "no previous assertion."
-- The `anchor` is set exactly once, at `seed_belief` time, and is never updated.
-- LLM tasks (`tom_belief_seed`, `tom_belief_update`, `tom_task_alignment`, `tom_peer_attribution`, `detect_ambiguity`) are defined in the LLM client task registry.
+1. **Grounding contingency invariant**: `CommonGround.contingency_verified` MUST be `True`. A `CommonGround` with `contingency_verified = False` MUST NOT be recorded.
+
+2. **Prediction pre-utterance invariant**: `PredictionRecord.predicted_confidence` MUST be recorded before B's message is received. Post-hoc predictions are invalid.
+
+3. **Social compliance exclusion invariant**: `BeliefRevision` records with `cause = social_compliance` MUST NOT contribute to `BeliefState.posterior` or `likelihoods`. They contribute only to `social_compliance_ratio`.
+
+4. **Prior immutability invariant**: `BeliefState.prior` is set once per episode via `prior_injection` or `set_prior`. Subsequent `record_revision` calls update `posterior` via `likelihoods` but MUST NOT overwrite `prior`.
+
+5. **Deliberation pass invariant**: A `peer_turn` with `speech_act = deliberation_pass` MUST set `EpistemicBlock.social_compliance = True`. It MUST NOT produce a `CommonGround` record.
+
+6. **Repair before belief update invariant**: If `GroundingVerified = False` for a `peer_turn`, the corresponding `BeliefRevision` MUST NOT be applied until a `repair_applied` event resolves the branch.

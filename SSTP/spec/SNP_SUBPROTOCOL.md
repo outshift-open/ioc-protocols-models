@@ -35,16 +35,26 @@ NegotiationStatus := pending | reviewed | incorporated | resolved
 
 ### 1.3 SSTP Kind Mapping
 
-The SSTP base kind vocabulary used by SNP:
+SNP uses the 5-value session-flow vocabulary defined in `SSTP_FORMAL_MODEL.md §3.4`:
 
 ```text
-SSTPKind :=
-  intent | delegation | knowledge | query | proposal | negotiation | commit
+SSTPKind := intent | exchange | contingency | commit | convergence
 ```
 
-Note:
-- `proposal` and `negotiation` are represented as payload-level operations.
-- SSTP header `kind` is always derived from canonical `event_type` by base SSTP rules.
+SNP operation → L9 `kind` mapping:
+
+| SNP operation | `event_type` | L9 `kind` |
+|---|---|---|
+| `propose` (session-opening) | `peer_turn` | `intent` |
+| `consider_proposal`, `evaluate_proposal`, `review_proposal`, `negotiate` | `peer_turn` | `exchange` |
+| `counter_proposal` | `peer_turn` | `contingency` |
+| Individual `accept` / `reject` | `decision_emitted` | `commit` |
+| Group convergence announcement | `convergence_emitted` | `convergence` |
+
+Notes:
+- Payload-level `operation` carries SNP semantics. SSTP `kind` carries session-layer role.
+- `counter_proposal` opens a contingency branch at L9; the proposal payload carries the SNP semantics. Resolved by a subsequent `commit`.
+- `convergence_emitted` is a new SNP event type; it is multicast to all participants and closes the session.
 
 ## 2. Data Structures
 
@@ -103,12 +113,51 @@ NegotiationMessage := {
 }
 ```
 
-### 2.4 Stores
+### 2.4 NegotiationRound
+
+A structured record of one multi-party negotiation round. Replaces the flat `NegotiationStore` for rounds that require Bayesian provenance tracking.
 
 ```text
-ProposalStore := Map[String, SemanticProposal]              # proposal_id -> SemanticProposal
-NegotiationStore := Map[String, Seq[NegotiationMessage]]    # proposal_id -> ordered negotiation messages
-NegotiationIndex := Map[String, NegotiationMessage]         # negotiation_id -> NegotiationMessage
+NegotiationRound := {
+  round_id:              String,
+  proposal_id:           String,
+  participants:          Seq[String],               -- agent_ids
+  messages:              Seq[NegotiationMessage],   -- ordered
+  individual_positions:  Map[String, Float],        -- agent_id → current posterior
+  status:                open | resolved | failed,
+}
+```
+
+### 2.5 ConvergenceResult
+
+The output of a completed SNP round. Payload of `convergence_emitted`. Written to SemanticMemory as a `TeamGroundedTruth`.
+
+```text
+ConvergenceResult := {
+  negotiation_id:          String,
+  concept_id:              UriString,
+  use_case:                String,
+  participant_ids:         Seq[String],
+  individual_priors:       Map[String, Float],     -- agent_id → prior at round open
+  individual_posteriors:   Map[String, Float],     -- agent_id → posterior at round close
+  consensus_posterior:     Float,                  -- MPC: mean position confidence at commit
+  genuine_agreement_ratio: Float,                  -- GAR: fraction consistent with taskwork priors
+  social_compliance_ratio: Float,                  -- SCR: fraction of revisions with cause = social_compliance
+  common_ground_ids:       Seq[String],            -- CommonGround episode_ids that fed this
+  outcome:                 accept | reject | deferred,
+  formed_at_ms:            TimestampMs,
+}
+```
+
+The `ConvergenceResult.prior_weight` for SemanticMemory is `(1.0 - SCR) × GAR` (from `EPISTEMIC_DATA_STRUCTURES.md §8.1`).
+
+### 2.6 Stores
+
+```text
+ProposalStore    := Map[String, SemanticProposal]            -- proposal_id → SemanticProposal
+NegotiationStore := Map[String, Seq[NegotiationMessage]]     -- proposal_id → ordered messages
+NegotiationIndex := Map[String, NegotiationMessage]          -- negotiation_id → NegotiationMessage
+RoundStore       := Map[String, NegotiationRound]            -- round_id → NegotiationRound
 ```
 
 ## 3. Binding to Interaction Engine + SSTP
@@ -130,9 +179,22 @@ MapOperationToEventType(op):
 ```
 
 Implications from SSTP base model:
-- `peer_turn` yields `kind = delegation`.
-- `decision_emitted` yields `kind = commit`.
+- `peer_turn` yields `kind = exchange` (or `intent` for session-opening `propose`).
+- `decision_emitted` yields `kind = commit` (individual terminal signal).
+- `convergence_emitted` yields `kind = convergence` (group closure; multicast).
 - All SNP messages carry `cognition_profile_id = "semantic_alignment"` and `cognition_protocol = "SNP"` in `semantic_context`.
+
+#### 3.1.1 convergence_emitted Event Type
+
+```text
+convergence_emitted: emitted by coordinator after majority or unanimous determination;
+  kind        = convergence
+  delivery    = multicast to all participant_ids
+  parent_ids  = [last decision_emitted message_id]
+  payload     = ConvergenceResult (§2.5)
+```
+
+This is a new SNP event type. It carries `ConvergenceResult` as payload and is the record written to SemanticMemory via `rule_update`.
 
 ### 3.2 Payload Shape for Negotiation Events
 
@@ -227,15 +289,77 @@ procedure VerifyProposalIntegrity(proposal_id)
 4. return (stored_hash = recomputed)
 ```
 
-## 5. Conformance Requirements
+### 4.7 DetermineConvergence
+
+Called by the coordinator after collecting individual `decision_emitted` messages.
+
+```text
+procedure DetermineConvergence(negotiation_id, positions, priors, scr, threshold, profile)
+-- positions : Map[agent_id, Float]  -- current posteriors
+-- priors    : Map[agent_id, Float]  -- taskwork priors at round open
+-- scr       : Float                 -- fraction of revisions with cause = social_compliance
+-- threshold : Float                 -- majority or unanimity threshold (e.g. 0.5 or 1.0)
+
+1. mpc := mean(positions.values())
+2. gar := fraction of agents where |positions[a] - priors[a]| < social_influence_threshold
+3. if count(positions.values() >= threshold) / len(positions) >= threshold:
+   a. outcome := accept
+4. else if count(positions.values() < (1.0 - threshold)) / len(positions) >= threshold:
+   a. outcome := reject
+5. else if max_rounds_exceeded:
+   a. outcome := deferred
+6. build ConvergenceResult {
+     consensus_posterior     = mpc,
+     genuine_agreement_ratio = gar,
+     social_compliance_ratio = scr,
+     outcome                 = outcome,
+     ...
+   }
+7. emit convergence_emitted to all participant_ids (multicast, kind = convergence)
+8. write ConvergenceResult to SemanticMemory via rule_update with:
+   prior_weight = (1.0 - scr) × gar
+9. return ConvergenceResult
+```
+
+---
+
+## 5. Theory of Mind Integration
+
+Before a proposing agent sends a PROPOSE or COUNTER_PROPOSAL, it SHOULD consult the ToM layer to maximise the grounding quality of the proposal.
+
+### 5.1 Pre-proposal — 1st-order ToM
+
+1. For each peer `p` in `participant_ids`:
+   - Read `AgentBeliefStore.current_belief(p.agent_id, concept_id, use_case)`
+   - If `BeliefState.posterior` is already at or beyond the proposal's target value, the argument may not move `p` — consider whether to reformulate
+
+### 5.2 Pre-proposal — 2nd-order ToM
+
+1. For each peer `p`:
+   - Consult `PeerInteractionStore.get_peer_record(self.agent_id, p.agent_id, use_case)`
+   - If the planned argument type is in `PeerInteractionRecord.argument_types_ignored` for `p`, reformulate to an argument type in `argument_types_that_move`
+   - Check `evidence_weights` for the target `concept_id` — weight the proposal framing toward concepts `p` historically values highly
+2. Construct the proposal payload to lead with evidence types that have historically moved the specific audience
+
+### 5.3 Post-decision update
+
+After receiving each peer's `decision_emitted` response:
+1. Record `ArgumentOutcome` and `PredictionRecord` for each peer (see `IE_SUBPROTOCOL.md §6.3`)
+2. Update `PeerInteractionRecord` — the social skill map (`argument_types_that_move`, `argument_types_ignored`) improves over episodes
+
+---
+
+## 6. Conformance Requirements
 
 1. Implementations MUST preserve SSTP header invariants from the base formal model.
 2. Negotiation semantics MUST be represented using payload-level `operation` values.
 3. Implementations SHOULD maintain deterministic causality via `parent_ids` chains.
-4. Implementations SHOULD use `decision_emitted` for terminal acceptance/rejection outcomes.
-5. Proposal integrity checks SHOULD be performed before final commit/decision.
+4. Implementations SHOULD use `decision_emitted` for individual terminal acceptance/rejection outcomes.
+5. Proposal integrity checks SHOULD be performed before final convergence.
+6. After individual `decision_emitted` messages are collected, a coordinator MUST emit `convergence_emitted` to all `participant_ids` (multicast, `kind = convergence`).
+7. `ConvergenceResult` MUST carry `genuine_agreement_ratio` and `social_compliance_ratio`. `prior_weight` written to SemanticMemory MUST equal `(1.0 - SCR) × GAR`.
 
-## 6. Interoperability Note
+## 7. Interoperability Note
 
 A system that does not implement SNP-specific operations can still process events as standard SSTP messages:
 - It can rely on `event_type`, `kind`, and `policy_labels`.

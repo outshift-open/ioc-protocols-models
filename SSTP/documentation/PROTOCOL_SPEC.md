@@ -104,21 +104,45 @@ Every L9 header is a dict with the following fields.  The `build()` method of
 
 ### Kind Taxonomy
 
-All current L9 protocols share this SSTP kind vocabulary:
+All current L9 protocols share this 5-value session-flow vocabulary:
 
-| Kind | Semantics |
+| Kind | Session role |
 |---|---|
-| `intent` | Initial goal or request |
-| `delegation` | Task or authority handoff |
-| `knowledge` | Factual or contextual information |
-| `query` | Request for information or repair |
-| `commit` | Final decision or commitment |
-| `memory_delta` | Persistent memory update |
-| `evidence_bundle` | Supporting evidence package |
-| `negotiate` | SNP panel negotiation message |
+| `intent` | Session-initiating message; triggers service selection and session establishment |
+| `exchange` | Normal in-session turn; sub-protocol carries semantics |
+| `contingency` | Opens a branching sub-session (repair, clarification, epistemic challenge) |
+| `commit` | Closes a contingency branch; the parent session resumes |
+| `convergence` | Closes the outer session; multicast to all participants; all epistemic states stabilize |
 
-`commit` and `memory_delta` are **certified** kinds (schema trust level = "certified",
-schema version = "1.0").  All others are "draft" / "0.1".
+`commit` and `convergence` are **certified** kinds (schema trust level = "certified", schema version = "1.0"). All others are "draft" / "0.1".
+
+`kind` is a session-layer classifier, not a routing field. Service routing resolves only on the first (`intent`) message. Contingency (`contingency` → `commit`) is a nested pair within the outer session (`intent` → `convergence`). `exchange` is everything in between.
+
+### Session Lifecycle
+
+```
+intent          — session established; service routing resolves
+exchange        — iterative turns; sub-protocol semantics in payload
+contingency     — branch opens (repair, clarification, challenge)
+commit          — branch closes; parent session resumes
+convergence     — outer session closes; multicast; epistemic state stabilizes
+```
+
+See `SSTP_FORMAL_MODEL.md §7.8–7.10` for session lifecycle procedures.
+
+### Epistemic Data Structures
+
+Every peer-dialogue L9 header SHOULD carry an `epistemic` block:
+
+```
+"epistemic": {
+  "speech_act":        string   — belief_assertion | alignment_challenge | help_request | task_handoff | deliberation_pass
+  "task_phase":        string   — taskwork | transition | action | interpersonal
+  "social_compliance": bool     — true when speech_act = deliberation_pass
+}
+```
+
+For the full epistemic data structures (`BeliefState`, `CommonGround`, `TeamGroundedTruth`, `PeerInteractionRecord`), see `SSTP/spec/EPISTEMIC_DATA_STRUCTURES.md`.
 
 ---
 
@@ -134,10 +158,14 @@ two-step pipeline.  All SNP headers carry `cognition_profile_id = "semantic_alig
 and `cognition_protocol = "SNP"` in `semantic_context`.
 
 ```
-SNP operation  →  SSTP event_type  →  L9 kind
-─────────────────────────────────────────────
-propose / counter_proposal / …  →  peer_turn        →  delegation
-accept / reject                 →  decision_emitted →  commit
+SNP operation           →  SSTP event_type     →  L9 kind
+─────────────────────────────────────────────────────────
+propose (session-open)  →  peer_turn           →  intent
+consider / evaluate /
+review / negotiate      →  peer_turn           →  exchange
+counter_proposal        →  peer_turn           →  contingency
+accept / reject         →  decision_emitted    →  commit (individual terminal)
+group convergence       →  convergence_emitted →  convergence (multicast)
 ```
 
 **Key classes / functions:**
@@ -168,16 +196,19 @@ headers carry `cognition_profile_id = "adaptive_communication:v1"` and
 IE event_type → L9 kind mapping:
 
 ```
-turn_ingested           →  intent
-peer_turn               →  delegation
-repair_required         →  query
-repair_applied          →  delegation
-decision_emitted        →  commit
-episode_persisted       →  memory_delta
-conversation_terminated →  knowledge
-agent_request           →  delegation
-agent_response          →  commit
-agent_error / agent_shutdown / agent_shutdown_ack  →  knowledge
+turn_ingested                              →  exchange
+peer_turn                                  →  exchange
+repair_required                            →  contingency
+repair_applied                             →  commit
+epistemic_clarification                    →  contingency
+decision_emitted                           →  convergence
+episode_persisted                          →  convergence
+conversation_terminated                    →  convergence
+rule_update                                →  convergence
+agent_request / agent_response             →  exchange
+prior_query / prior_injection              →  exchange
+outcome_reported                           →  exchange
+agent_error / agent_shutdown / agent_shutdown_ack  →  exchange
 ```
 
 **Key classes / functions:**
@@ -207,7 +238,7 @@ from protocol.l9_base import L9HeaderBuilder
 
 class MyProtocolBuilder(L9HeaderBuilder):
     def kind_for_event_type(self, event_type: str) -> str:
-        return {"my_event": "intent", "my_commit": "commit"}.get(event_type, "knowledge")
+        return {"my_event": "intent", "my_commit": "convergence"}.get(event_type, "exchange")
 
     def schema_id_for(self, use_case, event_type, kind, trust_level):
         return f"urn:my-org:{use_case}:{kind}:v1"

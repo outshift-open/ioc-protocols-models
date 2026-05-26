@@ -16,7 +16,12 @@ optional fields to **required**.
 
 Kind taxonomy
 -------------
-``intent | delegation | knowledge | query | commit | memory_delta | evidence_bundle | negotiate``
+``intent | exchange | contingency | commit | convergence``
+
+Legacy kinds (backward compat during transition):
+``delegation | knowledge | query | memory_delta | evidence_bundle``
+
+NegMAS SAO extension: ``negotiate``
 
 For ``kind="negotiate"`` the ``semantic_context`` field is typed as
 :class:`NegotiateSemanticContext` which carries a full NegMAS SAO snapshot
@@ -115,8 +120,11 @@ from ._base import (
 
 # ── Kind-specific message classes ─────────────────────────────────────────────
 from .commit import NegotiateCommitSemanticContext, SSTPCommitMessage
+from .contingency import ContingencyMessage
+from .convergence import ConvergenceMessage
 from .delegation import DelegationMessage
 from .evidence_bundle import EvidenceBundleMessage
+from .exchange import ExchangeMessage
 from .intent import IntentMessage
 from .knowledge import KnowledgeMessage
 from .memory_delta import MemoryDeltaMessage
@@ -136,13 +144,19 @@ from .l9_bridge import (
 
 STPMessage = Annotated[
     Union[
+        # New 5-value session-flow vocabulary (preferred)
         IntentMessage,
+        ExchangeMessage,
+        ContingencyMessage,
+        SSTPCommitMessage,
+        ConvergenceMessage,
+        # Legacy kinds (backward compat during transition)
         DelegationMessage,
         KnowledgeMessage,
         QueryMessage,
-        SSTPCommitMessage,
         MemoryDeltaMessage,
         EvidenceBundleMessage,
+        # NegMAS SAO extension
         SSTPNegotiateMessage,
     ],
     Field(discriminator="kind"),
@@ -207,13 +221,17 @@ __all__ = [
     "LogicalClock",
     # Base envelope
     "_STBaseMessage",
-    # Kind message classes
+    # Kind message classes — new session-flow vocabulary
     "IntentMessage",
+    "ExchangeMessage",
+    "ContingencyMessage",
+    "SSTPCommitMessage",
+    "ConvergenceMessage",
+    # Kind message classes — legacy (backward compat)
     "DelegationMessage",
     "KnowledgeMessage",
     "QueryMessage",
     "NegotiateCommitSemanticContext",
-    "SSTPCommitMessage",
     "MemoryDeltaMessage",
     "EvidenceBundleMessage",
     "NegotiateSemanticContext",

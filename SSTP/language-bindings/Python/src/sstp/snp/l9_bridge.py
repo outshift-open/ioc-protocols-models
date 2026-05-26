@@ -29,10 +29,10 @@ Public API
     carried in the ``NegotiateSemanticContext``.
 
 ``build_repair_required``
-    Build a ``QueryMessage`` (kind=query) for a repair_required event.
+    Build a ``ContingencyMessage`` (kind=contingency) for a repair_required event.
 
 ``build_repair_applied``
-    Build a ``DelegationMessage`` (kind=delegation) for a repair_applied event.
+    Build a ``CommitMessage`` (kind=commit) for a repair_applied event.
 """
 
 from __future__ import annotations
@@ -60,7 +60,10 @@ from ._base import (
     _STBaseMessage,
 )
 from .commit import NegotiateCommitSemanticContext, SSTPCommitMessage
+from .contingency import ContingencyMessage
+from .convergence import ConvergenceMessage
 from .delegation import DelegationMessage
+from .exchange import ExchangeMessage
 from .intent import IntentMessage
 from .knowledge import KnowledgeMessage
 from .memory_delta import MemoryDeltaMessage
@@ -71,13 +74,19 @@ from .query import QueryMessage
 # ── Kind → Pydantic model mapping ─────────────────────────────────────────────
 
 _KIND_MODEL_MAP: Dict[str, type[_STBaseMessage]] = {
-    "intent": IntentMessage,
-    "delegation": DelegationMessage,
-    "knowledge": KnowledgeMessage,
-    "query": QueryMessage,
-    "commit": SSTPCommitMessage,
+    # New 5-value session-flow vocabulary
+    "intent":       IntentMessage,
+    "exchange":     ExchangeMessage,
+    "contingency":  ContingencyMessage,
+    "commit":       SSTPCommitMessage,
+    "convergence":  ConvergenceMessage,
+    # Legacy kinds (backward compat during transition)
+    "delegation":   DelegationMessage,
+    "knowledge":    KnowledgeMessage,
+    "query":        QueryMessage,
     "memory_delta": MemoryDeltaMessage,
-    "negotiate": SSTPNegotiateMessage,
+    # NegMAS SAO (intentionally kept; NegMAS-specific extension)
+    "negotiate":    SSTPNegotiateMessage,
 }
 
 
@@ -370,11 +379,10 @@ def build_repair_required(
     turn_depth: int | None = None,
     parent_ids: Iterable[str] | None = None,
     message_id: str | None = None,
-) -> QueryMessage:
-    """Build a ``repair_required`` event as a ``QueryMessage`` (kind=query).
+) -> ContingencyMessage:
+    """Build a ``repair_required`` event as a ``ContingencyMessage`` (kind=contingency).
 
-    Uses the base layer to derive the L9 header for the repair_required
-    event type, then wraps it in a Pydantic QueryMessage for the session layer.
+    Opens a contingency branch. The parent session is held until repair_applied.
     """
     l9_hdr = build_l9_header(
         use_case=use_case,
@@ -386,7 +394,7 @@ def build_repair_required(
         parent_ids=parent_ids,
         message_id=message_id,
     )
-    return l9_header_to_pydantic(l9_hdr, payload=payload, kind_override="query")  # type: ignore[return-value]
+    return l9_header_to_pydantic(l9_hdr, payload=payload, kind_override="contingency")  # type: ignore[return-value]
 
 
 def build_repair_applied(
@@ -399,11 +407,10 @@ def build_repair_applied(
     turn_depth: int | None = None,
     parent_ids: Iterable[str] | None = None,
     message_id: str | None = None,
-) -> DelegationMessage:
-    """Build a ``repair_applied`` event as a ``DelegationMessage`` (kind=delegation).
+) -> SSTPCommitMessage:
+    """Build a ``repair_applied`` event as a ``CommitMessage`` (kind=commit).
 
-    Uses the base layer to derive the L9 header for the repair_applied
-    event type, then wraps it in a Pydantic DelegationMessage for the session layer.
+    Closes the contingency branch opened by repair_required. Parent session resumes.
     """
     l9_hdr = build_l9_header(
         use_case=use_case,
@@ -415,7 +422,7 @@ def build_repair_applied(
         parent_ids=parent_ids,
         message_id=message_id,
     )
-    return l9_header_to_pydantic(l9_hdr, payload=payload, kind_override="delegation")  # type: ignore[return-value]
+    return l9_header_to_pydantic(l9_hdr, payload=payload, kind_override="commit")  # type: ignore[return-value]
 
 
 __all__ = [

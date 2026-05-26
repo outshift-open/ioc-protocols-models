@@ -68,12 +68,15 @@ class TOMPairChannel(TOMPairChannelBase):
         speaker_belief: Dict[str, Any] | None = None,
         history: List[str] | None = None,
         schema: Optional[Dict[str, Any]] = None,
+        listener_belief: Dict[str, Any] | None = None,
+        listener_prior_utterance: str | None = None,
     ) -> Dict[str, Any]:
-        """Return task-alignment assessment for a single utterance, or neutral stub if disabled."""
+        """Return task-alignment and grounding assessment for a single utterance, or neutral stub if disabled."""
         if not self.enabled:
             return {
                 "aligned": True, "alignment_score": 1.0, "disagreement_score": 0.0,
                 "derailed": False, "derailment_cause": None,
+                "grounding_failure": False, "contingency_score": 1.0,
                 "ambiguous": False, "ambiguity_score": 0.0,
                 "judge_confidence": 1.0, "critique": "tom_disabled",
             }
@@ -85,6 +88,8 @@ class TOMPairChannel(TOMPairChannelBase):
                 listener=listener or self.agent_b,
                 speaker_belief=speaker_belief or {},
                 history=history,
+                listener_belief=listener_belief,
+                listener_prior_utterance=listener_prior_utterance,
             )
         # fallback for engines that don't implement ie_utterance_judge
         return self.tom_engine.assess_task_alignment(speaker or self.agent_a, task_goal, utterance, schema)

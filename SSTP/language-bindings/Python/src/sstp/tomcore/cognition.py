@@ -229,16 +229,23 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
         listener: str,
         speaker_belief: Dict[str, Any],
         history: List[str] | None = None,
+        listener_belief: Dict[str, Any] | None = None,
+        listener_prior_utterance: str | None = None,
     ) -> Dict[str, Any]:
         """Call the LLM ie_utterance_judge task and normalise the result."""
-        result = self.llm.complete_json("ie_utterance_judge", {
+        payload: Dict[str, Any] = {
             "utterance": utterance,
             "task_goal": task_goal,
             "speaker": speaker,
             "listener": listener,
             "speaker_belief": speaker_belief,
             "history": (history or [])[-4:],
-        })
+        }
+        if listener_belief is not None:
+            payload["listener_belief"] = listener_belief
+        if listener_prior_utterance is not None:
+            payload["listener_prior_utterance"] = listener_prior_utterance
+        result = self.llm.complete_json("ie_utterance_judge", payload)
         derailed = bool(result.get("derailed", False))
         ambiguous = bool(result.get("ambiguous", False))
         alignment_score = max(0.0, min(1.0, float(result.get("alignment_score", 0.25 if derailed else 0.82))))
@@ -246,9 +253,13 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
         ambiguity_score = max(0.0, min(1.0, float(result.get("ambiguity_score", 0.0))))
         judge_confidence = max(0.0, min(1.0, float(result.get("judge_confidence", 0.85))))
         critique = str(result.get("critique", ""))
+        grounding_failure = bool(result.get("grounding_failure", False))
+        contingency_score = max(0.0, min(1.0, float(result.get("contingency_score", 0.1 if grounding_failure else 1.0))))
         verdict = {
             "derailed": derailed,
             "derailment_cause": result.get("derailment_cause") or None,
+            "grounding_failure": grounding_failure,
+            "contingency_score": round(contingency_score, 4),
             "ambiguous": ambiguous,
             "ambiguity_score": round(ambiguity_score, 4),
             "alignment_score": round(alignment_score, 4),
@@ -258,9 +269,10 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
             "disagreement_score": round(max(0.0, min(1.0, 1.0 - alignment_score)), 4),
         }
         LOGGER.debug(
-            "ie_judge %s->%s derailed=%s cause=%s ambiguous=%s score=%.4f confidence=%.4f",
+            "ie_judge %s->%s derailed=%s cause=%s grounding_failure=%s contingency=%.4f ambiguous=%s score=%.4f confidence=%.4f",
             speaker, listener,
             verdict["derailed"], verdict["derailment_cause"],
+            verdict["grounding_failure"], verdict["contingency_score"],
             verdict["ambiguous"], verdict["alignment_score"],
             verdict["judge_confidence"],
         )

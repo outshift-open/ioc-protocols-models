@@ -345,12 +345,16 @@ class InteractionProtocolAdapter:
           → ``phase="peer_dialogue"``, ``event_type="peer_turn"``
         - ``kind="negotiate"`` agent→server (all other origins or no origin)
           → ``phase="peer_dialogue"``, ``event_type="peer_turn"``
-        - ``kind="query"``
+        - ``kind="contingency"``
           → ``phase="peer_dialogue"``, ``event_type="repair_required"``
-        - ``kind="delegation"``
-          → ``phase="peer_dialogue"``, ``event_type="repair_applied"``
         - ``kind="commit"``
+          → ``phase="peer_dialogue"``, ``event_type="repair_applied"``
+        - ``kind="convergence"``
           → ``phase="coordination"``, ``event_type="decision_emitted"``
+        - ``kind="query"`` (legacy)
+          → ``phase="peer_dialogue"``, ``event_type="repair_required"``
+        - ``kind="delegation"`` (legacy)
+          → ``phase="peer_dialogue"``, ``event_type="repair_applied"``
         - IE protocol dicts (``protocol="interaction_engine_protocol"``)
           → passed through as-is (already adapted by the pipeline)
         - First message in trace (the ``/initiate`` request, if present)
@@ -382,9 +386,13 @@ class InteractionProtocolAdapter:
             return _ts_base + _seq
 
         _KIND_TO_PHASE_EVENT = {
-            "query": ("peer_dialogue", "repair_required"),
-            "delegation": ("peer_dialogue", "repair_applied"),
-            "commit": ("coordination", "decision_emitted"),
+            # New 5-value vocabulary
+            "contingency": ("peer_dialogue", "repair_required"),
+            "commit":      ("peer_dialogue", "repair_applied"),
+            "convergence": ("coordination", "decision_emitted"),
+            # Legacy kinds (backward compat)
+            "query":       ("peer_dialogue", "repair_required"),
+            "delegation":  ("peer_dialogue", "repair_applied"),
         }
 
         events: List[Dict[str, Any]] = []

@@ -12,20 +12,23 @@ This module constructs and validates the ``l9_header`` field within those
 envelopes; it does not define the envelope fields themselves.
 
 The :class:`IEL9HeaderBuilder` subclasses :class:`~protocol.l9_base.L9HeaderBuilder`
-and maps IE event types to SSTP kinds (4 kinds in this flow):
+and maps IE event types to SSTP kinds (5-value session-flow vocabulary):
 
-    peer_turn              → delegation
-    repair_required        → query
-    repair_applied         → delegation
-    agent_request          → delegation
-    decision_emitted       → commit
-    agent_response         → commit
-    episode_persisted      → commit
-    prior_query            → knowledge
-    prior_injection        → knowledge
-    rule_update            → knowledge
-    outcome_reported       → knowledge
-    conversation_terminated / agent_* / turn_ingested → knowledge
+    turn_ingested           → exchange
+    peer_turn               → exchange
+    repair_required         → contingency
+    repair_applied          → commit
+    epistemic_clarification → contingency
+    agent_request           → exchange
+    agent_response          → exchange
+    decision_emitted        → convergence
+    episode_persisted       → convergence
+    conversation_terminated → convergence
+    rule_update             → convergence
+    prior_query             → exchange
+    prior_injection         → exchange
+    outcome_reported        → exchange
+    agent_* (error/shutdown/ack) → exchange
 
 The module-level :func:`build_l9_header` is the backwards-compatible
 convenience function used by IE orchestrators.
@@ -58,24 +61,24 @@ _EVENT_TYPE_ALIASES: Dict[str, str] = {
 }
 
 _KIND_BY_EVENT_TYPE: Dict[str, str] = {
-    "turn_ingested":           "knowledge",    # internal intake; no longer intent
-    "peer_turn":               "delegation",
-    "repair_required":         "query",
-    "repair_applied":          "delegation",
-    "decision_emitted":        "commit",
-    "episode_persisted":       "commit",       # was memory_delta; simplified to commit
-    "conversation_terminated": "knowledge",
-    "agent_request":           "delegation",
-    "agent_response":          "commit",
-    "agent_error":             "knowledge",
-    "agent_shutdown":          "knowledge",
-    "agent_shutdown_ack":      "knowledge",
-    "epistemic_clarification": "query",
+    "turn_ingested":           "exchange",
+    "peer_turn":               "exchange",
+    "repair_required":         "contingency",
+    "repair_applied":          "commit",
+    "decision_emitted":        "convergence",
+    "episode_persisted":       "convergence",
+    "conversation_terminated": "convergence",
+    "agent_request":           "exchange",
+    "agent_response":          "exchange",
+    "agent_error":             "exchange",
+    "agent_shutdown":          "exchange",
+    "agent_shutdown_ack":      "exchange",
+    "epistemic_clarification": "contingency",
     # SemanticMemory interactions (Coordinator ↔ SemanticMemory agent)
-    "prior_query":             "knowledge",
-    "prior_injection":         "knowledge",
-    "rule_update":             "knowledge",
-    "outcome_reported":        "knowledge",
+    "prior_query":             "exchange",
+    "prior_injection":         "exchange",
+    "rule_update":             "convergence",
+    "outcome_reported":        "exchange",
 }
 
 _SCHEMA_TOPIC_BY_EVENT_TYPE: Dict[str, tuple[str, str]] = {
@@ -137,7 +140,7 @@ def canonical_event_type(event_type: str) -> str:
 
 def kind_for_event_type(event_type: str) -> str:
     """Return the SSTP kind for an IE event_type string."""
-    return _KIND_BY_EVENT_TYPE.get(canonical_event_type(event_type), "knowledge")
+    return _KIND_BY_EVENT_TYPE.get(canonical_event_type(event_type), "exchange")
 
 
 def schema_id_for(

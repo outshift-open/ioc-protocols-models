@@ -50,20 +50,39 @@ class BeliefRevision:
 
 @dataclass
 class BeliefState:
-    """An agent's current and historical belief in a single concept."""
+    """An agent's current and historical belief in a single concept.
+
+    Explicit Bayesian decomposition per EPISTEMIC_DATA_STRUCTURES.md §6:
+    - prior          — from SemanticMemory at episode open (set once)
+    - prior_weight   — provenance quality: 1.0 - SCR of prior-producing episode
+    - likelihoods    — (argument_concept_id, Δ) per grounded argument received
+    - posterior      — alias for current_confidence; private belief
+    - public_confidence — last asserted; what peers observe (may differ from posterior)
+    """
 
     agent_id: str                          # which agent holds this belief
     concept_id: str                        # concept believed; URI namespace throughout
-    current_confidence: float              # private — ground truth for 1st-order ToM
+    current_confidence: float              # private posterior — ground truth for 1st-order ToM
     public_confidence: float               # last asserted — what peers observe
     status: str                            # held | asserted | committed | retracted
     use_case: str                          # domain scope; prevents cross-domain belief merges
     first_formed_episode: str              # soid of episode in which belief was first established
     last_revised_episode: str             # soid of most recent episode in which belief changed
+
+    # Bayesian decomposition fields (set at episode open; updated by record_revision)
+    prior: float = 0.5                     # from SemanticMemory at episode open; uniform default
+    prior_weight: float = 1.0              # provenance weight (1.0 - SCR of prior-producing episode)
+    likelihoods: List[tuple] = field(default_factory=list)  # [(argument_concept_id, Δ), ...]
+
     revision_history: List[BeliefRevision] = field(default_factory=list)  # append-only
     social_compliance_ratio: float = 0.0  # rolling SCR: fraction of revisions with cause=social_compliance
     revision_count: int = 0               # total revisions
     confidence_variance: float = 0.0      # variance across revision_after values; high = frequently contested
+
+    @property
+    def posterior(self) -> float:
+        """Private belief; alias for current_confidence."""
+        return self.current_confidence
 
 
 # ── Peer Interaction Store ─────────────────────────────────────────────────────
@@ -115,6 +134,58 @@ class PeerInteractionRecord:
     last_episode: str = ""             # soid of most recent contributing episode; staleness check
 
 
+# ── CommonGround ─────────────────────────────────────────────────────────────
+
+
+@dataclass
+class CommonGround:
+    """Output of a successful IE pairwise grounding exchange.
+
+    Created when agent B's response to A's assertion is verified contingent
+    on A's specific reasoning. contingency_verified MUST be True.
+    See EPISTEMIC_DATA_STRUCTURES.md §7.
+    """
+
+    holder_id: str               # A — who asserted
+    confirmer_id: str            # B — who grounded
+    concept_id: str
+    use_case: str
+    episode_id: str              # soid of containing episode
+    grounding_confidence: float  # A's confidence that B correctly integrated
+    holder_confidence: float     # A's public_confidence at grounding time
+    confirmer_confidence: float  # B's public_confidence after grounding
+    contingency_verified: bool   # True iff B's response engaged A's specific reasoning
+    speech_acts: List[str]       # ordered sequence of speech acts that established ground
+    grounding_message_ids: List[str]  # the turn pair(s) that verified it
+    formed_at_ms: int
+
+
+# ── TeamGroundedTruth ─────────────────────────────────────────────────────────
+
+
+@dataclass
+class TeamGroundedTruth:
+    """Output of a completed SNP multi-party convergence round.
+
+    Written to SemanticMemory as a new rule. SCR and GAR are provenance weights:
+    prior_weight = (1.0 - social_compliance_ratio) × genuine_agreement_ratio.
+    See EPISTEMIC_DATA_STRUCTURES.md §8.
+    """
+
+    concept_id: str
+    use_case: str
+    episode_id: str
+    participant_ids: List[str]
+    individual_priors: Dict[str, float]      # agent_id → prior at episode open
+    individual_posteriors: Dict[str, float]  # agent_id → posterior at convergence
+    consensus_posterior: float               # MPC: mean position confidence at commit
+    genuine_agreement_ratio: float           # GAR: fraction consistent with taskwork priors
+    social_compliance_ratio: float           # SCR: fraction of revisions = social_compliance
+    common_ground_ids: List[str]            # CommonGround episode_ids that fed this
+    outcome: str                             # accept | reject | deferred
+    formed_at_ms: int
+
+
 # ── AgentBeliefStore ──────────────────────────────────────────────────────────
 
 
@@ -147,6 +218,28 @@ class AgentBeliefStore:
             if aid == agent_id and (not use_case or uc == use_case)
         ]
 
+    def set_prior(
+        self,
+        agent_id: str,
+        concept_id: str,
+        use_case: str,
+        prior: float,
+        prior_weight: float,
+    ) -> Optional["BeliefState"]:
+        """Set the prior for an agent's belief at episode open (called once per episode).
+
+        Does not create a new BeliefState if one doesn't exist — caller should
+        call record_revision first or ensure the belief exists. Returns None if
+        the belief does not exist yet.
+        """
+        key = self._key(agent_id, concept_id, use_case)
+        if key not in self._store:
+            return None
+        belief = self._store[key]
+        belief.prior = prior
+        belief.prior_weight = prior_weight
+        return belief
+
     def record_revision(
         self,
         agent_id: str,
@@ -156,7 +249,7 @@ class AgentBeliefStore:
         revision: BeliefRevision,
         new_status: str = "asserted",
         new_public_confidence: Optional[float] = None,
-    ) -> BeliefState:
+    ) -> "BeliefState":
         """Apply a revision to an agent's belief, creating the belief if new."""
         key = self._key(agent_id, concept_id, use_case)
         if key not in self._store:
@@ -172,7 +265,14 @@ class AgentBeliefStore:
             )
         belief = self._store[key]
         belief.revision_history.append(revision)
+
+        # Update posterior (current_confidence); exclude social_compliance from likelihoods
+        if revision.cause == "grounded_argument":
+            delta = revision.confidence_after - revision.confidence_before
+            for cid in (revision.argument_concept_ids or [concept_id]):
+                belief.likelihoods.append((cid, round(delta, 6)))
         belief.current_confidence = revision.confidence_after
+
         if new_public_confidence is not None:
             belief.public_confidence = new_public_confidence
         belief.status = new_status
@@ -286,12 +386,93 @@ class PeerInteractionStore:
             record.last_episode = soid
 
 
+# ── CommonGroundStore ──────────────────────────────────────────────────────────
+
+
+class CommonGroundStore:
+    """Cross-episode store of pairwise grounding records.
+
+    Keyed by (holder_id, confirmer_id, concept_id, use_case).
+    All entries have contingency_verified = True by invariant.
+    """
+
+    def __init__(self) -> None:
+        self._store: Dict[tuple, List[CommonGround]] = {}
+
+    def _key(self, holder_id: str, confirmer_id: str, concept_id: str, use_case: str) -> tuple:
+        return (holder_id, confirmer_id, concept_id, use_case)
+
+    def record(self, ground: CommonGround) -> None:
+        """Append a CommonGround record. contingency_verified must be True."""
+        if not ground.contingency_verified:
+            raise ValueError(
+                "CommonGround.contingency_verified must be True — "
+                "failed groundings produce repair_required, not CommonGround"
+            )
+        key = self._key(ground.holder_id, ground.confirmer_id, ground.concept_id, ground.use_case)
+        if key not in self._store:
+            self._store[key] = []
+        self._store[key].append(ground)
+
+    def get_for_pair(
+        self, holder_id: str, confirmer_id: str, use_case: str = ""
+    ) -> List[CommonGround]:
+        return [
+            g for (h, c, _, uc), gs in self._store.items()
+            for g in gs
+            if h == holder_id and c == confirmer_id and (not use_case or uc == use_case)
+        ]
+
+    def get_for_concept(self, concept_id: str, use_case: str = "") -> List[CommonGround]:
+        return [
+            g for (_, _, cid, uc), gs in self._store.items()
+            for g in gs
+            if cid == concept_id and (not use_case or uc == use_case)
+        ]
+
+
+# ── ConvergenceStore ──────────────────────────────────────────────────────────
+
+
+class ConvergenceStore:
+    """Cross-episode store of SNP convergence results (TeamGroundedTruth).
+
+    Keyed by (concept_id, use_case, episode_id).
+    Written to SemanticMemory as new rules at episode close.
+    """
+
+    def __init__(self) -> None:
+        self._store: Dict[tuple, TeamGroundedTruth] = {}
+
+    def _key(self, concept_id: str, use_case: str, episode_id: str) -> tuple:
+        return (concept_id, use_case, episode_id)
+
+    def record(self, truth: TeamGroundedTruth) -> None:
+        """Record a TeamGroundedTruth at episode close."""
+        self._store[self._key(truth.concept_id, truth.use_case, truth.episode_id)] = truth
+
+    def latest(self, concept_id: str, use_case: str = "") -> Optional[TeamGroundedTruth]:
+        """Return the most recently formed TeamGroundedTruth for a concept."""
+        candidates = [
+            t for (cid, uc, _), t in self._store.items()
+            if cid == concept_id and (not use_case or uc == use_case)
+        ]
+        return max(candidates, key=lambda t: t.formed_at_ms) if candidates else None
+
+    def all_for_use_case(self, use_case: str) -> List[TeamGroundedTruth]:
+        return [t for (_, uc, _), t in self._store.items() if uc == use_case]
+
+
 __all__ = [
     "BeliefRevision",
     "BeliefState",
+    "CommonGround",
+    "TeamGroundedTruth",
     "ArgumentOutcome",
     "PredictionRecord",
     "PeerInteractionRecord",
     "AgentBeliefStore",
+    "CommonGroundStore",
+    "ConvergenceStore",
     "PeerInteractionStore",
 ]
