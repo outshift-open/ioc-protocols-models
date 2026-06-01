@@ -22,14 +22,7 @@ from .l9 import (
 )
 from .adapter import InteractionProtocolAdapter
 from .tom import (
-    AgentResponsibility,
-    DiscourseEntry,
-    GraphEdge,
-    GraphNode,
-    KnowledgeGraphNode,
-    KnowledgeGraphVisualization,
     TheoryOfMindEngineBase,
-    TOMPairChannelBase,
     normalize_alignment,
     normalize_tom_snapshot,
 )
@@ -61,17 +54,10 @@ __all__ = [
     "kind_for_event_type",
     "schema_id_for",
     "InteractionProtocolAdapter",
-    # ToM types and interfaces
-    "KnowledgeGraphNode",
-    "AgentResponsibility",
-    "DiscourseEntry",
-    "GraphEdge",
-    "GraphNode",
-    "KnowledgeGraphVisualization",
+    # ToM normalization utilities and interfaces
     "normalize_tom_snapshot",
     "normalize_alignment",
     "TheoryOfMindEngineBase",
-    "TOMPairChannelBase",
     # Assertion types
     "AgentIdentity",
     "UtteranceAssertion",

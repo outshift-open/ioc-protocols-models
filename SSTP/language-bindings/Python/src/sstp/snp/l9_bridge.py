@@ -78,8 +78,9 @@ _KIND_MODEL_MAP: Dict[str, type[_STBaseMessage]] = {
     "intent":       IntentMessage,
     "exchange":     ExchangeMessage,
     "contingency":  ContingencyMessage,
-    "commit":       SSTPCommitMessage,
-    "convergence":  ConvergenceMessage,
+    "commit:converged": SSTPCommitMessage,
+    "commit:abort":     SSTPCommitMessage,
+    "convergence":      ConvergenceMessage,
     # Legacy kinds (backward compat during transition)
     "delegation":   DelegationMessage,
     "knowledge":    KnowledgeMessage,
@@ -144,13 +145,10 @@ def l9_header_to_pydantic(
         "dt_created": l9_header.get("dt_created", ""),
         "origin": {
             "actor_id": origin.get("actor_id", "unknown"),
-            "tenant_id": origin.get("tenant_id", "unknown"),
             "attestation": origin.get("attestation"),
         },
         "semantic_context": {
             "schema_id": sem_ctx.get("schema_id", ""),
-            "schema_version": sem_ctx.get("schema_version", "0.1"),
-            "encoding": sem_ctx.get("encoding", "json"),
         },
         "payload_hash": _payload_hash(payload),
         "policy_labels": {
@@ -160,14 +158,13 @@ def l9_header_to_pydantic(
         },
         "provenance": {
             "sources": prov.get("sources", []),
-            "transforms": prov.get("transforms", []),
         },
         "payload": payload,
     }
 
     # Optional fields
-    if l9_header.get("state_object_id"):
-        msg_dict["state_object_id"] = l9_header["state_object_id"]
+    if l9_header.get("episode_id"):
+        msg_dict["episode_id"] = l9_header["episode_id"]
     if l9_header.get("parent_ids"):
         msg_dict["parent_ids"] = l9_header["parent_ids"]
     if logical_clock:
@@ -177,15 +174,8 @@ def l9_header_to_pydantic(
             {"type": ref.get("type", "inline"), "ref": ref.get("ref", "")}
             for ref in payload_refs
         ]
-    if l9_header.get("confidence_score") is not None:
-        msg_dict["confidence_score"] = l9_header["confidence_score"]
     if l9_header.get("ttl_seconds") is not None:
         msg_dict["ttl_seconds"] = l9_header["ttl_seconds"]
-    if l9_header.get("merge_strategy"):
-        msg_dict["merge_strategy"] = l9_header["merge_strategy"]
-    if l9_header.get("risk_score") is not None:
-        msg_dict["risk_score"] = l9_header["risk_score"]
-
     model_cls = _KIND_MODEL_MAP.get(kind)
     if model_cls is None:
         raise ValueError(f"Unknown SSTP kind: {kind!r}")
@@ -220,13 +210,10 @@ def pydantic_to_l9_header(msg: _STBaseMessage) -> Dict[str, Any]:
         "dt_created": msg.dt_created,
         "origin": {
             "actor_id": origin.actor_id,
-            "tenant_id": origin.tenant_id,
             "attestation": origin.attestation or "self_attested_local",
         },
         "semantic_context": {
             "schema_id": sem_ctx.schema_id,
-            "schema_version": sem_ctx.schema_version,
-            "encoding": sem_ctx.encoding,
         },
         "policy_labels": {
             "sensitivity": policy.sensitivity,
@@ -235,15 +222,11 @@ def pydantic_to_l9_header(msg: _STBaseMessage) -> Dict[str, Any]:
         },
         "provenance": {
             "sources": list(prov.sources),
-            "transforms": list(prov.transforms),
         },
-        "state_object_id": msg.state_object_id,
+        "episode_id": msg.episode_id,
         "parent_ids": list(msg.parent_ids),
         "logical_clock": lc_str,
-        "confidence_score": msg.confidence_score,
-        "risk_score": msg.risk_score,
         "ttl_seconds": msg.ttl_seconds,
-        "merge_strategy": msg.merge_strategy,
         "payload_refs": [
             {"type": ref.type, "ref": ref.ref} for ref in msg.payload_refs
         ],
@@ -271,8 +254,6 @@ def build_negotiate_envelope(
     options_per_issue: dict[str, list[str]] | None = None,
     turn_depth: int | None = None,
     parent_ids: Iterable[str] | None = None,
-    confidence_score: float | None = None,
-    risk_score: float | None = None,
     message_id: str | None = None,
 ) -> SSTPNegotiateMessage:
     """Build an ``SSTPNegotiateMessage`` using the base layer's SNP mapping.
@@ -295,8 +276,6 @@ def build_negotiate_envelope(
         proposal_id=proposal_id,
         turn_depth=turn_depth,
         parent_ids=parent_ids,
-        confidence_score=confidence_score,
-        risk_score=risk_score,
         message_id=message_id,
     )
 
@@ -324,8 +303,6 @@ def build_negotiate_envelope(
         "origin": l9_hdr.get("origin", {}),
         "semantic_context": {
             "schema_id": sem_ctx.get("schema_id", "urn:ioc:schema:negotiate:negmas-sao:v1"),
-            "schema_version": sem_ctx.get("schema_version", "1.0"),
-            "encoding": "json",
             "session_id": session_id,
             "issues": issues or [],
             "options_per_issue": options_per_issue or {},
@@ -339,22 +316,16 @@ def build_negotiate_envelope(
             "propagation": "restricted",
             "retention_policy": "default",
         }),
-        "provenance": l9_hdr.get("provenance", {"sources": [], "transforms": []}),
+        "provenance": l9_hdr.get("provenance", {"sources": []}),
         "payload": payload,
         "parent_ids": l9_hdr.get("parent_ids", []),
         "payload_refs": l9_hdr.get("payload_refs", []),
     }
 
-    if l9_hdr.get("state_object_id"):
-        msg_dict["state_object_id"] = l9_hdr["state_object_id"]
-    if l9_hdr.get("confidence_score") is not None:
-        msg_dict["confidence_score"] = l9_hdr["confidence_score"]
+    if l9_hdr.get("episode_id"):
+        msg_dict["episode_id"] = l9_hdr["episode_id"]
     if l9_hdr.get("ttl_seconds") is not None:
         msg_dict["ttl_seconds"] = l9_hdr["ttl_seconds"]
-    if l9_hdr.get("merge_strategy"):
-        msg_dict["merge_strategy"] = l9_hdr["merge_strategy"]
-    if l9_hdr.get("risk_score") is not None:
-        msg_dict["risk_score"] = l9_hdr["risk_score"]
 
     lc = l9_hdr.get("logical_clock")
     if isinstance(lc, str) and lc.startswith("lamport:"):

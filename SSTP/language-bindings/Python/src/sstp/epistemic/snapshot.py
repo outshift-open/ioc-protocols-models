@@ -21,7 +21,7 @@ from sstp.epistemic.local_replica import LocalStateReplica, ReplicaEntry
 @dataclass
 class EpistemicSnapshot:
     """Materialised state of a LocalStateReplica at a point in time."""
-    state_object_id: str
+    episode_id: str
     snapshot_message_id: str       # message_id of the last applied entry
     snapshot_at_ms: int
     derived_state: Dict[str, Any]
@@ -33,7 +33,7 @@ def snapshot(replica: LocalStateReplica) -> EpistemicSnapshot:
     """Materialise a point-in-time snapshot from a replica."""
     last_id = replica._entries[-1].message_id if replica._entries else ""
     return EpistemicSnapshot(
-        state_object_id=replica.state_object_id,
+        episode_id=replica.episode_id,
         snapshot_message_id=last_id,
         snapshot_at_ms=int(time.time() * 1000),
         derived_state=replica.get_derived_state(),

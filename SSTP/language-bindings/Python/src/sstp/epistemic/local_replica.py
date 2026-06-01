@@ -4,7 +4,7 @@
 """
 epistemic/local_replica.py — Per-agent grow-only message log (CRDT).
 
-Each agent maintains one LocalStateReplica per state_object_id it participates in.
+Each agent maintains one LocalStateReplica per episode_id it participates in.
 The replica is a grow-only set — entries are never deleted, duplicates are ignored.
 State is derived by folding all entries; there is no central coordinator.
 """
@@ -46,8 +46,8 @@ class LocalStateReplica:
     ignored via _seen_ids. State = fold over all entries.
     """
 
-    def __init__(self, state_object_id: str, owner_agent_id: str) -> None:
-        self.state_object_id = state_object_id
+    def __init__(self, episode_id: str, owner_agent_id: str) -> None:
+        self.episode_id = episode_id
         self.owner_agent_id = owner_agent_id
         self._entries: List[ReplicaEntry] = []
         self._seen_ids: Set[str] = set()
@@ -132,7 +132,7 @@ class LocalStateReplica:
         )
 
         return {
-            "state_object_id": self.state_object_id,
+            "episode_id": self.episode_id,
             "message_count": len(self._entries),
             "participants": sorted(by_sender.keys()),
             "sender_message_counts": {s: len(es) for s, es in by_sender.items()},

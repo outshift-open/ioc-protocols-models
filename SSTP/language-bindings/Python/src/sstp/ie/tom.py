@@ -23,97 +23,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 
-# ── Knowledge Graph Types ──────────────────────────────────────────────────────
-
-
-@dataclass
-class KnowledgeGraphNode:
-    """A fact, requirement, responsibility, constraint, or utterance in the
-    social knowledge graph maintained by the interaction engine."""
-
-    node_id: str
-    node_type: str  # "requirement" | "responsibility" | "constraint" | "fact" | "utterance"
-    agent_id: str
-    description: str
-    task_goal: str
-    confidence: float = 0.8
-    source: str = "prompt"  # "prompt" | "discourse" | "inference"
-    created_at: int = 0
-    last_updated: int = 0
-
-
-@dataclass
-class AgentResponsibility:
-    """What a specific agent is responsible for doing."""
-
-    agent_id: str
-    responsibility_task: str
-    requirements: List[str]
-    constraints: List[str]
-    derived_from: str = "prompt"  # "prompt" | "discourse"
-
-
-@dataclass
-class DiscourseEntry:
-    """A peer-wise interaction record for knowledge graph updates."""
-
-    source_agent: str
-    target_agent: str
-    utterance: str
-    inferred_intent: str
-    timestamp_ms: int
-    alignment_with_graph: float = 0.5
-    requires_repair: bool = False
-    repair_recursion_depth: int = 0
-
-
-# ── Graph Visualization Types ──────────────────────────────────────────────────
-
-
-@dataclass
-class GraphEdge:
-    """Directed edge in the knowledge graph."""
-
-    edge_id: str
-    source_node_id: str
-    target_node_id: str
-    edge_type: str  # "responsibility" | "constraint" | "inference" | "discourse" | "alignment"
-    label: str
-    weight: float = 1.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class GraphNode:
-    """Visualization-ready representation of a knowledge graph node."""
-
-    node_id: str
-    label: str
-    node_type: str
-    agent_id: str
-    description: str
-    confidence: float = 0.8
-    x: float = 0.0
-    y: float = 0.0
-    color: str = "#3498db"
-    size: float = 30.0
-    icon: str = "node"
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class KnowledgeGraphVisualization:
-    """Complete visualization-ready export of the knowledge graph."""
-
-    graph_id: str
-    timestamp_ms: int
-    episode_id: str
-    nodes: List[Dict[str, Any]] = field(default_factory=list)
-    edges: List[Dict[str, Any]] = field(default_factory=list)
-    agent_groups: Dict[str, List[str]] = field(default_factory=dict)
-    graph_metrics: Dict[str, Any] = field(default_factory=dict)
-
-
 # ── Protocol Normalization ─────────────────────────────────────────────────────
 
 
@@ -214,16 +123,6 @@ class TheoryOfMindEngineBase(ABC):
         """Return alignment assessment dict for a single utterance."""
 
     @abstractmethod
-    def analyze_inter_agent_tom(
-        self,
-        subject_view: Dict[str, Any],
-        left_view: Dict[str, Any],
-        right_view: Dict[str, Any],
-        task_goal: str,
-    ) -> Dict[str, Any]:
-        """Return pairwise dimension agreements between two agent views."""
-
-    @abstractmethod
     def analyze_pairwise_agent_tom(
         self, agent_views: Dict[str, Dict[str, Any]], task_goal: str
     ) -> Dict[str, Any]:
@@ -275,6 +174,18 @@ class TheoryOfMindEngineBase(ABC):
         """Return drift detection signals for agent_id."""
         return {"agent_id": agent_id, "ema_alignment": 1.0, "anchor_gap": 0.0, "change_log": [], "confidence": 0.5}
 
+    def agent(self, agent_id: str) -> Any:
+        """Return the per-agent ToM state object for agent_id.
+
+        Concrete implementations (TheoryOfMindEngine) override this to return
+        an AgentTOM instance.  Raises NotImplementedError here so callers get
+        a clear error if the engine does not support per-agent state.
+        """
+        raise NotImplementedError(
+            f"agent() not implemented on {type(self).__name__}; "
+            "use TheoryOfMindEngine or a subclass that supports per-agent state."
+        )
+
     def ie_utterance_judge(
         self,
         utterance: str,
@@ -311,59 +222,11 @@ class TheoryOfMindEngineBase(ABC):
         }
 
 
-class TOMPairChannelBase(ABC):
-    """Contract for a ToM alignment/repair channel scoped to one agent pair.
-
-    Implementations may disable ToM per-pair while keeping the protocol
-    envelope active; in that case every method must return a deterministic
-    neutral result so callers need no ``if channel.enabled:`` guards.
-    """
-
-    @abstractmethod
-    def assess(
-        self,
-        speaker_view: Dict[str, Any],
-        listener_view: Dict[str, Any],
-        subject_view: Dict[str, Any],
-        task_goal: str,
-    ) -> Dict[str, Any]:
-        """Return inter-agent ToM metrics, or a neutral stub if disabled."""
-
-    @abstractmethod
-    def assess_utterance(
-        self,
-        utterance: str,
-        task_goal: str,
-        schema: Optional[Dict[str, Any]] = None,
-        listener_belief: Optional[Dict[str, Any]] = None,
-        listener_prior_utterance: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Return task-alignment and grounding assessment for a single utterance."""
-
-    @abstractmethod
-    def update(
-        self,
-        view: Dict[str, Any],
-        utterance: str,
-        task_goal: str,
-        actor: str = "peer_agent",
-    ) -> Dict[str, Any]:
-        """Update the ToM belief for the listener side; returns updated view. No-op if disabled."""
-
 
 __all__ = [
-    # Knowledge graph types
-    "KnowledgeGraphNode",
-    "AgentResponsibility",
-    "DiscourseEntry",
-    # Graph visualization types
-    "GraphEdge",
-    "GraphNode",
-    "KnowledgeGraphVisualization",
     # Protocol normalization
     "normalize_tom_snapshot",
     "normalize_alignment",
     # Abstract interfaces
     "TheoryOfMindEngineBase",
-    "TOMPairChannelBase",
 ]

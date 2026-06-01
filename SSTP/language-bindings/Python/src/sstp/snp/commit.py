@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from ._base import EncodingType, LogicalClock, MergeStrategy, _STBaseMessage
+from ._base import LogicalClock, _STBaseMessage
 
 
 class NegotiateCommitSemanticContext(BaseModel):
@@ -22,8 +22,6 @@ class NegotiateCommitSemanticContext(BaseModel):
     """
 
     schema_id: str = "urn:ioc:schema:negotiate:commit:v1"
-    schema_version: str = "1.0"
-    encoding: EncodingType = "json"
     session_id: str
     final_agreement: Optional[List[Dict[str, Any]]] = Field(
         None,
@@ -43,16 +41,13 @@ class SSTPCommitMessage(_STBaseMessage):
     **required** here (per the spec's Commit-Specific Extensions section).
     """
 
-    kind: Literal["commit"]
+    kind: Literal["commit:converged", "commit:abort"]
 
     # Override: typed semantic context carrying the final agreement
     semantic_context: NegotiateCommitSemanticContext  # type: ignore[override]
 
     # Fields that are optional on other kinds but REQUIRED for commit
-    state_object_id: str  # override → required (no None default)
+    episode_id: str  # override → required (no None default)
     parent_ids: list[str]  # override → required (no empty default)
     logical_clock: LogicalClock  # override → required (no None default)
-    merge_strategy: MergeStrategy
-    confidence_score: float = Field(..., ge=0.0, le=1.0)
-    risk_score: float
     ttl_seconds: int

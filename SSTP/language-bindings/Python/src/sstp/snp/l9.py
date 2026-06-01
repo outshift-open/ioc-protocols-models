@@ -15,7 +15,7 @@ and maps SNP operation vocabulary (§1.1) to SSTP event_types and then to SSTP k
     consider / evaluate / review / …   → peer_turn          → exchange
     counter_proposal                    → peer_turn          → contingency
     accept / reject                     → decision_emitted   → commit
-    group convergence                   → convergence_emitted→ convergence
+    group convergence                   → convergence_emitted→ commit
 
 Rule: SNP does NOT add new SSTP base kinds beyond the 5-value vocabulary.
 Negotiation semantics are represented at the payload level via an ``operation`` field.
@@ -114,7 +114,7 @@ _SNP_OPERATION_TO_EVENT_TYPE: Dict[str, str] = {
 _SNP_EVENT_TYPE_TO_KIND: Dict[str, str] = {
     "peer_turn":          "exchange",     # iterative discussion turns
     "decision_emitted":   "commit",       # individual terminal signal
-    "convergence_emitted":"convergence",  # group closure; multicast
+    "convergence_emitted":"commit",       # group closure commit; multicast
 }
 
 def snp_event_type_for_operation(operation: str) -> str:
@@ -122,7 +122,7 @@ def snp_event_type_for_operation(operation: str) -> str:
 
     The result feeds into the SSTP kind rule:
     ``peer_turn`` → ``exchange``, ``decision_emitted`` → ``commit``,
-    ``convergence_emitted`` → ``convergence``.
+    ``convergence_emitted`` → ``commit``.
     """
     result = _SNP_OPERATION_TO_EVENT_TYPE.get(operation)
     if result is None:
@@ -179,6 +179,7 @@ def build_snp_payload(
     reasoning: Dict[str, Any] = {}
     if posterior is not None:
         reasoning["posterior"] = round(float(posterior), 4)
+        reasoning["confidence"] = reasoning["posterior"]
     if supporting_evidence:
         reasoning["supporting_evidence"] = list(supporting_evidence)
     if against_evidence:
@@ -195,6 +196,8 @@ def build_snp_payload(
 
 
 # ── SNPL9HeaderBuilder ────────────────────────────────────────────────────────
+
+_SNP_SHORT_TTL_EVENTS: frozenset = frozenset({"peer_turn", "repair_required", "repair_applied"})
 
 
 class SNPL9HeaderBuilder(L9HeaderBuilder):
@@ -223,7 +226,7 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         return f"urn:ioc:draft:{normalized}:coordination:{event_type}:v{version}"
 
     def ttl_for_event_type(self, event_type: str) -> int:
-        return 86400 if event_type == "peer_turn" else 604800
+        return 86400 if event_type in _SNP_SHORT_TTL_EVENTS else 604800
 
     def build_snp(
         self,
@@ -237,17 +240,15 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         turn_depth: int | None = None,
         utterance: str = "",
         parent_ids: Iterable[str] | None = None,
-        confidence_score: float | None = None,
-        risk_score: float | None = None,
-        state_object_id: str | None = None,
-        merge_strategy: str = "merge",
+        episode_id: str | None = None,
         provenance_sources: Iterable[str] | None = None,
-        provenance_transforms: Iterable[str] | None = None,
         message_id: str | None = None,
-        cognition_profile_id: str | None = "semantic_alignment:v1",
         cognition_protocol: str | None = "SNP",
         epistemic: Dict[str, Any] | None = None,
         state_sequence: Dict[str, Any] | None = None,
+        kind_override: str | None = None,
+        conversation_id: str | None = None,
+        sequence_number: int | None = None,
     ) -> Dict[str, Any]:
         """Build an SNP L9 header from an SNP *operation* (§3.1 mapping).
 
@@ -271,23 +272,20 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
             turn_depth=turn_depth,
             utterance=utterance,
             parent_ids=parent_ids,
-            confidence_score=confidence_score,
-            risk_score=risk_score,
-            state_object_id=state_object_id,
-            merge_strategy=merge_strategy,
+            episode_id=episode_id,
             provenance_sources=provenance_sources,
-            provenance_transforms=provenance_transforms,
             payload_refs=[{
                 "type": "inline",
                 "ref": f"urn:ioc:snp:{normalize_use_case(use_case)}:{proposal_id}",
             }],
-            schema_inline={"profile": SNP_PROFILE, "operation": operation},
             ontology_ref=SNP_ONTOLOGY_REFERENCE,
             message_id=message_id,
-            cognition_profile_id=cognition_profile_id,
             cognition_protocol=cognition_protocol,
             epistemic=epistemic,
             state_sequence=state_sequence,
+            kind_override=kind_override,
+            conversation_id=conversation_id,
+            sequence_number=sequence_number,
         )
 
 
@@ -307,17 +305,15 @@ def build_snp_l9_header(
     turn_depth: int | None = None,
     utterance: str = "",
     parent_ids: Iterable[str] | None = None,
-    confidence_score: float | None = None,
-    risk_score: float | None = None,
-    state_object_id: str | None = None,
-    merge_strategy: str = "merge",
+    episode_id: str | None = None,
     provenance_sources: Iterable[str] | None = None,
-    provenance_transforms: Iterable[str] | None = None,
     message_id: str | None = None,
-    cognition_profile_id: str | None = "semantic_alignment:v1",
     cognition_protocol: str | None = "SNP",
     epistemic: Dict[str, Any] | None = None,
     state_sequence: Dict[str, Any] | None = None,
+    kind_override: str | None = None,
+    conversation_id: str | None = None,
+    sequence_number: int | None = None,
 ) -> Dict[str, Any]:
     """Build an SSTP L9 header for a Semantic Negotiation sub-protocol message.
 
@@ -335,17 +331,15 @@ def build_snp_l9_header(
         turn_depth=turn_depth,
         utterance=utterance,
         parent_ids=parent_ids,
-        confidence_score=confidence_score,
-        risk_score=risk_score,
-        state_object_id=state_object_id,
-        merge_strategy=merge_strategy,
+        episode_id=episode_id,
         provenance_sources=provenance_sources,
-        provenance_transforms=provenance_transforms,
         message_id=message_id,
-        cognition_profile_id=cognition_profile_id,
         cognition_protocol=cognition_protocol,
         epistemic=epistemic,
         state_sequence=state_sequence,
+        kind_override=kind_override,
+        conversation_id=conversation_id,
+        sequence_number=sequence_number,
     )
 
 

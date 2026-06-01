@@ -16,16 +16,13 @@ optional fields to **required**.
 
 Kind taxonomy
 -------------
-``intent | exchange | contingency | commit | convergence``
+Current spec kinds: ``intent | exchange | contingency | commit | knowledge``
 
-Legacy kinds (backward compat during transition):
-``delegation | knowledge | query | memory_delta | evidence_bundle``
+Legacy kinds (retained for ``l9_bridge.py`` backward compatibility only):
+``delegation | query | memory_delta | evidence_bundle``
 
-NegMAS SAO extension: ``negotiate``
-
-For ``kind="negotiate"`` the ``semantic_context`` field is typed as
-:class:`NegotiateSemanticContext` which carries a full NegMAS SAO snapshot
-(``SAOState``, ``SAOResponse``, optional ``SAONMI``).
+NegMAS SAO extension (evaluation infrastructure only): ``negotiate``
+See ``negmas_sao.py`` — not part of the SSTP spec vocabulary.
 
 Usage
 -----
@@ -39,13 +36,10 @@ Usage
         "dt_created": "2026-02-27T10:00:00Z",
         "origin": {
             "actor_id": "agent:planner-7",
-            "tenant_id": "acme",
             "attestation": "sha256:abc123",
         },
         "semantic_context": {
             "schema_id": "urn:ioc:schema:intent:v1",
-            "schema_version": "1.0",
-            "encoding": "json",
         },
         "payload_hash": "sha256:deadbeef",
         "policy_labels": {
@@ -53,7 +47,7 @@ Usage
             "propagation": "forward",
             "retention_policy": "pol-90d",
         },
-        "provenance": {"sources": ["urn:doc:abc"], "transforms": []},
+        "provenance": {"sources": ["urn:doc:abc"]},
         "payload": {"goal": "book flight", "priority": "high"},
     })
 """
@@ -91,21 +85,13 @@ from .l9 import (
 
 # ── Theory-of-Mind wire types (canonical home: protocol.ie.tom) ───────────────
 from sstp.ie.tom import (
-    AgentResponsibility,
-    DiscourseEntry,
-    GraphEdge,
-    GraphNode,
-    KnowledgeGraphNode,
-    KnowledgeGraphVisualization,
     normalize_alignment,
     normalize_tom_snapshot,
 )
 
 # ── Base models and literals ───────────────────────────────────────────────────
 from ._base import (
-    EncodingType,
     LogicalClock,
-    MergeStrategy,
     Origin,
     PayloadRef,
     PayloadRefType,
@@ -207,21 +193,13 @@ __all__ = [
     "build_snp_l9_header",
     "build_snp_payload",
     "snp_event_type_for_operation",
-    # TOM wire types
-    "KnowledgeGraphNode",
-    "AgentResponsibility",
-    "DiscourseEntry",
-    "GraphEdge",
-    "GraphNode",
-    "KnowledgeGraphVisualization",
+    # TOM normalization utilities
     "normalize_tom_snapshot",
     "normalize_alignment",
     # Literals & primitives
     "ProtocolType",
     "SensitivityType",
     "PropagationType",
-    "EncodingType",
-    "MergeStrategy",
     "PayloadRefType",
     # Sub-models
     "Origin",
@@ -229,7 +207,6 @@ __all__ = [
     "PolicyLabels",
     "Provenance",
     "PayloadRef",
-    "LogicalClock",
     # Base envelope
     "_STBaseMessage",
     # Kind message classes — new session-flow vocabulary

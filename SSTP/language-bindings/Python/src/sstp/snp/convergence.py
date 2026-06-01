@@ -17,7 +17,7 @@ class ConvergenceMessage(_STBaseMessage):
     All participant epistemic states stabilize on receipt.
     """
 
-    kind: Literal["convergence"]
+    kind: Literal["commit:converged"]
     participant_ids: List[str] = []
     consensus_posterior: Optional[float] = None
     genuine_agreement_ratio: Optional[float] = None

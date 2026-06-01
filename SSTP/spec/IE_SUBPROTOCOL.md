@@ -48,14 +48,14 @@ IE uses the following event types. Each maps to an L9 `kind` per `SSTP_FORMAL_MO
 | `repair_required`          | `contingency`| Opens a grounding repair branch; main session held |
 | `repair_applied`           | `commit`     | Closes a repair branch; main session resumes; `CommonGround` is recorded |
 | `epistemic_clarification`  | `contingency`| Opens a clarification branch for epistemic disagreement or belief conflict |
-| `decision_emitted`         | `convergence`| Closes the session with a terminal decision |
-| `episode_persisted`        | `convergence`| Memory write; closes episodic scope |
-| `conversation_terminated`  | `convergence`| Session terminated (unrecoverable or clean) |
+| `decision_emitted`         | `exchange`   | Trace-only; local epistemic state update; not routed to peers |
+| `episode_persisted`        | `commit`     | Memory write; closes episodic scope |
+| `conversation_terminated`  | `commit`     | Session terminated (unrecoverable or clean) |
 | `agent_request`            | `exchange`   | Runtime RPC request |
 | `agent_response`           | `exchange`   | Runtime RPC response |
 | `prior_query`              | `exchange`   | Read from semantic memory |
 | `prior_injection`          | `exchange`   | Inject prior into an agent's `BeliefState` from semantic memory |
-| `rule_update`              | `convergence`| Write a `TeamGroundedTruth` to semantic memory; stabilizes epistemic state |
+| `rule_update`              | `commit`     | Write a `TeamGroundedTruth` to semantic memory; stabilizes epistemic state |
 | `outcome_reported`         | `exchange`   | Informational outcome report; does not close session |
 
 The `epistemic` block in the L9 header SHOULD be present on all `peer_turn`, `repair_required`, `repair_applied`, and `epistemic_clarification` messages.
@@ -100,7 +100,7 @@ CommonGround {
   confirmer_id:         B.agent_id,
   concept_id:           topic of the assertion,
   use_case:             session use_case,
-  episode_id:           state_object_id,
+  episode_id:           episode_id,
   grounding_confidence: A's confidence that B correctly integrated the belief,
   holder_confidence:    A's public_confidence at grounding time,
   confirmer_confidence: B's public_confidence after grounding,
@@ -123,7 +123,6 @@ Every L9 header on a peer-dialogue message SHOULD carry an `EpistemicBlock`:
 EpistemicBlock := {
   speech_act:        SpeechAct,
   task_phase:        TaskPhase,
-  social_compliance: Bool,     -- true when speech_act = deliberation_pass
 }
 ```
 
@@ -137,7 +136,7 @@ EpistemicBlock := {
 | `task_handoff`        | Delegating work to another agent |
 | `deliberation_pass`   | Expressing a position shift driven by social pressure, not grounded argument |
 
-`deliberation_pass` MUST set `social_compliance = True` in `EpistemicBlock`. It contributes to the agent's `social_compliance_ratio` but MUST NOT trigger a `CommonGround` record.
+When the IE layer detects `speech_act = deliberation_pass`, it records `BeliefRevision.cause = social_compliance` in `AgentBeliefStore`. This updates `social_compliance_ratio` but MUST NOT update the posterior and MUST NOT trigger a `CommonGround` record.
 
 ### 4.2 Task Phases
 
@@ -160,7 +159,7 @@ IE reads and writes `BeliefState` (defined in `EPISTEMIC_DATA_STRUCTURES.md §6`
 
 1. Determine the concept being asserted (from payload or epistemic annotation)
 2. Record `BeliefRevision` with `cause = grounded_argument`
-3. Call `AgentBeliefStore.record_revision(B.agent_id, concept_id, use_case, soid, revision, new_status="asserted")`
+3. Call `AgentBeliefStore.record_revision(B.agent_id, concept_id, use_case, episode_id, revision, new_status="asserted")`
 4. Append `(argument_concept_id, Δ)` to `BeliefState.likelihoods`
 5. Update `BeliefState.posterior`
 6. Record `CommonGround` (§3.3)
@@ -257,11 +256,11 @@ All contingency modes other than `normal_alignment` emit with `kind = contingenc
 
 ## 8. Episode Close
 
-At episode close (on `decision_emitted`, `episode_persisted`, or `conversation_terminated`):
+At episode close (on `episode_persisted` or `conversation_terminated`):
 
 1. For each agent pair `(A, B)` that exchanged during the episode:
    a. Collect all `ArgumentOutcome` and `PredictionRecord` accumulated in the episodic buffer
-   b. Call `PeerInteractionStore.promote_outcomes_for_pair(A.agent_id, B.agent_id, use_case, soid, outcomes, predictions)`
+   b. Call `PeerInteractionStore.promote_outcomes_for_pair(A.agent_id, B.agent_id, use_case, episode_id, outcomes, predictions)`
 2. `CommonGround` records are already written turn-by-turn; no promotion needed
 3. `BeliefState` is cross-episode; no promotion needed
 
@@ -277,6 +276,6 @@ At episode close (on `decision_emitted`, `episode_persisted`, or `conversation_t
 
 4. **Prior immutability invariant**: `BeliefState.prior` is set once per episode via `prior_injection` or `set_prior`. Subsequent `record_revision` calls update `posterior` via `likelihoods` but MUST NOT overwrite `prior`.
 
-5. **Deliberation pass invariant**: A `peer_turn` with `speech_act = deliberation_pass` MUST set `EpistemicBlock.social_compliance = True`. It MUST NOT produce a `CommonGround` record.
+5. **Deliberation pass invariant**: A `peer_turn` with `speech_act = deliberation_pass` MUST NOT produce a `CommonGround` record. The IE layer records `BeliefRevision.cause = social_compliance` — no self-declared wire field is required.
 
 6. **Repair before belief update invariant**: If `GroundingVerified = False` for a `peer_turn`, the corresponding `BeliefRevision` MUST NOT be applied until a `repair_applied` event resolves the branch.

@@ -38,24 +38,16 @@ class Origin(BaseModel):
     actor_id: str
     """ID of the agent, engine, or memory node that created the message."""
 
-    tenant_id: str
-    """Tenant / organisation identifier."""
-
     attestation: str | None = None
     """Optional credential or signature proving identity."""
 
 
 class SemanticContext(BaseModel):
-    """Schema and encoding metadata for the payload."""
+    """Schema identity for the payload."""
 
     schema_id: str
     """Canonical schema URN (e.g. ``urn:ioc:schema:intent:v1``)."""
 
-    schema_version: str
-    """Version string of the schema."""
-
-    encoding: EncodingType = "json"
-    """How the payload is encoded."""
 
 
 class PolicyLabels(BaseModel):
@@ -72,10 +64,6 @@ class Provenance(BaseModel):
 
     sources: list[str] = Field(default_factory=list)
     """Source references (URNs, message IDs, document refs)."""
-
-    transforms: list[str] = Field(default_factory=list)
-    """Transform / processing step references applied before this message."""
-
 
 class PayloadRef(BaseModel):
     """A reference to where payload content is stored."""
@@ -123,26 +111,17 @@ class _STBaseMessage(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
     # -- optional general fields -------------------------------------------
-    state_object_id: str | None = None
+    episode_id: str | None = None
     """URN or fabric address of the state object this message targets."""
 
     parent_ids: list[str] = Field(default_factory=list)
     """Message IDs this message is a reply to or derived from."""
 
-    logical_clock: LogicalClock | None = None
-    """Lamport or vector clock for ordering."""
-
     payload_refs: list[PayloadRef] = Field(default_factory=list)
     """External or split-payload references."""
-
-    confidence_score: float | None = Field(default=None, ge=0.0, le=1.0)
-    """Confidence in this message's content (0.0 – 1.0)."""
 
     ttl_seconds: int | None = None
     """Time-to-live in seconds. None = no expiry."""
 
-    merge_strategy: MergeStrategy | None = None
-    """How a receiving store should merge this message into shared state."""
 
-    risk_score: float | None = None
-    """Risk assessment score attached by the issuing policy engine."""
+

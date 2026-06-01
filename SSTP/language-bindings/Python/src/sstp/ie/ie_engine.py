@@ -147,7 +147,7 @@ class IEEngine:
         if contingency in ("repair_alignment", "repair_anchor", "repair_hard_stop"):
             for c in available:
                 base_scores[c] += 0.05
-        elif contingency == "expedite_route":
+        elif contingency == "expedite_decision":
             for c in available:
                 base_scores[c] += 0.04
 
@@ -232,12 +232,12 @@ class IEEngine:
             return "repair_hard_stop"
         if ambiguity_score > 0.60:
             return "request_clarification"
-        if anchor_gap > 0.40:
+        if anchor_gap > 0.30:
             return "repair_anchor"
         if alignment_score < 0.55 or disagreement > 0.35 or ema_alignment < 0.55:
             return "repair_alignment"
         if urgency > 0.72:
-            return "expedite_route"
+            return "expedite_decision"
         return "normal_alignment"
 
     def adaptive_agent_utterance(

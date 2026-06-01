@@ -38,7 +38,7 @@ NegotiationStatus := pending | reviewed | incorporated | resolved
 SNP uses the 5-value session-flow vocabulary defined in `SSTP_FORMAL_MODEL.md §3.4`:
 
 ```text
-SSTPKind := intent | exchange | contingency | commit | convergence
+SSTPKind := intent | exchange | contingency | commit | knowledge
 ```
 
 SNP operation → L9 `kind` mapping:
@@ -49,12 +49,12 @@ SNP operation → L9 `kind` mapping:
 | `consider_proposal`, `evaluate_proposal`, `review_proposal`, `negotiate` | `peer_turn` | `exchange` |
 | `counter_proposal` | `peer_turn` | `contingency` |
 | Individual `accept` / `reject` | `decision_emitted` | `commit` |
-| Group convergence announcement | `convergence_emitted` | `convergence` |
+| Group convergence announcement | `convergence_emitted` | `commit` |
 
 Notes:
 - Payload-level `operation` carries SNP semantics. SSTP `kind` carries session-layer role.
 - `counter_proposal` opens a contingency branch at L9; the proposal payload carries the SNP semantics. Resolved by a subsequent `commit`.
-- `convergence_emitted` is a new SNP event type; it is multicast to all participants and closes the session.
+- `convergence_emitted` is multicast to all participants; it is the group-closing `commit` that closes the outer session.
 
 ## 2. Data Structures
 
@@ -181,17 +181,18 @@ MapOperationToEventType(op):
 Implications from SSTP base model:
 - `peer_turn` yields `kind = exchange` (or `intent` for session-opening `propose`).
 - `decision_emitted` yields `kind = commit` (individual terminal signal).
-- `convergence_emitted` yields `kind = convergence` (group closure; multicast).
+- `convergence_emitted` yields `kind = commit` (group closure commit; multicast).
 - All SNP messages carry `cognition_profile_id = "semantic_alignment"` and `cognition_protocol = "SNP"` in `semantic_context`.
 
 #### 3.1.1 convergence_emitted Event Type
 
 ```text
 convergence_emitted: emitted by coordinator after majority or unanimous determination;
-  kind        = convergence
-  delivery    = multicast to all participant_ids
-  parent_ids  = [last decision_emitted message_id]
-  payload     = ConvergenceResult (§2.5)
+  kind              = commit
+  commit_resolution = "converged"
+  delivery          = multicast to all participant_ids
+  parent_ids        = [last decision_emitted message_id]
+  payload           = ConvergenceResult (§2.5)
 ```
 
 This is a new SNP event type. It carries `ConvergenceResult` as payload and is the record written to SemanticMemory via `rule_update`.
@@ -301,7 +302,8 @@ procedure DetermineConvergence(negotiation_id, positions, priors, scr, threshold
 -- threshold : Float                 -- majority or unanimity threshold (e.g. 0.5 or 1.0)
 
 1. mpc := mean(positions.values())
-2. gar := fraction of agents where |positions[a] - priors[a]| < social_influence_threshold
+2. gar := fraction of agents where (positions[a] - 0.5) × (priors[a] - 0.5) >= 0
+   -- i.e. initial and final beliefs are on the same side of 0.5: convergence did not reverse direction
 3. if count(positions.values() >= threshold) / len(positions) >= threshold:
    a. outcome := accept
 4. else if count(positions.values() < (1.0 - threshold)) / len(positions) >= threshold:
@@ -315,7 +317,7 @@ procedure DetermineConvergence(negotiation_id, positions, priors, scr, threshold
      outcome                 = outcome,
      ...
    }
-7. emit convergence_emitted to all participant_ids (multicast, kind = convergence)
+7. emit convergence_emitted to all participant_ids (multicast, kind = commit, commit_resolution = "converged")
 8. write ConvergenceResult to SemanticMemory via rule_update with:
    prior_weight = (1.0 - scr) × gar
 9. return ConvergenceResult
@@ -356,7 +358,7 @@ After receiving each peer's `decision_emitted` response:
 3. Implementations SHOULD maintain deterministic causality via `parent_ids` chains.
 4. Implementations SHOULD use `decision_emitted` for individual terminal acceptance/rejection outcomes.
 5. Proposal integrity checks SHOULD be performed before final convergence.
-6. After individual `decision_emitted` messages are collected, a coordinator MUST emit `convergence_emitted` to all `participant_ids` (multicast, `kind = convergence`).
+6. After individual `decision_emitted` messages are collected, a coordinator MUST emit `convergence_emitted` to all `participant_ids` (multicast, `kind = commit`, `commit_resolution = "converged"`).
 7. `ConvergenceResult` MUST carry `genuine_agreement_ratio` and `social_compliance_ratio`. `prior_weight` written to SemanticMemory MUST equal `(1.0 - SCR) × GAR`.
 
 ## 7. Interoperability Note

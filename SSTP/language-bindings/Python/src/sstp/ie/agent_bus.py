@@ -5,8 +5,8 @@
 """
 sstp/ie/agent_bus.py — Domain-agnostic per-episode L9 message bus.
 
-AgentBus is parameterised at construction with use_case, tenant_id, and
-sensitivity so any application can instantiate it without subclassing.
+AgentBus is parameterised at construction with use_case and sensitivity
+so any application can instantiate it without subclassing.
 
 All protocol operations (emit_request, emit_response, emit_error,
 emit_semantic_repair, check_and_repair, emit_epistemic_clarification)
@@ -30,7 +30,6 @@ class AgentBus:
     Parameters
     ----------
     use_case:    domain label written into every L9 header (e.g. "healthcare")
-    tenant_id:   tenant written into every L9 header
     sensitivity: sensitivity label; defaults to "internal"
     """
 
@@ -39,13 +38,11 @@ class AgentBus:
         run_id: str,
         conversation_id: str,
         use_case: str,
-        tenant_id: str,
         sensitivity: str = "internal",
     ) -> None:
         self.run_id = run_id
         self.conversation_id = conversation_id
         self.use_case = use_case
-        self.tenant_id = tenant_id
         self.sensitivity = sensitivity
         self.messages: List[Dict[str, Any]] = []
         self._seq_counters: Dict[str, int] = {}
@@ -61,8 +58,7 @@ class AgentBus:
         sender: str,
         receiver: str,
         utterance: str,
-        confidence_score: float | None = None,
-        state_object_id: str | None = None,
+        episode_id: str | None = None,
         turn_depth: int | None = None,
         epistemic: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
@@ -72,11 +68,9 @@ class AgentBus:
             sender=sender,
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
-            tenant_id=self.tenant_id,
             sensitivity=self.sensitivity,
             utterance=utterance,
-            confidence_score=confidence_score,
-            state_object_id=state_object_id,
+            episode_id=episode_id,
             turn_depth=turn_depth,
             epistemic=epistemic,
             state_sequence=self._next_sequence(sender),
@@ -91,8 +85,7 @@ class AgentBus:
         receiver: str,
         utterance: str,
         parent_id: str | None = None,
-        confidence_score: float | None = None,
-        state_object_id: str | None = None,
+        episode_id: str | None = None,
         turn_depth: int | None = None,
         epistemic: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
@@ -102,12 +95,10 @@ class AgentBus:
             sender=sender,
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
-            tenant_id=self.tenant_id,
             sensitivity=self.sensitivity,
             utterance=utterance,
             parent_ids=[parent_id] if parent_id else None,
-            confidence_score=confidence_score,
-            state_object_id=state_object_id,
+            episode_id=episode_id,
             turn_depth=turn_depth,
             epistemic=epistemic,
             state_sequence=self._next_sequence(sender),
@@ -132,7 +123,6 @@ class AgentBus:
             sender=sender,
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
-            tenant_id=self.tenant_id,
             sensitivity=self.sensitivity,
             utterance=f"error:{error_type}",
             parent_ids=[parent_id] if parent_id else None,
@@ -155,7 +145,7 @@ class AgentBus:
         target_message_id: str,
         repair_reason: RepairReason,
         target_epistemic: Optional[Dict[str, Any]] = None,
-        state_object_id: str | None = None,
+        episode_id: str | None = None,
         turn_depth: int | None = None,
     ) -> Dict[str, Any]:
         repair_scope = list(
@@ -168,11 +158,10 @@ class AgentBus:
             sender=sender,
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
-            tenant_id=self.tenant_id,
             sensitivity=self.sensitivity,
             utterance=f"repair_required:reason={repair_reason.value}:target={target_message_id}",
             parent_ids=[target_message_id],
-            state_object_id=state_object_id,
+            episode_id=episode_id,
             turn_depth=turn_depth,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.HELP_REQUEST,
@@ -201,7 +190,7 @@ class AgentBus:
         prior_message_epistemic: Optional[Dict[str, Any]],
         response_epistemic: Optional[Dict[str, Any]],
         response_message_id: str,
-        state_object_id: str | None = None,
+        episode_id: str | None = None,
     ) -> Optional[Dict[str, Any]]:
         reason = diagnose_repair_reason(prior_message_epistemic, response_epistemic)
         if reason is None:
@@ -212,7 +201,7 @@ class AgentBus:
             target_message_id=response_message_id,
             repair_reason=reason,
             target_epistemic=prior_message_epistemic,
-            state_object_id=state_object_id,
+            episode_id=episode_id,
         )
 
     def emit_epistemic_clarification(
@@ -229,7 +218,6 @@ class AgentBus:
             sender=sender,
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
-            tenant_id=self.tenant_id,
             sensitivity=self.sensitivity,
             utterance=f"epistemic_clarification:{reason}",
             parent_ids=[target_message_id],

@@ -2,7 +2,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""sstp/memory_delta.py — MemoryDeltaMessage kind."""
+"""sstp/memory_delta.py — MemoryDeltaMessage kind.
+
+Legacy negotiation kind. Not in SSTP spec vocabulary.
+Retained for ``l9_bridge.py`` backward compatibility.
+"""
 from __future__ import annotations
 
 from typing import Literal

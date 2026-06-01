@@ -79,7 +79,7 @@ L9_VERSION: str = "0"
 
 # ── Shared utilities ──────────────────────────────────────────────────────────
 
-_CERTIFIED_KINDS: frozenset = frozenset({"commit", "convergence"})
+_CERTIFIED_KINDS: frozenset = frozenset({"commit:converged", "commit:abort"})
 
 # ── Schema lifecycle stages (§5 of the canonical model spec) ─────────────────
 #
@@ -109,9 +109,8 @@ def normalize_use_case(use_case: str) -> str:
 def schema_trust_level_for_kind(kind: str) -> str:
     """Return the default schema trust level for a given L9 kind.
 
-    ``"certified"`` for stable kinds (``commit``, ``memory_delta``),
-    ``"draft"`` for all others.  Callers may override via the
-    ``schema_trust_level`` parameter of :meth:`L9HeaderBuilder.build`.
+    ``"certified"`` for stable kinds (``commit``),
+    ``"draft"`` for all others.
     """
     return "certified" if kind in _CERTIFIED_KINDS else "draft"
 
@@ -157,13 +156,16 @@ def _message_id_seed(
     turn_depth: int | None,
     utterance: str,
     timestamp_ms: int,
+    sequence_number: int | None = None,
 ) -> str:
+    # Spec §6.4: 8-field seed — use_case|event_type|sender|receiver|sequence_number|turn_depth|utterance|timestamp_ms
     return "|".join(
         [
             normalize_use_case(use_case),
             str(event_type).strip().lower(),
             str(sender or "unknown"),
             str(receiver or "none"),
+            str(sequence_number if sequence_number is not None else "none"),
             str(turn_depth if turn_depth is not None else "none"),
             utterance,
             str(max(0, timestamp_ms)),
@@ -186,7 +188,7 @@ class L9HeaderBuilder:
 
         class MyProtocolBuilder(L9HeaderBuilder):
             def kind_for_event_type(self, event_type: str) -> str:
-                return {"foo_event": "intent", "bar_event": "commit"}.get(event_type, "knowledge")
+                return {"foo_event": "intent", "bar_event": "commit:converged"}.get(event_type, "knowledge")
 
             def schema_id_for(self, use_case, event_type, kind, trust_level):
                 return f"urn:my:{use_case}:{kind}:v1"
@@ -244,27 +246,22 @@ class L9HeaderBuilder:
         sender: str,
         receiver: str | None,
         timestamp_ms: int,
-        tenant_id: str | None = None,
         sensitivity: str = "internal",
         propagation: str = "restricted",
         turn_depth: int | None = None,
         utterance: str = "",
         parent_ids: Iterable[str] | None = None,
-        confidence_score: float | None = None,
-        risk_score: float | None = None,
-        state_object_id: str | None = None,
-        merge_strategy: str = "merge",
+        episode_id: str | None = None,
         provenance_sources: Iterable[str] | None = None,
-        provenance_transforms: Iterable[str] | None = None,
         payload_refs: List[Dict[str, str]] | None = None,
-        schema_inline: Dict[str, Any] | None = None,
-        schema_trust_level: str | None = None,
         message_id: str | None = None,
         ontology_ref: str | None = None,
-        cognition_profile_id: str | None = None,
         cognition_protocol: str | None = None,
         epistemic: Dict[str, Any] | None = None,
         state_sequence: Dict[str, Any] | None = None,
+        kind_override: str | None = None,
+        conversation_id: str | None = None,
+        sequence_number: int | None = None,
     ) -> Dict[str, Any]:
         """Assemble the common L9 envelope dict.
 
@@ -280,12 +277,18 @@ class L9HeaderBuilder:
         ``turn_depth`` represents the nesting level of this message.
         Sub-protocol events that fire *inside* an enclosing exchange (e.g. an
         IE correction inside an SNP turn) MUST carry ``turn_depth = parent + 1``
-        and a child ``state_object_id`` scoped to the enclosing exchange.
+        and a child ``episode_id`` scoped to the enclosing exchange.
+
+        ``kind_override`` bypasses the event-type-to-kind mapping.  Use to
+        stamp ``kind="intent"`` on the first ``peer_turn`` of a session.
+
+        ``conversation_id`` identifies the named conversation that persists
+        across multiple episodes.  Set once at session open; threaded forward.
         """
         normalized_use_case = normalize_use_case(use_case)
         canonical_type = str(event_type).strip().lower()
-        kind = self.kind_for_event_type(canonical_type)
-        trust_level = schema_trust_level or schema_trust_level_for_kind(kind)
+        kind = kind_override or self.kind_for_event_type(canonical_type)
+        trust_level = schema_trust_level_for_kind(kind)
 
         derived_message_id = message_id or str(
             uuid5(
@@ -298,13 +301,13 @@ class L9HeaderBuilder:
                     turn_depth=turn_depth,
                     utterance=utterance,
                     timestamp_ms=timestamp_ms,
+                    sequence_number=sequence_number,
                 ),
             )
         )
 
         parent_id_list = [str(i) for i in (parent_ids or []) if i]
         source_list = [str(i) for i in (provenance_sources or []) if i]
-        transform_list = [str(i) for i in (provenance_transforms or []) if i]
         payload_ref_list = payload_refs or [
             {"type": "inline", "ref": f"urn:ioc:payload:{derived_message_id}"}
         ]
@@ -317,18 +320,13 @@ class L9HeaderBuilder:
             "dt_created": _iso8601_from_timestamp_ms(timestamp_ms),
             "origin": {
                 "actor_id": str(sender or "unknown"),
-                "tenant_id": tenant_id or f"ioc-demo-{normalized_use_case}",
                 "attestation": "self_attested_local",
             },
             "semantic_context": {
                 "schema_id": self.schema_id_for(
                     normalized_use_case, canonical_type, kind, trust_level
                 ),
-                "schema_version": schema_version_for_trust_level(trust_level),
-                "encoding": "structured_text",
-                "schema_trust_level": trust_level,
                 "ontology_ref": ontology_ref,
-                "cognition_profile_id": cognition_profile_id,
                 "cognition_protocol": cognition_protocol,
             },
             "policy_labels": {
@@ -338,22 +336,17 @@ class L9HeaderBuilder:
             },
             "provenance": {
                 "sources": source_list,
-                "transforms": transform_list,
             },
-            "state_object_id": state_object_id
+            "conversation_id": conversation_id,
+            "episode_id": episode_id
             or f"urn:ioc:{normalized_use_case}:state:shared_dialogue",
             "parent_ids": parent_id_list,
-            "confidence_score": confidence_score,
-            "risk_score": risk_score,
             "ttl_seconds": self.ttl_for_event_type(canonical_type),
-            "merge_strategy": merge_strategy,
             "epistemic": epistemic,
             "state_sequence": state_sequence,
             "payload_refs": payload_ref_list,
         }
 
-        if schema_inline:
-            header["semantic_context"]["schema_inline"] = dict(schema_inline)
         return header
 
 

@@ -24,7 +24,6 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from sstp.epistemic.local_replica import LocalStateReplica, ReplicaEntry
-from sstp.epistemic.stores import PeerInteractionStore
 
 
 class ReplicaToM:
@@ -278,30 +277,34 @@ class ReplicaToM:
 
 
 def predict_belief(
-    peer_store: PeerInteractionStore,
-    observer_id: str,
-    subject_id: str,
-    use_case: str,
-    concept_id: str,
-    new_evidence: List[str],
+    agent_tom: Any,
+    *,
+    subject_id: str = "",
+    concept_id: str = "",
+    new_evidence: Optional[List[str]] = None,
     prior_confidence: float = 0.5,
+    peer_interaction_store: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """2nd-order ToM: predict what subject_id will conclude about concept_id
-    when presented with new_evidence, using observer_id's cross-episode peer model.
+    when presented with new_evidence.
 
-    Uses Naive Bayes over evidence_weights when available, falls back to
-    historical move rates, returns prior when no history exists.
+    Reads the observer's persisted peer belief model from
+    ``agent_tom._epistemic_store`` and uses the semantic belief confidence and
+    prediction log as the prediction basis.
 
     Returns:
         predicted_confidence  — posterior the subject is expected to hold
-        basis                 — "evidence_weights" | "argument_history" | "prior_only"
+        basis                 — "peer_model" | "prior_only"
         reliability           — discount: episode_count/5 × predictive_accuracy
-        argument_types_that_move — argument types historically effective on subject
-        evidence_overlap      — # new_evidence items matched in evidence_weights
+        argument_types_that_move — always [] (future extension point)
+        evidence_overlap      — # new_evidence items matched in inferred_constraints
     """
-    record = peer_store.get_peer_record(observer_id, subject_id, use_case)
+    new_evidence = new_evidence or []
 
-    if record is None or record.episode_count == 0:
+    peer_model = agent_tom._epistemic_store.load_peer_model(subject_id)
+    prediction_log = agent_tom._epistemic_store.load_prediction_log(subject_id)
+
+    if peer_model is None:
         return {
             "predicted_confidence": round(prior_confidence, 4),
             "basis": "prior_only",
@@ -310,42 +313,61 @@ def predict_belief(
             "evidence_overlap": 0,
         }
 
-    # Count evidence items that have known weights in subject's model
-    evidence_overlap = sum(1 for ev in new_evidence if ev in record.evidence_weights)
-
-    p = prior_confidence
-    if evidence_overlap > 0:
-        # Naive Bayes: P(H | e1..en) ∝ P(H) × ∏ evidence_weights[ei]
-        basis = "evidence_weights"
-        for ev in new_evidence:
-            p *= record.evidence_weights.get(ev, 1.0)
-        p = max(0.05, min(0.95, p))
-    else:
-        # Fall back to historical move rate for this concept
-        concept_outcomes = [
-            o for o in record.argument_outcomes
-            if o.argument_concept_id == concept_id
-        ]
-        if concept_outcomes:
-            basis = "argument_history"
-            move_rate = sum(
-                1 for o in concept_outcomes if o.moved and o.contingent
-            ) / len(concept_outcomes)
-            # Shift prior by (move_rate - 0.5) × 0.4 to stay within [0.3, 0.7]
-            p = max(0.05, min(0.95, prior_confidence + (move_rate - 0.5) * 0.4))
-        else:
-            basis = "prior_only"
-
-    reliability = round(
-        min(1.0, record.episode_count / 5.0) * record.predictive_accuracy,
-        4,
+    peer_confidence = float(peer_model.get("confidence", prior_confidence))
+    inferred_constraints = peer_model.get("inferred_constraints", [])
+    evidence_overlap = sum(
+        1 for ev in new_evidence
+        if any(ev.lower() in c.lower() for c in inferred_constraints)
     )
 
+    _type_weights = {
+        "grounded_evidence": 0.12,
+        "role_authority":    0.07,
+        "social_pressure":   0.02,
+        "procedural":        0.01,
+    }
+    _types_that_move = peer_model.get("argument_types_that_move", [])
+    _type_weight = max(
+        (_type_weights.get(t, 0.06) for t in _types_that_move),
+        default=0.06,
+    )
+    p = peer_confidence
+    if evidence_overlap > 0:
+        p = min(0.95, peer_confidence + _type_weight * evidence_overlap)
+
+    # Fix 13b: cross-episode evidence_weights from PeerInteractionStore
+    if peer_interaction_store is not None:
+        _rec = peer_interaction_store.get_peer_record(
+            getattr(agent_tom, "agent_id", ""), subject_id
+        )
+        if _rec is not None and _rec.evidence_weights:
+            _weighted = sum(
+                _rec.evidence_weights.get(ev, _type_weight)
+                for ev in new_evidence
+                if any(ev.lower() in c.lower() for c in inferred_constraints)
+            )
+            if _weighted > 0:
+                p = min(0.95, peer_confidence + _weighted)
+
+    episode_count = len(prediction_log)
+    predictive_accuracy = 0.5
+    if prediction_log:
+        errors = [float(e.get("prediction_error", 0.5)) for e in prediction_log]
+        predictive_accuracy = max(0.0, 1.0 - sum(errors) / len(errors))
+    if peer_interaction_store is not None:
+        _rec2 = peer_interaction_store.get_peer_record(
+            getattr(agent_tom, "agent_id", ""), subject_id
+        )
+        if _rec2 is not None and _rec2.predictive_accuracy != 0.5:
+            predictive_accuracy = _rec2.predictive_accuracy
+            episode_count = max(episode_count, _rec2.episode_count)
+    reliability = round(min(1.0, episode_count / 5.0) * predictive_accuracy, 4)
+
     return {
-        "predicted_confidence": round(p, 4),
-        "basis": basis,
+        "predicted_confidence": round(max(0.05, min(0.95, p)), 4),
+        "basis": "peer_model",
         "reliability": reliability,
-        "argument_types_that_move": record.argument_types_that_move[:],
+        "argument_types_that_move": list(peer_model.get("argument_types_that_move", [])),
         "evidence_overlap": evidence_overlap,
     }
 

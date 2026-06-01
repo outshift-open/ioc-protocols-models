@@ -21,10 +21,10 @@ and maps IE event types to SSTP kinds (5-value session-flow vocabulary):
     epistemic_clarification → contingency
     agent_request           → exchange
     agent_response          → exchange
-    decision_emitted        → convergence
-    episode_persisted       → convergence
-    conversation_terminated → convergence
-    rule_update             → convergence
+    decision_emitted        → commit      (terminal SNP decision; closes contingency branch)
+    episode_persisted       → commit
+    conversation_terminated → commit
+    rule_update             → knowledge   (team-level grounded truth written to SemanticMemory)
     prior_query             → exchange
     prior_injection         → exchange
     outcome_reported        → exchange
@@ -64,10 +64,10 @@ _KIND_BY_EVENT_TYPE: Dict[str, str] = {
     "turn_ingested":           "exchange",
     "peer_turn":               "exchange",
     "repair_required":         "contingency",
-    "repair_applied":          "commit",
-    "decision_emitted":        "convergence",
-    "episode_persisted":       "convergence",
-    "conversation_terminated": "convergence",
+    "repair_applied":          "commit:converged",
+    "decision_emitted":        "commit:converged",
+    "episode_persisted":       "commit:converged",
+    "conversation_terminated": "commit:converged",
     "agent_request":           "exchange",
     "agent_response":          "exchange",
     "agent_error":             "exchange",
@@ -77,7 +77,7 @@ _KIND_BY_EVENT_TYPE: Dict[str, str] = {
     # SemanticMemory interactions (Coordinator ↔ SemanticMemory agent)
     "prior_query":             "exchange",
     "prior_injection":         "exchange",
-    "rule_update":             "convergence",
+    "rule_update":             "knowledge",
     "outcome_reported":        "exchange",
 }
 
@@ -194,7 +194,6 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
         sender: str,
         receiver: str | None,
         timestamp_ms: int,
-        cognition_profile_id: str | None = "adaptive_communication:v1",
         cognition_protocol: str | None = "IE",
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -216,7 +215,6 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
             sender=sender,
             receiver=receiver,
             timestamp_ms=timestamp_ms,
-            cognition_profile_id=cognition_profile_id,
             cognition_protocol=cognition_protocol,
             **kwargs,
         )
@@ -234,27 +232,22 @@ def build_l9_header(
     sender: str,
     receiver: str | None,
     timestamp_ms: int,
-    tenant_id: str | None = None,
     sensitivity: str = "internal",
     propagation: str = "restricted",
     turn_depth: int | None = None,
     utterance: str = "",
     parent_ids: Iterable[str] | None = None,
-    confidence_score: float | None = None,
-    risk_score: float | None = None,
-    state_object_id: str | None = None,
-    merge_strategy: str = "merge",
+    episode_id: str | None = None,
     provenance_sources: Iterable[str] | None = None,
-    provenance_transforms: Iterable[str] | None = None,
     payload_refs: List[Dict[str, str]] | None = None,
-    schema_inline: Dict[str, Any] | None = None,
-    schema_trust_level: str | None = None,
     message_id: str | None = None,
     ontology_ref: str | None = None,
-    cognition_profile_id: str | None = "adaptive_communication:v1",
     cognition_protocol: str | None = "IE",
     epistemic: Dict[str, Any] | None = None,
     state_sequence: Dict[str, Any] | None = None,
+    kind_override: str | None = None,
+    conversation_id: str | None = None,
+    sequence_number: int | None = None,
 ) -> Dict[str, Any]:
     """Build an Interaction Engine SSTP L9 header dict.
 
@@ -280,10 +273,9 @@ def build_l9_header(
         (``repair_applied`` → ``peer_turn``) are carried in the event
         payload's ``repair.trigger_message_id`` field, not here.
 
-    All other envelope fields (``kind``, ``schema_id``, ``schema_version``,
-    ``schema_trust_level``, ``cognition_profile_id``, ``cognition_protocol``,
+    All other envelope fields (``kind``, ``schema_id``, ``cognition_protocol``,
     ``ttl_seconds``, ``origin``, ``policy_labels``, ``provenance``,
-    ``state_object_id``, ``merge_strategy``, ``payload_refs``) are derived
+    ``episode_id``, ``payload_refs``) are derived
     automatically from the event type and use-case.
     """
     return _DEFAULT_BUILDER.build(
@@ -292,27 +284,22 @@ def build_l9_header(
         sender=sender,
         receiver=receiver,
         timestamp_ms=timestamp_ms,
-        tenant_id=tenant_id,
         sensitivity=sensitivity,
         propagation=propagation,
         turn_depth=turn_depth,
         utterance=utterance,
         parent_ids=parent_ids,
-        confidence_score=confidence_score,
-        risk_score=risk_score,
-        state_object_id=state_object_id,
-        merge_strategy=merge_strategy,
+        episode_id=episode_id,
         provenance_sources=provenance_sources,
-        provenance_transforms=provenance_transforms,
         payload_refs=payload_refs,
-        schema_inline=schema_inline,
-        schema_trust_level=schema_trust_level,
         message_id=message_id,
         ontology_ref=ontology_ref,
-        cognition_profile_id=cognition_profile_id,
         cognition_protocol=cognition_protocol,
         epistemic=epistemic,
         state_sequence=state_sequence,
+        kind_override=kind_override,
+        conversation_id=conversation_id,
+        sequence_number=sequence_number,
     )
 
 

@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from ._base import EncodingType, _STBaseMessage
+from ._base import _STBaseMessage
 from .negmas_sao import SAONMI, SAOResponse, SAOState
 
 
@@ -25,12 +25,6 @@ class NegotiateSemanticContext(BaseModel):
 
     schema_id: str = "urn:ioc:schema:negotiate:negmas-sao:v1"
     """Canonical schema URN identifying this as a NegMAS SAO negotiate context."""
-
-    schema_version: str = "1.0"
-    """Schema version."""
-
-    encoding: EncodingType = "json"
-    """Payload encoding (always json for NegMAS snapshots)."""
 
     session_id: str
     """Negotiation session / mechanism ID that this message belongs to."""

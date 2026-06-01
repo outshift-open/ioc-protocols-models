@@ -47,23 +47,11 @@ class InteractionProtocolAdapter:
             return None
         return receiver
 
-    @staticmethod
-    def _derive_l9_risk_score(alignment: Dict[str, Any] | None, out_of_bound: bool) -> float | None:
-        if out_of_bound:
-            return 1.0
-        if not isinstance(alignment, dict):
-            return None
-        alignment_score = InteractionProtocolAdapter._as_float(alignment.get("alignment_score"))
-        if alignment_score is None:
-            return None
-        return max(0.0, min(1.0, round(1.0 - alignment_score, 4)))
-
     @classmethod
     def _normalize_contingency(cls, value: Any) -> str:
         allowed = {
             "normal_alignment",
             "repair_alignment",
-            "expedite_route",
             "expedite_decision",
             "cost_tradeoff",
             "none",
@@ -191,8 +179,6 @@ class InteractionProtocolAdapter:
             timestamp_ms=max(0, timestamp_ms),
             turn_depth=turn_depth,
             utterance=utterance,
-            confidence_score=cls._as_float(normalized_alignment.get("alignment_score")),
-            risk_score=cls._derive_l9_risk_score(normalized_alignment, out_of_bound),
         )
 
         ie_payload: Dict[str, Any] = {
@@ -388,7 +374,8 @@ class InteractionProtocolAdapter:
         _KIND_TO_PHASE_EVENT = {
             # New 5-value vocabulary
             "contingency": ("peer_dialogue", "repair_required"),
-            "commit":      ("peer_dialogue", "repair_applied"),
+            "commit:converged": ("peer_dialogue", "repair_applied"),
+            "commit:abort":     ("peer_dialogue", "repair_applied"),
             "convergence": ("coordination", "decision_emitted"),
             # Legacy kinds (backward compat)
             "query":       ("peer_dialogue", "repair_required"),

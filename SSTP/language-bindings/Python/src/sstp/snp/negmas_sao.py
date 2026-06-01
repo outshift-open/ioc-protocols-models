@@ -5,6 +5,9 @@
 """
 negmas_sao.py — Local Pydantic v2 mirror of NegMAS SAO types
 =============================================================
+Evaluation-only: NegMAS SAO mirror for ``semantic_negotiation/`` evaluation
+infrastructure. Not part of the SSTP spec vocabulary.
+
 Replicates the SAO (Stacked Alternating Offers) data model from
 **negmas 0.15.1.post1** as proper Pydantic v2 ``BaseModel`` classes.
 

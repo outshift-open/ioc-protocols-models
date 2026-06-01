@@ -19,14 +19,14 @@ These structures serve three functions:
 
 ### Scope
 
-- All stores are **soid-free** and **cross-episode** — they persist beyond individual episodic transactions
+- All stores are **cross-episode** — they persist beyond individual episodic transactions
 - All structures are **application-agnostic** — `concept_id` and `argument_type` are domain-specific strings; the epistemic structure is universal
 - `payload` in episode messages is **opaque** to the epistemic layer — only application-layer agents read it
 - Revision history is **append-only** — never pruned; full causal trace of every belief change
 
 ### Non-Goals
 
-- Episodic transaction scoping (governed by `state_object_id` / soid in the SSTP header)
+- Episodic transaction scoping (governed by `episode_id` in the SSTP header)
 - Transport framing or message routing
 - Domain-specific payload schema
 
@@ -96,11 +96,10 @@ The `EpistemicBlock` is stamped on every L9 message header. It annotates the epi
 EpistemicBlock := {
   speech_act:          SpeechAct,
   task_phase:          TaskPhase,
-  social_compliance:   Bool,    -- true if this turn was driven by social pressure, not argument
 }
 ```
 
-`social_compliance = true` MUST be set when `speech_act = deliberation_pass`. It contributes to the agent's rolling `social_compliance_ratio` for the concept being discussed.
+The IE layer detects `speech_act = deliberation_pass` and records `BeliefRevision.cause = social_compliance` in `AgentBeliefStore` — no self-declared wire field is required. This revision updates the rolling `social_compliance_ratio` for the concept but does NOT update the posterior.
 
 ---
 
@@ -112,7 +111,7 @@ One atomic change to an agent's belief in a concept. Append-only; never deleted.
 BeliefRevision := {
   revision_id:            UuidString,
   timestamp_ms:           TimestampMs,
-  episode_id:             String,           -- soid of episode that triggered this revision
+  episode_id:             String,           -- episode_id of episode that triggered this revision
   message_id:             Option[UuidString], -- L9 message_id that caused revision; null for semantic_memory injections
   confidence_before:      Float,            -- [0.0, 1.0]
   confidence_after:       Float,            -- [0.0, 1.0]
@@ -183,7 +182,7 @@ CommonGround := {
   confirmer_id:            String,        -- B: who grounded
   concept_id:              UriString,
   use_case:                String,
-  episode_id:              String,        -- soid of containing episode
+  episode_id:              String,        -- episode_id of containing episode
   grounding_confidence:    Float,         -- A's confidence that B correctly integrated the belief
   holder_confidence:       Float,         -- A's public_confidence at grounding time
   confirmer_confidence:    Float,         -- B's public_confidence after grounding
@@ -206,7 +205,7 @@ The output of a completed SNP multi-party convergence round. This is what gets w
 TeamGroundedTruth := {
   concept_id:               UriString,
   use_case:                 String,
-  episode_id:               String,           -- soid of episode in which convergence occurred
+  episode_id:               String,           -- episode_id of episode in which convergence occurred
   participant_ids:          Seq[String],
 
   -- Bayesian provenance
@@ -304,7 +303,7 @@ PeerInteractionRecord := {
 
   -- Staleness
   episode_count:                  Int,              -- episodes contributing; low = thin model, discount predictions
-  last_episode:                   String,           -- soid of most recent contributing episode
+  last_episode:                   String,           -- episode_id of most recent contributing episode
 }
 ```
 
@@ -347,7 +346,7 @@ The system produces genuine knowledge only when SCR is low and GAR is high at ev
 
 ### 13.1 AgentBeliefStore
 
-Cross-episode, soid-free. Keyed by `(agent_id, concept_id, use_case)`.
+Cross-episode. Keyed by `(agent_id, concept_id, use_case)`.
 
 ```text
 current_belief(agent_id, concept_id, use_case) → Option[BeliefState]
@@ -384,7 +383,7 @@ Cross-episode, directional. Keyed by `(observer_id, subject_id, use_case)`.
 get_peer_record(observer_id, subject_id, use_case) → Option[PeerInteractionRecord]
 record_argument_outcome(observer_id, subject_id, use_case, outcome: ArgumentOutcome) → void
 record_prediction(observer_id, subject_id, use_case, pred: PredictionRecord) → void
-promote_outcomes_for_pair(observer_id, subject_id, use_case, soid, outcomes, predictions) → void
+promote_outcomes_for_pair(observer_id, subject_id, use_case, episode_id, outcomes, predictions) → void
 ```
 
 ---
@@ -395,10 +394,12 @@ promote_outcomes_for_pair(observer_id, subject_id, use_case, soid, outcomes, pre
 
 2. **Prior immutability invariant**: `BeliefState.prior` is set once at episode open via `set_prior`. Subsequent `record_revision` calls update `posterior` (via `likelihoods`) but never overwrite `prior`.
 
-3. **CommonGround contingency invariant**: `CommonGround.contingency_verified` MUST be `True`. A failed grounding produces `repair_required`; only a resolved repair or a directly verified exchange produces `CommonGround`.
+3. **Deliberation pass invariant**: A `peer_turn` with `speech_act = deliberation_pass` contributes `BeliefRevision.cause = social_compliance` — recorded by the IE layer, not self-declared on the wire. It MUST NOT produce a `CommonGround` record.
 
-4. **Prediction pre-utterance invariant**: `PredictionRecord.predicted_confidence` MUST be recorded before B's actual response is known.
+4. **CommonGround contingency invariant**: `CommonGround.contingency_verified` MUST be `True`. A failed grounding produces `repair_required`; only a resolved repair or a directly verified exchange produces `CommonGround`.
 
-5. **Directional invariant**: `PeerInteractionRecord` for `(A, B)` is never used to update A's own `BeliefState` — it is A's model of B, not A's self-model.
+5. **Prediction pre-utterance invariant**: `PredictionRecord.predicted_confidence` MUST be recorded before B's actual response is known.
 
-6. **TeamGroundedTruth provenance invariant**: `prior_weight = (1.0 - SCR) × GAR`. Implementations MUST NOT assign `prior_weight = 1.0` to a `TeamGroundedTruth` with `SCR > 0` or `GAR < 1`.
+6. **Directional invariant**: `PeerInteractionRecord` for `(A, B)` is never used to update A's own `BeliefState` — it is A's model of B, not A's self-model.
+
+7. **TeamGroundedTruth provenance invariant**: `prior_weight = (1.0 - SCR) × GAR`. Implementations MUST NOT assign `prior_weight = 1.0` to a `TeamGroundedTruth` with `SCR > 0` or `GAR < 1`.

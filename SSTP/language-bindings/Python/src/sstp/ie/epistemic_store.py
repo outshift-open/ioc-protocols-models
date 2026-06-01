@@ -35,7 +35,7 @@ class EpistemicStore:
     owner_agent_id: agent whose epistemic state this store tracks
     use_case:       domain label; prevents cross-domain belief merges
 
-    Episodic state (per state_object_id) lives in LocalStateReplica instances.
+    Episodic state (per episode_id) lives in LocalStateReplica instances.
     Cross-episode state lives in the four persistent stores:
       - AgentBeliefStore       — per-agent belief with Bayesian decomposition
       - CommonGroundStore      — pairwise IE grounding records
@@ -81,40 +81,40 @@ class EpistemicStore:
 
     # ── episodic replica operations ───────────────────────────────────────────
 
-    def _replica(self, state_object_id: str) -> LocalStateReplica:
-        if state_object_id not in self._replicas:
-            self._replicas[state_object_id] = LocalStateReplica(
-                state_object_id=state_object_id,
+    def _replica(self, episode_id: str) -> LocalStateReplica:
+        if episode_id not in self._replicas:
+            self._replicas[episode_id] = LocalStateReplica(
+                episode_id=episode_id,
                 owner_agent_id=self.owner_agent_id,
             )
-        return self._replicas[state_object_id]
+        return self._replicas[episode_id]
 
     def apply_message(self, header: Dict[str, Any]) -> bool:
-        state_object_id = header.get("state_object_id")
-        if not state_object_id:
+        episode_id = header.get("episode_id")
+        if not episode_id:
             return False
-        return self._replica(str(state_object_id)).apply(header)
+        return self._replica(str(episode_id)).apply(header)
 
-    def derived_state(self, state_object_id: str) -> Dict[str, Any]:
-        if state_object_id not in self._replicas:
+    def derived_state(self, episode_id: str) -> Dict[str, Any]:
+        if episode_id not in self._replicas:
             return {}
-        return self._replicas[state_object_id].get_derived_state()
+        return self._replicas[episode_id].get_derived_state()
 
-    def take_snapshot(self, state_object_id: str) -> Optional[EpistemicSnapshot]:
-        if state_object_id not in self._replicas:
+    def take_snapshot(self, episode_id: str) -> Optional[EpistemicSnapshot]:
+        if episode_id not in self._replicas:
             return None
-        return snapshot(self._replicas[state_object_id])
+        return snapshot(self._replicas[episode_id])
 
     def detect_all_gaps(self) -> Dict[str, Dict[str, Any]]:
         return {
-            soid: replica.detect_gaps()
-            for soid, replica in self._replicas.items()
+            episode_id: replica.detect_gaps()
+            for episode_id, replica in self._replicas.items()
         }
 
-    def tom(self, state_object_id: str) -> Optional[ReplicaToM]:
-        if state_object_id not in self._replicas:
+    def tom(self, episode_id: str) -> Optional[ReplicaToM]:
+        if episode_id not in self._replicas:
             return None
-        return ReplicaToM(self._replicas[state_object_id], self.owner_agent_id)
+        return ReplicaToM(self._replicas[episode_id], self.owner_agent_id)
 
 
 __all__ = ["EpistemicStore"]
