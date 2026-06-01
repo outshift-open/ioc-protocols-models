@@ -282,8 +282,9 @@ class L9HeaderBuilder:
         ``kind_override`` bypasses the event-type-to-kind mapping.  Use to
         stamp ``kind="intent"`` on the first ``peer_turn`` of a session.
 
-        ``conversation_id`` identifies the named conversation that persists
-        across multiple episodes.  Set once at session open; threaded forward.
+        ``conversation_id`` identifies the group of two or more agents engaged in
+        this conversation.  Every message exchanged within the same agent group
+        carries the same ``conversation_id``, regardless of episode boundaries.
         """
         normalized_use_case = normalize_use_case(use_case)
         canonical_type = str(event_type).strip().lower()

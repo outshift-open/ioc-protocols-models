@@ -8,9 +8,11 @@ sstp/ie/agent_bus.py — Domain-agnostic per-episode L9 message bus.
 AgentBus is parameterised at construction with use_case and sensitivity
 so any application can instantiate it without subclassing.
 
-All protocol operations (emit_request, emit_response, emit_error,
-emit_semantic_repair, check_and_repair, emit_epistemic_clarification)
-are domain-agnostic and operate purely on L9 header fields.
+All interactions are peer-wise peer_turn events.  There is no privileged
+coordinator role in IE.  Task delegation uses speech_act=task_handoff at
+task_phase=transition; results use speech_act=belief_assertion at
+task_phase=taskwork; errors use speech_act=help_request at
+task_phase=interpersonal.
 """
 
 from __future__ import annotations
@@ -52,46 +54,30 @@ class AgentBus:
         self._seq_counters[actor_id] = n + 1
         return {"counter": n, "actor_id": actor_id}
 
-    def emit_request(
+    def emit_peer_turn(
         self,
         *,
         sender: str,
         receiver: str,
         utterance: str,
-        episode_id: str | None = None,
-        turn_depth: int | None = None,
-        epistemic: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        header = build_l9_header(
-            use_case=self.use_case,
-            event_type="agent_request",
-            sender=sender,
-            receiver=receiver,
-            timestamp_ms=int(time.time() * 1000),
-            sensitivity=self.sensitivity,
-            utterance=utterance,
-            episode_id=episode_id,
-            turn_depth=turn_depth,
-            epistemic=epistemic,
-            state_sequence=self._next_sequence(sender),
-        )
-        self.messages.append(self._wrap(header, "agent_request", sender, receiver, utterance))
-        return header
-
-    def emit_response(
-        self,
-        *,
-        sender: str,
-        receiver: str,
-        utterance: str,
+        speech_act: SpeechAct,
+        task_phase: TaskPhase,
         parent_id: str | None = None,
         episode_id: str | None = None,
         turn_depth: int | None = None,
-        epistemic: Optional[Dict[str, Any]] = None,
+        kind_override: str | None = None,
+        error: Optional[Dict[str, Any]] = None,
+        **_: Any,
     ) -> Dict[str, Any]:
+        """Emit a peer_turn with explicit epistemic annotation.
+
+        All agent-to-agent interactions are peer_turns.  The speech_act and
+        task_phase carry the role of this turn — delegation, result, error,
+        or social repair — without privileging either party.
+        """
         header = build_l9_header(
             use_case=self.use_case,
-            event_type="agent_response",
+            event_type="peer_turn",
             sender=sender,
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
@@ -100,42 +86,44 @@ class AgentBus:
             parent_ids=[parent_id] if parent_id else None,
             episode_id=episode_id,
             turn_depth=turn_depth,
-            epistemic=epistemic,
+            kind_override=kind_override,
+            epistemic=make_epistemic_block(
+                speech_act=speech_act,
+                task_phase=task_phase,
+            ),
             state_sequence=self._next_sequence(sender),
         )
-        self.messages.append(self._wrap(header, "agent_response", sender, receiver, utterance))
+        envelope = self._wrap(header, "peer_turn", sender, receiver, utterance)
+        if error is not None:
+            envelope["error"] = error
+        self.messages.append(envelope)
         return header
 
-    def emit_error(
-        self,
-        *,
-        sender: str,
-        receiver: str,
-        error_type: str,
-        error_message: str,
-        traceback: str | None = None,
-        parent_id: str | None = None,
-        epistemic: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        header = build_l9_header(
-            use_case=self.use_case,
-            event_type="agent_error",
-            sender=sender,
-            receiver=receiver,
-            timestamp_ms=int(time.time() * 1000),
-            sensitivity=self.sensitivity,
-            utterance=f"error:{error_type}",
-            parent_ids=[parent_id] if parent_id else None,
-            epistemic=epistemic,
-            state_sequence=self._next_sequence(sender),
-        )
+    def emit_request(self, *, sender: str, receiver: str, utterance: str,
+                     episode_id: str | None = None, turn_depth: int | None = None,
+                     epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
+                                   speech_act=SpeechAct.TASK_HANDOFF, task_phase=TaskPhase.TRANSITION,
+                                   episode_id=episode_id, turn_depth=turn_depth)
+
+    def emit_response(self, *, sender: str, receiver: str, utterance: str,
+                      parent_id: str | None = None, episode_id: str | None = None,
+                      turn_depth: int | None = None,
+                      epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
+                                   speech_act=SpeechAct.BELIEF_ASSERTION, task_phase=TaskPhase.TASKWORK,
+                                   parent_id=parent_id, episode_id=episode_id, turn_depth=turn_depth)
+
+    def emit_error(self, *, sender: str, receiver: str, error_type: str, error_message: str,
+                   traceback: str | None = None, parent_id: str | None = None,
+                   epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         error_record: Dict[str, Any] = {"type": error_type, "message": error_message}
         if traceback is not None:
             error_record["traceback"] = traceback
-        envelope = self._wrap(header, "agent_error", sender, receiver, f"error:{error_type}")
-        envelope["error"] = error_record
-        self.messages.append(envelope)
-        return header
+        return self.emit_peer_turn(sender=sender, receiver=receiver,
+                                   utterance=f"error:{error_type}",
+                                   speech_act=SpeechAct.HELP_REQUEST, task_phase=TaskPhase.INTERPERSONAL,
+                                   parent_id=parent_id, error=error_record)
 
     def emit_semantic_repair(
         self,
@@ -247,7 +235,7 @@ class AgentBus:
             "payload": {
                 "run_id": self.run_id,
                 "conversation_id": self.conversation_id,
-                "phase": "agent_call",
+                "phase": "peer_dialogue",
                 "event_type": event_type,
                 "sender": sender,
                 "receiver": receiver,

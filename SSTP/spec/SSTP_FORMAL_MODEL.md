@@ -68,11 +68,6 @@ EventType :=
   | decision_emitted
   | episode_persisted
   | conversation_terminated
-  | agent_request
-  | agent_response
-  | agent_error
-  | agent_shutdown
-  | agent_shutdown_ack
 ```
 
 ### 3.3 Event Aliases
@@ -113,11 +108,6 @@ KindOf(decision_emitted)        = commit           -- terminal SNP decision; clo
 KindOf(episode_persisted)       = commit
 KindOf(conversation_terminated) = commit
 KindOf(rule_update)             = knowledge        -- team-level grounded truth written to SemanticMemory
-KindOf(agent_request)           = exchange
-KindOf(agent_response)          = exchange
-KindOf(agent_error)             = exchange
-KindOf(agent_shutdown)          = exchange
-KindOf(agent_shutdown_ack)      = exchange
 KindOf(prior_query)             = exchange
 KindOf(prior_injection)         = exchange
 KindOf(outcome_reported)        = exchange
@@ -174,11 +164,6 @@ SchemaTopicOf(repair_applied) = ("coordination", "repair_message")
 SchemaTopicOf(decision_emitted) = ("coordination", "decision")
 SchemaTopicOf(episode_persisted) = ("memory", "episode_delta")
 SchemaTopicOf(conversation_terminated) = ("coordination", "termination_notice")
-SchemaTopicOf(agent_request) = ("runtime", "agent_request")
-SchemaTopicOf(agent_response) = ("runtime", "agent_response")
-SchemaTopicOf(agent_error) = ("runtime", "agent_error")
-SchemaTopicOf(agent_shutdown) = ("runtime", "agent_shutdown")
-SchemaTopicOf(agent_shutdown_ack) = ("runtime", "agent_shutdown_ack")
 ```
 
 ## 5. Core Data Structures
@@ -261,7 +246,7 @@ Field constraints:
 7. turn_depth MUST be present and greater than zero on `contingency` messages; MAY be null otherwise.
 8. A `contingency` message MUST carry a child `episode_id` scoped to its parent exchange.
 9. `commit_resolution` MUST be present when `kind = commit`; MUST be null otherwise.
-10. `conversation_id` identifies the named conversation that persists across multiple episodes; set once at session open and threaded forward.
+10. `conversation_id` identifies the group of two or more agents engaged in this conversation.  Every message exchanged within the same agent group carries the same `conversation_id`, regardless of episode boundaries.  Set once at session open; threaded forward across all episodes for the same agent group.
 
 ### 5.3 Generic Runtime Envelope
 
@@ -509,51 +494,14 @@ procedure EmitPeerTurn(...)
 
 The protocol does not constrain how "out of bounds", "repair available", or "termination policy" is decided. Those are application policies outside SSTP.
 
-### 7.6 Request / Response Lifecycle
-
-```text
-procedure InvokeRemoteActor(action, payload)
-1. increment local request sequence
-2. request := BuildEnvelope(event_type = agent_request, ...)
-3. SerializeAndSend(connection, request)
-4. wait for one reply or timeout
-5. if timeout then signal failure
-6. response := ReceiveAndDecode(connection)
-7. if response.event_type = agent_error then signal failure using response.error
-8. if response.event_type = agent_response then return response.payload
-```
-
-Worker-side handling:
-
-```text
-procedure HandleIncomingRequest(request)
-1. parent_ids := [request.l9_header.message_id] if available else []
-2. if request.event_type = agent_shutdown or request.action = "shutdown":
-   a. emit agent_shutdown_ack with parent_ids
-   b. stop worker loop
-3. else attempt dispatch
-4. on success emit agent_response with parent_ids
-5. on failure emit agent_error with parent_ids
-```
-
-### 7.7 Shutdown Lifecycle
-
-```text
-procedure ShutdownRemoteActor()
-1. increment local request sequence
-2. send agent_shutdown envelope
-3. optionally await one agent_shutdown_ack
-4. after timeout, the transport owner may close the connection and terminate the worker by out-of-band means
-```
-
-### 7.8 InitiateSession
+### 7.6 InitiateSession
 
 The first message in a session MUST carry `kind = intent`. It triggers service selection and session establishment.
 
 ```text
 procedure InitiateSession(use_case, sender, receiver, intent_payload, profile)
 1. episode_id := new session identifier, e.g. "urn:ioc:{use_case}:session:{UUID4()}"
-2. conversation_id := stable conversation identifier across episodes, e.g. "urn:ioc:{use_case}:conversation:{UUID4()}"
+2. conversation_id := identifier for this agent group, e.g. "urn:ioc:{use_case}:group:{UUID4()}"
 3. emit BuildEnvelope(event_type = "peer_turn", header_kind_override = "intent",
      header_episode_id = episode_id, header_conversation_id = conversation_id, parent_ids = [],
      payload = intent_payload)
@@ -730,7 +678,7 @@ Hospital3 uses a process-local transport envelope carrying SSTP:
 
 ```text
 transport.kind              = multiprocessing_pipe
-event_type                  = agent_request | agent_response | agent_error | agent_shutdown | agent_shutdown_ack
+event_type                  = peer_turn
 state_object_id             = urn:ioc:{use_case}:state:agent_pipe:{receiver}
 provenance.sources          = ["process:{pid}"]
 provenance.transforms       = ["multiprocessing_pipe"]

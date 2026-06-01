@@ -19,8 +19,6 @@ and maps IE event types to SSTP kinds (5-value session-flow vocabulary):
     repair_required         → contingency
     repair_applied          → commit
     epistemic_clarification → contingency
-    agent_request           → exchange
-    agent_response          → exchange
     decision_emitted        → commit      (terminal SNP decision; closes contingency branch)
     episode_persisted       → commit
     conversation_terminated → commit
@@ -28,7 +26,6 @@ and maps IE event types to SSTP kinds (5-value session-flow vocabulary):
     prior_query             → exchange
     prior_injection         → exchange
     outcome_reported        → exchange
-    agent_* (error/shutdown/ack) → exchange
 
 The module-level :func:`build_l9_header` is the backwards-compatible
 convenience function used by IE orchestrators.
@@ -68,11 +65,6 @@ _KIND_BY_EVENT_TYPE: Dict[str, str] = {
     "decision_emitted":        "commit:converged",
     "episode_persisted":       "commit:converged",
     "conversation_terminated": "commit:converged",
-    "agent_request":           "exchange",
-    "agent_response":          "exchange",
-    "agent_error":             "exchange",
-    "agent_shutdown":          "exchange",
-    "agent_shutdown_ack":      "exchange",
     "epistemic_clarification": "contingency",
     # SemanticMemory interactions (Coordinator ↔ SemanticMemory agent)
     "prior_query":             "exchange",
@@ -89,11 +81,6 @@ _SCHEMA_TOPIC_BY_EVENT_TYPE: Dict[str, tuple[str, str]] = {
     "decision_emitted":        ("coordination", "decision"),
     "episode_persisted":       ("memory", "episode_commit"),
     "conversation_terminated": ("coordination", "termination_notice"),
-    "agent_request":           ("runtime", "agent_request"),
-    "agent_response":          ("runtime", "agent_response"),
-    "agent_error":             ("runtime", "agent_error"),
-    "agent_shutdown":          ("runtime", "agent_shutdown"),
-    "agent_shutdown_ack":      ("runtime", "agent_shutdown_ack"),
     "epistemic_clarification": ("coordination", "epistemic_repair"),
     # SemanticMemory interactions
     "prior_query":             ("memory", "prior_query"),
@@ -110,11 +97,6 @@ _IE_DEFAULT_EPISTEMIC: Dict[str, tuple] = {
     "repair_applied":          (SpeechAct.BELIEF_ASSERTION, TaskPhase.INTERPERSONAL),
     "decision_emitted":        (SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION),
     "episode_persisted":       (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
-    "agent_request":           (SpeechAct.TASK_HANDOFF,     TaskPhase.TRANSITION),
-    "agent_response":          (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
-    "agent_error":             (SpeechAct.HELP_REQUEST,     TaskPhase.INTERPERSONAL),
-    "agent_shutdown":          (SpeechAct.BELIEF_ASSERTION, TaskPhase.TRANSITION),
-    "agent_shutdown_ack":      (SpeechAct.BELIEF_ASSERTION, TaskPhase.TRANSITION),
     "epistemic_clarification": (SpeechAct.HELP_REQUEST,     TaskPhase.INTERPERSONAL),
     # SemanticMemory interactions — all TASKWORK (pre-episode priors and post-episode updates)
     "prior_query":             (SpeechAct.HELP_REQUEST,     TaskPhase.TASKWORK),
@@ -201,7 +183,7 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
 
         If epistemic is not provided by the caller, a default block is inferred
         from the event_type. Callers may pass an explicit epistemic block to
-        override the default (e.g. for agent_response carrying TASKWORK vs ACTION).
+        override the default (e.g. for a response peer_turn carrying TASKWORK vs ACTION).
         """
         canonical = canonical_event_type(event_type)
         if kwargs.get("epistemic") is None:

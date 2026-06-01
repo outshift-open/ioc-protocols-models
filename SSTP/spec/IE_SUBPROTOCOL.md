@@ -51,14 +51,14 @@ IE uses the following event types. Each maps to an L9 `kind` per `SSTP_FORMAL_MO
 | `decision_emitted`         | `exchange`   | Trace-only; local epistemic state update; not routed to peers |
 | `episode_persisted`        | `commit`     | Memory write; closes episodic scope |
 | `conversation_terminated`  | `commit`     | Session terminated (unrecoverable or clean) |
-| `agent_request`            | `exchange`   | Runtime RPC request |
-| `agent_response`           | `exchange`   | Runtime RPC response |
 | `prior_query`              | `exchange`   | Read from semantic memory |
 | `prior_injection`          | `exchange`   | Inject prior into an agent's `BeliefState` from semantic memory |
 | `rule_update`              | `commit`     | Write a `TeamGroundedTruth` to semantic memory; stabilizes epistemic state |
 | `outcome_reported`         | `exchange`   | Informational outcome report; does not close session |
 
-The `epistemic` block in the L9 header SHOULD be present on all `peer_turn`, `repair_required`, `repair_applied`, and `epistemic_clarification` messages.
+All agent-to-agent interactions are `peer_turn` events.  Task delegation uses `speech_act=task_handoff` at `task_phase=transition`; results use `speech_act=belief_assertion` at `task_phase=taskwork`; failures use `speech_act=help_request` at `task_phase=interpersonal`.  There is no privileged coordinator role and no separate RPC event type.
+
+The `epistemic` block in the L9 header MUST be present on all `peer_turn`, `repair_required`, `repair_applied`, and `epistemic_clarification` messages.
 
 ---
 

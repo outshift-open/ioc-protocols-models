@@ -336,7 +336,7 @@ class InteractionProtocolAdapter:
         - ``kind="commit"``
           → ``phase="peer_dialogue"``, ``event_type="repair_applied"``
         - ``kind="convergence"``
-          → ``phase="coordination"``, ``event_type="decision_emitted"``
+          → ``phase="peer_dialogue"``, ``event_type="decision_emitted"``
         - ``kind="query"`` (legacy)
           → ``phase="peer_dialogue"``, ``event_type="repair_required"``
         - ``kind="delegation"`` (legacy)
@@ -376,7 +376,7 @@ class InteractionProtocolAdapter:
             "contingency": ("peer_dialogue", "repair_required"),
             "commit:converged": ("peer_dialogue", "repair_applied"),
             "commit:abort":     ("peer_dialogue", "repair_applied"),
-            "convergence": ("coordination", "decision_emitted"),
+            "convergence": ("peer_dialogue", "decision_emitted"),
             # Legacy kinds (backward compat)
             "query":       ("peer_dialogue", "repair_required"),
             "delegation":  ("peer_dialogue", "repair_applied"),
@@ -678,7 +678,7 @@ class InteractionProtocolAdapter:
                 domain="healthcare",
                 run_id=run_identifier,
                 conversation_id=conversation_identifier,
-                phase="coordination",
+                phase="peer_dialogue",
                 event_type="decision_emitted",
                 sender="coordinator",
                 receiver=None,
@@ -1059,7 +1059,7 @@ class InteractionProtocolAdapter:
                 domain="fmc",
                 run_id=run_identifier,
                 conversation_id=conversation_identifier,
-                phase="coordination",
+                phase="peer_dialogue",
                 event_type="decision_emitted",
                 sender="orchestrator",
                 receiver=None,
@@ -1286,7 +1286,7 @@ class InteractionProtocolAdapter:
                 domain="travel",
                 run_id=run_identifier,
                 conversation_id=conversation_identifier,
-                phase="coordination",
+                phase="peer_dialogue",
                 event_type="decision_emitted",
                 sender="decision_engine",
                 receiver="validated_truth_store",

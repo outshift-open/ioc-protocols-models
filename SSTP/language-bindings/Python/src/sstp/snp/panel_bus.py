@@ -672,7 +672,7 @@ class PanelBus:
             epistemic=epistemic_block,
         )
         self.snp_trace.append(snp_header)
-        ie_header = self.ie_bus.emit_request(
+        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.TASK_HANDOFF, task_phase=TaskPhase.TRANSITION, 
             sender=sender,
             receiver=receiver,
             utterance=utterance,
@@ -729,7 +729,7 @@ class PanelBus:
             epistemic=epistemic_block,
         )
         self.snp_trace.append(snp_header)
-        ie_header = self.ie_bus.emit_response(
+        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, task_phase=TaskPhase.TASKWORK, 
             sender=sender,
             receiver=receiver,
             utterance=utterance,
@@ -837,7 +837,7 @@ class StarNegotiation:
             reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
         )
         self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_request(
+        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.TASK_HANDOFF, task_phase=TaskPhase.TRANSITION, 
             sender=controller,
             receiver=specialist,
             utterance=utterance,
@@ -918,7 +918,7 @@ class StarNegotiation:
             addresses_evidence=addresses_ev,
         )
         self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_response(
+        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, task_phase=TaskPhase.TASKWORK, 
             sender=specialist,
             receiver=controller,
             utterance=utterance,
@@ -972,7 +972,7 @@ class StarNegotiation:
             epistemic=epistemic_block,
         )
         self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_response(
+        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, task_phase=TaskPhase.TASKWORK, 
             sender=controller,
             receiver=specialist,
             utterance=utterance,
