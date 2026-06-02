@@ -25,3 +25,9 @@ class PolicyLabel(BaseModel):
     sensitivity: str       
     propagation: str
     retention_policy: str
+
+
+class Provenance(BaseModel):
+    """
+    Provenance model
+    """
