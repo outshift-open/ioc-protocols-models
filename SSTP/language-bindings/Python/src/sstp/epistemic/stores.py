@@ -94,7 +94,7 @@ class ArgumentOutcome:
 
     episode_id: str                    # which episode this exchange occurred in
     message_id: str                    # EpisodeMessage containing the argument
-    task_phase: str                    # INTERPERSONAL moves are epistemically weaker
+    epistemic_state: str            # TEAM_PROCESS moves are epistemically weaker
     argument_concept_id: str           # primary concept the argument was about
     argument_type: str                 # rhetorical/evidential classifier: "onset_timing", etc.
     subject_confidence_before: float   # B's confidence before receiving A's argument
@@ -795,6 +795,126 @@ class RoundStore:
         return self._store.get(round_id)
 
 
+# ── Taskwork State ────────────────────────────────────────────────────────────
+
+
+@dataclass
+class TaskworkFinding:
+    """One structured finding extracted from patient/case data for a specific agent."""
+    finding_id: str          # label: "dizziness", "nsaid_use", "cardiac_history"
+    value:      str          # "present" | "absent" | a measured value
+    source:     str          # "symptoms" | "history" | "medications"
+
+
+@dataclass
+class TaskworkState:
+    """Per-agent, per-concept independent reasoning chain formed before peer contact.
+
+    This is the full audit trail of the agent's taskwork: what it observed,
+    how it weighted each finding, and what posterior it reached independently.
+    Locked when the agent transitions to grounding phase — the locked value
+    is the GAR anchor for measuring genuine vs. social convergence.
+    """
+    agent_id:             str
+    role:                 str                        # "diagnostics", "pharmacy"
+    concept_id:           str                        # hypothesis being assessed
+    episode_id:           str
+    findings:             List[TaskworkFinding] = field(default_factory=list)
+    prior:                float = 0.5               # from SemanticMemory at episode open
+    likelihoods:          List[tuple] = field(default_factory=list)  # [(finding_id, ratio)]
+    posterior:            float = 0.5               # independent conclusion
+    reasoning_summary:    str = ""                  # LLM-generated explanation
+    locked_at_message_id: Optional[str] = None      # set on taskwork→grounding transition
+
+
+class TaskworkStore:
+    """Per-episode, per-agent taskwork reasoning chains. Locked at phase transition."""
+
+    def __init__(self) -> None:
+        # (agent_id, concept_id, episode_id) → TaskworkState
+        self._store: Dict[tuple, TaskworkState] = {}
+
+    def _key(self, agent_id: str, concept_id: str, episode_id: str) -> tuple:
+        return (agent_id, concept_id, episode_id)
+
+    def record(self, state: TaskworkState) -> None:
+        self._store[self._key(state.agent_id, state.concept_id, state.episode_id)] = state
+
+    def get(self, agent_id: str, concept_id: str, episode_id: str) -> Optional[TaskworkState]:
+        return self._store.get(self._key(agent_id, concept_id, episode_id))
+
+    def lock(self, agent_id: str, concept_id: str, episode_id: str, message_id: str) -> None:
+        """Lock the taskwork state at the taskwork→grounding phase transition."""
+        key = self._key(agent_id, concept_id, episode_id)
+        if key in self._store and self._store[key].locked_at_message_id is None:
+            self._store[key].locked_at_message_id = message_id
+
+    def all_for_episode(self, episode_id: str) -> List[TaskworkState]:
+        return [s for (_, _, eid), s in self._store.items() if eid == episode_id]
+
+    def is_locked(self, agent_id: str, concept_id: str, episode_id: str) -> bool:
+        s = self.get(agent_id, concept_id, episode_id)
+        return s is not None and s.locked_at_message_id is not None
+
+
+# ── Team Process State ────────────────────────────────────────────────────────
+
+
+@dataclass
+class RoleAssignment:
+    """One agent's role and responsibilities within a panel."""
+    agent_id:        str
+    role:            str
+    responsible_for: List[str] = field(default_factory=list)  # concept_ids
+    assigned_at_ms:  int = 0
+    agreed:          bool = False    # True when agent has emitted process_accepted
+
+
+@dataclass
+class TeamProcessAgreement:
+    """The team's agreed-upon process for an episode panel.
+
+    Created by the coordinator via process_proposed → process_accepted exchange.
+    Becomes the authoritative record of who does what and who coordinates.
+    Stored in TeamProcessStore and referenced by PanelBus before starting SNP.
+    """
+    episode_id:           str
+    round_id:             str
+    coordinator_id:       str
+    participant_ids:      List[str] = field(default_factory=list)
+    role_assignments:     List[RoleAssignment] = field(default_factory=list)
+    decomposition_agreed: bool = False   # True when all role_assignments have agreed=True
+    formed_at_ms:         int = 0
+
+
+class TeamProcessStore:
+    """Per-episode team process agreements."""
+
+    def __init__(self) -> None:
+        self._store: Dict[str, TeamProcessAgreement] = {}  # episode_id → agreement
+
+    def record(self, agreement: TeamProcessAgreement) -> None:
+        self._store[agreement.episode_id] = agreement
+
+    def current(self, episode_id: str) -> Optional[TeamProcessAgreement]:
+        return self._store.get(episode_id)
+
+    def update_role_ack(self, episode_id: str, agent_id: str) -> None:
+        """Mark the agent's role as acknowledged (process_accepted received)."""
+        agreement = self._store.get(episode_id)
+        if agreement is None:
+            return
+        for ra in agreement.role_assignments:
+            if ra.agent_id == agent_id:
+                ra.agreed = True
+        if all(ra.agreed for ra in agreement.role_assignments):
+            agreement.decomposition_agreed = True
+
+    def is_agreed(self, episode_id: str) -> bool:
+        agreement = self._store.get(episode_id)
+        return agreement is not None and agreement.decomposition_agreed
+
+
 __all__ = [
     "BeliefRevision",
     "BeliefState",
@@ -817,4 +937,12 @@ __all__ = [
     "CommonGroundStore",
     "ConvergenceStore",
     "PeerInteractionStore",
+    # Taskwork state
+    "TaskworkFinding",
+    "TaskworkState",
+    "TaskworkStore",
+    # Team process state
+    "RoleAssignment",
+    "TeamProcessAgreement",
+    "TeamProcessStore",
 ]

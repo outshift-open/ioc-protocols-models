@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List
 
-from sstp.epistemic.vocabulary import SpeechAct, TaskPhase, make_epistemic_block
+from sstp.epistemic.vocabulary import SpeechAct, EpistemicState, make_epistemic_block
 from sstp.l9_base import (
     L9HeaderBuilder,
     normalize_use_case,
@@ -66,6 +66,10 @@ _KIND_BY_EVENT_TYPE: Dict[str, str] = {
     "episode_persisted":       "commit:converged",
     "conversation_terminated": "commit:converged",
     "epistemic_clarification": "contingency",
+    # Team process negotiation (pre-panel role + decomposition agreement)
+    "process_proposed":        "exchange",
+    "process_accepted":        "commit",
+    "process_challenged":      "contingency",
     # SemanticMemory interactions (Coordinator ↔ SemanticMemory agent)
     "prior_query":             "exchange",
     "prior_injection":         "exchange",
@@ -82,6 +86,10 @@ _SCHEMA_TOPIC_BY_EVENT_TYPE: Dict[str, tuple[str, str]] = {
     "episode_persisted":       ("memory", "episode_commit"),
     "conversation_terminated": ("coordination", "termination_notice"),
     "epistemic_clarification": ("coordination", "epistemic_repair"),
+    # Team process negotiation
+    "process_proposed":        ("coordination", "process_proposal"),
+    "process_accepted":        ("coordination", "process_acceptance"),
+    "process_challenged":      ("coordination", "process_challenge"),
     # SemanticMemory interactions
     "prior_query":             ("memory", "prior_query"),
     "prior_injection":         ("memory", "prior_injection"),
@@ -89,20 +97,24 @@ _SCHEMA_TOPIC_BY_EVENT_TYPE: Dict[str, tuple[str, str]] = {
     "outcome_reported":        ("memory", "outcome_reported"),
 }
 
-# Default (SpeechAct, TaskPhase) per IE event_type — used when caller passes epistemic=None.
+# Default (SpeechAct, EpistemicState) per IE event_type — used when caller passes epistemic=None.
 _IE_DEFAULT_EPISTEMIC: Dict[str, tuple] = {
-    "turn_ingested":           (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
-    "peer_turn":               (SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION),
-    "repair_required":         (SpeechAct.HELP_REQUEST,     TaskPhase.INTERPERSONAL),
-    "repair_applied":          (SpeechAct.BELIEF_ASSERTION, TaskPhase.INTERPERSONAL),
-    "decision_emitted":        (SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION),
-    "episode_persisted":       (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
-    "epistemic_clarification": (SpeechAct.HELP_REQUEST,     TaskPhase.INTERPERSONAL),
+    "turn_ingested":           (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
+    "peer_turn":               (SpeechAct.BELIEF_ASSERTION, EpistemicState.GROUNDING),
+    "repair_required":         (SpeechAct.HELP_REQUEST,     EpistemicState.GROUNDING),
+    "repair_applied":          (SpeechAct.BELIEF_ASSERTION, EpistemicState.GROUNDING),
+    "decision_emitted":        (SpeechAct.BELIEF_ASSERTION, EpistemicState.GROUNDING),
+    "episode_persisted":       (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
+    "epistemic_clarification": (SpeechAct.HELP_REQUEST,     EpistemicState.GROUNDING),
+    # Team process negotiation — all TEAM_PROCESS
+    "process_proposed":        (SpeechAct.TASK_HANDOFF,        EpistemicState.TEAM_PROCESS),
+    "process_accepted":        (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
+    "process_challenged":      (SpeechAct.ALIGNMENT_CHALLENGE, EpistemicState.TEAM_PROCESS),
     # SemanticMemory interactions — all TASKWORK (pre-episode priors and post-episode updates)
-    "prior_query":             (SpeechAct.HELP_REQUEST,     TaskPhase.TASKWORK),
-    "prior_injection":         (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
-    "rule_update":             (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
-    "outcome_reported":        (SpeechAct.BELIEF_ASSERTION, TaskPhase.TASKWORK),
+    "prior_query":             (SpeechAct.HELP_REQUEST,     EpistemicState.TASKWORK),
+    "prior_injection":         (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
+    "rule_update":             (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
+    "outcome_reported":        (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
 }
 
 # Short-TTL event types (1 day instead of the 7-day default)
@@ -187,10 +199,10 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
         """
         canonical = canonical_event_type(event_type)
         if kwargs.get("epistemic") is None:
-            sa, tp = _IE_DEFAULT_EPISTEMIC.get(
-                canonical, (SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION)
+            sa, es = _IE_DEFAULT_EPISTEMIC.get(
+                canonical, (SpeechAct.BELIEF_ASSERTION, EpistemicState.GROUNDING)
             )
-            kwargs["epistemic"] = make_epistemic_block(speech_act=sa, task_phase=tp)
+            kwargs["epistemic"] = make_epistemic_block(speech_act=sa, epistemic_state=es)
         return super().build(
             use_case=use_case,
             event_type=canonical,

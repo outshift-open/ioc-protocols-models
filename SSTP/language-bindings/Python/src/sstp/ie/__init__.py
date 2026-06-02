@@ -34,12 +34,12 @@ from .assertion import (
     verify_assertion,
 )
 from .message import (
-    IEMessage,
-    IEDeclaration,
-    IEUtterance,
-    IEClarificationRequest,
-    IEClarificationResponse,
-    IERepair,
+    IEPayload,
+    IEUtteranceBlock,
+    IEGroundingBlock,
+    IEBeliefBlock,
+    IETaskworkBlock,
+    IEProcessBlock,
 )
 from .agent_bus import AgentBus
 from .epistemic_store import EpistemicStore
@@ -64,13 +64,13 @@ __all__ = [
     "AssertionVerificationError",
     "build_assertion",
     "verify_assertion",
-    # IE message envelopes
-    "IEMessage",
-    "IEDeclaration",
-    "IEUtterance",
-    "IEClarificationRequest",
-    "IEClarificationResponse",
-    "IERepair",
+    # IE payload envelopes
+    "IEPayload",
+    "IEUtteranceBlock",
+    "IEGroundingBlock",
+    "IEBeliefBlock",
+    "IETaskworkBlock",
+    "IEProcessBlock",
     # SDK: domain-agnostic bus, store, and engine
     "AgentBus",
     "EpistemicStore",

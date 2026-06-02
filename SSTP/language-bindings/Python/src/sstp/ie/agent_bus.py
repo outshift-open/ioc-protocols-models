@@ -10,9 +10,9 @@ so any application can instantiate it without subclassing.
 
 All interactions are peer-wise peer_turn events.  There is no privileged
 coordinator role in IE.  Task delegation uses speech_act=task_handoff at
-task_phase=transition; results use speech_act=belief_assertion at
-task_phase=taskwork; errors use speech_act=help_request at
-task_phase=interpersonal.
+epistemic_state=grounding; results use speech_act=belief_assertion at
+epistemic_state=taskwork; errors use speech_act=help_request at
+epistemic_state=grounding.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, List, Optional
 
-from sstp.epistemic import SpeechAct, TaskPhase, BeliefStatus, make_epistemic_block
+from sstp.epistemic import SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block
 from sstp.epistemic.vocabulary import RepairReason
 from sstp.ie.grounding import diagnose_repair_reason
 from sstp.ie.l9 import build_l9_header
@@ -48,6 +48,8 @@ class AgentBus:
         self.sensitivity = sensitivity
         self.messages: List[Dict[str, Any]] = []
         self._seq_counters: Dict[str, int] = {}
+        self._current_phase: str = "taskwork"   # taskwork | grounding | team_process
+        self._taskwork_store: Optional[Any] = None   # TaskworkStore; injected by app
 
     def _next_sequence(self, actor_id: str) -> Dict[str, Any]:
         n = self._seq_counters.get(actor_id, 0)
@@ -61,7 +63,7 @@ class AgentBus:
         receiver: str,
         utterance: str,
         speech_act: SpeechAct,
-        task_phase: TaskPhase,
+        epistemic_state: EpistemicState,
         parent_id: str | None = None,
         episode_id: str | None = None,
         turn_depth: int | None = None,
@@ -72,7 +74,7 @@ class AgentBus:
         """Emit a peer_turn with explicit epistemic annotation.
 
         All agent-to-agent interactions are peer_turns.  The speech_act and
-        task_phase carry the role of this turn — delegation, result, error,
+        epistemic_state carries the role of this turn — delegation, result, error,
         or social repair — without privileging either party.
         """
         header = build_l9_header(
@@ -89,7 +91,7 @@ class AgentBus:
             kind_override=kind_override,
             epistemic=make_epistemic_block(
                 speech_act=speech_act,
-                task_phase=task_phase,
+                epistemic_state=epistemic_state,
             ),
             state_sequence=self._next_sequence(sender),
         )
@@ -103,7 +105,7 @@ class AgentBus:
                      episode_id: str | None = None, turn_depth: int | None = None,
                      epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
-                                   speech_act=SpeechAct.TASK_HANDOFF, task_phase=TaskPhase.TRANSITION,
+                                   speech_act=SpeechAct.TASK_HANDOFF, epistemic_state=EpistemicState.GROUNDING,
                                    episode_id=episode_id, turn_depth=turn_depth)
 
     def emit_response(self, *, sender: str, receiver: str, utterance: str,
@@ -111,7 +113,7 @@ class AgentBus:
                       turn_depth: int | None = None,
                       epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
-                                   speech_act=SpeechAct.BELIEF_ASSERTION, task_phase=TaskPhase.TASKWORK,
+                                   speech_act=SpeechAct.BELIEF_ASSERTION, epistemic_state=EpistemicState.GROUNDING,
                                    parent_id=parent_id, episode_id=episode_id, turn_depth=turn_depth)
 
     def emit_error(self, *, sender: str, receiver: str, error_type: str, error_message: str,
@@ -122,7 +124,7 @@ class AgentBus:
             error_record["traceback"] = traceback
         return self.emit_peer_turn(sender=sender, receiver=receiver,
                                    utterance=f"error:{error_type}",
-                                   speech_act=SpeechAct.HELP_REQUEST, task_phase=TaskPhase.INTERPERSONAL,
+                                   speech_act=SpeechAct.HELP_REQUEST, epistemic_state=EpistemicState.GROUNDING,
                                    parent_id=parent_id, error=error_record)
 
     def emit_semantic_repair(
@@ -153,7 +155,7 @@ class AgentBus:
             turn_depth=turn_depth,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.HELP_REQUEST,
-                task_phase=TaskPhase.INTERPERSONAL,
+                epistemic_state=EpistemicState.GROUNDING,
                 belief_status=BeliefStatus.CHALLENGED,
                 scope=repair_scope or ["grounding"],
                 repair_reason=repair_reason,
@@ -212,7 +214,7 @@ class AgentBus:
             state_sequence=self._next_sequence(sender),
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.HELP_REQUEST,
-                task_phase=TaskPhase.INTERPERSONAL,
+                epistemic_state=EpistemicState.GROUNDING,
                 belief_status=BeliefStatus.DEFERRED,
             ),
         )
@@ -242,6 +244,328 @@ class AgentBus:
                 "message": {"utterance": utterance},
             },
         }
+
+
+    def advance_phase(self, new_phase: str, episode_id: str = "") -> None:
+        """Advance the epistemic phase. Progression is one-way: taskwork→grounding→team_process.
+
+        On taskwork→grounding transition, locks all TaskworkState entries for the episode.
+        """
+        _ORDER = ("taskwork", "grounding", "team_process")
+        if new_phase not in _ORDER:
+            raise ValueError(f"Unknown phase: {new_phase!r}")
+        if _ORDER.index(new_phase) <= _ORDER.index(self._current_phase):
+            raise ValueError(
+                f"Cannot regress phase from {self._current_phase!r} to {new_phase!r}"
+            )
+        if self._current_phase == "taskwork" and new_phase == "grounding":
+            if self._taskwork_store is not None and episode_id:
+                for state in self._taskwork_store.all_for_episode(episode_id):
+                    last_msg = self.messages[-1].get("message_id", "") if self.messages else ""
+                    self._taskwork_store.lock(
+                        state.agent_id, state.concept_id, episode_id, last_msg
+                    )
+        self._current_phase = new_phase
+
+    def emit_prior_injection(
+        self,
+        *,
+        sender: str,
+        receiver: str,
+        taskwork_state: Any,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Emit a prior_injection peer_turn carrying the full taskwork reasoning chain."""
+        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock, IETaskworkBlock
+        payload = IEPayload(
+            conversation_id=self.conversation_id,
+            episode_id=episode_id or "",
+            run_id=self.run_id,
+            utterance=IEUtteranceBlock(
+                content=f"prior:{taskwork_state.concept_id}:{taskwork_state.posterior:.4f}",
+                concept_ids=[taskwork_state.concept_id],
+                addresses_evidence=[],
+                inferred_intent="prior_injection",
+                turn_depth=0,
+            ),
+            grounding=IEGroundingBlock(),
+            belief=IEBeliefBlock(
+                concept_id=taskwork_state.concept_id,
+                prior=taskwork_state.prior,
+                posterior=taskwork_state.posterior,
+                revision_cause="semantic_memory",
+            ),
+            taskwork=IETaskworkBlock(
+                findings=[
+                    {"finding_id": f.finding_id, "value": f.value, "source": f.source}
+                    for f in (taskwork_state.findings or [])
+                ],
+                likelihoods=list(taskwork_state.likelihoods or []),
+                reasoning_summary=taskwork_state.reasoning_summary or "",
+            ),
+        )
+        header = build_l9_header(
+            use_case=self.use_case,
+            event_type="prior_injection",
+            sender=sender,
+            receiver=receiver,
+            timestamp_ms=int(time.time() * 1000),
+            sensitivity=self.sensitivity,
+            utterance=payload.utterance.content,
+            episode_id=episode_id,
+            epistemic=make_epistemic_block(
+                speech_act=SpeechAct.BELIEF_ASSERTION,
+                epistemic_state=EpistemicState.TASKWORK,
+                scope=[taskwork_state.concept_id],
+            ),
+            state_sequence=self._next_sequence(sender),
+        )
+        envelope = {**header, "payload": payload.to_dict()}
+        self.messages.append(envelope)
+        return header
+
+    def emit_process_proposal(
+        self,
+        *,
+        sender: str,
+        receiver: str,
+        agreement: Any,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Emit a process_proposed peer_turn carrying a TeamProcessAgreement."""
+        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock, IEProcessBlock
+        process_block = IEProcessBlock(
+            coordinator_id=agreement.coordinator_id,
+            participant_ids=list(agreement.participant_ids),
+            role_assignments=[
+                {"agent_id": ra.agent_id, "role": ra.role, "responsible_for": list(ra.responsible_for)}
+                for ra in agreement.role_assignments
+            ],
+        )
+        payload = IEPayload(
+            conversation_id=self.conversation_id,
+            episode_id=episode_id or "",
+            run_id=self.run_id,
+            utterance=IEUtteranceBlock(
+                content=f"process_proposal:coordinator={agreement.coordinator_id}",
+                concept_ids=["process:role_assignment"],
+                addresses_evidence=[],
+                inferred_intent="process_proposed",
+                turn_depth=0,
+            ),
+            grounding=IEGroundingBlock(),
+            belief=IEBeliefBlock(concept_id="process:role_assignment", prior=1.0, posterior=1.0),
+            process=process_block,
+        )
+        header = build_l9_header(
+            use_case=self.use_case,
+            event_type="process_proposed",
+            sender=sender,
+            receiver=receiver,
+            timestamp_ms=int(time.time() * 1000),
+            sensitivity=self.sensitivity,
+            utterance=payload.utterance.content,
+            episode_id=episode_id,
+            epistemic=make_epistemic_block(
+                speech_act=SpeechAct.TASK_HANDOFF,
+                epistemic_state=EpistemicState.TEAM_PROCESS,
+            ),
+            state_sequence=self._next_sequence(sender),
+        )
+        envelope = {**header, "payload": payload.to_dict()}
+        self.messages.append(envelope)
+        return header
+
+    def emit_process_acceptance(
+        self,
+        *,
+        sender: str,
+        receiver: str,
+        parent_id: str,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Emit a process_accepted peer_turn acknowledging a role assignment."""
+        header = build_l9_header(
+            use_case=self.use_case,
+            event_type="process_accepted",
+            sender=sender,
+            receiver=receiver,
+            timestamp_ms=int(time.time() * 1000),
+            sensitivity=self.sensitivity,
+            utterance=f"process_accepted:by={sender}",
+            parent_ids=[parent_id],
+            episode_id=episode_id,
+            epistemic=make_epistemic_block(
+                speech_act=SpeechAct.BELIEF_ASSERTION,
+                epistemic_state=EpistemicState.TEAM_PROCESS,
+            ),
+            state_sequence=self._next_sequence(sender),
+        )
+        self.messages.append(self._wrap(header, "process_accepted", sender, receiver, f"process_accepted:by={sender}"))
+        return header
+
+    def emit_process_challenge(
+        self,
+        *,
+        sender: str,
+        receiver: str,
+        parent_id: str,
+        reason: str,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Emit a process_challenged peer_turn disputing a role assignment."""
+        header = build_l9_header(
+            use_case=self.use_case,
+            event_type="process_challenged",
+            sender=sender,
+            receiver=receiver,
+            timestamp_ms=int(time.time() * 1000),
+            sensitivity=self.sensitivity,
+            utterance=f"process_challenged:reason={reason}",
+            parent_ids=[parent_id],
+            episode_id=episode_id,
+            epistemic=make_epistemic_block(
+                speech_act=SpeechAct.ALIGNMENT_CHALLENGE,
+                epistemic_state=EpistemicState.TEAM_PROCESS,
+            ),
+            state_sequence=self._next_sequence(sender),
+        )
+        self.messages.append(self._wrap(header, "process_challenged", sender, receiver, f"process_challenged:reason={reason}"))
+        return header
+
+    def receive_peer_turn(
+        self,
+        envelope: Dict[str, Any],
+        *,
+        replica: Optional[Any] = None,
+        belief_store: Optional[Any] = None,
+        common_ground_store: Optional[Any] = None,
+        use_case: str = "",
+    ) -> Optional[Dict[str, Any]]:
+        """Process an incoming peer_turn: verify grounding, update stores, flag repair.
+
+        1. Extract the IE payload from the envelope.
+        2. Run contingency_check() against the prior turn's concept_ids.
+        3. Write contingency_verified + contingency_score back into the payload.
+        4. Apply the (updated) header + payload to the replica.
+        5. If verified:  write BeliefRevision to belief_store; write CommonGround record.
+        6. If not verified: emit repair_required; return the repair header.
+
+        Returns None if grounding verified; returns the repair_required header if not.
+        """
+        from sstp.ie.grounding import contingency_check, diagnose_repair_reason
+        from sstp.epistemic.vocabulary import RepairReason
+
+        header = {k: v for k, v in envelope.items() if k != "payload"}
+        payload = envelope.get("payload") or {}
+        if not isinstance(payload, dict):
+            payload = {}
+
+        grounding = payload.get("grounding") or {}
+        utterance = payload.get("utterance") or {}
+        belief = payload.get("belief") or {}
+
+        # Build epistemic dicts for contingency_check
+        prior_turn_mid = grounding.get("responds_to")
+        prior_epistemic: Optional[Dict[str, Any]] = None
+        if prior_turn_mid and replica is not None:
+            for e in getattr(replica, "_entries", []):
+                if e.message_id == prior_turn_mid:
+                    # Reconstruct a lightweight epistemic dict from the prior entry
+                    prior_ep = e.epistemic or {}
+                    prior_epistemic = {
+                        "scope": prior_ep.get("scope", []),
+                        "addresses_evidence": prior_ep.get("addresses_evidence", []),
+                    }
+                    break
+
+        current_epistemic = {
+            "scope": utterance.get("concept_ids", []),
+            "addresses_evidence": utterance.get("addresses_evidence", []),
+            "speech_act": (header.get("epistemic") or {}).get("speech_act", ""),
+        }
+
+        # Run grounding check
+        verified, score = contingency_check(prior_epistemic, current_epistemic)
+
+        # Write result back into payload grounding block
+        payload = dict(payload)
+        payload["grounding"] = {
+            **grounding,
+            "contingency_verified": verified,
+            "contingency_score": score,
+        }
+
+        # Apply to replica
+        if replica is not None:
+            replica.apply(header, payload=payload)
+
+        if verified:
+            # Update BeliefState
+            if belief_store is not None and belief.get("concept_id"):
+                from sstp.epistemic.stores import BeliefRevision
+                sender = header.get("origin", {}).get("actor_id", "unknown")
+                ep_id = header.get("episode_id", "")
+                revision = BeliefRevision(
+                    cause=belief.get("revision_cause") or "grounded_argument",
+                    confidence_before=float(belief.get("prior", 0.5)),
+                    confidence_after=float(belief.get("posterior", 0.5)),
+                    caused_by_agent=None,
+                    argument_concept_ids=list(utterance.get("concept_ids", [])),
+                    episode_id=ep_id,
+                )
+                belief_store.record_revision(
+                    sender,
+                    belief["concept_id"],
+                    use_case or self.use_case,
+                    ep_id,
+                    revision,
+                    new_status="asserted",
+                    new_public_confidence=float(belief.get("posterior", 0.5)),
+                )
+
+            # Write CommonGround
+            if common_ground_store is not None:
+                from sstp.epistemic.stores import CommonGround
+                sender = header.get("origin", {}).get("actor_id", "unknown")
+                ep = header.get("epistemic") or {}
+                prior_sender = ""
+                if prior_epistemic and prior_turn_mid and replica is not None:
+                    for e in getattr(replica, "_entries", []):
+                        if e.message_id == prior_turn_mid:
+                            prior_sender = e.sender
+                            break
+                cg = CommonGround(
+                    holder_id=prior_sender,
+                    confirmer_id=sender,
+                    concept_id=belief.get("concept_id", ""),
+                    use_case=use_case or self.use_case,
+                    episode_id=header.get("episode_id", ""),
+                    grounding_confidence=score,
+                    holder_confidence=float(belief.get("prior", 0.5)),
+                    confirmer_confidence=float(belief.get("posterior", 0.5)),
+                    contingency_verified=True,
+                    speech_acts=[ep.get("speech_act", "")],
+                    grounding_message_ids=[prior_turn_mid or "", header.get("message_id", "")],
+                    formed_at_ms=int(time.time() * 1000),
+                )
+                common_ground_store.record(cg)
+            return None
+
+        else:
+            # Emit repair_required
+            repair_reason = diagnose_repair_reason(prior_epistemic, current_epistemic)
+            if repair_reason is None:
+                repair_reason = RepairReason.GROUNDING_FAILURE
+            sender_id = self.run_id  # the receiving agent emits the repair
+            return self.emit_semantic_repair(
+                sender=sender_id,
+                receiver=header.get("origin", {}).get("actor_id", "unknown"),
+                target_message_id=header.get("message_id", ""),
+                repair_reason=repair_reason,
+                target_epistemic=current_epistemic,
+                episode_id=header.get("episode_id"),
+            )
 
 
 __all__ = ["AgentBus"]

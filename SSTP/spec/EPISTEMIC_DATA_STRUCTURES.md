@@ -59,15 +59,16 @@ SpeechAct :=
   | deliberation_pass      -- expressing a position without grounded argument (social compliance signal)
 ```
 
-### 3.2 Task Phases
+### 3.2 Epistemic States
 
 ```text
-TaskPhase :=
-    taskwork       -- individual prior formation; no peer contact
-  | transition     -- committing independent priors to the shared space
-  | action         -- IE-grounded exchanges; positions update for traceable reasons
-  | interpersonal  -- surfaced when grounding fails or conflict persists; epistemically weakest
+EpistemicState :=
+    taskwork      -- agent forming independent prior; no peer contact yet
+  | grounding     -- pairwise IE exchange; positions being verified or repaired
+  | team_process  -- SNP convergence round; team negotiating shared position
 ```
+
+`TaskPhase` is deprecated; `EpistemicState` replaces it. The wire key is `epistemic_state`.
 
 ### 3.3 Belief Revision Causes
 
@@ -94,8 +95,9 @@ The `EpistemicBlock` is stamped on every L9 message header. It annotates the epi
 
 ```text
 EpistemicBlock := {
-  speech_act:          SpeechAct,
-  task_phase:          TaskPhase,
+  speech_act:      SpeechAct,
+  epistemic_state: EpistemicState,
+  belief_status:   BeliefStatus,
 }
 ```
 
@@ -244,7 +246,7 @@ Records the result of one argument A made to B, from A's perspective. Promoted f
 ArgumentOutcome := {
   episode_id:                String,
   message_id:                UuidString,
-  task_phase:                TaskPhase,           -- INTERPERSONAL moves are epistemically weaker
+  epistemic_state:           EpistemicState,      -- TEAM_PROCESS moves are epistemically weaker for task progress
   argument_concept_id:       UriString,
   argument_type:             String,              -- rhetorical/evidential classifier: "onset_timing", "causal_mechanism", etc.
   subject_confidence_before: Float,               -- B's public_confidence before A's argument

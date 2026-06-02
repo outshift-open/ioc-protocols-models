@@ -115,48 +115,41 @@ class TheoryOfMindEngineBase(ABC):
     dependencies.
     """
 
-    @abstractmethod
     def assess_task_alignment(
         self, actor: str, task_goal: str, utterance: str,
         schema: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Return alignment assessment dict for a single utterance."""
+        """Deprecated stub. epistemic_state in L9 header carries phase classification."""
+        return {"actor": actor, "task_goal": task_goal,
+                "aligned": True, "alignment_score": 0.5, "rationale": "structural"}
 
-    @abstractmethod
     def analyze_pairwise_agent_tom(
         self, agent_views: Dict[str, Dict[str, Any]], task_goal: str
     ) -> Dict[str, Any]:
-        """Return all-pairs alignment analysis across a set of agents."""
+        """Deprecated stub. Use ReplicaToM.alignment_matrix() instead."""
+        return {}
 
-    @abstractmethod
-    def update(
-        self,
-        view: Dict[str, Any],
-        utterance: str,
-        task_goal: str,
-        actor: str = "agent",
-    ) -> Dict[str, Any]:
-        """Update the belief state given a new utterance; return updated view."""
+    def update(self, view: Dict[str, Any], utterance: str,
+               task_goal: str, actor: str = "agent") -> Dict[str, Any]:
+        """Deprecated stub. BeliefState updated via receive_peer_turn()."""
+        return view if view else {}
 
-    @abstractmethod
-    def seed_belief(self, agent_id: str, role_description: str, session_context: Dict[str, Any]) -> Dict[str, Any]:
-        """Seed initial belief for an agent from role description and session context.
-        Stores a frozen anchor and initialises EMA/change_log for this agent.
-        Returns the initial belief dict: {role, objective, context_summary, inferred_constraints, confidence}.
-        """
+    def seed_belief(self, agent_id: str, role_description: str,
+                    session_context: Dict[str, Any]) -> Dict[str, Any]:
+        """Deprecated stub. Use AgentBeliefStore + TaskworkStore."""
+        return {"role": role_description, "objective": role_description,
+                "context_summary": "", "inferred_constraints": [], "confidence": 0.5}
 
-    @abstractmethod
-    def detect_ambiguity(self, utterance: str, task_goal: str, agent_id: str | None = None) -> Dict[str, Any]:
-        """Detect ambiguity in an utterance relative to the agent's current belief.
-        Returns {ambiguous: bool, ambiguity_score: float, ambiguous_spans: list, plausible_interpretations: list}.
-        """
+    def detect_ambiguity(self, utterance: str, task_goal: str,
+                         agent_id: str | None = None) -> Dict[str, Any]:
+        """Deprecated stub. diagnose_repair_reason() in grounding.py covers this."""
+        return {"ambiguous": False, "ambiguity_score": 0.0,
+                "ambiguous_spans": [], "plausible_interpretations": []}
 
-    @abstractmethod
-    def update_belief(self, agent_id: str, utterance: str, task_goal: str) -> Dict[str, Any]:
-        """Update the semantic belief for agent_id given a new utterance.
-        Updates EMA alignment and appends to change_log.
-        Returns the updated belief dict.
-        """
+    def update_belief(self, agent_id: str, utterance: str,
+                      task_goal: str) -> Dict[str, Any]:
+        """Deprecated stub. BeliefState updated via receive_peer_turn()."""
+        return {}
 
     def belief_models(self) -> Dict[str, Dict[str, Any]]:
         """Return all current belief dicts keyed by agent_id."""

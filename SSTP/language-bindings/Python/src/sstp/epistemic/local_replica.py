@@ -37,6 +37,12 @@ class ReplicaEntry:
     timestamp_ms: int
     epistemic: Optional[Dict[str, Any]]  # the epistemic block, if present
     operation: Optional[str]             # SNP/IE operation, for local inference
+    # Grounding state from IE payload — populated by LocalStateReplica.apply()
+    posterior:            Optional[float] = None   # sender's current belief strength
+    contingency_verified: Optional[bool]  = None   # receiver-verified grounding result
+    # Taskwork chain from IE payload — present on prior_injection turns
+    taskwork_findings:    Optional[List]  = None   # [{finding_id, value, source}]
+    taskwork_likelihoods: Optional[List]  = None   # [(finding_id, ratio)]
 
 
 class LocalStateReplica:
@@ -53,14 +59,45 @@ class LocalStateReplica:
         self._seen_ids: Set[str] = set()
         self._sender_high_water: Dict[str, int] = {}
 
-    def apply(self, header: Dict[str, Any], operation: str | None = None) -> bool:
-        """Ingest one L9 header. Returns True if new, False if already seen."""
+    def apply(
+        self,
+        header: Dict[str, Any],
+        operation: str | None = None,
+        payload: Dict[str, Any] | None = None,
+    ) -> bool:
+        """Ingest one L9 header. Returns True if new, False if already seen.
+
+        If ``payload`` is supplied and contains an IE payload dict, the
+        ``belief.posterior`` and ``grounding.contingency_verified`` values are
+        extracted and stored on the ReplicaEntry so ReplicaToM can use them.
+        """
         mid = header.get("message_id", "")
         if not mid or mid in self._seen_ids:
             return False
         sender = header.get("origin", {}).get("actor_id", "unknown")
         seq_block = header.get("state_sequence") or {}
         seq = int(seq_block.get("counter", -1))
+
+        posterior: Optional[float] = None
+        contingency_verified: Optional[bool] = None
+        taskwork_findings: Optional[List] = None
+        taskwork_likelihoods: Optional[List] = None
+        if payload:
+            belief = payload.get("belief") or {}
+            if "posterior" in belief:
+                try:
+                    posterior = float(belief["posterior"])
+                except (TypeError, ValueError):
+                    pass
+            grounding = payload.get("grounding") or {}
+            cv = grounding.get("contingency_verified")
+            if cv is not None:
+                contingency_verified = bool(cv)
+            tw = payload.get("taskwork") or {}
+            if tw:
+                taskwork_findings = tw.get("findings")
+                taskwork_likelihoods = tw.get("likelihoods")
+
         entry = ReplicaEntry(
             message_id=mid,
             sender=sender,
@@ -68,6 +105,10 @@ class LocalStateReplica:
             timestamp_ms=_parse_timestamp_ms(header),
             epistemic=header.get("epistemic"),
             operation=operation,
+            posterior=posterior,
+            contingency_verified=contingency_verified,
+            taskwork_findings=taskwork_findings,
+            taskwork_likelihoods=taskwork_likelihoods,
         )
         self._entries.append(entry)
         self._seen_ids.add(mid)
@@ -87,13 +128,21 @@ class LocalStateReplica:
                                           "retracted": 0, "revised": 0,
                                           "challenged": 0, "unresolved": 0}
         speech_act_counts: Dict[str, int] = {}
-        phase_counts: Dict[str, int] = {"taskwork": 0, "transition": 0,
-                                         "action": 0, "interpersonal": 0}
+        phase_counts: Dict[str, int] = {"taskwork": 0, "grounding": 0, "team_process": 0}
 
         taskwork_total = 0
         taskwork_assertions = 0
-        interp_belief_assertions = 0
-        interp_delib_passes = 0
+        team_process_belief_assertions = 0
+        team_process_delib_passes = 0
+
+        # Posterior tracking per agent for grounding-verified turns
+        agent_posteriors: Dict[str, List[float]] = {}
+        grounding_total = 0
+        grounding_verified = 0
+
+        # Phase transition tracking per sender
+        last_phase_by_sender: Dict[str, str] = {}
+        phase_transitions: List[Dict[str, Any]] = []
 
         for e in self._entries:
             ep = e.epistemic or {}
@@ -102,18 +151,35 @@ class LocalStateReplica:
             sa = ep.get("speech_act", "")
             if sa:
                 speech_act_counts[sa] = speech_act_counts.get(sa, 0) + 1
-            phase = ep.get("task_phase", "")
+            phase = ep.get("epistemic_state", "")
             if phase in phase_counts:
                 phase_counts[phase] += 1
             if phase == "taskwork":
                 taskwork_total += 1
                 if sa == "belief_assertion" and bs == "asserted":
                     taskwork_assertions += 1
-            elif phase == "interpersonal":
+            elif phase == "team_process":
                 if sa == "belief_assertion":
-                    interp_belief_assertions += 1
+                    team_process_belief_assertions += 1
                 elif sa == "deliberation_pass":
-                    interp_delib_passes += 1
+                    team_process_delib_passes += 1
+            if phase == "grounding":
+                grounding_total += 1
+                if e.contingency_verified is True:
+                    grounding_verified += 1
+            if e.posterior is not None:
+                agent_posteriors.setdefault(e.sender, []).append(e.posterior)
+            if phase:
+                prev = last_phase_by_sender.get(e.sender)
+                if prev is not None and prev != phase:
+                    phase_transitions.append({
+                        "sender":      e.sender,
+                        "from_phase":  prev,
+                        "to_phase":    phase,
+                        "message_id":  e.message_id,
+                        "timestamp_ms": e.timestamp_ms,
+                    })
+                last_phase_by_sender[e.sender] = phase
 
         total_accepts = belief_counts["asserted"] + belief_counts["deferred"]
         genuine = sum(
@@ -126,10 +192,18 @@ class LocalStateReplica:
         taskwork_independence_ratio = (
             taskwork_assertions / taskwork_total if taskwork_total > 0 else 1.0
         )
-        interp_accepts = interp_belief_assertions + interp_delib_passes
+        team_process_accepts = team_process_belief_assertions + team_process_delib_passes
         social_compliance_ratio = (
-            interp_delib_passes / interp_accepts if interp_accepts > 0 else 0.0
+            team_process_delib_passes / team_process_accepts
+            if team_process_accepts > 0 else 0.0
         )
+        grounding_verified_ratio = (
+            grounding_verified / grounding_total if grounding_total > 0 else None
+        )
+        mean_posterior_by_agent = {
+            agent: round(sum(ps) / len(ps), 4)
+            for agent, ps in agent_posteriors.items()
+        }
 
         return {
             "episode_id": self.episode_id,
@@ -147,6 +221,9 @@ class LocalStateReplica:
             "epistemic_strength": round(epistemic_strength, 4),
             "taskwork_independence_ratio": round(taskwork_independence_ratio, 4),
             "social_compliance_ratio": round(social_compliance_ratio, 4),
+            "grounding_verified_ratio": round(grounding_verified_ratio, 4) if grounding_verified_ratio is not None else None,
+            "mean_posterior_by_agent": mean_posterior_by_agent,
+            "phase_transitions": phase_transitions,
         }
 
     def detect_gaps(self) -> Dict[str, List[int]]:

@@ -56,7 +56,7 @@ IE uses the following event types. Each maps to an L9 `kind` per `SSTP_FORMAL_MO
 | `rule_update`              | `commit`     | Write a `TeamGroundedTruth` to semantic memory; stabilizes epistemic state |
 | `outcome_reported`         | `exchange`   | Informational outcome report; does not close session |
 
-All agent-to-agent interactions are `peer_turn` events.  Task delegation uses `speech_act=task_handoff` at `task_phase=transition`; results use `speech_act=belief_assertion` at `task_phase=taskwork`; failures use `speech_act=help_request` at `task_phase=interpersonal`.  There is no privileged coordinator role and no separate RPC event type.
+All agent-to-agent interactions are `peer_turn` events.  Task delegation uses `speech_act=task_handoff` at `epistemic_state=grounding`; results use `speech_act=belief_assertion` at `epistemic_state=taskwork`; failures use `speech_act=help_request` at `epistemic_state=grounding`.  There is no privileged coordinator role and no separate RPC event type.
 
 The `epistemic` block in the L9 header MUST be present on all `peer_turn`, `repair_required`, `repair_applied`, and `epistemic_clarification` messages.
 
@@ -115,14 +115,15 @@ CommonGround {
 
 ---
 
-## 4. Speech Acts and Task Phases
+## 4. Speech Acts and Epistemic States
 
-Every L9 header on a peer-dialogue message SHOULD carry an `EpistemicBlock`:
+Every L9 header on a peer-dialogue message MUST carry an `EpistemicBlock`:
 
 ```text
 EpistemicBlock := {
-  speech_act:        SpeechAct,
-  task_phase:        TaskPhase,
+  speech_act:      SpeechAct,
+  epistemic_state: EpistemicState,
+  belief_status:   BeliefStatus,
 }
 ```
 
@@ -138,16 +139,28 @@ EpistemicBlock := {
 
 When the IE layer detects `speech_act = deliberation_pass`, it records `BeliefRevision.cause = social_compliance` in `AgentBeliefStore`. This updates `social_compliance_ratio` but MUST NOT update the posterior and MUST NOT trigger a `CommonGround` record.
 
-### 4.2 Task Phases
+### 4.2 Epistemic States
 
-| `task_phase`    | Description |
-|-----------------|-------------|
-| `taskwork`      | Individual prior formation; no peer contact |
-| `transition`    | Committing independent priors to the shared space |
-| `action`        | IE-grounded exchanges; positions update for traceable reasons |
-| `interpersonal` | Surfaced when grounding fails or conflict persists; epistemically weakest |
+| `epistemic_state` | Epistemic weight | Description |
+|---|---|---|
+| `taskwork`      | High | Agent forming independent prior; no peer contact yet |
+| `grounding`     | High | Pairwise IE exchange; positions being verified or repaired |
+| `team_process`  | Medium | SNP convergence round; team negotiating shared position |
 
-`interpersonal` phase exchanges carry the lowest epistemic weight. `ArgumentOutcome` records with `task_phase = interpersonal` are discounted in the `PeerInteractionRecord`.
+`grounding` exchanges are the primary vehicle for `CommonGround` records. `taskwork` establishes the independent prior that GAR measures convergence against. `team_process` marks SNP convergence turns; forced accepts (`deliberation_pass`) within `team_process` increment SCR.
+
+### 4.3 Belief Status
+
+| `belief_status` | Meaning |
+|---|---|
+| `asserted`   | Sender holds this belief with normal confidence |
+| `deferred`   | Sender withholds judgment; awaiting more information |
+| `challenged` | Sender's belief has been challenged by a peer |
+| `revised`    | Sender has updated their belief based on new evidence |
+| `retracted`  | Sender withdraws a prior assertion |
+| `unresolved` | Challenge or repair cycle could not be closed |
+
+Default for all IE events: `asserted`. Repair events default to `challenged`. Epistemic clarification events default to `deferred`.
 
 ---
 

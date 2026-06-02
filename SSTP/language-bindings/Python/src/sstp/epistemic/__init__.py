@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from sstp.epistemic.vocabulary import (
-    SpeechAct, TaskPhase, BeliefStatus,
+    SpeechAct, EpistemicState, TaskPhase, BeliefStatus,
     make_epistemic_block, infer_snp_epistemic, infer_snp_speech_act,
 )
 from sstp.epistemic.local_replica import LocalStateReplica, ReplicaEntry
@@ -15,6 +15,8 @@ from sstp.epistemic.stores import (
     CommonGround, CommonGroundStore,
     TeamGroundedTruth, ConvergenceStore,
     SemanticRule, SemanticRuleStore,
+    TaskworkFinding, TaskworkState, TaskworkStore,
+    RoleAssignment, TeamProcessAgreement, TeamProcessStore,
 )
 from sstp.epistemic.bayes import (
     LikelihoodEntry, LikelihoodTable,
@@ -23,7 +25,7 @@ from sstp.epistemic.bayes import (
 )
 
 __all__ = [
-    "SpeechAct", "TaskPhase", "BeliefStatus",
+    "SpeechAct", "EpistemicState", "TaskPhase", "BeliefStatus",
     "make_epistemic_block", "infer_snp_epistemic", "infer_snp_speech_act",
     "LocalStateReplica", "ReplicaEntry",
     "EpistemicSnapshot", "snapshot", "roll_forward", "replay_from_origin",
@@ -35,6 +37,9 @@ __all__ = [
     "CommonGround", "CommonGroundStore",
     "TeamGroundedTruth", "ConvergenceStore",
     "SemanticRule", "SemanticRuleStore",
+    # Taskwork + team process state
+    "TaskworkFinding", "TaskworkState", "TaskworkStore",
+    "RoleAssignment", "TeamProcessAgreement", "TeamProcessStore",
     # Bayesian inference
     "LikelihoodEntry", "LikelihoodTable",
     "compute_posterior", "normalize_posteriors",

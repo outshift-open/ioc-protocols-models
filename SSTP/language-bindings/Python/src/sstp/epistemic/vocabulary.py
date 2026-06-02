@@ -4,19 +4,20 @@
 """
 epistemic/vocabulary.py — Speech act vocabulary and epistemic block builder.
 
-Defines the five SpeechAct types, four TaskPhase values, and six BeliefStatus
+Defines the five SpeechAct types, three EpistemicState values, and six BeliefStatus
 values that qualify every L9 message epistemically. Also provides:
 
 - make_epistemic_block(): construct a validated epistemic dict for the wire
-- infer_snp_epistemic(): deterministically infer (SpeechAct, TaskPhase) from SNP
+- infer_snp_epistemic(): deterministically infer (SpeechAct, EpistemicState) from SNP
   operation context without extra wire messages
 - infer_snp_speech_act(): backward-compatible wrapper returning SpeechAct only
 
-TaskPhase alignment with Marks et al. team process taxonomy:
-  TASKWORK      — individual domain work; NOT a Marks team process
-  TRANSITION    — mission analysis, goal spec, strategy formulation, role assignment
-  ACTION        — coordination during execution (Marks: monitoring + coordination)
-  INTERPERSONAL — conflict management, deference, repair
+EpistemicState — three first-class states that drive the L9 epistemic block:
+  TASKWORK      — agent forming independent prior; no peer contact yet
+  GROUNDING     — pairwise IE exchange; positions being verified or repaired
+  TEAM_PROCESS  — SNP convergence round; team negotiating shared position
+
+TaskPhase is kept as a deprecated alias for backward compatibility.
 """
 
 from __future__ import annotations
@@ -34,16 +35,19 @@ class SpeechAct(str, enum.Enum):
     DELIBERATION_PASS   = "deliberation_pass"    # sender yields — explicit deference, not agreement
 
 
-class TaskPhase(str, enum.Enum):
-    """The four phases qualifying epistemic acts.
+class EpistemicState(str, enum.Enum):
+    """The three epistemic states that qualify every L9 peer_turn."""
+    TASKWORK     = "taskwork"      # independent prior formation; no peer contact
+    GROUNDING    = "grounding"     # pairwise IE exchange; verifying or repairing positions
+    TEAM_PROCESS = "team_process"  # SNP convergence; team negotiating shared position
 
-    TASKWORK is not a Marks team process — it is individual domain work done
-    before or outside peer coordination.  The other three follow Marks et al. [57].
-    """
-    TASKWORK      = "taskwork"      # individual domain work — NOT a team process
-    TRANSITION    = "transition"    # goal-setting, role assignment, strategy formulation
-    ACTION        = "action"        # coordination during execution (monitoring + negotiation)
-    INTERPERSONAL = "interpersonal" # conflict, deference, repair
+
+class TaskPhase(str, enum.Enum):
+    """Deprecated — use EpistemicState.  Kept for backward compatibility."""
+    TASKWORK      = "taskwork"
+    TRANSITION    = "team_process"   # maps to TEAM_PROCESS
+    ACTION        = "grounding"      # maps to GROUNDING
+    INTERPERSONAL = "grounding"      # maps to GROUNDING (IE repair); SNP callers use TEAM_PROCESS
 
 
 class BeliefStatus(str, enum.Enum):
@@ -67,7 +71,7 @@ class RepairReason(str, enum.Enum):
 def make_epistemic_block(
     *,
     speech_act: SpeechAct | str,
-    task_phase: TaskPhase | str,
+    epistemic_state: EpistemicState | str | None = None,
     belief_status: BeliefStatus | str = BeliefStatus.ASSERTED,
     uncertainty: float = 0.0,
     scope: List[str] | None = None,
@@ -75,14 +79,19 @@ def make_epistemic_block(
     challenges: List[str] | None = None,
     repair_reason: RepairReason | str | None = None,
     addresses_evidence: List[str] | None = None,
+    task_phase: "TaskPhase | str | None" = None,  # deprecated; use epistemic_state
 ) -> Dict[str, Any]:
     """Return a validated epistemic block for inclusion in an L9 header."""
     def _val(v: Any) -> str:
         return v.value if isinstance(v, enum.Enum) else str(v)
 
+    resolved_state = epistemic_state if epistemic_state is not None else (
+        task_phase if task_phase is not None else EpistemicState.GROUNDING
+    )
+
     block: Dict[str, Any] = {
         "speech_act": _val(speech_act),
-        "task_phase": _val(task_phase),
+        "epistemic_state": _val(resolved_state),
         "belief_status": _val(belief_status),
         "uncertainty": max(0.0, min(1.0, float(uncertainty))),
     }
@@ -107,30 +116,30 @@ def infer_snp_epistemic(
     ctrl_conf: float,
     member_conf: float,
     accept_threshold: float = 0.1,
-) -> Tuple[SpeechAct, TaskPhase]:
-    """Infer (SpeechAct, TaskPhase) from SNP operation context — no wire messages needed.
+) -> Tuple[SpeechAct, EpistemicState]:
+    """Infer (SpeechAct, EpistemicState) from SNP operation context — no wire messages needed.
 
-    PROPOSE          → (BELIEF_ASSERTION,    TRANSITION)   strategy commitment
-    NEGOTIATE        → (BELIEF_ASSERTION,    ACTION)       coordination round
-    ACCEPT genuine   → (BELIEF_ASSERTION,    ACTION)       coordination resolved
-    ACCEPT forced    → (DELIBERATION_PASS,   INTERPERSONAL) social compliance
-    COUNTER_PROPOSAL → (ALIGNMENT_CHALLENGE, INTERPERSONAL) conflict
-    REJECT           → (ALIGNMENT_CHALLENGE, INTERPERSONAL) conflict
+    PROPOSE          → (BELIEF_ASSERTION,    TEAM_PROCESS)  opens convergence round
+    NEGOTIATE        → (BELIEF_ASSERTION,    TEAM_PROCESS)  convergence in progress
+    ACCEPT genuine   → (BELIEF_ASSERTION,    TEAM_PROCESS)  convergence resolved
+    ACCEPT forced    → (DELIBERATION_PASS,   TEAM_PROCESS)  social compliance
+    COUNTER_PROPOSAL → (ALIGNMENT_CHALLENGE, TEAM_PROCESS)  position challenge
+    REJECT           → (ALIGNMENT_CHALLENGE, TEAM_PROCESS)  position challenge
     """
     op = operation.lower()
     if op == "propose":
-        return SpeechAct.BELIEF_ASSERTION, TaskPhase.TRANSITION
+        return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
     if op == "negotiate":
-        return SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION
+        return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
     if op == "accept":
         if ctrl_position_key == member_position_key:
-            return SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION
+            return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
         if ctrl_conf >= member_conf + accept_threshold:
-            return SpeechAct.DELIBERATION_PASS, TaskPhase.INTERPERSONAL
-        return SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION
+            return SpeechAct.DELIBERATION_PASS, EpistemicState.TEAM_PROCESS
+        return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
     if op in ("counter_proposal", "reject"):
-        return SpeechAct.ALIGNMENT_CHALLENGE, TaskPhase.INTERPERSONAL
-    return SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION
+        return SpeechAct.ALIGNMENT_CHALLENGE, EpistemicState.TEAM_PROCESS
+    return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
 
 
 def infer_snp_speech_act(
@@ -144,7 +153,7 @@ def infer_snp_speech_act(
 ) -> SpeechAct:
     """Backward-compatible wrapper — returns SpeechAct only.
 
-    Prefer infer_snp_epistemic() which also returns the correct TaskPhase.
+    Prefer infer_snp_epistemic() which also returns the correct EpistemicState.
     """
     return infer_snp_epistemic(
         operation=operation,
@@ -157,6 +166,6 @@ def infer_snp_speech_act(
 
 
 __all__ = [
-    "SpeechAct", "TaskPhase", "BeliefStatus", "RepairReason",
+    "SpeechAct", "EpistemicState", "TaskPhase", "BeliefStatus", "RepairReason",
     "make_epistemic_block", "infer_snp_epistemic", "infer_snp_speech_act",
 ]

@@ -35,7 +35,7 @@ from sstp.snp.l9 import (
 )
 from sstp.ie.l9 import build_l9_header
 from sstp.epistemic import (
-    SpeechAct, TaskPhase, BeliefStatus,
+    SpeechAct, EpistemicState, BeliefStatus,
     make_epistemic_block, infer_snp_epistemic,
 )
 from sstp.epistemic.stores import (
@@ -99,6 +99,7 @@ class PanelBus:
         peer_interaction_store: Optional["PeerInteractionStore"] = None,
         proposal_store: Optional[ProposalStore] = None,
         persistence_path: Optional[str] = None,
+        team_process_store: Optional[Any] = None,
     ) -> None:
         self.panel_name = panel_name
         self.ie_bus = ie_bus
@@ -111,6 +112,7 @@ class PanelBus:
         self.peer_interaction_store = peer_interaction_store
         self.proposal_store = proposal_store
         self.persistence_path = persistence_path
+        self.team_process_store = team_process_store
         self.negotiation_store = NegotiationStore()
         self.negotiation_index = NegotiationIndex()
         self.round_store = RoundStore()
@@ -247,6 +249,61 @@ class PanelBus:
             "prior_weight": prior_weight,
         })
 
+    def negotiate_process(
+        self,
+        coordinator_id: str,
+        participant_ids: List[str],
+        role_assignments: List[Dict[str, Any]],
+    ) -> Any:
+        """Emit process_proposed to each participant and collect acknowledgements.
+
+        Returns a TeamProcessAgreement and records it in team_process_store if available.
+        In this implementation all accepts are auto-acknowledged (no LLM challenge path).
+        A real implementation would await actual process_accepted/challenged messages.
+        """
+        from sstp.epistemic.stores import TeamProcessAgreement, RoleAssignment
+        episode_id = self._episode_id()
+        assignments = [
+            RoleAssignment(
+                agent_id=ra["agent_id"],
+                role=ra["role"],
+                responsible_for=list(ra.get("responsible_for", [])),
+                assigned_at_ms=int(time.time() * 1000),
+                agreed=False,
+            )
+            for ra in role_assignments
+        ]
+        agreement = TeamProcessAgreement(
+            episode_id=episode_id,
+            round_id=self._negotiation_id,
+            coordinator_id=coordinator_id,
+            participant_ids=list(participant_ids),
+            role_assignments=assignments,
+            formed_at_ms=int(time.time() * 1000),
+        )
+        # Emit process_proposed to each participant
+        for participant_id in participant_ids:
+            proposal_header = self.ie_bus.emit_process_proposal(
+                sender=coordinator_id,
+                receiver=participant_id,
+                agreement=agreement,
+                episode_id=episode_id,
+            )
+            # Emit process_accepted on behalf of each participant (auto-accept)
+            self.ie_bus.emit_process_acceptance(
+                sender=participant_id,
+                receiver=coordinator_id,
+                parent_id=proposal_header["message_id"],
+                episode_id=episode_id,
+            )
+            if self.team_process_store is not None:
+                self.team_process_store.update_role_ack(episode_id, participant_id)
+
+        agreement.decomposition_agreed = True
+        if self.team_process_store is not None:
+            self.team_process_store.record(agreement)
+        return agreement
+
     def _ie_gate(
         self,
         utterance: str,
@@ -314,7 +371,7 @@ class PanelBus:
                         _tom_l = self.tom_engine.agent(listener)
                         _bs_dp = self.belief_store.current_belief(listener, cid, self.use_case)
                         if _bs_dp is not None:
-                            _tom_l._belief["confidence"] = _bs_dp.posterior
+                            pass  # _belief removed; posterior tracked in AgentBeliefStore
                 else:
                     posterior_confidence = result.get("posterior_confidence")
                     if posterior_confidence is not None:
@@ -340,7 +397,7 @@ class PanelBus:
                         _tom_l = self.tom_engine.agent(listener)
                         _bs_sync = self.belief_store.current_belief(listener, cid, self.use_case)
                         if _bs_sync is not None:
-                            _tom_l._belief["confidence"] = _bs_sync.posterior
+                            pass  # _belief removed; posterior tracked in AgentBeliefStore
                     # SCR gate: suppress CommonGround when social compliance is dominant
                     _bs_scr = self.belief_store.current_belief(listener, cid, self.use_case)
                     if _bs_scr is not None and _bs_scr.social_compliance_ratio >= SCR_ALARM_THRESHOLD:
@@ -348,12 +405,12 @@ class PanelBus:
                     # Fix 1: accumulate ArgumentOutcome for batch promote at episode close
                     _bs_after = self.belief_store.current_belief(listener, cid, self.use_case)
                     _l9_ep = result.get("epistemic", {}) if isinstance(result, dict) else {}
-                    _task_phase = _l9_ep.get("task_phase", "ACTION")
+                    _epistemic_state = _l9_ep.get("epistemic_state", "team_process")
                     _arg_type = str(result.get("argument_type", "grounded_evidence"))
                     _ao = ArgumentOutcome(
                         episode_id=ep_id,
                         message_id=snp_message_id,
-                        task_phase=_task_phase,
+                        epistemic_state=_epistemic_state,
                         argument_concept_id=cid,
                         argument_type=_arg_type,
                         subject_confidence_before=confidence_before,
@@ -419,7 +476,7 @@ class PanelBus:
             episode_id=child_state_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.HELP_REQUEST,
-                task_phase=TaskPhase.INTERPERSONAL,
+                epistemic_state=EpistemicState.TEAM_PROCESS,
                 belief_status=BeliefStatus.DEFERRED,
             ),
         )
@@ -463,7 +520,7 @@ class PanelBus:
             episode_id=child_state_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.BELIEF_ASSERTION,
-                task_phase=TaskPhase.INTERPERSONAL,
+                epistemic_state=EpistemicState.TEAM_PROCESS,
                 belief_status=BeliefStatus.REVISED,
             ),
         )
@@ -604,7 +661,7 @@ class PanelBus:
         if self.belief_store is not None and self.tom_engine is not None:
             _bs_sync = self.belief_store.current_belief(listener, cid, self.use_case)
             if _bs_sync is not None:
-                self.tom_engine.agent(listener)._belief["confidence"] = _bs_sync.posterior
+                pass  # _belief removed
 
         # forced_accept suppresses CommonGround: a social-compliance accept
         # doesn't establish shared understanding, it just records deference.
@@ -648,13 +705,13 @@ class PanelBus:
         turn: int,
         confidence: float,
         parent_snp_id: str | None = None,
-        task_phase: TaskPhase = TaskPhase.ACTION,
+        epistemic_state: EpistemicState = EpistemicState.TEAM_PROCESS,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         proposal_id = self._proposal_id(turn, sender)
         ts = int(time.time() * 1000)
         epistemic_block = make_epistemic_block(
             speech_act=SpeechAct.BELIEF_ASSERTION,
-            task_phase=task_phase,
+            epistemic_state=epistemic_state,
             belief_status=BeliefStatus.ASSERTED,
             uncertainty=round(1.0 - confidence, 4),
         )
@@ -672,7 +729,7 @@ class PanelBus:
             epistemic=epistemic_block,
         )
         self.snp_trace.append(snp_header)
-        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.TASK_HANDOFF, task_phase=TaskPhase.TRANSITION, 
+        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.TASK_HANDOFF, epistemic_state=EpistemicState.TEAM_PROCESS, 
             sender=sender,
             receiver=receiver,
             utterance=utterance,
@@ -700,7 +757,7 @@ class PanelBus:
         proposal_id = self._proposal_id(turn, sender)
         ts = int(time.time() * 1000)
         op_str = operation.value if hasattr(operation, "value") else str(operation)
-        speech_act, task_phase = infer_snp_epistemic(
+        speech_act, epistemic_state = infer_snp_epistemic(
             operation=op_str,
             ctrl_position_key=ctrl_position_key,
             member_position_key=ctrl_position_key,
@@ -711,7 +768,7 @@ class PanelBus:
         belief_status = BeliefStatus.DEFERRED if speech_act == SpeechAct.DELIBERATION_PASS else BeliefStatus.ASSERTED
         epistemic_block = make_epistemic_block(
             speech_act=speech_act,
-            task_phase=task_phase,
+            epistemic_state=epistemic_state,
             belief_status=belief_status,
             uncertainty=round(1.0 - confidence, 4),
         )
@@ -729,7 +786,7 @@ class PanelBus:
             epistemic=epistemic_block,
         )
         self.snp_trace.append(snp_header)
-        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, task_phase=TaskPhase.TASKWORK, 
+        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, epistemic_state=EpistemicState.TASKWORK, 
             sender=sender,
             receiver=receiver,
             utterance=utterance,
@@ -790,10 +847,10 @@ class StarNegotiation:
         pos_dict = position if isinstance(position, dict) else {}
         supporting_ev: List[str] | None = pos_dict.get("supporting_evidence") or ([key] if key else None)
         # Initial proposal (turn 0) carries taskwork label — agent's prior-driven position
-        _task_phase = TaskPhase.TASKWORK if turn == 0 else TaskPhase.TRANSITION
+        _epistemic_state = EpistemicState.TASKWORK if turn == 0 else EpistemicState.TEAM_PROCESS
         epistemic_block = make_epistemic_block(
             speech_act=SpeechAct.BELIEF_ASSERTION,
-            task_phase=_task_phase,
+            epistemic_state=_epistemic_state,
             belief_status=BeliefStatus.ASSERTED,
             uncertainty=round(1.0 - conf, 4),
             scope=supporting_ev,
@@ -837,7 +894,7 @@ class StarNegotiation:
             reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
         )
         self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.TASK_HANDOFF, task_phase=TaskPhase.TRANSITION, 
+        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.TASK_HANDOFF, epistemic_state=EpistemicState.TEAM_PROCESS, 
             sender=controller,
             receiver=specialist,
             utterance=utterance,
@@ -866,7 +923,7 @@ class StarNegotiation:
         proposal_id = self.panel_bus._proposal_id(turn, specialist)
         ts = int(time.time() * 1000)
         op_str = operation.value if hasattr(operation, "value") else str(operation)
-        speech_act, task_phase = infer_snp_epistemic(
+        speech_act, epistemic_state = infer_snp_epistemic(
             operation=op_str,
             ctrl_position_key=ctrl_position_key,
             member_position_key=key,
@@ -888,7 +945,7 @@ class StarNegotiation:
         )
         epistemic_block = make_epistemic_block(
             speech_act=speech_act,
-            task_phase=task_phase,
+            epistemic_state=epistemic_state,
             belief_status=belief_status,
             uncertainty=round(1.0 - conf, 4),
             addresses_evidence=addresses_ev,
@@ -918,7 +975,7 @@ class StarNegotiation:
             addresses_evidence=addresses_ev,
         )
         self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, task_phase=TaskPhase.TASKWORK, 
+        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, epistemic_state=EpistemicState.TASKWORK, 
             sender=specialist,
             receiver=controller,
             utterance=utterance,
@@ -947,15 +1004,15 @@ class StarNegotiation:
         spec_key = self._position_key(specialist_position) if specialist_position is not None else key
         if spec_key != key:
             speech_act_v: SpeechAct = SpeechAct.DELIBERATION_PASS
-            task_phase_v: TaskPhase = TaskPhase.INTERPERSONAL
+            epistemic_state_v: EpistemicState = EpistemicState.TEAM_PROCESS
             belief_status_v: BeliefStatus = BeliefStatus.DEFERRED
         else:
             speech_act_v = SpeechAct.BELIEF_ASSERTION
-            task_phase_v = TaskPhase.ACTION
+            epistemic_state_v = EpistemicState.TEAM_PROCESS
             belief_status_v = BeliefStatus.ASSERTED
         epistemic_block = make_epistemic_block(
             speech_act=speech_act_v,
-            task_phase=task_phase_v,
+            epistemic_state=epistemic_state_v,
             belief_status=belief_status_v,
             uncertainty=round(1.0 - conf, 4),
         )
@@ -972,7 +1029,7 @@ class StarNegotiation:
             epistemic=epistemic_block,
         )
         self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, task_phase=TaskPhase.TASKWORK, 
+        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, epistemic_state=EpistemicState.TASKWORK, 
             sender=controller,
             receiver=specialist,
             utterance=utterance,
@@ -1380,8 +1437,8 @@ class StarNegotiation:
             if self.panel_bus.tom_engine is not None:
                 for _pid in truth.participant_ids:
                     _agent = self.panel_bus.tom_engine.agent(_pid)
-                    _prev = _agent._belief.get("confidence", truth.consensus_posterior)
-                    _agent._belief["confidence"] = truth.consensus_posterior
+                    _prev = truth.consensus_posterior
+                    pass  # _belief removed
                     if self.panel_bus.belief_store is not None:
                         _crev = BeliefRevision(
                             revision_id=str(uuid.uuid4()),
@@ -1607,7 +1664,7 @@ class RingNegotiation:
                     turn=round_idx,
                     confidence=sender_conf,
                     parent_snp_id=last_snp_id,
-                    task_phase=TaskPhase.TASKWORK if round_idx == 0 else TaskPhase.ACTION,
+                    epistemic_state=EpistemicState.TASKWORK if round_idx == 0 else EpistemicState.TEAM_PROCESS,
                 )
                 last_snp_id = snp_neg["message_id"]
                 _neg_prop_id = snp_neg.get("snp_payload", {}).get("proposal_id", snp_neg["message_id"])
@@ -1828,8 +1885,8 @@ class RingNegotiation:
             if self.panel_bus.tom_engine is not None:
                 for _pid in truth.participant_ids:
                     _agent = self.panel_bus.tom_engine.agent(_pid)
-                    _prev = _agent._belief.get("confidence", truth.consensus_posterior)
-                    _agent._belief["confidence"] = truth.consensus_posterior
+                    _prev = truth.consensus_posterior
+                    pass  # _belief removed
                     if self.panel_bus.belief_store is not None:
                         _crev = BeliefRevision(
                             revision_id=str(uuid.uuid4()),

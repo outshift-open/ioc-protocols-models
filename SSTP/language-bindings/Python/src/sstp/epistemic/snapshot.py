@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sstp.epistemic.local_replica import LocalStateReplica, ReplicaEntry
 
@@ -52,19 +52,37 @@ def roll_forward(
     seen_after: set = set()
 
     # Carry forward phase-stratified accumulators from snapshot
-    phase_counts = dict(state.get("phase_counts", {"taskwork": 0, "transition": 0,
-                                                     "action": 0, "interpersonal": 0}))
+    phase_counts = dict(state.get("phase_counts", {"taskwork": 0, "grounding": 0, "team_process": 0}))
     # Reconstruct running totals needed for ratio recomputation
     prev_entries = snap.entry_count
     prev_tw_ratio = state.get("taskwork_independence_ratio", 1.0)
     prev_sc_ratio = state.get("social_compliance_ratio", 0.0)
     prev_tw_total = phase_counts.get("taskwork", 0)
-    prev_interp_total = phase_counts.get("interpersonal", 0)
+    prev_tp_total = phase_counts.get("team_process", 0)
 
     # Back-compute absolute counts from ratios + totals
     taskwork_assertions = int(round(prev_tw_ratio * prev_tw_total))
-    interp_delib_passes = int(round(prev_sc_ratio * prev_interp_total))
-    interp_belief_assertions = prev_interp_total - interp_delib_passes
+    team_process_delib_passes = int(round(prev_sc_ratio * prev_tp_total))
+    team_process_belief_assertions = prev_tp_total - team_process_delib_passes
+
+    # Grounding verification tracking
+    prev_gv_ratio = state.get("grounding_verified_ratio")
+    prev_grounding_total = phase_counts.get("grounding", 0)
+    prev_grounding_verified = int(round((prev_gv_ratio or 0.0) * prev_grounding_total))
+    grounding_total = prev_grounding_total
+    grounding_verified = prev_grounding_verified
+
+    # Posterior tracking per agent
+    mean_posterior_by_agent = dict(state.get("mean_posterior_by_agent", {}))
+    # Carry forward as running sums (approximate; exact requires full replay)
+    agent_posterior_sums: Dict[str, float] = {
+        agent: mean * phase_counts.get("grounding", 1)
+        for agent, mean in mean_posterior_by_agent.items()
+    }
+    agent_posterior_counts: Dict[str, int] = {
+        agent: phase_counts.get("grounding", 0)
+        for agent in mean_posterior_by_agent
+    }
 
     for entry in new_entries:
         if entry.message_id in seen_after:
@@ -86,7 +104,7 @@ def roll_forward(
         ep = entry.epistemic or {}
         sa = ep.get("speech_act", "")
         bs = ep.get("belief_status", "asserted")
-        phase = ep.get("task_phase", "")
+        phase = ep.get("epistemic_state", "")
 
         if sa:
             acts = state.get("last_speech_acts", {})
@@ -105,11 +123,22 @@ def roll_forward(
         if phase == "taskwork":
             if sa == "belief_assertion" and bs == "asserted":
                 taskwork_assertions += 1
-        elif phase == "interpersonal":
+        elif phase == "team_process":
             if sa == "belief_assertion":
-                interp_belief_assertions += 1
+                team_process_belief_assertions += 1
             elif sa == "deliberation_pass":
-                interp_delib_passes += 1
+                team_process_delib_passes += 1
+        if phase == "grounding":
+            grounding_total += 1
+            if entry.contingency_verified is True:
+                grounding_verified += 1
+        if entry.posterior is not None:
+            agent_posterior_sums[entry.sender] = (
+                agent_posterior_sums.get(entry.sender, 0.0) + entry.posterior
+            )
+            agent_posterior_counts[entry.sender] = (
+                agent_posterior_counts.get(entry.sender, 0) + 1
+            )
 
     state["phase_counts"] = phase_counts
     state["sender_high_water"] = high_water
@@ -118,10 +147,18 @@ def roll_forward(
     state["taskwork_independence_ratio"] = round(
         taskwork_assertions / tw_total if tw_total > 0 else 1.0, 4
     )
-    interp_accepts = interp_belief_assertions + interp_delib_passes
+    tp_accepts = team_process_belief_assertions + team_process_delib_passes
     state["social_compliance_ratio"] = round(
-        interp_delib_passes / interp_accepts if interp_accepts > 0 else 0.0, 4
+        team_process_delib_passes / tp_accepts if tp_accepts > 0 else 0.0, 4
     )
+    state["grounding_verified_ratio"] = (
+        round(grounding_verified / grounding_total, 4) if grounding_total > 0 else None
+    )
+    state["mean_posterior_by_agent"] = {
+        agent: round(agent_posterior_sums[agent] / agent_posterior_counts[agent], 4)
+        for agent in agent_posterior_sums
+        if agent_posterior_counts.get(agent, 0) > 0
+    }
 
     # Recompute overall epistemic_strength
     total = state.get("belief_counts", {}).get("asserted", 0) + state.get("belief_counts", {}).get("deferred", 0)

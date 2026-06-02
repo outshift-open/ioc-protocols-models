@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional
 
-from sstp.epistemic.vocabulary import SpeechAct, TaskPhase, make_epistemic_block
+from sstp.epistemic.vocabulary import SpeechAct, EpistemicState, make_epistemic_block
 from sstp.l9_base import (
     L9HeaderBuilder,
     L9_PROTOCOL,
@@ -75,14 +75,14 @@ class NegotiationOperation:
 
 
 _SNP_DEFAULT_EPISTEMIC = {
-    NegotiationOperation.PROPOSE:           (SpeechAct.BELIEF_ASSERTION,    TaskPhase.TRANSITION),
-    NegotiationOperation.CONSIDER_PROPOSAL: (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
-    NegotiationOperation.EVALUATE_PROPOSAL: (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
-    NegotiationOperation.REVIEW_PROPOSAL:   (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
-    NegotiationOperation.COUNTER_PROPOSAL:  (SpeechAct.ALIGNMENT_CHALLENGE, TaskPhase.INTERPERSONAL),
-    NegotiationOperation.NEGOTIATE:         (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
-    NegotiationOperation.ACCEPT:            (SpeechAct.BELIEF_ASSERTION,    TaskPhase.ACTION),
-    NegotiationOperation.REJECT:            (SpeechAct.ALIGNMENT_CHALLENGE, TaskPhase.INTERPERSONAL),
+    NegotiationOperation.PROPOSE:           (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.CONSIDER_PROPOSAL: (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.EVALUATE_PROPOSAL: (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.REVIEW_PROPOSAL:   (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.COUNTER_PROPOSAL:  (SpeechAct.ALIGNMENT_CHALLENGE, EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.NEGOTIATE:         (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.ACCEPT:            (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.REJECT:            (SpeechAct.ALIGNMENT_CHALLENGE, EpistemicState.TEAM_PROCESS),
 }
 
 
@@ -258,10 +258,10 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         for forced ACCEPTs.
         """
         if epistemic is None:
-            sa, tp = _SNP_DEFAULT_EPISTEMIC.get(
-                operation, (SpeechAct.BELIEF_ASSERTION, TaskPhase.ACTION)
+            sa, es = _SNP_DEFAULT_EPISTEMIC.get(
+                operation, (SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS)
             )
-            epistemic = make_epistemic_block(speech_act=sa, task_phase=tp)
+            epistemic = make_epistemic_block(speech_act=sa, epistemic_state=es)
         event_type = snp_event_type_for_operation(operation)
         return self.build(
             use_case=use_case,

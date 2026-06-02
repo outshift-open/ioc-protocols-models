@@ -207,7 +207,7 @@ Provenance := {
 ```text
 EpistemicBlock := {
   speech_act:        String,   -- belief_assertion | alignment_challenge | help_request | task_handoff | deliberation_pass
-  task_phase:        String,   -- taskwork | transition | action | interpersonal
+  epistemic_state:     String,   -- taskwork | grounding | team_process
 }
 
 SSTPHeader := {

@@ -8,7 +8,7 @@ ReplicaToM provides first-order ToM (what does agent B currently believe?)
 deterministically from structured epistemic blocks — no LLM needed.
 
 Methods:
-  belief_model()              — current beliefs per agent, with task_phase tag
+  belief_model()              — current beliefs per agent, with epistemic_state tag
   alignment_matrix()          — pairwise agreement, optionally filtered by phase
   unresolved_challenges()     — open ALIGNMENT_CHALLENGEs
   epistemic_strength()        — overall genuine-assertion ratio (all phases)
@@ -16,7 +16,7 @@ Methods:
   social_compliance_ratio()   — forced accepts / interpersonal accepts
   social_influence_delta()    — per-agent: how much did peer pressure move beliefs?
   behavioural_trace_toward()  — structured evidence for second-order ToM inference
-  phase_violations()          — entries whose task_phase mismatches expected phase
+  phase_violations()          — entries whose epistemic_state mismatches expected phase
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ class ReplicaToM:
         belief (prior is gone, replacement is present). DEFERRED marks as deferred.
         UNRESOLVED is flagged.
 
-        Each concept entry carries task_phase so callers can distinguish beliefs
+        Each concept entry carries epistemic_state so callers can distinguish beliefs
         formed during independent taskwork from those formed under peer influence.
         """
         entries = [e for e in self.replica._entries if e.sender == agent_id]
@@ -51,7 +51,7 @@ class ReplicaToM:
             belief_status = ep.get("belief_status", "asserted")
             speech_act = ep.get("speech_act", "")
             uncertainty = ep.get("uncertainty", 0.0)
-            task_phase = ep.get("task_phase", "")
+            epistemic_state = ep.get("epistemic_state", "")
             for concept in ep.get("scope", []):
                 if belief_status == "retracted":
                     current.pop(concept, None)
@@ -60,37 +60,45 @@ class ReplicaToM:
                         "speech_act": speech_act,
                         "belief_status": "asserted" if belief_status == "revised" else belief_status,
                         "uncertainty": uncertainty,
-                        "task_phase": task_phase,
+                        "epistemic_state": epistemic_state,
+                        "posterior": entry.posterior,                       # None if not yet in payload
+                        "contingency_verified": entry.contingency_verified,
+                        "taskwork_findings": entry.taskwork_findings,       # present on taskwork turns
+                        "taskwork_likelihoods": entry.taskwork_likelihoods,
                         "message_id": entry.message_id,
                         "sequence": entry.sequence,
                         "revised": belief_status == "revised",
                     }
         return current
 
+    # Maximum posterior difference still counted as agreement
+    ALIGNMENT_TOLERANCE: float = 0.15
+
     def alignment_matrix(
-        self, task_phase: Optional[str] = None
+        self, epistemic_state: Optional[str] = None
     ) -> Dict[str, Dict[str, float]]:
         """Pairwise agreement scores across all participants.
 
-        If task_phase is given, only concepts asserted in that phase are compared.
+        If epistemic_state is given, only concepts asserted in that state are compared.
         This lets callers distinguish:
           alignment_matrix("taskwork")      — pre-social genuine divergence
-          alignment_matrix("interpersonal") — post-negotiation agreement (may include compliance)
+          alignment_matrix("grounding")     — IE-verified exchange agreement
+          alignment_matrix("team_process")  — post-negotiation agreement (may include compliance)
           alignment_matrix()                — all phases combined
 
-        Score = fraction of shared scope concepts where both agents have
-        non-deferred, non-unresolved assertions with the same speech_act.
+        When both agents carry a ``posterior`` value for a concept, agreement is
+        measured as posterior proximity (within ALIGNMENT_TOLERANCE).  When
+        posterior is absent, the fallback is speech_act equality (backwards compat).
         """
         participants = self.replica.get_derived_state()["participants"]
 
-        if task_phase is not None:
-            # Build phase-filtered belief models
+        if epistemic_state is not None:
             models: Dict[str, Dict[str, Any]] = {}
             for a in participants:
                 full = self.belief_model(a)
                 models[a] = {
                     concept: data for concept, data in full.items()
-                    if data.get("task_phase") == task_phase
+                    if data.get("epistemic_state") == epistemic_state
                 }
         else:
             models = {a: self.belief_model(a) for a in participants}
@@ -105,12 +113,23 @@ class ReplicaToM:
                 if not shared:
                     matrix[a][b] = 0.0
                     continue
-                agreed = sum(
-                    1 for s in shared
-                    if models[a][s].get("speech_act") == models[b][s].get("speech_act")
-                    and models[a][s].get("belief_status") not in ("deferred", "unresolved")
-                    and models[b][s].get("belief_status") not in ("deferred", "unresolved")
-                )
+                agreed = 0
+                for s in shared:
+                    da = models[a][s]
+                    db = models[b][s]
+                    if da.get("belief_status") in ("deferred", "unresolved"):
+                        continue
+                    if db.get("belief_status") in ("deferred", "unresolved"):
+                        continue
+                    pa = da.get("posterior")
+                    pb = db.get("posterior")
+                    if pa is not None and pb is not None:
+                        if abs(pa - pb) <= self.ALIGNMENT_TOLERANCE:
+                            agreed += 1
+                    else:
+                        # Fallback: speech_act equality
+                        if da.get("speech_act") == db.get("speech_act"):
+                            agreed += 1
                 matrix[a][b] = round(agreed / len(shared), 4)
         return matrix
 
@@ -184,24 +203,46 @@ class ReplicaToM:
           moved_concepts     — concepts where final position differs from taskwork
           influence_ratio    — moved / shared (0.0 = no influence, 1.0 = fully moved)
         """
+        # Minimum posterior shift to count as "moved" (filters noise)
+        NOISE_THRESHOLD = 0.05
+
         participants = self.replica.get_derived_state()["participants"]
         result: Dict[str, Dict[str, Any]] = {}
         for agent in participants:
             entries = [e for e in self.replica._entries if e.sender == agent]
-            taskwork_beliefs: Dict[str, str] = {}
-            final_beliefs: Dict[str, str] = {}
+            # Store {concept: posterior_or_speech_act} for comparison
+            taskwork_beliefs: Dict[str, Any] = {}
+            final_beliefs: Dict[str, Any] = {}
             for e in entries:
                 ep = e.epistemic or {}
-                phase = ep.get("task_phase", "")
+                phase = ep.get("epistemic_state", "")
                 sa = ep.get("speech_act", "")
                 bs = ep.get("belief_status", "")
                 for concept in ep.get("scope", []):
                     if phase == "taskwork" and bs in ("asserted",):
-                        taskwork_beliefs[concept] = sa
-                    if phase in ("action", "interpersonal") and bs in ("asserted", "revised"):
-                        final_beliefs[concept] = sa
+                        taskwork_beliefs[concept] = {
+                            "posterior": e.posterior,
+                            "speech_act": sa,
+                        }
+                    if phase in ("grounding", "team_process") and bs in ("asserted", "revised"):
+                        final_beliefs[concept] = {
+                            "posterior": e.posterior,
+                            "speech_act": sa,
+                        }
             shared = set(taskwork_beliefs) & set(final_beliefs)
-            moved = [c for c in shared if taskwork_beliefs[c] != final_beliefs[c]]
+            moved = []
+            for c in shared:
+                tw = taskwork_beliefs[c]
+                fi = final_beliefs[c]
+                tw_p = tw.get("posterior")
+                fi_p = fi.get("posterior")
+                if tw_p is not None and fi_p is not None:
+                    if abs(fi_p - tw_p) > NOISE_THRESHOLD:
+                        moved.append(c)
+                else:
+                    # Fallback: speech_act change
+                    if tw.get("speech_act") != fi.get("speech_act"):
+                        moved.append(c)
             result[agent] = {
                 "taskwork_concepts": sorted(taskwork_beliefs),
                 "moved_concepts": moved,
@@ -260,11 +301,11 @@ class ReplicaToM:
         }
 
     def phase_violations(self, expected_phase: str) -> List[Dict[str, Any]]:
-        """Find entries whose task_phase does not match the expected panel phase."""
+        """Find entries whose epistemic_state does not match the expected panel phase."""
         violations = []
         for e in self.replica._entries:
             ep = e.epistemic or {}
-            actual_phase = ep.get("task_phase", "")
+            actual_phase = ep.get("epistemic_state", "")
             if actual_phase and actual_phase != expected_phase:
                 violations.append({
                     "message_id": e.message_id,
