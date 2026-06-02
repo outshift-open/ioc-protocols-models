@@ -250,8 +250,15 @@ class IEEngine:
         history: List[str] | None = None,
         enable_derailment: bool = True,
         derail_probability: float = 0.0,
+        prior_speaker_ie: Optional[Dict[str, Any]] = None,
     ) -> tuple:
-        """Return (utterance, derailment_cause_or_None)."""
+        """Return (utterance, derailment_cause_or_None).
+
+        ``prior_speaker_ie`` is the IEPayload dict from the most recent turn emitted
+        by the *listener* (i.e. the agent that spoke before the current speaker).
+        When supplied, the LLM receives the prior speaker's concept_ids and posterior
+        so the response can explicitly engage those claims.
+        """
         speaker_name = speaker or "peer_agent"
 
         if self.llm_client is not None:
@@ -263,6 +270,18 @@ class IEEngine:
                 "conversation_history": (history or [])[-6:],
                 "speaker_belief": speaker_belief or {},
             }
+            if prior_speaker_ie:
+                # Structured context from the prior speaker's IEPayload so this agent
+                # can explicitly engage the claim being made.
+                _prior_utterance = prior_speaker_ie.get("utterance", {})
+                _prior_belief = prior_speaker_ie.get("belief", {})
+                payload["prior_speaker_context"] = {
+                    "concept_ids": _prior_utterance.get("concept_ids", []),
+                    "posterior": _prior_belief.get("posterior", 0.5),
+                    "prior": _prior_belief.get("prior", 0.5),
+                    "inferred_intent": _prior_utterance.get("inferred_intent", ""),
+                    "content": _prior_utterance.get("content", ""),
+                }
             result = self.llm_client.complete_json("tom_agent_utterance", payload)
             utterance = str(result.get("utterance", "")).strip()
             if utterance:
