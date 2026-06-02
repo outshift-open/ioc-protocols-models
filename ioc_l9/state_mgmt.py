@@ -1,10 +1,4 @@
 from pydantic import BaseModel
-class Group(BaseModel):
-    """
-    Group model
-    """
-    id: str
-    name: str
 class Message(BaseModel):
     """
     Message model
