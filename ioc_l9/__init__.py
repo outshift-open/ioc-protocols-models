@@ -15,12 +15,9 @@ class L9Header(BaseModel):
     kind: str
     sub_kind: str
     group: Group
-    message_id: str
     actors: list[Actor]
-    dt_created: int ## This will go under provenance
-    tt_seconds: int ## This will go under provenance
-    semantic_context: SemanticContext
-    policy_labels: Optional[PolicyLabel] = None
+    semantic: SemanticContext
+    policy: Optional[PolicyLabel] = None
     provenance: Optional[Provenance] = None
     epistemic: Optional[Epistemic] = None
 class L9Payload(BaseModel):
