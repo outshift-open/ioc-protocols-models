@@ -1,23 +1,24 @@
 # Copyright 2026 Cisco Systems, Inc. and its affiliates
 # SPDX-License-Identifier: Apache-2.0
-"""IE payload v0.1 and companion payload types for the Interaction Engine.
+"""IE payload v0.1 — single unified payload for the Interaction Engine.
 
-Three payload types are defined here, each with a distinct purpose:
+IEPayload carries everything an IE message needs:
+  utterance — what the sender is asserting and at what nesting depth
+  grounding — contingency verification state (null on prior_injection turns)
+  belief    — calibrated belief: prior (GAR anchor) and posterior
+  taskwork  — Bayesian evidence chain; present only on prior_injection turns,
+              null on all peer_turn / repair turns
 
-IEPayload — pairwise grounding (carried on peer_turn, repair_required, repair_applied)
-  IE exists solely to verify that B understood A's specific claim.
-  Identity is in the L9 header (group, message.episode, actors) — not repeated here.
-  The primary concept is in the L9 header epistemic.concept_id — not repeated in belief.
-  utterance.evidence carries supporting evidence concepts (not the primary claim).
+This unification means prior_injection and peer_turn carry the same payload
+type. The presence of taskwork distinguishes a prior declaration from a
+grounding exchange; the presence of grounding.responds_to distinguishes a
+response from an opening assertion.
 
-TaskworkPayload — independent prior formation (carried on prior_injection turns)
-  Each agent's independent Bayesian reasoning chain before any peer contact.
-  Concept identity is in the L9 header epistemic.concept_id.
+ProcessPayload is kept separate — process negotiation precedes grounding
+and is a to-be-defined SNP team-process round, not an IE concern.
 
-ProcessPayload — team process agreement (carried on process_proposed/accepted turns)
-  Role assignments that precede SNP negotiation.
-  SNP's NegotiationPayload (operation, proposal_id, posterior, etc.) identifies
-  what is being negotiated in the convergence round — not repeated here.
+Identity (group, episode, actors) is in the L9 header.
+The primary concept is in the L9 header epistemic.concept_id — not repeated here.
 """
 
 from __future__ import annotations
@@ -26,69 +27,84 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 
-# ── IEPayload — pairwise grounding ────────────────────────────────────────────
-
 @dataclass
 class IEUtteranceBlock:
-    """The sender's assertion in this grounding turn.
+    """The sender's assertion in this turn.
 
-    ``evidence`` carries the supporting evidence concepts for the argument.
-    The primary concept being asserted is in the L9 header epistemic.concept_id.
+    ``evidence`` carries supporting evidence concept URIs for the argument.
+    The primary concept being asserted is in L9 epistemic.concept_id.
 
-    ``turn_depth`` captures nesting within a repair branch:
-      0 = top-level exchange
-      >0 = inside a repair branch (each nested repair increments depth)
+    ``turn_depth``:
+      0 = top-level exchange or prior declaration
+      >0 = inside a repair branch
     """
     content:            str          # assertion text
     evidence:           List[str]    # supporting evidence concept URIs
-                                     # (L9 epistemic.concept_id is the primary claim)
     addresses_evidence: List[str]    # concept URIs from the prior turn being engaged;
                                      # input to contingency_check(); empty on first turn
-    inferred_intent:    str          # short semantic label: e.g. "assess_medication_risk"
-    turn_depth:         int = 0      # 0 = top-level; >0 = inside repair branch
+    inferred_intent:    str          # short semantic label
+    turn_depth:         int = 0
 
 
 @dataclass
 class IEGroundingBlock:
-    """Contingency verification state — sender fills responds_to; receiver fills the rest."""
-    responds_to:          Optional[str]   = None  # message.id of the utterance being responded to
-    contingency_verified: Optional[bool]  = None  # None = not yet checked; receiver writes True/False
-    contingency_score:    Optional[float] = None  # concept overlap ratio [0..1]; computed by receiver
-    repair_reason:        Optional[str]   = None  # grounding_failure | scope_mismatch |
-                                                   # ungroundable_novelty; set on repair_required
-    challenges:           List[str]       = field(default_factory=list)  # message.ids challenged
-                                                   # by alignment_challenge turns
+    """Contingency verification state.
+
+    Null on prior_injection turns (no peer to be contingent on).
+    Sender fills responds_to; receiver fills contingency_verified and score.
+    """
+    responds_to:          Optional[str]   = None
+    contingency_verified: Optional[bool]  = None
+    contingency_score:    Optional[float] = None
+    repair_reason:        Optional[str]   = None  # grounding_failure | scope_mismatch | ungroundable_novelty
+    challenges:           List[str]       = field(default_factory=list)
 
 
 @dataclass
 class IEBeliefBlock:
     """Sender's calibrated belief on the concept being asserted.
 
-    The concept_id is implicit — it is in the L9 header epistemic.concept_id.
-    Both prior and posterior travel on every turn so the receiver can compute
-    BeliefRevision and GAR without a store lookup.
-    prior is the taskwork value — immutable per episode and the GAR anchor.
+    prior  — set at episode open from SemanticMemory; immutable per episode;
+             the GAR anchor that measures whether the content round moved the agent
+    posterior — current belief after all revisions this episode
     """
-    prior:          float         # belief at episode open; immutable per episode
-    posterior:      float         # current belief after all revisions this episode
+    prior:          float
+    posterior:      float
     revision_cause: Optional[str] = None  # grounded_argument | social_compliance |
                                           # semantic_memory | new_evidence | repair_resolution
 
 
 @dataclass
-class IEPayload:
-    """IE payload v0.1 — pairwise grounding payload carried alongside the L9 header.
+class IETaskworkBlock:
+    """Bayesian evidence chain for prior_injection turns.
 
-    Identity (group, episode, actors) is in the L9 header.
-    The primary concept is in the L9 header epistemic.concept_id.
-    Taskwork and process payloads are separate — they are not grounding.
+    Present only when epistemic_state=taskwork (prior declaration).
+    Null on peer_turn / repair turns.
+
+    findings   — structured observations extracted from patient/case data
+    likelihoods — per-finding likelihood ratios used in Naive Bayes posterior
+    reasoning_summary — LLM-generated explanation of the chain
+    """
+    findings:          List[dict]    # [{finding_id, value, source}]
+    likelihoods:       List[tuple]   # [(finding_id, likelihood_ratio)]
+    reasoning_summary: str = ""
+
+
+@dataclass
+class IEPayload:
+    """IE payload v0.1 — unified payload for all IE turns.
+
+    prior_injection: grounding=IEGroundingBlock() (all null), taskwork=IETaskworkBlock(...)
+    peer_turn:       grounding=IEGroundingBlock(responds_to=...), taskwork=None
+    repair_required: grounding=IEGroundingBlock(repair_reason=...), taskwork=None
     """
     utterance: IEUtteranceBlock
     grounding: IEGroundingBlock
     belief:    IEBeliefBlock
+    taskwork:  Optional[IETaskworkBlock] = None  # present only on prior_injection turns
 
     def to_dict(self) -> dict:
-        return {
+        d: dict = {
             "utterance": {
                 "content":            self.utterance.content,
                 "evidence":           list(self.utterance.evidence),
@@ -109,12 +125,20 @@ class IEPayload:
                 "revision_cause": self.belief.revision_cause,
             },
         }
+        if self.taskwork is not None:
+            d["taskwork"] = {
+                "findings":          list(self.taskwork.findings),
+                "likelihoods":       [list(lr) for lr in self.taskwork.likelihoods],
+                "reasoning_summary": self.taskwork.reasoning_summary,
+            }
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "IEPayload":
         u = d.get("utterance", {})
         g = d.get("grounding", {})
         b = d.get("belief", {})
+        tw = d.get("taskwork")
         return cls(
             utterance=IEUtteranceBlock(
                 content=u.get("content", ""),
@@ -135,60 +159,26 @@ class IEPayload:
                 posterior=float(b.get("posterior", 0.5)),
                 revision_cause=b.get("revision_cause"),
             ),
+            taskwork=IETaskworkBlock(
+                findings=list(tw.get("findings", [])),
+                likelihoods=[tuple(lr) for lr in tw.get("likelihoods", [])],
+                reasoning_summary=tw.get("reasoning_summary", ""),
+            ) if tw else None,
         )
 
 
-# ── TaskworkPayload — independent prior formation ─────────────────────────────
-
-@dataclass
-class TaskworkPayload:
-    """Taskwork payload — carried on prior_injection turns.
-
-    Each specialist's independent Bayesian reasoning chain formed before any
-    peer contact.  The concept being assessed is in the L9 header epistemic.concept_id.
-    prior and posterior mirror IEBeliefBlock but here they capture the full
-    reasoning chain that produced the posterior.
-    """
-    prior:             float          # from SemanticMemory at episode open
-    posterior:         float          # independent conclusion before any peer contact
-    findings:          List[dict]     # [{finding_id, value, source}]
-    likelihoods:       List[tuple]    # [(finding_id, likelihood_ratio)]
-    reasoning_summary: str = ""       # LLM-generated explanation of the chain
-
-    def to_dict(self) -> dict:
-        return {
-            "prior":             self.prior,
-            "posterior":         self.posterior,
-            "findings":          list(self.findings),
-            "likelihoods":       [list(lr) for lr in self.likelihoods],
-            "reasoning_summary": self.reasoning_summary,
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "TaskworkPayload":
-        return cls(
-            prior=float(d.get("prior", 0.5)),
-            posterior=float(d.get("posterior", 0.5)),
-            findings=list(d.get("findings", [])),
-            likelihoods=[tuple(lr) for lr in d.get("likelihoods", [])],
-            reasoning_summary=d.get("reasoning_summary", ""),
-        )
-
-
-# ── ProcessPayload — team process agreement ───────────────────────────────────
+# ── ProcessPayload — team process agreement (to-be-defined as SNP round) ─────
 
 @dataclass
 class ProcessPayload:
     """Process payload — carried on process_proposed/accepted/challenged turns.
 
-    Establishes role assignments before SNP negotiation begins.
-    SNP's NegotiationPayload (operation, proposal_id, posterior, reasoning chain)
-    identifies what is being negotiated in the convergence round itself.
+    Placeholder until team-process is modelled as a proper SNP convergence round.
     """
     coordinator_id:   str
     participant_ids:  List[str] = field(default_factory=list)
-    role_assignments: List[dict] = field(default_factory=list)  # [{agent_id, role, responsible_for}]
-    challenge_reason: Optional[str] = None  # populated on process_challenged
+    role_assignments: List[dict] = field(default_factory=list)
+    challenge_reason: Optional[str] = None
 
     def to_dict(self) -> dict:
         d: dict = {
@@ -211,12 +201,10 @@ class ProcessPayload:
 
 
 __all__ = [
-    # IEPayload v0.1 — pairwise grounding
     "IEUtteranceBlock",
     "IEGroundingBlock",
     "IEBeliefBlock",
+    "IETaskworkBlock",
     "IEPayload",
-    # Companion payload types
-    "TaskworkPayload",
     "ProcessPayload",
 ]

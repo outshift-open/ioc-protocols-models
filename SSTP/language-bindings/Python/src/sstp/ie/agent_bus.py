@@ -273,22 +273,35 @@ class AgentBus:
     ) -> Dict[str, Any]:
         """Emit a prior_injection turn carrying independent taskwork reasoning.
 
-        Concept identity is in the L9 header epistemic.concept_id.
-        Payload is a TaskworkPayload — prior, posterior, findings, likelihoods.
-        No IEPayload here: prior injection is taskwork, not pairwise grounding.
+        Uses IEPayload with taskwork=IETaskworkBlock(...) — same payload type
+        as peer_turn, distinguished by epistemic_state=taskwork in the L9 header
+        and the presence of the taskwork block. grounding is empty (no peer to
+        be contingent on for a prior declaration).
         """
-        from sstp.ie.message import TaskworkPayload
-        payload = TaskworkPayload(
-            prior=taskwork_state.prior,
-            posterior=taskwork_state.posterior,
-            findings=[
-                {"finding_id": f.finding_id, "value": f.value, "source": f.source}
-                for f in (taskwork_state.findings or [])
-            ],
-            likelihoods=list(taskwork_state.likelihoods or []),
-            reasoning_summary=taskwork_state.reasoning_summary or "",
+        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock, IETaskworkBlock
+        payload = IEPayload(
+            utterance=IEUtteranceBlock(
+                content=f"prior:{taskwork_state.concept_id}:{taskwork_state.posterior:.4f}",
+                evidence=[taskwork_state.concept_id],
+                addresses_evidence=[],
+                inferred_intent="prior_injection",
+                turn_depth=0,
+            ),
+            grounding=IEGroundingBlock(),
+            belief=IEBeliefBlock(
+                prior=taskwork_state.prior,
+                posterior=taskwork_state.posterior,
+                revision_cause="semantic_memory",
+            ),
+            taskwork=IETaskworkBlock(
+                findings=[
+                    {"finding_id": f.finding_id, "value": f.value, "source": f.source}
+                    for f in (taskwork_state.findings or [])
+                ],
+                likelihoods=list(taskwork_state.likelihoods or []),
+                reasoning_summary=taskwork_state.reasoning_summary or "",
+            ),
         )
-        content = f"prior:{taskwork_state.concept_id}:{taskwork_state.posterior:.4f}"
         header = build_l9_header(
             use_case=self.use_case,
             event_type="prior_injection",
@@ -296,7 +309,7 @@ class AgentBus:
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity,
-            utterance=content,
+            utterance=payload.utterance.content,
             episode_id=episode_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,

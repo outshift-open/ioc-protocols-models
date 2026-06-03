@@ -38,7 +38,7 @@ from .message import (
     IEUtteranceBlock,
     IEGroundingBlock,
     IEBeliefBlock,
-    TaskworkPayload,
+    IETaskworkBlock,
     ProcessPayload,
 )
 from .agent_bus import AgentBus
@@ -69,7 +69,7 @@ __all__ = [
     "IEUtteranceBlock",
     "IEGroundingBlock",
     "IEBeliefBlock",
-    "TaskworkPayload",
+    "IETaskworkBlock",
     "ProcessPayload",
     # SDK: domain-agnostic bus, store, and engine
     "AgentBus",
