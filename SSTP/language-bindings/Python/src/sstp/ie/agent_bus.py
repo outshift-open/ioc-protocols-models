@@ -271,38 +271,24 @@ class AgentBus:
         taskwork_state: Any,
         episode_id: str | None = None,
     ) -> Dict[str, Any]:
-        """Emit a prior_injection peer_turn carrying belief state and taskwork reasoning.
+        """Emit a prior_injection turn carrying independent taskwork reasoning.
 
-        IEPayload carries only the grounding-relevant belief block (concept_id, prior, posterior).
-        The taskwork reasoning chain (findings, likelihoods) is stored in a separate
-        "taskwork" key in the payload dict — taskwork is not a grounding concern.
+        Concept identity is in the L9 header epistemic.concept_id.
+        Payload is a TaskworkPayload — prior, posterior, findings, likelihoods.
+        No IEPayload here: prior injection is taskwork, not pairwise grounding.
         """
-        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
-        payload = IEPayload(
-            utterance=IEUtteranceBlock(
-                content=f"prior:{taskwork_state.concept_id}:{taskwork_state.posterior:.4f}",
-                concept_ids=[taskwork_state.concept_id],
-                addresses_evidence=[],
-                inferred_intent="prior_injection",
-                turn_depth=0,
-            ),
-            grounding=IEGroundingBlock(),
-            belief=IEBeliefBlock(
-                concept_id=taskwork_state.concept_id,
-                prior=taskwork_state.prior,
-                posterior=taskwork_state.posterior,
-                revision_cause="semantic_memory",
-            ),
-        )
-        payload_dict = payload.to_dict()
-        payload_dict["taskwork"] = {
-            "findings":          [
+        from sstp.ie.message import TaskworkPayload
+        payload = TaskworkPayload(
+            prior=taskwork_state.prior,
+            posterior=taskwork_state.posterior,
+            findings=[
                 {"finding_id": f.finding_id, "value": f.value, "source": f.source}
                 for f in (taskwork_state.findings or [])
             ],
-            "likelihoods":       list(taskwork_state.likelihoods or []),
-            "reasoning_summary": taskwork_state.reasoning_summary or "",
-        }
+            likelihoods=list(taskwork_state.likelihoods or []),
+            reasoning_summary=taskwork_state.reasoning_summary or "",
+        )
+        content = f"prior:{taskwork_state.concept_id}:{taskwork_state.posterior:.4f}"
         header = build_l9_header(
             use_case=self.use_case,
             event_type="prior_injection",
@@ -310,7 +296,7 @@ class AgentBus:
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity,
-            utterance=payload.utterance.content,
+            utterance=content,
             episode_id=episode_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
@@ -319,7 +305,7 @@ class AgentBus:
             ),
             state_sequence=self._next_sequence(sender),
         )
-        envelope = {**header, "payload": payload_dict}
+        envelope = {**header, "payload": payload.to_dict()}
         self.messages.append(envelope)
         return header
 
@@ -331,33 +317,21 @@ class AgentBus:
         agreement: Any,
         episode_id: str | None = None,
     ) -> Dict[str, Any]:
-        """Emit a process_proposed peer_turn carrying a TeamProcessAgreement.
+        """Emit a process_proposed turn carrying a team process agreement.
 
-        IEPayload carries only grounding-relevant belief state.
-        The process agreement data is stored in a separate "process" key — process
-        negotiation is not a grounding concern; it precedes grounding.
+        Payload is a ProcessPayload — coordinator, participants, role assignments.
+        No IEPayload here: process negotiation precedes grounding; it is not grounding.
         """
-        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
-        payload = IEPayload(
-            utterance=IEUtteranceBlock(
-                content=f"process_proposal:coordinator={agreement.coordinator_id}",
-                concept_ids=["process:role_assignment"],
-                addresses_evidence=[],
-                inferred_intent="process_proposed",
-                turn_depth=0,
-            ),
-            grounding=IEGroundingBlock(),
-            belief=IEBeliefBlock(concept_id="process:role_assignment", prior=1.0, posterior=1.0),
-        )
-        payload_dict = payload.to_dict()
-        payload_dict["process"] = {
-            "coordinator_id":   agreement.coordinator_id,
-            "participant_ids":  list(agreement.participant_ids),
-            "role_assignments": [
+        from sstp.ie.message import ProcessPayload
+        payload = ProcessPayload(
+            coordinator_id=agreement.coordinator_id,
+            participant_ids=list(agreement.participant_ids),
+            role_assignments=[
                 {"agent_id": ra.agent_id, "role": ra.role, "responsible_for": list(ra.responsible_for)}
                 for ra in agreement.role_assignments
             ],
-        }
+        )
+        content = f"process_proposal:coordinator={agreement.coordinator_id}"
         header = build_l9_header(
             use_case=self.use_case,
             event_type="process_proposed",
@@ -365,7 +339,7 @@ class AgentBus:
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity,
-            utterance=payload.utterance.content,
+            utterance=content,
             episode_id=episode_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
@@ -373,7 +347,7 @@ class AgentBus:
             ),
             state_sequence=self._next_sequence(sender),
         )
-        envelope = {**header, "payload": payload_dict}
+        envelope = {**header, "payload": payload.to_dict()}
         self.messages.append(envelope)
         return header
 
@@ -505,22 +479,24 @@ class AgentBus:
             replica.apply(header, payload=payload)
 
         if verified:
+            # concept_id is in the L9 header epistemic block (not in belief)
+            ep_concept_id = (header.get("epistemic") or {}).get("concept_id", "")
             # Update BeliefState
-            if belief_store is not None and belief.get("concept_id"):
+            if belief_store is not None and ep_concept_id:
                 from sstp.epistemic.stores import BeliefRevision
                 sender = (header.get("actors") or [{}])[0].get("id", "unknown")
-                ep_id = header.get("episode_id", "")
+                ep_id = (header.get("message") or {}).get("episode", "")
                 revision = BeliefRevision(
                     cause=belief.get("revision_cause") or "grounded_argument",
                     confidence_before=float(belief.get("prior", 0.5)),
                     confidence_after=float(belief.get("posterior", 0.5)),
                     caused_by_agent=None,
-                    argument_concept_ids=list(utterance.get("concept_ids", [])),
+                    argument_concept_ids=list(utterance.get("evidence") or utterance.get("concept_ids", [])),
                     episode_id=ep_id,
                 )
                 belief_store.record_revision(
                     sender,
-                    belief["concept_id"],
+                    ep_concept_id,
                     use_case or self.use_case,
                     ep_id,
                     revision,
@@ -542,9 +518,9 @@ class AgentBus:
                 cg = CommonGround(
                     holder_id=prior_sender,
                     confirmer_id=sender,
-                    concept_id=belief.get("concept_id", ""),
+                    concept_id=ep_concept_id,
                     use_case=use_case or self.use_case,
-                    episode_id=header.get("episode_id", ""),
+                    episode_id=(header.get("message") or {}).get("episode", ""),
                     grounding_confidence=score,
                     holder_confidence=float(belief.get("prior", 0.5)),
                     confirmer_confidence=float(belief.get("posterior", 0.5)),
@@ -568,7 +544,7 @@ class AgentBus:
                 target_message_id=header["message"]["id"],
                 repair_reason=repair_reason,
                 target_epistemic=current_epistemic,
-                episode_id=header.get("episode_id"),
+                episode_id=(header.get("message") or {}).get("episode"),
             )
 
 

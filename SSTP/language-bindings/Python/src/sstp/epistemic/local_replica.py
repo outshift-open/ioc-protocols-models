@@ -109,7 +109,7 @@ class LocalStateReplica:
             if cv is not None:
                 contingency_verified = bool(cv)
             utterance = payload.get("utterance") or {}
-            ie_concept_ids = list(utterance.get("concept_ids") or [])
+            ie_concept_ids = list(utterance.get("evidence") or utterance.get("concept_ids", []))
             ie_addresses_evidence = list(utterance.get("addresses_evidence") or [])
             tw = payload.get("taskwork") or {}
             if tw:
