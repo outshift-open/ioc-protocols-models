@@ -42,9 +42,9 @@ class IEGroundingBlock:
     """Contingency verification state.
 
     Null fields on initial_prior turns (no peer to be contingent on).
-    Sender fills responds_to; receiver fills contingency_verified and score.
+    The message being responded to is in L9 message.parents — not repeated here.
+    Receiver fills contingency_verified and score.
     """
-    responds_to:          Optional[str]   = None
     contingency_verified: Optional[bool]  = None
     contingency_score:    Optional[float] = None
     repair_reason:        Optional[str]   = None  # grounding_failure | scope_mismatch | ungroundable_novelty
@@ -70,7 +70,7 @@ class IEPayload:
     """IE payload v0.1 — utterance + grounding + belief.
 
     initial_prior: grounding=IEGroundingBlock() (all null)
-    peer_turn:     grounding=IEGroundingBlock(responds_to=...)
+    peer_turn:     grounding=IEGroundingBlock(contingency_verified=..., contingency_score=...)
     repair_*:      grounding=IEGroundingBlock(repair_reason=...)
     """
     utterance: IEUtteranceBlock
@@ -85,7 +85,6 @@ class IEPayload:
                 "turn_depth":         self.utterance.turn_depth,
             },
             "grounding": {
-                "responds_to":          self.grounding.responds_to,
                 "contingency_verified": self.grounding.contingency_verified,
                 "contingency_score":    self.grounding.contingency_score,
                 "repair_reason":        self.grounding.repair_reason,
@@ -110,7 +109,6 @@ class IEPayload:
                 turn_depth=int(u.get("turn_depth", 0)),
             ),
             grounding=IEGroundingBlock(
-                responds_to=g.get("responds_to"),
                 contingency_verified=g.get("contingency_verified"),
                 contingency_score=g.get("contingency_score"),
                 repair_reason=g.get("repair_reason"),

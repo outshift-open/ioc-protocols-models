@@ -443,7 +443,9 @@ class AgentBus:
         belief = ie_content.get("belief") or {}
 
         # Build epistemic dicts for contingency_check
-        prior_turn_mid = grounding.get("responds_to")
+        # The message being responded to is in L9 message.parents (not in IE grounding)
+        parents = (header.get("message") or {}).get("parents") or []
+        prior_turn_mid = parents[0] if parents else None
         prior_epistemic: Optional[Dict[str, Any]] = None
         prior_ie_concept_ids: List[str] = []
         prior_ie_addresses_evidence: List[str] = []
