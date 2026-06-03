@@ -123,10 +123,14 @@ def l9_header_to_pydantic(
     kind = kind_override or l9_header.get("kind", "knowledge")
     payload = payload or {}
 
-    origin = l9_header.get("origin", {})
-    sem_ctx = l9_header.get("semantic_context", {})
-    policy = l9_header.get("policy_labels", {})
+    # New wire format field names
+    actors = l9_header.get("actors") or []
+    origin_id = actors[0].get("id", "unknown") if actors else "unknown"
+    origin_attest = actors[0].get("attestation") if actors else None
+    sem_ctx = l9_header.get("semantic") or l9_header.get("semantic_context", {})
+    policy = l9_header.get("policy") or l9_header.get("policy_labels", {})
     prov = l9_header.get("provenance", {})
+    msg_block = l9_header.get("message", {})
 
     lc = l9_header.get("logical_clock")
     logical_clock = None
@@ -141,11 +145,11 @@ def l9_header_to_pydantic(
     msg_dict: Dict[str, Any] = {
         "kind": kind,
         "version": l9_header.get("version", "0"),
-        "message_id": l9_header.get("message_id", ""),
-        "dt_created": l9_header.get("dt_created", ""),
+        "message_id": msg_block.get("id", ""),
+        "dt_created": prov.get("created", ""),
         "origin": {
-            "actor_id": origin.get("actor_id", "unknown"),
-            "attestation": origin.get("attestation"),
+            "actor_id": origin_id,
+            "attestation": origin_attest,
         },
         "semantic_context": {
             "schema_id": sem_ctx.get("schema_id", ""),
@@ -163,19 +167,17 @@ def l9_header_to_pydantic(
     }
 
     # Optional fields
-    if l9_header.get("episode_id"):
-        msg_dict["episode_id"] = l9_header["episode_id"]
-    if l9_header.get("parent_ids"):
-        msg_dict["parent_ids"] = l9_header["parent_ids"]
+    episode = msg_block.get("episode")
+    if episode:
+        msg_dict["episode_id"] = episode
+    parents = msg_block.get("parents")
+    if parents:
+        msg_dict["parent_ids"] = parents
     if logical_clock:
         msg_dict["logical_clock"] = logical_clock
-    if payload_refs:
-        msg_dict["payload_refs"] = [
-            {"type": ref.get("type", "inline"), "ref": ref.get("ref", "")}
-            for ref in payload_refs
-        ]
-    if l9_header.get("ttl_seconds") is not None:
-        msg_dict["ttl_seconds"] = l9_header["ttl_seconds"]
+    expiry = prov.get("expiry")
+    if expiry:
+        msg_dict["ttl_seconds"] = expiry
     model_cls = _KIND_MODEL_MAP.get(kind)
     if model_cls is None:
         raise ValueError(f"Unknown SSTP kind: {kind!r}")
@@ -206,30 +208,32 @@ def pydantic_to_l9_header(msg: _STBaseMessage) -> Dict[str, Any]:
         "protocol": "SSTP",
         "version": msg.version,
         "kind": msg.kind,
-        "message_id": msg.message_id,
-        "dt_created": msg.dt_created,
-        "origin": {
-            "actor_id": origin.actor_id,
-            "attestation": origin.attestation or "self_attested_local",
+        "subkind": None,
+        "group":   [origin.actor_id],
+        "actors":  [{"id": origin.actor_id, "attestation": origin.attestation or "self_attested_local"}],
+        "message": {
+            "id":      msg.message_id,
+            "parents": list(msg.parent_ids),
+            "episode": msg.episode_id or "",
         },
-        "semantic_context": {
-            "schema_id": sem_ctx.schema_id,
+        "semantic": {
+            "schema_id":    sem_ctx.schema_id,
+            "ontology_ref": None,
+            "sub_protocol": None,
         },
-        "policy_labels": {
-            "sensitivity": policy.sensitivity,
-            "propagation": policy.propagation,
+        "policy": {
+            "sensitivity":      policy.sensitivity,
+            "propagation":      policy.propagation,
             "retention_policy": policy.retention_policy,
         },
         "provenance": {
-            "sources": list(prov.sources),
+            "sources":    list(prov.sources),
+            "transforms": [],
+            "created":    msg.dt_created,
+            "expiry":     None,
         },
-        "episode_id": msg.episode_id,
-        "parent_ids": list(msg.parent_ids),
+        "epistemic":     None,
         "logical_clock": lc_str,
-        "ttl_seconds": msg.ttl_seconds,
-        "payload_refs": [
-            {"type": ref.type, "ref": ref.ref} for ref in msg.payload_refs
-        ],
     }
     return header
 
@@ -295,12 +299,18 @@ def build_negotiate_envelope(
 
     sem_ctx = l9_hdr.get("semantic_context", {})
 
+    _msg_block = l9_hdr.get("message", {})
+    _actors = l9_hdr.get("actors") or []
+    _prov2 = l9_hdr.get("provenance", {})
     msg_dict: Dict[str, Any] = {
         "kind": "negotiate",
         "version": l9_hdr.get("version", "0"),
-        "message_id": l9_hdr.get("message_id", ""),
-        "dt_created": l9_hdr.get("dt_created", ""),
-        "origin": l9_hdr.get("origin", {}),
+        "message_id": _msg_block.get("id", ""),
+        "dt_created": _prov2.get("created", ""),
+        "origin": {
+            "actor_id": _actors[0].get("id", "unknown") if _actors else "unknown",
+            "attestation": _actors[0].get("attestation") if _actors else None,
+        },
         "semantic_context": {
             "schema_id": sem_ctx.get("schema_id", "urn:ioc:schema:negotiate:negmas-sao:v1"),
             "session_id": session_id,
@@ -311,21 +321,22 @@ def build_negotiate_envelope(
             "nmi": _nmi.model_dump() if _nmi else None,
         },
         "payload_hash": _payload_hash(payload),
-        "policy_labels": l9_hdr.get("policy_labels", {
+        "policy_labels": l9_hdr.get("policy") or l9_hdr.get("policy_labels", {
             "sensitivity": "internal",
             "propagation": "restricted",
             "retention_policy": "default",
         }),
-        "provenance": l9_hdr.get("provenance", {"sources": []}),
+        "provenance": _prov2,
         "payload": payload,
-        "parent_ids": l9_hdr.get("parent_ids", []),
-        "payload_refs": l9_hdr.get("payload_refs", []),
+        "parent_ids": _msg_block.get("parents", []),
+        "payload_refs": [],
     }
 
-    if l9_hdr.get("episode_id"):
-        msg_dict["episode_id"] = l9_hdr["episode_id"]
-    if l9_hdr.get("ttl_seconds") is not None:
-        msg_dict["ttl_seconds"] = l9_hdr["ttl_seconds"]
+    if _msg_block.get("episode"):
+        msg_dict["episode_id"] = _msg_block["episode"]
+    expiry2 = _prov2.get("expiry")
+    if expiry2 is not None:
+        msg_dict["ttl_seconds"] = expiry2
 
     lc = l9_hdr.get("logical_clock")
     if isinstance(lc, str) and lc.startswith("lamport:"):

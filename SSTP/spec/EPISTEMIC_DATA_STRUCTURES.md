@@ -52,12 +52,14 @@ Map[K, V]   := finite mapping from K to V
 
 ```text
 SpeechAct :=
-    belief_assertion       -- asserting a position with supporting reasoning
-  | alignment_challenge    -- challenging another agent's position with counter-evidence
-  | help_request           -- requesting clarification or information
-  | task_handoff           -- delegating work to another agent
-  | deliberation_pass      -- expressing a position without grounded argument (social compliance signal)
+    assertion    -- agent commits a position or prior (was: belief_assertion, task_handoff, help_request)
+  | challenge    -- agent disputes; contingency always true (was: alignment_challenge)
+  | compliance   -- agent yields to social pressure; no posterior update (was: deliberation_pass)
 ```
+
+Deprecated aliases `belief_assertion`, `task_handoff`, `help_request`, `alignment_challenge`,
+`deliberation_pass` are accepted on the wire for backwards compatibility and normalise to
+the three canonical values above.
 
 ### 3.2 Epistemic States
 
@@ -101,7 +103,7 @@ EpistemicBlock := {
 }
 ```
 
-The IE layer detects `speech_act = deliberation_pass` and records `BeliefRevision.cause = social_compliance` in `AgentBeliefStore` — no self-declared wire field is required. This revision updates the rolling `social_compliance_ratio` for the concept but does NOT update the posterior.
+The IE layer detects `speech_act = compliance` and records `BeliefRevision.cause = social_compliance` in `AgentBeliefStore` — no self-declared wire field is required. This revision updates the rolling `social_compliance_ratio` for the concept but does NOT update the posterior.
 
 ---
 
@@ -396,7 +398,7 @@ promote_outcomes_for_pair(observer_id, subject_id, use_case, episode_id, outcome
 
 2. **Prior immutability invariant**: `BeliefState.prior` is set once at episode open via `set_prior`. Subsequent `record_revision` calls update `posterior` (via `likelihoods`) but never overwrite `prior`.
 
-3. **Deliberation pass invariant**: A `peer_turn` with `speech_act = deliberation_pass` contributes `BeliefRevision.cause = social_compliance` — recorded by the IE layer, not self-declared on the wire. It MUST NOT produce a `CommonGround` record.
+3. **Deliberation pass invariant**: A `peer_turn` with `speech_act = compliance` contributes `BeliefRevision.cause = social_compliance` — recorded by the IE layer, not self-declared on the wire. It MUST NOT produce a `CommonGround` record.
 
 4. **CommonGround contingency invariant**: `CommonGround.contingency_verified` MUST be `True`. A failed grounding produces `repair_required`; only a resolved repair or a directly verified exchange produces `CommonGround`.
 

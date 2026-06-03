@@ -104,7 +104,7 @@ def roll_forward(
         ep = entry.epistemic or {}
         sa = ep.get("speech_act", "")
         bs = ep.get("belief_status", "asserted")
-        phase = ep.get("epistemic_state", "")
+        phase = ep.get("state", "")
 
         if sa:
             acts = state.get("last_speech_acts", {})
@@ -121,12 +121,12 @@ def roll_forward(
         if phase in phase_counts:
             phase_counts[phase] += 1
         if phase == "taskwork":
-            if sa == "belief_assertion" and bs == "asserted":
+            if sa in ("assertion", "belief_assertion") and bs == "asserted":
                 taskwork_assertions += 1
         elif phase == "team_process":
-            if sa == "belief_assertion":
+            if sa in ("assertion", "belief_assertion"):
                 team_process_belief_assertions += 1
-            elif sa == "deliberation_pass":
+            elif sa in ("compliance", "deliberation_pass"):
                 team_process_delib_passes += 1
         if phase == "grounding":
             grounding_total += 1
@@ -165,7 +165,7 @@ def roll_forward(
     prev_genuine = int(round(state.get("epistemic_strength", 0.0) * prev_entries))
     new_genuine = sum(
         1 for e in new_entries
-        if (e.epistemic or {}).get("speech_act") == "belief_assertion"
+        if (e.epistemic or {}).get("speech_act") in ("assertion", "belief_assertion")
         and (e.epistemic or {}).get("belief_status") == "asserted"
     )
     state["epistemic_strength"] = round(

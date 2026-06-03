@@ -56,7 +56,7 @@ IE uses the following event types. Each maps to an L9 `kind` per `SSTP_FORMAL_MO
 | `rule_update`              | `commit`     | Write a `TeamGroundedTruth` to semantic memory; stabilizes epistemic state |
 | `outcome_reported`         | `exchange`   | Informational outcome report; does not close session |
 
-All agent-to-agent interactions are `peer_turn` events.  Task delegation uses `speech_act=task_handoff` at `epistemic_state=grounding`; results use `speech_act=belief_assertion` at `epistemic_state=taskwork`; failures use `speech_act=help_request` at `epistemic_state=grounding`.  There is no privileged coordinator role and no separate RPC event type.
+All agent-to-agent interactions are `peer_turn` events.  Task delegation, results, and repair requests all use `speech_act=assertion` — the delegation or repair nature is carried by `event_type` and `epistemic_state`.  There is no privileged coordinator role and no separate RPC event type.
 
 The `epistemic` block in the L9 header MUST be present on all `peer_turn`, `repair_required`, `repair_applied`, and `epistemic_clarification` messages.
 
@@ -74,7 +74,7 @@ Formal definition:
 GroundingVerified(A_message_id, B_response_id) =
     B_response.addresses_evidence contains A_message_id
     AND B_response.confidence_score reflects engagement with A's specific reasoning
-    AND B_response.epistemic.speech_act ≠ deliberation_pass
+    AND B_response.epistemic.speech_act ≠ compliance
 ```
 
 `contingency_verified` in `CommonGround` is the boolean outcome of this check.
@@ -120,24 +120,46 @@ CommonGround {
 Every L9 header on a peer-dialogue message MUST carry an `EpistemicBlock`:
 
 ```text
+-- L9 header epistemic block (base fields only)
 EpistemicBlock := {
   speech_act:      SpeechAct,
-  epistemic_state: EpistemicState,
+  state:         EpistemicState,   -- was epistemic_state
   belief_status:   BeliefStatus,
+  concept_id:      Option[UriString],  -- primary concept this turn asserts about
+  uncertainty:     Float,
 }
 ```
 
+`concept_id` SHOULD be present on all `peer_turn` and `prior_injection` messages.
+It is the canonical index key for `ReplicaToM.belief_model()` and the primary anchor for
+`contingency_check()`. MAY be null on repair and control-flow messages.
+
+IE extension fields live in `IEPayload` (the message payload), not in the L9 header:
+
+```text
+IEPayload.utterance:
+  concept_ids:         Seq[UriString]    -- concepts this turn asserts about (replaces scope)
+  addresses_evidence:  Seq[UriString]    -- concept URIs from the prior turn being engaged
+
+IEPayload.grounding:
+  repair_reason:  Option[RepairReason]   -- grounding_failure | scope_mismatch | ungroundable_novelty
+  challenges:     Seq[UuidString]        -- message_ids challenged by alignment_challenge
+```
+
+The SNP sub-protocol adds `deferred_to` in `NegotiationPayload.proposal_payload`
+(documented in `SNP_SUBPROTOCOL.md §7`).
+
 ### 4.1 Speech Acts
 
-| `speech_act`          | Meaning |
-|-----------------------|---------|
-| `belief_assertion`    | Asserting a position with supporting reasoning |
-| `alignment_challenge` | Challenging another agent's position with counter-evidence |
-| `help_request`        | Requesting clarification or information |
-| `task_handoff`        | Delegating work to another agent |
-| `deliberation_pass`   | Expressing a position shift driven by social pressure, not grounded argument |
+Three essential speech acts. Delegation and repair are carried by `event_type` + `epistemic_state`.
 
-When the IE layer detects `speech_act = deliberation_pass`, it records `BeliefRevision.cause = social_compliance` in `AgentBeliefStore`. This updates `social_compliance_ratio` but MUST NOT update the posterior and MUST NOT trigger a `CommonGround` record.
+| `speech_act`  | Meaning | Deprecated aliases |
+|---|---|---|
+| `assertion`   | Agent commits a position or prior | `belief_assertion`, `task_handoff`, `help_request` |
+| `challenge`   | Agent disputes; contingency always true in IE | `alignment_challenge` |
+| `compliance`  | Agent yields to social pressure; no posterior update | `deliberation_pass` |
+
+When the IE layer detects `speech_act = compliance`, it records `BeliefRevision.cause = social_compliance` in `AgentBeliefStore`. This updates `social_compliance_ratio` but MUST NOT update the posterior and MUST NOT trigger a `CommonGround` record.
 
 ### 4.2 Epistemic States
 
@@ -147,7 +169,7 @@ When the IE layer detects `speech_act = deliberation_pass`, it records `BeliefRe
 | `grounding`     | High | Pairwise IE exchange; positions being verified or repaired |
 | `team_process`  | Medium | SNP convergence round; team negotiating shared position |
 
-`grounding` exchanges are the primary vehicle for `CommonGround` records. `taskwork` establishes the independent prior that GAR measures convergence against. `team_process` marks SNP convergence turns; forced accepts (`deliberation_pass`) within `team_process` increment SCR.
+`grounding` exchanges are the primary vehicle for `CommonGround` records. `taskwork` establishes the independent prior that GAR measures convergence against. `team_process` marks SNP convergence turns; forced accepts (`compliance`) within `team_process` increment SCR.
 
 ### 4.3 Belief Status
 
@@ -214,8 +236,8 @@ IE uses the ToM layer at two points per peer_turn exchange.
 Before A sends an assertion to B:
 
 1. Read `AgentBeliefStore.current_belief(B.agent_id, concept_id, use_case)`
-2. If B's `posterior` is already close to A's intended position, a `belief_assertion` may not move B — consider whether to assert or take a different approach
-3. If B has `status = committed`, A must use `alignment_challenge` rather than `belief_assertion`
+2. If B's `posterior` is already close to A's intended position, a `assertion` may not move B — consider whether to assert or take a different approach
+3. If B has `status = committed`, A must use `challenge` rather than `assertion`
 
 ### 6.2 Pre-utterance — 2nd-order ToM
 
@@ -289,6 +311,6 @@ At episode close (on `episode_persisted` or `conversation_terminated`):
 
 4. **Prior immutability invariant**: `BeliefState.prior` is set once per episode via `prior_injection` or `set_prior`. Subsequent `record_revision` calls update `posterior` via `likelihoods` but MUST NOT overwrite `prior`.
 
-5. **Deliberation pass invariant**: A `peer_turn` with `speech_act = deliberation_pass` MUST NOT produce a `CommonGround` record. The IE layer records `BeliefRevision.cause = social_compliance` — no self-declared wire field is required.
+5. **Deliberation pass invariant**: A `peer_turn` with `speech_act = compliance` MUST NOT produce a `CommonGround` record. The IE layer records `BeliefRevision.cause = social_compliance` — no self-declared wire field is required.
 
 6. **Repair before belief update invariant**: If `GroundingVerified = False` for a `peer_turn`, the corresponding `BeliefRevision` MUST NOT be applied until a `repair_applied` event resolves the branch.

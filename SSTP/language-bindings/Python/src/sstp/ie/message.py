@@ -38,6 +38,8 @@ class IEGroundingBlock:
     contingency_score:    Optional[float] = None   # overlap ratio [0..1]; computed by receiver
     repair_reason:        Optional[str]   = None   # grounding_failure | scope_mismatch |
                                                     # ungroundable_novelty; set on repair_required
+    challenges:           List[str]       = field(default_factory=list)  # message_ids challenged
+                                                    # by alignment_challenge turns
 
 
 @dataclass
@@ -109,6 +111,7 @@ class IEPayload:
                 "contingency_verified": self.grounding.contingency_verified,
                 "contingency_score":    self.grounding.contingency_score,
                 "repair_reason":        self.grounding.repair_reason,
+                "challenges":           list(self.grounding.challenges),
             },
             "belief": {
                 "concept_id":     self.belief.concept_id,
@@ -173,6 +176,7 @@ class IEPayload:
                 contingency_verified=g.get("contingency_verified"),
                 contingency_score=g.get("contingency_score"),
                 repair_reason=g.get("repair_reason"),
+                challenges=list(g.get("challenges") or []),
             ),
             belief=IEBeliefBlock(
                 concept_id=b.get("concept_id", ""),

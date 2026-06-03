@@ -214,7 +214,7 @@ class Orchestrator:
                         timestamp_ms=peer_turn.timestamp_ms,
                         turn_depth=turn_depth,
                         utterance=utterance,
-                        parent_ids=[peer_l9_header["message_id"]],
+                        parent_ids=[peer_l9_header["message"]["id"]],
                     )
                     peer_interactions.append(
                         {
@@ -279,7 +279,7 @@ class Orchestrator:
                                 timestamp_ms=repair_turn.timestamp_ms,
                                 turn_depth=turn_depth,
                                 utterance=repair,
-                                parent_ids=[repair_required_l9_header["message_id"]],
+                                parent_ids=[repair_required_l9_header["message"]["id"]],
                             ),
                         }
                     )

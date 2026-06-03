@@ -105,7 +105,7 @@ class AgentBus:
                      episode_id: str | None = None, turn_depth: int | None = None,
                      epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
-                                   speech_act=SpeechAct.TASK_HANDOFF, epistemic_state=EpistemicState.GROUNDING,
+                                   speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
                                    episode_id=episode_id, turn_depth=turn_depth)
 
     def emit_response(self, *, sender: str, receiver: str, utterance: str,
@@ -113,7 +113,7 @@ class AgentBus:
                       turn_depth: int | None = None,
                       epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
-                                   speech_act=SpeechAct.BELIEF_ASSERTION, epistemic_state=EpistemicState.GROUNDING,
+                                   speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
                                    parent_id=parent_id, episode_id=episode_id, turn_depth=turn_depth)
 
     def emit_error(self, *, sender: str, receiver: str, error_type: str, error_message: str,
@@ -124,7 +124,7 @@ class AgentBus:
             error_record["traceback"] = traceback
         return self.emit_peer_turn(sender=sender, receiver=receiver,
                                    utterance=f"error:{error_type}",
-                                   speech_act=SpeechAct.HELP_REQUEST, epistemic_state=EpistemicState.GROUNDING,
+                                   speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
                                    parent_id=parent_id, error=error_record)
 
     def emit_semantic_repair(
@@ -138,10 +138,7 @@ class AgentBus:
         episode_id: str | None = None,
         turn_depth: int | None = None,
     ) -> Dict[str, Any]:
-        repair_scope = list(
-            (target_epistemic or {}).get("scope", [])
-            or (target_epistemic or {}).get("addresses_evidence", [])
-        )
+        repair_concept_id = (target_epistemic or {}).get("concept_id")
         header = build_l9_header(
             use_case=self.use_case,
             event_type="repair_required",
@@ -154,11 +151,10 @@ class AgentBus:
             episode_id=episode_id,
             turn_depth=turn_depth,
             epistemic=make_epistemic_block(
-                speech_act=SpeechAct.HELP_REQUEST,
+                speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.GROUNDING,
                 belief_status=BeliefStatus.CHALLENGED,
-                scope=repair_scope or ["grounding"],
-                repair_reason=repair_reason,
+                concept_id=repair_concept_id,
             ),
             state_sequence=self._next_sequence(sender),
         )
@@ -213,7 +209,7 @@ class AgentBus:
             parent_ids=[target_message_id],
             state_sequence=self._next_sequence(sender),
             epistemic=make_epistemic_block(
-                speech_act=SpeechAct.HELP_REQUEST,
+                speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.GROUNDING,
                 belief_status=BeliefStatus.DEFERRED,
             ),
@@ -261,7 +257,7 @@ class AgentBus:
         if self._current_phase == "taskwork" and new_phase == "grounding":
             if self._taskwork_store is not None and episode_id:
                 for state in self._taskwork_store.all_for_episode(episode_id):
-                    last_msg = self.messages[-1].get("message_id", "") if self.messages else ""
+                    last_msg = self.messages[-1]["message"]["id"] if self.messages else ""
                     self._taskwork_store.lock(
                         state.agent_id, state.concept_id, episode_id, last_msg
                     )
@@ -314,9 +310,10 @@ class AgentBus:
             utterance=payload.utterance.content,
             episode_id=episode_id,
             epistemic=make_epistemic_block(
-                speech_act=SpeechAct.BELIEF_ASSERTION,
+                speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TASKWORK,
-                scope=[taskwork_state.concept_id],
+                concept_id=taskwork_state.concept_id,
+    
             ),
             state_sequence=self._next_sequence(sender),
         )
@@ -367,7 +364,7 @@ class AgentBus:
             utterance=payload.utterance.content,
             episode_id=episode_id,
             epistemic=make_epistemic_block(
-                speech_act=SpeechAct.TASK_HANDOFF,
+                speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
             state_sequence=self._next_sequence(sender),
@@ -396,7 +393,7 @@ class AgentBus:
             parent_ids=[parent_id],
             episode_id=episode_id,
             epistemic=make_epistemic_block(
-                speech_act=SpeechAct.BELIEF_ASSERTION,
+                speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
             state_sequence=self._next_sequence(sender),
@@ -425,7 +422,7 @@ class AgentBus:
             parent_ids=[parent_id],
             episode_id=episode_id,
             epistemic=make_epistemic_block(
-                speech_act=SpeechAct.ALIGNMENT_CHALLENGE,
+                speech_act=SpeechAct.CHALLENGE,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
             state_sequence=self._next_sequence(sender),
@@ -468,25 +465,28 @@ class AgentBus:
         # Build epistemic dicts for contingency_check
         prior_turn_mid = grounding.get("responds_to")
         prior_epistemic: Optional[Dict[str, Any]] = None
+        prior_ie_concept_ids: List[str] = []
+        prior_ie_addresses_evidence: List[str] = []
         if prior_turn_mid and replica is not None:
             for e in getattr(replica, "_entries", []):
                 if e.message_id == prior_turn_mid:
-                    # Reconstruct a lightweight epistemic dict from the prior entry
-                    prior_ep = e.epistemic or {}
-                    prior_epistemic = {
-                        "scope": prior_ep.get("scope", []),
-                        "addresses_evidence": prior_ep.get("addresses_evidence", []),
-                    }
+                    prior_epistemic = e.epistemic or {}
+                    prior_ie_concept_ids = list(getattr(e, "ie_concept_ids", []))
+                    prior_ie_addresses_evidence = list(getattr(e, "ie_addresses_evidence", []))
                     break
 
-        current_epistemic = {
-            "scope": utterance.get("concept_ids", []),
-            "addresses_evidence": utterance.get("addresses_evidence", []),
-            "speech_act": (header.get("epistemic") or {}).get("speech_act", ""),
-        }
+        current_ie_concept_ids = list(utterance.get("concept_ids") or [])
+        current_ie_addresses_evidence = list(utterance.get("addresses_evidence") or [])
+        current_epistemic = (header.get("epistemic") or {})
 
-        # Run grounding check
-        verified, score = contingency_check(prior_epistemic, current_epistemic)
+        # Run grounding check using payload concept fields (with header fallback)
+        verified, score = contingency_check(
+            prior_epistemic, current_epistemic,
+            a_ie_concept_ids=prior_ie_concept_ids,
+            a_ie_addresses_evidence=prior_ie_addresses_evidence,
+            b_ie_concept_ids=current_ie_concept_ids,
+            b_ie_addresses_evidence=current_ie_addresses_evidence,
+        )
 
         # Write result back into payload grounding block
         payload = dict(payload)
@@ -504,7 +504,7 @@ class AgentBus:
             # Update BeliefState
             if belief_store is not None and belief.get("concept_id"):
                 from sstp.epistemic.stores import BeliefRevision
-                sender = header.get("origin", {}).get("actor_id", "unknown")
+                sender = (header.get("actors") or [{}])[0].get("id", "unknown")
                 ep_id = header.get("episode_id", "")
                 revision = BeliefRevision(
                     cause=belief.get("revision_cause") or "grounded_argument",
@@ -527,7 +527,7 @@ class AgentBus:
             # Write CommonGround
             if common_ground_store is not None:
                 from sstp.epistemic.stores import CommonGround
-                sender = header.get("origin", {}).get("actor_id", "unknown")
+                sender = (header.get("actors") or [{}])[0].get("id", "unknown")
                 ep = header.get("epistemic") or {}
                 prior_sender = ""
                 if prior_epistemic and prior_turn_mid and replica is not None:
@@ -546,7 +546,7 @@ class AgentBus:
                     confirmer_confidence=float(belief.get("posterior", 0.5)),
                     contingency_verified=True,
                     speech_acts=[ep.get("speech_act", "")],
-                    grounding_message_ids=[prior_turn_mid or "", header.get("message_id", "")],
+                    grounding_message_ids=[prior_turn_mid or "", header["message"]["id"]],
                     formed_at_ms=int(time.time() * 1000),
                 )
                 common_ground_store.record(cg)
@@ -560,8 +560,8 @@ class AgentBus:
             sender_id = self.run_id  # the receiving agent emits the repair
             return self.emit_semantic_repair(
                 sender=sender_id,
-                receiver=header.get("origin", {}).get("actor_id", "unknown"),
-                target_message_id=header.get("message_id", ""),
+                receiver=(header.get("actors") or [{}])[0].get("id", "unknown"),
+                target_message_id=header["message"]["id"],
                 repair_reason=repair_reason,
                 target_epistemic=current_epistemic,
                 episode_id=header.get("episode_id"),

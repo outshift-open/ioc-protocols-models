@@ -99,22 +99,22 @@ _SCHEMA_TOPIC_BY_EVENT_TYPE: Dict[str, tuple[str, str]] = {
 
 # Default (SpeechAct, EpistemicState) per IE event_type — used when caller passes epistemic=None.
 _IE_DEFAULT_EPISTEMIC: Dict[str, tuple] = {
-    "turn_ingested":           (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
-    "peer_turn":               (SpeechAct.BELIEF_ASSERTION, EpistemicState.GROUNDING),
-    "repair_required":         (SpeechAct.HELP_REQUEST,     EpistemicState.GROUNDING),
-    "repair_applied":          (SpeechAct.BELIEF_ASSERTION, EpistemicState.GROUNDING),
-    "decision_emitted":        (SpeechAct.BELIEF_ASSERTION, EpistemicState.GROUNDING),
-    "episode_persisted":       (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
-    "epistemic_clarification": (SpeechAct.HELP_REQUEST,     EpistemicState.GROUNDING),
+    "turn_ingested":           (SpeechAct.ASSERTION, EpistemicState.TASKWORK),
+    "peer_turn":               (SpeechAct.ASSERTION, EpistemicState.GROUNDING),
+    "repair_required":         (SpeechAct.ASSERTION,     EpistemicState.GROUNDING),
+    "repair_applied":          (SpeechAct.ASSERTION, EpistemicState.GROUNDING),
+    "decision_emitted":        (SpeechAct.ASSERTION, EpistemicState.GROUNDING),
+    "episode_persisted":       (SpeechAct.ASSERTION, EpistemicState.TASKWORK),
+    "epistemic_clarification": (SpeechAct.ASSERTION,     EpistemicState.GROUNDING),
     # Team process negotiation — all TEAM_PROCESS
-    "process_proposed":        (SpeechAct.TASK_HANDOFF,        EpistemicState.TEAM_PROCESS),
-    "process_accepted":        (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
-    "process_challenged":      (SpeechAct.ALIGNMENT_CHALLENGE, EpistemicState.TEAM_PROCESS),
+    "process_proposed":        (SpeechAct.ASSERTION,        EpistemicState.TEAM_PROCESS),
+    "process_accepted":        (SpeechAct.ASSERTION,    EpistemicState.TEAM_PROCESS),
+    "process_challenged":      (SpeechAct.CHALLENGE, EpistemicState.TEAM_PROCESS),
     # SemanticMemory interactions — all TASKWORK (pre-episode priors and post-episode updates)
-    "prior_query":             (SpeechAct.HELP_REQUEST,     EpistemicState.TASKWORK),
-    "prior_injection":         (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
-    "rule_update":             (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
-    "outcome_reported":        (SpeechAct.BELIEF_ASSERTION, EpistemicState.TASKWORK),
+    "prior_query":             (SpeechAct.ASSERTION,     EpistemicState.TASKWORK),
+    "prior_injection":         (SpeechAct.ASSERTION, EpistemicState.TASKWORK),
+    "rule_update":             (SpeechAct.ASSERTION, EpistemicState.TASKWORK),
+    "outcome_reported":        (SpeechAct.ASSERTION, EpistemicState.TASKWORK),
 }
 
 # Short-TTL event types (1 day instead of the 7-day default)
@@ -188,7 +188,7 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
         sender: str,
         receiver: str | None,
         timestamp_ms: int,
-        cognition_protocol: str | None = "IE",
+        sub_protocol: str | None = "IE",
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """Build an IE L9 header, normalising the event_type alias first.
@@ -200,7 +200,7 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
         canonical = canonical_event_type(event_type)
         if kwargs.get("epistemic") is None:
             sa, es = _IE_DEFAULT_EPISTEMIC.get(
-                canonical, (SpeechAct.BELIEF_ASSERTION, EpistemicState.GROUNDING)
+                canonical, (SpeechAct.ASSERTION, EpistemicState.GROUNDING)
             )
             kwargs["epistemic"] = make_epistemic_block(speech_act=sa, epistemic_state=es)
         return super().build(
@@ -209,7 +209,7 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
             sender=sender,
             receiver=receiver,
             timestamp_ms=timestamp_ms,
-            cognition_protocol=cognition_protocol,
+            sub_protocol=sub_protocol,
             **kwargs,
         )
 
@@ -236,7 +236,7 @@ def build_l9_header(
     payload_refs: List[Dict[str, str]] | None = None,
     message_id: str | None = None,
     ontology_ref: str | None = None,
-    cognition_protocol: str | None = "IE",
+    sub_protocol: str | None = "IE",
     epistemic: Dict[str, Any] | None = None,
     state_sequence: Dict[str, Any] | None = None,
     kind_override: str | None = None,
@@ -267,7 +267,7 @@ def build_l9_header(
         (``repair_applied`` → ``peer_turn``) are carried in the event
         payload's ``repair.trigger_message_id`` field, not here.
 
-    All other envelope fields (``kind``, ``schema_id``, ``cognition_protocol``,
+    All other envelope fields (``kind``, ``schema_id``, ``sub_protocol``,
     ``ttl_seconds``, ``origin``, ``policy_labels``, ``provenance``,
     ``episode_id``, ``payload_refs``) are derived
     automatically from the event type and use-case.
@@ -288,7 +288,7 @@ def build_l9_header(
         payload_refs=payload_refs,
         message_id=message_id,
         ontology_ref=ontology_ref,
-        cognition_protocol=cognition_protocol,
+        sub_protocol=sub_protocol,
         epistemic=epistemic,
         state_sequence=state_sequence,
         kind_override=kind_override,

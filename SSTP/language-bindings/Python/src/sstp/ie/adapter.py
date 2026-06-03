@@ -585,7 +585,7 @@ class InteractionProtocolAdapter:
                         l9_header=_l9,
                     )
                 )
-                last_peer_turn_message_id = events[-1]["message_id"]
+                last_peer_turn_message_id = events[-1].get("message", {}).get("id") or {}.get("message_id", "")
 
             elif interaction_type == "repair_required":
                 trigger = _p.get("trigger", {})
@@ -866,7 +866,7 @@ class InteractionProtocolAdapter:
                             l9_header=_l9,
                         )
                     )
-                    last_peer_turn_message_id = events[-1]["message_id"]
+                    last_peer_turn_message_id = events[-1].get("message", {}).get("id") or {}.get("message_id", "")
 
                 elif interaction_type == "repair_required":
                     trigger = _p.get("trigger", {})
@@ -1024,7 +1024,7 @@ class InteractionProtocolAdapter:
                     )
                 )
 
-                last_peer_turn_message_id = events[-1]["message_id"]
+                last_peer_turn_message_id = events[-1].get("message", {}).get("id") or {}.get("message_id", "")
 
                 if out_of_bound:
                     events.append(
@@ -1213,7 +1213,7 @@ class InteractionProtocolAdapter:
                         l9_header=interaction.get("l9_header") if isinstance(interaction.get("l9_header"), dict) else None,
                     )
                 )
-                last_peer_turn_message_id = events[-1]["message_id"]
+                last_peer_turn_message_id = events[-1].get("message", {}).get("id") or {}.get("message_id", "")
 
             elif interaction_type == "repair_required":
                 events.append(

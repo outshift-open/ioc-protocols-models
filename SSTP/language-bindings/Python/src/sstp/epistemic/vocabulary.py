@@ -27,12 +27,17 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 class SpeechAct(str, enum.Enum):
-    """The five communicative acts an agent can perform."""
-    BELIEF_ASSERTION    = "belief_assertion"    # sender commits a belief to the group
-    HELP_REQUEST        = "help_request"         # sender needs information to form a belief
-    TASK_HANDOFF        = "task_handoff"         # sender delegates a sub-problem
-    ALIGNMENT_CHALLENGE = "alignment_challenge"  # sender disagrees with a peer assertion
-    DELIBERATION_PASS   = "deliberation_pass"    # sender yields — explicit deference, not agreement
+    """Three essential communicative acts. Delegation and repair are carried by event_type."""
+    ASSERTION  = "assertion"   # sender commits a position or prior
+    CHALLENGE  = "challenge"   # sender disputes; contingency always true in IE
+    COMPLIANCE = "compliance"  # sender yields to social pressure; no posterior update
+
+    # Deprecated aliases — kept for backwards compatibility with persisted data
+    BELIEF_ASSERTION    = "assertion"    # → ASSERTION
+    ALIGNMENT_CHALLENGE = "challenge"    # → CHALLENGE
+    DELIBERATION_PASS   = "compliance"   # → COMPLIANCE
+    TASK_HANDOFF        = "assertion"    # → ASSERTION (delegation carried by event_type)
+    HELP_REQUEST        = "assertion"    # → ASSERTION (repair carried by event_type)
 
 
 class EpistemicState(str, enum.Enum):
@@ -74,14 +79,20 @@ def make_epistemic_block(
     epistemic_state: EpistemicState | str | None = None,
     belief_status: BeliefStatus | str = BeliefStatus.ASSERTED,
     uncertainty: float = 0.0,
-    scope: List[str] | None = None,
-    deferred_to: Optional[str] = None,
-    challenges: List[str] | None = None,
-    repair_reason: RepairReason | str | None = None,
-    addresses_evidence: List[str] | None = None,
+    concept_id: Optional[str] = None,
     task_phase: "TaskPhase | str | None" = None,  # deprecated; use epistemic_state
 ) -> Dict[str, Any]:
-    """Return a validated epistemic block for inclusion in an L9 header."""
+    """Return a validated epistemic block for inclusion in the L9 header.
+
+    Produces base fields only — sub-protocol agnostic:
+      speech_act, epistemic_state, belief_status, concept_id, uncertainty
+
+    IE sub-protocol extension fields (scope, addresses_evidence, repair_reason,
+    challenges) belong in IEPayload — not in the L9 header.
+
+    SNP sub-protocol extension (deferred_to) is set via make_snp_epistemic_extension()
+    and belongs in NegotiationPayload.proposal_payload.
+    """
     def _val(v: Any) -> str:
         return v.value if isinstance(v, enum.Enum) else str(v)
 
@@ -90,21 +101,13 @@ def make_epistemic_block(
     )
 
     block: Dict[str, Any] = {
-        "speech_act": _val(speech_act),
-        "epistemic_state": _val(resolved_state),
+        "speech_act":    _val(speech_act),
+        "state":         _val(resolved_state),   # was "epistemic_state"
         "belief_status": _val(belief_status),
-        "uncertainty": max(0.0, min(1.0, float(uncertainty))),
+        "uncertainty":   max(0.0, min(1.0, float(uncertainty))),
     }
-    if scope:
-        block["scope"] = list(scope)
-    if deferred_to:
-        block["deferred_to"] = str(deferred_to)
-    if challenges:
-        block["challenges"] = list(challenges)
-    if repair_reason is not None:
-        block["repair_reason"] = _val(repair_reason)
-    if addresses_evidence:
-        block["addresses_evidence"] = list(addresses_evidence)
+    if concept_id:
+        block["concept_id"] = str(concept_id)
     return block
 
 
@@ -128,18 +131,39 @@ def infer_snp_epistemic(
     """
     op = operation.lower()
     if op == "propose":
-        return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
+        return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
     if op == "negotiate":
-        return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
+        return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
     if op == "accept":
         if ctrl_position_key == member_position_key:
-            return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
+            return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
         if ctrl_conf >= member_conf + accept_threshold:
-            return SpeechAct.DELIBERATION_PASS, EpistemicState.TEAM_PROCESS
-        return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
+            return SpeechAct.COMPLIANCE, EpistemicState.TEAM_PROCESS
+        return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
     if op in ("counter_proposal", "reject"):
-        return SpeechAct.ALIGNMENT_CHALLENGE, EpistemicState.TEAM_PROCESS
-    return SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS
+        return SpeechAct.CHALLENGE, EpistemicState.TEAM_PROCESS
+    return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
+
+
+def make_snp_epistemic_extension(
+    block: Dict[str, Any],
+    *,
+    deferred_to: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Merge SNP sub-protocol extension fields into an existing epistemic block.
+
+    SNP extension fields (set only by the SNP layer):
+      deferred_to — agent_id this deliberation_pass defers to; only set when
+                    speech_act=deliberation_pass and the deferral target is known.
+
+    Call after make_epistemic_block() when the block is for an SNP message:
+        block = make_epistemic_block(speech_act=DELIBERATION_PASS, ...)
+        block = make_snp_epistemic_extension(block, deferred_to="agent:cardiologist")
+    """
+    if deferred_to:
+        block = dict(block)
+        block["deferred_to"] = str(deferred_to)
+    return block
 
 
 def infer_snp_speech_act(
@@ -167,5 +191,6 @@ def infer_snp_speech_act(
 
 __all__ = [
     "SpeechAct", "EpistemicState", "TaskPhase", "BeliefStatus", "RepairReason",
-    "make_epistemic_block", "infer_snp_epistemic", "infer_snp_speech_act",
+    "make_epistemic_block", "make_snp_epistemic_extension",
+    "infer_snp_epistemic", "infer_snp_speech_act",
 ]

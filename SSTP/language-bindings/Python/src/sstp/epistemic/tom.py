@@ -51,24 +51,35 @@ class ReplicaToM:
             belief_status = ep.get("belief_status", "asserted")
             speech_act = ep.get("speech_act", "")
             uncertainty = ep.get("uncertainty", 0.0)
-            epistemic_state = ep.get("epistemic_state", "")
+            epistemic_state = ep.get("state", "")
+            entry_data = {
+                "speech_act": speech_act,
+                "belief_status": "asserted" if belief_status == "revised" else belief_status,
+                "uncertainty": uncertainty,
+                "epistemic_state": epistemic_state,
+                "posterior": entry.posterior,
+                "contingency_verified": entry.contingency_verified,
+                "taskwork_findings": entry.taskwork_findings,
+                "taskwork_likelihoods": entry.taskwork_likelihoods,
+                "message_id": entry.message_id,
+                "sequence": entry.sequence,
+                "revised": belief_status == "revised",
+            }
+            # Primary concept: concept_id field takes precedence over scope[0]
+            primary = ep.get("concept_id") or (ep.get("scope") or [None])[0]
+            if primary:
+                if belief_status == "retracted":
+                    current.pop(primary, None)
+                else:
+                    current[primary] = entry_data
+            # Additional scope concepts (supporting evidence) — backwards compat
             for concept in ep.get("scope", []):
+                if concept == primary:
+                    continue  # already written above
                 if belief_status == "retracted":
                     current.pop(concept, None)
                 else:
-                    current[concept] = {
-                        "speech_act": speech_act,
-                        "belief_status": "asserted" if belief_status == "revised" else belief_status,
-                        "uncertainty": uncertainty,
-                        "epistemic_state": epistemic_state,
-                        "posterior": entry.posterior,                       # None if not yet in payload
-                        "contingency_verified": entry.contingency_verified,
-                        "taskwork_findings": entry.taskwork_findings,       # present on taskwork turns
-                        "taskwork_likelihoods": entry.taskwork_likelihoods,
-                        "message_id": entry.message_id,
-                        "sequence": entry.sequence,
-                        "revised": belief_status == "revised",
-                    }
+                    current[concept] = entry_data
         return current
 
     # Maximum posterior difference still counted as agreement
@@ -141,23 +152,33 @@ class ReplicaToM:
         """
         challenges = [
             e for e in self.replica._entries
-            if (e.epistemic or {}).get("speech_act") == "alignment_challenge"
+            if (e.epistemic or {}).get("speech_act") in ("challenge", "alignment_challenge")
         ]
         unresolved = []
         for ch in challenges:
             ch_ep = ch.epistemic or {}
+            # challenges field now lives in IEPayload.grounding — fall back to epistemic for compat
             challenged_ids = set(ch_ep.get("challenges", []))
             challenged_entries = [
                 e for e in self.replica._entries if e.message_id in challenged_ids
             ]
             for challenged in challenged_entries:
                 sender = challenged.sender
-                ch_scope = set((challenged.epistemic or {}).get("scope", []))
+                # Use ie_concept_ids (from payload) as primary; fall back to scope/concept_id
+                ch_scope = (
+                    set(challenged.ie_concept_ids)
+                    or ({(challenged.epistemic or {}).get("concept_id")} - {None})
+                    or set((challenged.epistemic or {}).get("scope", []))
+                )
                 later_entries = [
                     e for e in self.replica._entries
                     if e.sender == sender
                     and e.timestamp_ms > challenged.timestamp_ms
-                    and set((e.epistemic or {}).get("scope", [])) & ch_scope
+                    and (
+                        (set(e.ie_concept_ids) & ch_scope)
+                        or ({(e.epistemic or {}).get("concept_id")} - {None}) & ch_scope
+                        or set((e.epistemic or {}).get("scope", [])) & ch_scope
+                    )
                     and (e.epistemic or {}).get("belief_status") in ("asserted", "retracted", "revised")
                 ]
                 if not later_entries:
@@ -215,10 +236,17 @@ class ReplicaToM:
             final_beliefs: Dict[str, Any] = {}
             for e in entries:
                 ep = e.epistemic or {}
-                phase = ep.get("epistemic_state", "")
+                phase = ep.get("state", "")
                 sa = ep.get("speech_act", "")
                 bs = ep.get("belief_status", "")
-                for concept in ep.get("scope", []):
+                # Use concept_id as primary; fall back to scope iteration
+                primary = ep.get("concept_id") or (ep.get("scope") or [None])[0]
+                concepts = ([primary] if primary else []) + [
+                    c for c in ep.get("scope", []) if c != primary
+                ]
+                for concept in concepts:
+                    if not concept:
+                        continue
                     if phase == "taskwork" and bs in ("asserted",):
                         taskwork_beliefs[concept] = {
                             "posterior": e.posterior,
@@ -263,16 +291,16 @@ class ReplicaToM:
         ]
         challenges_to_subject = [
             e for e in interactions
-            if (e.epistemic or {}).get("speech_act") == "alignment_challenge"
+            if (e.epistemic or {}).get("speech_act") in ("challenge", "alignment_challenge")
         ]
         accepts_from_subject_proposals = [
             e for e in interactions
-            if (e.epistemic or {}).get("speech_act") in ("belief_assertion", "deliberation_pass")
+            if (e.epistemic or {}).get("speech_act") in ("assertion", "compliance", "belief_assertion", "deliberation_pass")
             and e.operation in ("accept",)
         ]
         passes_to_subject = [
             e for e in interactions
-            if (e.epistemic or {}).get("speech_act") == "deliberation_pass"
+            if (e.epistemic or {}).get("speech_act") in ("compliance", "deliberation_pass")
             and (e.epistemic or {}).get("deferred_to") == subject_id
         ]
 
@@ -305,7 +333,7 @@ class ReplicaToM:
         violations = []
         for e in self.replica._entries:
             ep = e.epistemic or {}
-            actual_phase = ep.get("epistemic_state", "")
+            actual_phase = ep.get("state", "")
             if actual_phase and actual_phase != expected_phase:
                 violations.append({
                     "message_id": e.message_id,

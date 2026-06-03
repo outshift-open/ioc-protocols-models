@@ -248,48 +248,54 @@ class L9HeaderBuilder:
         timestamp_ms: int,
         sensitivity: str = "internal",
         propagation: str = "restricted",
-        turn_depth: int | None = None,
         utterance: str = "",
         parent_ids: Iterable[str] | None = None,
         episode_id: str | None = None,
         provenance_sources: Iterable[str] | None = None,
-        payload_refs: List[Dict[str, str]] | None = None,
+        provenance_expiry: str | None = None,
         message_id: str | None = None,
         ontology_ref: str | None = None,
-        cognition_protocol: str | None = None,
+        sub_protocol: str | None = None,
         epistemic: Dict[str, Any] | None = None,
-        state_sequence: Dict[str, Any] | None = None,
         kind_override: str | None = None,
-        conversation_id: str | None = None,
+        subkind: str | None = None,
+        group: "str | List[str] | None" = None,
         sequence_number: int | None = None,
+        # Deprecated params — accepted but ignored for backwards compat
+        turn_depth: int | None = None,
+        payload_refs: "Any | None" = None,
+        state_sequence: "Any | None" = None,
+        conversation_id: str | None = None,
+        cognition_protocol: str | None = None,
+        provenance_transforms: "Any | None" = None,
     ) -> Dict[str, Any]:
-        """Assemble the common L9 envelope dict.
+        """Assemble the L9 envelope dict per the current wire format.
 
-        Normalises all inputs, derives the kind and schema URN from the
-        protocol-specific hooks, and returns a plain dict ready to embed
-        as an ``l9_header`` field in any protocol event.
+        New wire shape (2026 revision):
+          protocol, version, kind, subkind
+          group     — list of actor_ids in this conversation
+          actors    — list of {id, attestation} for senders
+          message   — {id, parents, episode}
+          semantic  — {schema_id, ontology_ref, sub_protocol}
+          policy    — {sensitivity, propagation, retention_policy}
+          provenance — {sources, transforms, created, expiry}
+          epistemic — {speech_act, state, belief_status, concept_id, uncertainty}
 
-        ``parent_ids`` is reserved for RPC request/response pairing: a
-        response carries the request's ``message_id`` here.  General causal
-        chaining (e.g. repair chains) is enforced at the delivery layer via
-        parent-gated dispatch, not in this field.
-
-        ``turn_depth`` represents the nesting level of this message.
-        Sub-protocol events that fire *inside* an enclosing exchange (e.g. an
-        IE correction inside an SNP turn) MUST carry ``turn_depth = parent + 1``
-        and a child ``episode_id`` scoped to the enclosing exchange.
-
-        ``kind_override`` bypasses the event-type-to-kind mapping.  Use to
-        stamp ``kind="intent"`` on the first ``peer_turn`` of a session.
-
-        ``conversation_id`` identifies the group of two or more agents engaged in
-        this conversation.  Every message exchanged within the same agent group
-        carries the same ``conversation_id``, regardless of episode boundaries.
+        ``kind_override`` bypasses the event-type-to-kind mapping.
+        ``subkind`` is supportive of kind: "converged" | "abort" | null.
+        ``group`` identifies all actor_ids in this conversation (replaces conversation_id).
+        ``sub_protocol`` identifies the sub-protocol: "IE" | "SNP".
+        ``provenance_expiry`` is an ISO 8601 UTC string or null.
         """
         normalized_use_case = normalize_use_case(use_case)
         canonical_type = str(event_type).strip().lower()
         kind = kind_override or self.kind_for_event_type(canonical_type)
         trust_level = schema_trust_level_for_kind(kind)
+
+        # backwards compat: conversation_id falls back to group
+        effective_group = group or conversation_id
+        # backwards compat: cognition_protocol falls back to sub_protocol
+        effective_sub_protocol = sub_protocol or cognition_protocol
 
         derived_message_id = message_id or str(
             uuid5(
@@ -299,7 +305,7 @@ class L9HeaderBuilder:
                     event_type=canonical_type,
                     sender=sender,
                     receiver=receiver,
-                    turn_depth=turn_depth,
+                    turn_depth=None,
                     utterance=utterance,
                     timestamp_ms=timestamp_ms,
                     sequence_number=sequence_number,
@@ -309,43 +315,48 @@ class L9HeaderBuilder:
 
         parent_id_list = [str(i) for i in (parent_ids or []) if i]
         source_list = [str(i) for i in (provenance_sources or []) if i]
-        payload_ref_list = payload_refs or [
-            {"type": "inline", "ref": f"urn:ioc:payload:{derived_message_id}"}
-        ]
+
+        # group: normalise to list of actor_ids
+        if effective_group is None:
+            group_list = [str(sender or "unknown")]
+            if receiver:
+                group_list.append(str(receiver))
+        elif isinstance(effective_group, list):
+            group_list = [str(g) for g in effective_group if g]
+        else:
+            group_list = [str(effective_group)]
 
         header: Dict[str, Any] = {
             "protocol": self.PROTOCOL,
-            "version": self.VERSION,
-            "kind": kind,
-            "message_id": derived_message_id,
-            "dt_created": _iso8601_from_timestamp_ms(timestamp_ms),
-            "origin": {
-                "actor_id": str(sender or "unknown"),
-                "attestation": "self_attested_local",
+            "version":  self.VERSION,
+            "kind":     kind,
+            "subkind":  subkind,
+            "group":    group_list,
+            "actors":   [{"id": str(sender or "unknown"), "attestation": "self_attested_local"}],
+            "message": {
+                "id":      derived_message_id,
+                "parents": parent_id_list,
+                "episode": episode_id or f"urn:ioc:{normalized_use_case}:state:shared_dialogue",
             },
-            "semantic_context": {
-                "schema_id": self.schema_id_for(
+            "semantic": {
+                "schema_id":    self.schema_id_for(
                     normalized_use_case, canonical_type, kind, trust_level
                 ),
                 "ontology_ref": ontology_ref,
-                "cognition_protocol": cognition_protocol,
+                "sub_protocol": effective_sub_protocol,
             },
-            "policy_labels": {
-                "sensitivity": sensitivity,
-                "propagation": propagation,
+            "policy": {
+                "sensitivity":      sensitivity,
+                "propagation":      propagation,
                 "retention_policy": f"policy.{normalized_use_case}.default",
             },
             "provenance": {
-                "sources": source_list,
+                "sources":    source_list,
+                "transforms": [],
+                "created":    _iso8601_from_timestamp_ms(timestamp_ms),
+                "expiry":     provenance_expiry,
             },
-            "conversation_id": conversation_id,
-            "episode_id": episode_id
-            or f"urn:ioc:{normalized_use_case}:state:shared_dialogue",
-            "parent_ids": parent_id_list,
-            "ttl_seconds": self.ttl_for_event_type(canonical_type),
             "epistemic": epistemic,
-            "state_sequence": state_sequence,
-            "payload_refs": payload_ref_list,
         }
 
         return header

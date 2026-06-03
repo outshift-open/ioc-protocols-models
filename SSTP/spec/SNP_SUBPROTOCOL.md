@@ -361,7 +361,28 @@ After receiving each peer's `decision_emitted` response:
 6. After individual `decision_emitted` messages are collected, a coordinator MUST emit `convergence_emitted` to all `participant_ids` (multicast, `kind = commit`, `commit_resolution = "converged"`).
 7. `ConvergenceResult` MUST carry `genuine_agreement_ratio` and `social_compliance_ratio`. `prior_weight` written to SemanticMemory MUST equal `(1.0 - SCR) × GAR`.
 
-## 7. Interoperability Note
+## 7. SNP Payload Extension for Social Compliance
+
+When `speech_act = deliberation_pass` (a forced accept), the SNP layer adds `deferred_to`
+in `NegotiationPayload.proposal_payload` to identify the agent whose position is being
+deferred to:
+
+```text
+NegotiationPayload.proposal_payload (when deliberation_pass):
+  deferred_to: Option[String],  -- agent_id this accept defers to (typically the Coordinator)
+```
+
+`deferred_to` MUST only be present when `speech_act = deliberation_pass`.  It is set by
+`build_snp_payload(deferred_to=...)` in `sstp/snp/l9.py` and populated automatically by
+`StarNegotiation._emit_member_accept()` when `infer_snp_epistemic()` returns `DELIBERATION_PASS`.
+
+Note: `deferred_to` is NOT in the L9 header epistemic block.  The L9 header carries only
+base epistemic fields (speech_act, epistemic_state, belief_status, concept_id, uncertainty).
+The `make_snp_epistemic_extension()` function in `vocabulary.py` is available for callers
+that need to stamp `deferred_to` directly onto the epistemic dict (e.g. for audit purposes),
+but the normative location is `proposal_payload.deferred_to`.
+
+## 8. Interoperability Note
 
 A system that does not implement SNP-specific operations can still process events as standard SSTP messages:
 - It can rely on `event_type`, `kind`, and `policy_labels`.

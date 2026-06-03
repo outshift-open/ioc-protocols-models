@@ -293,7 +293,7 @@ class PanelBus:
             self.ie_bus.emit_process_acceptance(
                 sender=participant_id,
                 receiver=coordinator_id,
-                parent_id=proposal_header["message_id"],
+                parent_id=(proposal_header["message"]["id"]),
                 episode_id=episode_id,
             )
             if self.team_process_store is not None:
@@ -475,7 +475,7 @@ class PanelBus:
             turn_depth=ie_depth,
             episode_id=child_state_id,
             epistemic=make_epistemic_block(
-                speech_act=SpeechAct.HELP_REQUEST,
+                speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
                 belief_status=BeliefStatus.DEFERRED,
             ),
@@ -515,11 +515,11 @@ class PanelBus:
             timestamp_ms=int(time.time() * 1000),
             sensitivity="confidential",
             utterance=repaired,
-            parent_ids=[repair_required_header["message_id"]],
+            parent_ids=[repair_required_header["message"]["id"]],
             turn_depth=ie_depth,
             episode_id=child_state_id,
             epistemic=make_epistemic_block(
-                speech_act=SpeechAct.BELIEF_ASSERTION,
+                speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
                 belief_status=BeliefStatus.REVISED,
             ),
@@ -536,7 +536,7 @@ class PanelBus:
                 revision_id=str(uuid.uuid4()),
                 timestamp_ms=int(time.time() * 1000),
                 episode_id=ep_id,
-                message_id=repair_applied_header["message_id"],
+                message_id=repair_applied_header["message"]["id"],
                 confidence_before=confidence_before,
                 confidence_after=confidence_before,
                 cause="repair_resolution",
@@ -549,7 +549,7 @@ class PanelBus:
             )
 
         return self._ie_gate(
-            repaired, repair_applied_header["message_id"], task_goal,
+            repaired, repair_applied_header["message"]["id"], task_goal,
             sender, listener, listener_belief,
             ie_depth + 1, max_ie_depth, acc, concept_id,
             listener_prior_utterance=utterance,
@@ -710,7 +710,7 @@ class PanelBus:
         proposal_id = self._proposal_id(turn, sender)
         ts = int(time.time() * 1000)
         epistemic_block = make_epistemic_block(
-            speech_act=SpeechAct.BELIEF_ASSERTION,
+            speech_act=SpeechAct.ASSERTION,
             epistemic_state=epistemic_state,
             belief_status=BeliefStatus.ASSERTED,
             uncertainty=round(1.0 - confidence, 4),
@@ -729,7 +729,7 @@ class PanelBus:
             epistemic=epistemic_block,
         )
         self.snp_trace.append(snp_header)
-        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.TASK_HANDOFF, epistemic_state=EpistemicState.TEAM_PROCESS, 
+        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS, 
             sender=sender,
             receiver=receiver,
             utterance=utterance,
@@ -765,12 +765,13 @@ class PanelBus:
             member_conf=confidence,
             accept_threshold=accept_threshold,
         )
-        belief_status = BeliefStatus.DEFERRED if speech_act == SpeechAct.DELIBERATION_PASS else BeliefStatus.ASSERTED
+        belief_status = BeliefStatus.DEFERRED if speech_act == SpeechAct.COMPLIANCE else BeliefStatus.ASSERTED
         epistemic_block = make_epistemic_block(
             speech_act=speech_act,
             epistemic_state=epistemic_state,
             belief_status=belief_status,
             uncertainty=round(1.0 - confidence, 4),
+            concept_id=ctrl_position_key if ctrl_position_key else None,
         )
         snp_header = build_snp_l9_header(
             operation=operation,
@@ -786,7 +787,7 @@ class PanelBus:
             epistemic=epistemic_block,
         )
         self.snp_trace.append(snp_header)
-        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, epistemic_state=EpistemicState.TASKWORK, 
+        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
             sender=sender,
             receiver=receiver,
             utterance=utterance,
@@ -849,11 +850,12 @@ class StarNegotiation:
         # Initial proposal (turn 0) carries taskwork label — agent's prior-driven position
         _epistemic_state = EpistemicState.TASKWORK if turn == 0 else EpistemicState.TEAM_PROCESS
         epistemic_block = make_epistemic_block(
-            speech_act=SpeechAct.BELIEF_ASSERTION,
+            speech_act=SpeechAct.ASSERTION,
             epistemic_state=_epistemic_state,
             belief_status=BeliefStatus.ASSERTED,
             uncertainty=round(1.0 - conf, 4),
-            scope=supporting_ev,
+            concept_id=key if key else None,
+
         )
         _phash = _hashlib.sha256(
             _json.dumps(pos_dict, sort_keys=True, separators=(",", ":")).encode()
@@ -894,7 +896,7 @@ class StarNegotiation:
             reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
         )
         self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.TASK_HANDOFF, epistemic_state=EpistemicState.TEAM_PROCESS, 
+        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS, 
             sender=controller,
             receiver=specialist,
             utterance=utterance,
@@ -931,7 +933,7 @@ class StarNegotiation:
             member_conf=conf,
             accept_threshold=accept_threshold,
         )
-        belief_status = BeliefStatus.DEFERRED if speech_act == SpeechAct.DELIBERATION_PASS else BeliefStatus.ASSERTED
+        belief_status = BeliefStatus.DEFERRED if speech_act == SpeechAct.COMPLIANCE else BeliefStatus.ASSERTED
         pos_dict = position if isinstance(position, dict) else {}
         # Use specialist's own supporting_evidence as concept IDs so they overlap
         # with the proposal's scope (same symptom/evidence vocabulary).
@@ -943,13 +945,17 @@ class StarNegotiation:
                 NegotiationOperation.COUNTER_PROPOSAL, NegotiationOperation.ACCEPT
             ) else None)
         )
+        _is_delib_pass = speech_act in (SpeechAct.COMPLIANCE, SpeechAct.DELIBERATION_PASS)
         epistemic_block = make_epistemic_block(
             speech_act=speech_act,
             epistemic_state=epistemic_state,
             belief_status=belief_status,
             uncertainty=round(1.0 - conf, 4),
-            addresses_evidence=addresses_ev,
+            concept_id=ctrl_position_key if ctrl_position_key else None,
         )
+        if _is_delib_pass:
+            from sstp.epistemic.vocabulary import make_snp_epistemic_extension
+            epistemic_block = make_snp_epistemic_extension(epistemic_block, deferred_to=controller)
         snp_header = build_snp_l9_header(
             operation=operation,
             use_case=self.panel_bus.use_case,
@@ -973,9 +979,10 @@ class StarNegotiation:
             against_evidence=pos_dict.get("against_evidence"),
             reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
             addresses_evidence=addresses_ev,
+            deferred_to=controller if _is_delib_pass else None,
         )
         self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, epistemic_state=EpistemicState.TASKWORK, 
+        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
             sender=specialist,
             receiver=controller,
             utterance=utterance,
@@ -1003,11 +1010,11 @@ class StarNegotiation:
         ts = int(time.time() * 1000)
         spec_key = self._position_key(specialist_position) if specialist_position is not None else key
         if spec_key != key:
-            speech_act_v: SpeechAct = SpeechAct.DELIBERATION_PASS
+            speech_act_v: SpeechAct = SpeechAct.COMPLIANCE
             epistemic_state_v: EpistemicState = EpistemicState.TEAM_PROCESS
             belief_status_v: BeliefStatus = BeliefStatus.DEFERRED
         else:
-            speech_act_v = SpeechAct.BELIEF_ASSERTION
+            speech_act_v = SpeechAct.ASSERTION
             epistemic_state_v = EpistemicState.TEAM_PROCESS
             belief_status_v = BeliefStatus.ASSERTED
         epistemic_block = make_epistemic_block(
@@ -1029,7 +1036,7 @@ class StarNegotiation:
             epistemic=epistemic_block,
         )
         self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.BELIEF_ASSERTION, epistemic_state=EpistemicState.TASKWORK, 
+        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK, 
             sender=controller,
             receiver=specialist,
             utterance=utterance,
@@ -1156,7 +1163,7 @@ class StarNegotiation:
 
             for member_id in member_ids:
                 snp_hdr, ie_hdr = self._emit_propose(controller_id, member_id, ctrl_pos, round_idx)
-                _prop_id = snp_hdr.get("snp_payload", {}).get("proposal_id", snp_hdr["message_id"])
+                _prop_id = snp_hdr.get("snp_payload", {}).get("proposal_id", snp_hdr["message"]["id"])
                 _prop_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
                     proposal_id=_prop_id,
@@ -1219,12 +1226,12 @@ class StarNegotiation:
                     position=specialist_positions[member_id],
                     operation=operation,
                     turn=round_idx,
-                    ie_request_message_id=ie_hdr["message_id"],
+                    ie_request_message_id=ie_hdr["message"]["id"],
                     ctrl_position_key=ctrl_key,
                     ctrl_conf=ctrl_conf,
                     accept_threshold=accept_threshold,
                 )
-                _resp_prop_id = resp_snp.get("snp_payload", {}).get("proposal_id", resp_snp["message_id"])
+                _resp_prop_id = resp_snp.get("snp_payload", {}).get("proposal_id", resp_snp["message"]["id"])
                 _resp_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
                     proposal_id=_prop_id,
@@ -1249,7 +1256,7 @@ class StarNegotiation:
                 self.panel_bus._verify_grounding_bilateral(
                     utterance_a=prop_utt,
                     response_b=response_utt,
-                    snp_message_id=snp_hdr["message_id"],
+                    snp_message_id=snp_hdr["message"]["id"],
                     task_goal=task_goal,
                     speaker=controller_id,
                     listener=member_id,
@@ -1309,7 +1316,7 @@ class StarNegotiation:
                 specialist=member_id,
                 position=winning_position,
                 turn=final_turn,
-                ie_request_message_id=ie_propose["message_id"],
+                ie_request_message_id=ie_propose["message"]["id"],
                 specialist_position=pre_final_positions.get(member_id),
                 accept_threshold=accept_threshold,
             )
@@ -1444,7 +1451,7 @@ class StarNegotiation:
                             revision_id=str(uuid.uuid4()),
                             timestamp_ms=truth.formed_at_ms,
                             episode_id=truth.episode_id,
-                            message_id=convergence_header["message_id"],
+                            message_id=convergence_header["message"]["id"],
                             confidence_before=_prev,
                             confidence_after=truth.consensus_posterior,
                             cause="new_evidence",
@@ -1666,8 +1673,8 @@ class RingNegotiation:
                     parent_snp_id=last_snp_id,
                     epistemic_state=EpistemicState.TASKWORK if round_idx == 0 else EpistemicState.TEAM_PROCESS,
                 )
-                last_snp_id = snp_neg["message_id"]
-                _neg_prop_id = snp_neg.get("snp_payload", {}).get("proposal_id", snp_neg["message_id"])
+                last_snp_id = snp_neg["message"]["id"]
+                _neg_prop_id = snp_neg.get("snp_payload", {}).get("proposal_id", snp_neg["message"]["id"])
                 _neg_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
                     proposal_id=_neg_prop_id,
@@ -1723,13 +1730,13 @@ class RingNegotiation:
                     operation=operation,
                     turn=round_idx,
                     confidence=self._confidence(positions[receiver_id]),
-                    ie_request_message_id=ie_neg["message_id"],
+                    ie_request_message_id=ie_neg["message"]["id"],
                     parent_snp_id=last_snp_id,
                     ctrl_position_key=sender_key,
                     ctrl_conf=sender_conf,
                     accept_threshold=accept_threshold,
                 )
-                last_snp_id = snp_dec["message_id"]
+                last_snp_id = snp_dec["message"]["id"]
                 _dec_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
                     proposal_id=_neg_prop_id,
@@ -1747,7 +1754,7 @@ class RingNegotiation:
                 self.panel_bus._verify_grounding_bilateral(
                     utterance_a=neg_utt,
                     response_b=decision_utt,
-                    snp_message_id=snp_neg["message_id"],
+                    snp_message_id=snp_neg["message"]["id"],
                     task_goal=task_goal,
                     speaker=sender_id,
                     listener=receiver_id,
@@ -1892,7 +1899,7 @@ class RingNegotiation:
                             revision_id=str(uuid.uuid4()),
                             timestamp_ms=truth.formed_at_ms,
                             episode_id=truth.episode_id,
-                            message_id=convergence_header["message_id"],
+                            message_id=convergence_header["message"]["id"],
                             confidence_before=_prev,
                             confidence_after=truth.consensus_posterior,
                             cause="new_evidence",

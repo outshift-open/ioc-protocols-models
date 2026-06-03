@@ -75,14 +75,14 @@ class NegotiationOperation:
 
 
 _SNP_DEFAULT_EPISTEMIC = {
-    NegotiationOperation.PROPOSE:           (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
-    NegotiationOperation.CONSIDER_PROPOSAL: (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
-    NegotiationOperation.EVALUATE_PROPOSAL: (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
-    NegotiationOperation.REVIEW_PROPOSAL:   (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
-    NegotiationOperation.COUNTER_PROPOSAL:  (SpeechAct.ALIGNMENT_CHALLENGE, EpistemicState.TEAM_PROCESS),
-    NegotiationOperation.NEGOTIATE:         (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
-    NegotiationOperation.ACCEPT:            (SpeechAct.BELIEF_ASSERTION,    EpistemicState.TEAM_PROCESS),
-    NegotiationOperation.REJECT:            (SpeechAct.ALIGNMENT_CHALLENGE, EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.PROPOSE:           (SpeechAct.ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.CONSIDER_PROPOSAL: (SpeechAct.ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.EVALUATE_PROPOSAL: (SpeechAct.ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.REVIEW_PROPOSAL:   (SpeechAct.ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.COUNTER_PROPOSAL:  (SpeechAct.CHALLENGE, EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.NEGOTIATE:         (SpeechAct.ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.ACCEPT:            (SpeechAct.ASSERTION,    EpistemicState.TEAM_PROCESS),
+    NegotiationOperation.REJECT:            (SpeechAct.CHALLENGE, EpistemicState.TEAM_PROCESS),
 }
 
 
@@ -147,6 +147,7 @@ def build_snp_payload(
     against_evidence: Optional[List[str]] = None,
     reasoning_summary: Optional[str] = None,
     addresses_evidence: Optional[List[str]] = None,
+    deferred_to: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build a NegotiationPayload for use inside an Interaction Engine event.
 
@@ -159,6 +160,9 @@ def build_snp_payload(
         reasoning_summary    — human-readable synthesis (LLM-generated)
         addresses_evidence   — concept_ids from the prior PROPOSE that this
                                COUNTER_PROPOSAL engages with (IE Layer 3 check)
+
+    SNP extension (ACCEPT with deliberation_pass):
+        deferred_to          — agent_id whose position this agent is deferring to
     """
     if operation not in NegotiationOperation.ALL:
         raise ValueError(f"Invalid SNP operation: {operation!r}")
@@ -188,6 +192,8 @@ def build_snp_payload(
         reasoning["reasoning_summary"] = str(reasoning_summary)
     if addresses_evidence:
         reasoning["addresses_evidence"] = list(addresses_evidence)
+    if deferred_to:
+        reasoning["deferred_to"] = str(deferred_to)
 
     merged = {**(proposal_payload or {}), **reasoning}
     if merged:
@@ -243,7 +249,7 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         episode_id: str | None = None,
         provenance_sources: Iterable[str] | None = None,
         message_id: str | None = None,
-        cognition_protocol: str | None = "SNP",
+        sub_protocol: str | None = "SNP",
         epistemic: Dict[str, Any] | None = None,
         state_sequence: Dict[str, Any] | None = None,
         kind_override: str | None = None,
@@ -259,7 +265,7 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         """
         if epistemic is None:
             sa, es = _SNP_DEFAULT_EPISTEMIC.get(
-                operation, (SpeechAct.BELIEF_ASSERTION, EpistemicState.TEAM_PROCESS)
+                operation, (SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS)
             )
             epistemic = make_epistemic_block(speech_act=sa, epistemic_state=es)
         event_type = snp_event_type_for_operation(operation)
@@ -280,7 +286,7 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
             }],
             ontology_ref=SNP_ONTOLOGY_REFERENCE,
             message_id=message_id,
-            cognition_protocol=cognition_protocol,
+            sub_protocol=sub_protocol,
             epistemic=epistemic,
             state_sequence=state_sequence,
             kind_override=kind_override,
@@ -308,7 +314,7 @@ def build_snp_l9_header(
     episode_id: str | None = None,
     provenance_sources: Iterable[str] | None = None,
     message_id: str | None = None,
-    cognition_protocol: str | None = "SNP",
+    sub_protocol: str | None = "SNP",
     epistemic: Dict[str, Any] | None = None,
     state_sequence: Dict[str, Any] | None = None,
     kind_override: str | None = None,
@@ -334,7 +340,7 @@ def build_snp_l9_header(
         episode_id=episode_id,
         provenance_sources=provenance_sources,
         message_id=message_id,
-        cognition_protocol=cognition_protocol,
+        sub_protocol=sub_protocol,
         epistemic=epistemic,
         state_sequence=state_sequence,
         kind_override=kind_override,

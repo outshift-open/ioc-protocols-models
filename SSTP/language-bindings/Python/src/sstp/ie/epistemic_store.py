@@ -90,7 +90,10 @@ class EpistemicStore:
         return self._replicas[episode_id]
 
     def apply_message(self, header: Dict[str, Any]) -> bool:
-        episode_id = header.get("episode_id")
+        # Skip non-L9 metadata records (inline dicts without message block)
+        if "message" not in header:
+            return False
+        episode_id = (header.get("message") or {}).get("episode")
         if not episode_id:
             return False
         return self._replica(str(episode_id)).apply(header)

@@ -205,33 +205,52 @@ Provenance := {
 ### 5.2 SSTP Header
 
 ```text
+-- Base epistemic fields (sub-protocol agnostic).
+-- IE extension (scope, addresses_evidence, repair_reason, challenges) lives in IEPayload.
+-- SNP extension (deferred_to) lives in NegotiationPayload.proposal_payload.
 EpistemicBlock := {
-  speech_act:        String,   -- belief_assertion | alignment_challenge | help_request | task_handoff | deliberation_pass
-  epistemic_state:     String,   -- taskwork | grounding | team_process
+  speech_act:    String,            -- assertion | challenge | compliance
+  state:         String,            -- taskwork | grounding | team_process
+  belief_status: String,            -- asserted | deferred | challenged | revised | retracted | unresolved
+  concept_id:    Option[UriString], -- primary concept this turn asserts about; canonical index key
+  uncertainty:   Float,             -- 1.0 - confidence
 }
 
 SSTPHeader := {
-  protocol:         "SSTP",
-  version:          "0",
-  kind:             Kind,
-  message_id:       UuidString,
-  dt_created:       Iso8601Utc,
-  origin:           Origin,
-  semantic_context: SemanticContext,
-  policy_labels:    PolicyLabels,
-  provenance:       Provenance,
-  episode_id:         String,
-  conversation_id:    Option[String],
-  parent_ids:         Seq[UuidString],
-  turn_depth:         Option[Int],
-  confidence_score:   Option[Float],
-  risk_score:         Option[Float],
-  ttl_seconds:        Int,
-  merge_strategy:     String,
-  commit_resolution:  Option["converged" | "aborted"],
-  payload_refs:       Seq[PayloadRef],
-  epistemic:          Option[EpistemicBlock],
-  state_sequence:     Option[Map[String, JsonValue]],
+  protocol: "SSTP",
+  version:  "0",
+  kind:     Kind,
+  subkind:  Option["converged" | "abort"],     -- supportive of kind
+
+  group:    Seq[String],                       -- actor_ids of all participants
+  actors:   Seq[{id: String, attestation: String}], -- senders (usually one)
+
+  message: {
+    id:      UuidString,            -- content-addressed; deterministic UUIDv5
+    parents: Seq[UuidString],       -- causal parent message_ids
+    episode: UriString,             -- episode scope
+  },
+
+  semantic: {
+    schema_id:    Option[UriString],
+    ontology_ref: Option[UriString],
+    sub_protocol: Option["IE" | "SNP"],
+  },
+
+  policy: Option[{
+    sensitivity:      String,       -- public | internal | restricted | confidential
+    propagation:      String,       -- forward | restricted | no_forward
+    retention_policy: String,
+  }],
+
+  provenance: Option[{
+    sources:    Seq[String],
+    transforms: Seq[String],
+    created:    Iso8601Utc,         -- replaces dt_created
+    expiry:     Option[Iso8601Utc], -- replaces ttl_seconds
+  }],
+
+  epistemic: Option[EpistemicBlock],
 }
 ```
 
@@ -239,8 +258,8 @@ Field constraints:
 
 1. protocol MUST equal "SSTP".
 2. version MUST equal "0".
-3. payload_refs MUST be non-empty.
-4. parent_ids MAY be empty.
+3. message.id MUST be a valid UUIDv5.
+4. message.parents MAY be empty.
 5. confidence_score and risk_score MAY be null.
 6. epistemic SHOULD be present on all peer-dialogue messages; MAY be null on runtime IPC messages.
 7. turn_depth MUST be present and greater than zero on `contingency` messages; MAY be null otherwise.

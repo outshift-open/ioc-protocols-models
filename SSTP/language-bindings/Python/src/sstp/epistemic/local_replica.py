@@ -17,8 +17,14 @@ from typing import Any, Dict, List, Optional, Set
 
 
 def _parse_timestamp_ms(header: Dict[str, Any]) -> int:
-    """Parse dt_created ISO string from L9 header to milliseconds."""
-    dt_str = header.get("dt_created", "")
+    """Parse created timestamp from L9 header to milliseconds.
+
+    New format: provenance.created (ISO 8601).
+    Old format: dt_created (backwards compat).
+    """
+    dt_str = (
+        header.get("provenance", {}).get("created", "")
+    )
     if not dt_str:
         return 0
     try:
@@ -40,6 +46,9 @@ class ReplicaEntry:
     # Grounding state from IE payload — populated by LocalStateReplica.apply()
     posterior:            Optional[float] = None   # sender's current belief strength
     contingency_verified: Optional[bool]  = None   # receiver-verified grounding result
+    # IE utterance concept fields — from IEPayload.utterance (replaces epistemic.scope)
+    ie_concept_ids:        List = field(default_factory=list)  # concept URIs this turn asserts about
+    ie_addresses_evidence: List = field(default_factory=list)  # concept URIs from prior turn engaged
     # Taskwork chain from IE payload — present on prior_injection turns
     taskwork_findings:    Optional[List]  = None   # [{finding_id, value, source}]
     taskwork_likelihoods: Optional[List]  = None   # [(finding_id, ratio)]
@@ -71,15 +80,21 @@ class LocalStateReplica:
         ``belief.posterior`` and ``grounding.contingency_verified`` values are
         extracted and stored on the ReplicaEntry so ReplicaToM can use them.
         """
-        mid = header.get("message_id", "")
+        # New wire format: message.id; old: message_id (backwards compat)
+        mid = header["message"]["id"]
         if not mid or mid in self._seen_ids:
             return False
-        sender = header.get("origin", {}).get("actor_id", "unknown")
+        # New: actors[0].id; old: origin.actor_id
+        sender = (
+            (header.get("actors") or [{}])[0].get("id", "unknown")
+        )
         seq_block = header.get("state_sequence") or {}
         seq = int(seq_block.get("counter", -1))
 
         posterior: Optional[float] = None
         contingency_verified: Optional[bool] = None
+        ie_concept_ids: List = []
+        ie_addresses_evidence: List = []
         taskwork_findings: Optional[List] = None
         taskwork_likelihoods: Optional[List] = None
         if payload:
@@ -93,6 +108,9 @@ class LocalStateReplica:
             cv = grounding.get("contingency_verified")
             if cv is not None:
                 contingency_verified = bool(cv)
+            utterance = payload.get("utterance") or {}
+            ie_concept_ids = list(utterance.get("concept_ids") or [])
+            ie_addresses_evidence = list(utterance.get("addresses_evidence") or [])
             tw = payload.get("taskwork") or {}
             if tw:
                 taskwork_findings = tw.get("findings")
@@ -107,6 +125,8 @@ class LocalStateReplica:
             operation=operation,
             posterior=posterior,
             contingency_verified=contingency_verified,
+            ie_concept_ids=ie_concept_ids,
+            ie_addresses_evidence=ie_addresses_evidence,
             taskwork_findings=taskwork_findings,
             taskwork_likelihoods=taskwork_likelihoods,
         )
@@ -151,17 +171,17 @@ class LocalStateReplica:
             sa = ep.get("speech_act", "")
             if sa:
                 speech_act_counts[sa] = speech_act_counts.get(sa, 0) + 1
-            phase = ep.get("epistemic_state", "")
+            phase = ep.get("state", "")
             if phase in phase_counts:
                 phase_counts[phase] += 1
             if phase == "taskwork":
                 taskwork_total += 1
-                if sa == "belief_assertion" and bs == "asserted":
+                if sa in ("assertion", "belief_assertion") and bs == "asserted":
                     taskwork_assertions += 1
             elif phase == "team_process":
-                if sa == "belief_assertion":
+                if sa in ("assertion", "belief_assertion"):
                     team_process_belief_assertions += 1
-                elif sa == "deliberation_pass":
+                elif sa in ("compliance", "deliberation_pass"):
                     team_process_delib_passes += 1
             if phase == "grounding":
                 grounding_total += 1
@@ -184,7 +204,7 @@ class LocalStateReplica:
         total_accepts = belief_counts["asserted"] + belief_counts["deferred"]
         genuine = sum(
             1 for e in self._entries
-            if (e.epistemic or {}).get("speech_act") == "belief_assertion"
+            if (e.epistemic or {}).get("speech_act") in ("assertion", "belief_assertion")
             and (e.epistemic or {}).get("belief_status") == "asserted"
         )
         epistemic_strength = genuine / total_accepts if total_accepts > 0 else 0.0
