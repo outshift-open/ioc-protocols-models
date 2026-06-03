@@ -246,7 +246,7 @@ class AgentBus:
                     )
         self._current_phase = new_phase
 
-    def emit_prior_injection(
+    def emit_initial_prior(
         self,
         *,
         sender: str,
@@ -254,7 +254,7 @@ class AgentBus:
         taskwork_state: Any,
         episode_id: str | None = None,
     ) -> Dict[str, Any]:
-        """Emit a prior_injection turn carrying independent taskwork reasoning.
+        """Emit a initial_prior turn carrying independent taskwork reasoning.
 
         Uses IEPayload with taskwork=IETaskworkBlock(...) — same payload type
         as peer_turn, distinguished by epistemic_state=taskwork in the L9 header
@@ -267,7 +267,7 @@ class AgentBus:
                 content=f"prior:{taskwork_state.concept_id}:{taskwork_state.posterior:.4f}",
                 evidence=[taskwork_state.concept_id],
                 addresses_evidence=[],
-                inferred_intent="prior_injection",
+                inferred_intent="initial_prior",
                 turn_depth=0,
             ),
             grounding=IEGroundingBlock(),
@@ -287,7 +287,7 @@ class AgentBus:
         )
         header = build_l9_header(
             use_case=self.use_case,
-            event_type="prior_injection",
+            event_type="initial_prior",
             sender=sender,
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),

@@ -4,12 +4,12 @@
 
 IEPayload carries everything an IE message needs:
   utterance — what the sender is asserting and at what nesting depth
-  grounding — contingency verification state (null on prior_injection turns)
+  grounding — contingency verification state (null on initial_prior turns)
   belief    — calibrated belief: prior (GAR anchor) and posterior
-  taskwork  — Bayesian evidence chain; present only on prior_injection turns,
+  taskwork  — Bayesian evidence chain; present only on initial_prior turns,
               null on all peer_turn / repair turns
 
-This unification means prior_injection and peer_turn carry the same payload
+This unification means initial_prior and peer_turn carry the same payload
 type. The presence of taskwork distinguishes a prior declaration from a
 grounding exchange; the presence of grounding.responds_to distinguishes a
 response from an opening assertion.
@@ -50,7 +50,7 @@ class IEUtteranceBlock:
 class IEGroundingBlock:
     """Contingency verification state.
 
-    Null on prior_injection turns (no peer to be contingent on).
+    Null on initial_prior turns (no peer to be contingent on).
     Sender fills responds_to; receiver fills contingency_verified and score.
     """
     responds_to:          Optional[str]   = None
@@ -76,7 +76,7 @@ class IEBeliefBlock:
 
 @dataclass
 class IETaskworkBlock:
-    """Bayesian evidence chain for prior_injection turns.
+    """Bayesian evidence chain for initial_prior turns.
 
     Present only when epistemic_state=taskwork (prior declaration).
     Null on peer_turn / repair turns.
@@ -94,14 +94,14 @@ class IETaskworkBlock:
 class IEPayload:
     """IE payload v0.1 — unified payload for all IE turns.
 
-    prior_injection: grounding=IEGroundingBlock() (all null), taskwork=IETaskworkBlock(...)
+    initial_prior: grounding=IEGroundingBlock() (all null), taskwork=IETaskworkBlock(...)
     peer_turn:       grounding=IEGroundingBlock(responds_to=...), taskwork=None
     repair_required: grounding=IEGroundingBlock(repair_reason=...), taskwork=None
     """
     utterance: IEUtteranceBlock
     grounding: IEGroundingBlock
     belief:    IEBeliefBlock
-    taskwork:  Optional[IETaskworkBlock] = None  # present only on prior_injection turns
+    taskwork:  Optional[IETaskworkBlock] = None  # present only on initial_prior turns
 
     def to_dict(self) -> dict:
         d: dict = {

@@ -243,7 +243,7 @@ class PanelBus:
         )
         self.belief_store.set_prior(agent_id, concept_id, self.use_case, prior, prior_weight)
         self.ie_bus.messages.append({
-            "type": "prior_injection",
+            "type": "initial_prior",
             "agent_id": agent_id,
             "concept_id": concept_id,
             "prior": prior,

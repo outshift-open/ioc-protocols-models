@@ -50,7 +50,7 @@ class ReplicaEntry:
     # IE utterance concept fields — from IEPayload.utterance (replaces epistemic.scope)
     ie_concept_ids:        List = field(default_factory=list)  # concept URIs this turn asserts about
     ie_addresses_evidence: List = field(default_factory=list)  # concept URIs from prior turn engaged
-    # Taskwork chain from IE payload — present on prior_injection turns
+    # Taskwork chain from IE payload — present on initial_prior turns
     taskwork_findings:    Optional[List]  = None   # [{finding_id, value, source}]
     taskwork_likelihoods: Optional[List]  = None   # [(finding_id, ratio)]
 

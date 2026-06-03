@@ -24,7 +24,7 @@ and maps IE event types to SSTP kinds (5-value session-flow vocabulary):
     conversation_terminated → commit
     rule_update             → knowledge   (team-level grounded truth written to SemanticMemory)
     prior_query             → exchange
-    prior_injection         → exchange
+    initial_prior         → exchange
     outcome_reported        → exchange
 
 The module-level :func:`build_l9_header` is the backwards-compatible
@@ -72,7 +72,7 @@ _KIND_BY_EVENT_TYPE: Dict[str, str] = {
     "process_challenged":      "contingency",
     # SemanticMemory interactions (Coordinator ↔ SemanticMemory agent)
     "prior_query":             "exchange",
-    "prior_injection":         "exchange",
+    "initial_prior":         "exchange",
     "rule_update":             "knowledge",
     "outcome_reported":        "exchange",
 }
@@ -92,7 +92,7 @@ _SCHEMA_TOPIC_BY_EVENT_TYPE: Dict[str, tuple[str, str]] = {
     "process_challenged":      ("coordination", "process_challenge"),
     # SemanticMemory interactions
     "prior_query":             ("memory", "prior_query"),
-    "prior_injection":         ("memory", "prior_injection"),
+    "initial_prior":         ("memory", "initial_prior"),
     "rule_update":             ("memory", "rule_update"),
     "outcome_reported":        ("memory", "outcome_reported"),
 }
@@ -112,7 +112,7 @@ _IE_DEFAULT_EPISTEMIC: Dict[str, tuple] = {
     "process_challenged":      (SpeechAct.CHALLENGE, EpistemicState.TEAM_PROCESS),
     # SemanticMemory interactions — all TASKWORK (pre-episode priors and post-episode updates)
     "prior_query":             (SpeechAct.ASSERTION,     EpistemicState.TASKWORK),
-    "prior_injection":         (SpeechAct.ASSERTION, EpistemicState.TASKWORK),
+    "initial_prior":         (SpeechAct.ASSERTION, EpistemicState.TASKWORK),
     "rule_update":             (SpeechAct.ASSERTION, EpistemicState.TASKWORK),
     "outcome_reported":        (SpeechAct.ASSERTION, EpistemicState.TASKWORK),
 }
