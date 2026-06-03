@@ -200,6 +200,25 @@ class ProcessPayload:
         )
 
 
+def get_part(message: dict, type_: str) -> dict:
+    """Extract the content of a payload part by type from an L9 message dict.
+
+    Returns the content dict/str for the first matching inline part,
+    or an empty dict if not found.  Accepts both new (payload list) and
+    old (flat payload dict) message shapes for backwards compat.
+    """
+    parts = message.get("payload")
+    if isinstance(parts, list):
+        for p in parts:
+            if p.get("type") == type_ and p.get("location", "inline") == "inline":
+                return p.get("content") or {}
+        return {}
+    # old flat payload dict — return as-is for IE parts
+    if isinstance(parts, dict) and type_ == "ie":
+        return parts
+    return {}
+
+
 __all__ = [
     "IEUtteranceBlock",
     "IEGroundingBlock",
@@ -207,4 +226,5 @@ __all__ = [
     "IETaskworkBlock",
     "IEPayload",
     "ProcessPayload",
+    "get_part",
 ]

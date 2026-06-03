@@ -261,6 +261,7 @@ class L9HeaderBuilder:
         subkind: str | None = None,
         group: "str | List[str] | None" = None,
         sequence_number: int | None = None,
+        payload_parts: "List[Dict[str, Any]] | None" = None,
         # Deprecated params — accepted but ignored for backwards compat
         turn_depth: int | None = None,
         payload_refs: "Any | None" = None,
@@ -280,7 +281,11 @@ class L9HeaderBuilder:
           policy    — {sensitivity, propagation, retention_policy}
           provenance — {sources, transforms, created, expiry}
           epistemic — {speech_act, state, belief_status, concept_id, uncertainty}
+          payload   — list of PayloadPart: [{type, location, content|ref, hash}]
 
+        ``payload_parts`` declares the payload parts carried by this message.
+        Each part has: type ("utterance"|"ie"|"snp"|"process"), location
+        ("inline"|"external"), content (str or dict for inline), ref+hash for external.
         ``kind_override`` bypasses the event-type-to-kind mapping.
         ``subkind`` is supportive of kind: "converged" | "abort" | null.
         ``group`` identifies all actor_ids in this conversation (replaces conversation_id).
@@ -357,6 +362,7 @@ class L9HeaderBuilder:
                 "expiry":     provenance_expiry,
             },
             "epistemic": epistemic,
+            "payload":   list(payload_parts) if payload_parts is not None else [],
         }
 
         return header

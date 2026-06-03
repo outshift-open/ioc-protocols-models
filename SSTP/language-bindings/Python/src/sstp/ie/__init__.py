@@ -40,6 +40,7 @@ from .message import (
     IEBeliefBlock,
     IETaskworkBlock,
     ProcessPayload,
+    get_part,
 )
 from .agent_bus import AgentBus
 from .epistemic_store import EpistemicStore
@@ -71,6 +72,7 @@ __all__ = [
     "IEBeliefBlock",
     "IETaskworkBlock",
     "ProcessPayload",
+    "get_part",
     # SDK: domain-agnostic bus, store, and engine
     "AgentBus",
     "EpistemicStore",

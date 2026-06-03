@@ -255,6 +255,7 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         kind_override: str | None = None,
         conversation_id: str | None = None,
         sequence_number: int | None = None,
+        payload_parts: "List[Dict[str, Any]] | None" = None,
     ) -> Dict[str, Any]:
         """Build an SNP L9 header from an SNP *operation* (§3.1 mapping).
 
@@ -280,10 +281,6 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
             parent_ids=parent_ids,
             episode_id=episode_id,
             provenance_sources=provenance_sources,
-            payload_refs=[{
-                "type": "inline",
-                "ref": f"urn:ioc:snp:{normalize_use_case(use_case)}:{proposal_id}",
-            }],
             ontology_ref=SNP_ONTOLOGY_REFERENCE,
             message_id=message_id,
             sub_protocol=sub_protocol,
@@ -292,6 +289,7 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
             kind_override=kind_override,
             conversation_id=conversation_id,
             sequence_number=sequence_number,
+            payload_parts=payload_parts,
         )
 
 
@@ -320,6 +318,7 @@ def build_snp_l9_header(
     kind_override: str | None = None,
     conversation_id: str | None = None,
     sequence_number: int | None = None,
+    payload_parts: "List[Dict[str, Any]] | None" = None,
 ) -> Dict[str, Any]:
     """Build an SSTP L9 header for a Semantic Negotiation sub-protocol message.
 
@@ -346,6 +345,7 @@ def build_snp_l9_header(
         kind_override=kind_override,
         conversation_id=conversation_id,
         sequence_number=sequence_number,
+        payload_parts=payload_parts,
     )
 
 

@@ -96,7 +96,9 @@ class EpistemicStore:
         episode_id = (header.get("message") or {}).get("episode")
         if not episode_id:
             return False
-        return self._replica(str(episode_id)).apply(header)
+        from sstp.ie.message import get_part
+        ie_content = get_part(header, "ie") or None
+        return self._replica(str(episode_id)).apply(header, payload=ie_content)
 
     def derived_state(self, episode_id: str) -> Dict[str, Any]:
         if episode_id not in self._replicas:

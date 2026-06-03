@@ -94,11 +94,13 @@ class AgentBus:
                 epistemic_state=epistemic_state,
             ),
             state_sequence=self._next_sequence(sender),
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": utterance},
+            ],
         )
-        envelope = self._wrap(header, "peer_turn", sender, receiver, utterance)
         if error is not None:
-            envelope["error"] = error
-        self.messages.append(envelope)
+            header["error"] = error
+        self.messages.append(header)
         return header
 
     def emit_request(self, *, sender: str, receiver: str, utterance: str,
@@ -139,6 +141,7 @@ class AgentBus:
         turn_depth: int | None = None,
     ) -> Dict[str, Any]:
         repair_concept_id = (target_epistemic or {}).get("concept_id")
+        _utterance = f"repair_required:reason={repair_reason.value}:target={target_message_id}"
         header = build_l9_header(
             use_case=self.use_case,
             event_type="repair_required",
@@ -146,7 +149,7 @@ class AgentBus:
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity,
-            utterance=f"repair_required:reason={repair_reason.value}:target={target_message_id}",
+            utterance=_utterance,
             parent_ids=[target_message_id],
             episode_id=episode_id,
             turn_depth=turn_depth,
@@ -157,16 +160,15 @@ class AgentBus:
                 concept_id=repair_concept_id,
             ),
             state_sequence=self._next_sequence(sender),
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": _utterance},
+            ],
         )
-        envelope = self._wrap(
-            header, "repair_required", sender, receiver,
-            f"repair_required:reason={repair_reason.value}",
-        )
-        envelope["repair"] = {
+        header["repair"] = {
             "target_message_id": target_message_id,
             "repair_reason": repair_reason.value,
         }
-        self.messages.append(envelope)
+        self.messages.append(header)
         return header
 
     def check_and_repair(
@@ -198,6 +200,7 @@ class AgentBus:
         target_message_id: str,
         reason: str,
     ) -> Dict[str, Any]:
+        _utterance = f"epistemic_clarification:{reason}"
         header = build_l9_header(
             use_case=self.use_case,
             event_type="epistemic_clarification",
@@ -205,7 +208,7 @@ class AgentBus:
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity,
-            utterance=f"epistemic_clarification:{reason}",
+            utterance=_utterance,
             parent_ids=[target_message_id],
             state_sequence=self._next_sequence(sender),
             epistemic=make_epistemic_block(
@@ -213,33 +216,13 @@ class AgentBus:
                 epistemic_state=EpistemicState.GROUNDING,
                 belief_status=BeliefStatus.DEFERRED,
             ),
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": _utterance},
+            ],
         )
-        self.messages.append(self._wrap(
-            header, "epistemic_clarification", sender, receiver,
-            f"epistemic_clarification:{reason}",
-        ))
+        self.messages.append(header)
         return header
 
-    def _wrap(
-        self,
-        header: Dict[str, Any],
-        event_type: str,
-        sender: str,
-        receiver: str,
-        utterance: str,
-    ) -> Dict[str, Any]:
-        return {
-            **header,
-            "payload": {
-                "run_id": self.run_id,
-                "conversation_id": self.conversation_id,
-                "phase": "peer_dialogue",
-                "event_type": event_type,
-                "sender": sender,
-                "receiver": receiver,
-                "message": {"utterance": utterance},
-            },
-        }
 
 
     def advance_phase(self, new_phase: str, episode_id: str = "") -> None:
@@ -317,9 +300,14 @@ class AgentBus:
                 concept_id=taskwork_state.concept_id,
             ),
             state_sequence=self._next_sequence(sender),
+            payload_parts=[
+                {"type": "utterance", "location": "inline",
+                 "content": payload.utterance.content},
+                {"type": "ie", "location": "inline",
+                 "content": payload.to_dict()},
+            ],
         )
-        envelope = {**header, "payload": payload.to_dict()}
-        self.messages.append(envelope)
+        self.messages.append(header)
         return header
 
     def emit_process_proposal(
@@ -359,9 +347,12 @@ class AgentBus:
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
             state_sequence=self._next_sequence(sender),
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": content},
+                {"type": "process", "location": "inline", "content": payload.to_dict()},
+            ],
         )
-        envelope = {**header, "payload": payload.to_dict()}
-        self.messages.append(envelope)
+        self.messages.append(header)
         return header
 
     def emit_process_acceptance(
@@ -373,6 +364,7 @@ class AgentBus:
         episode_id: str | None = None,
     ) -> Dict[str, Any]:
         """Emit a process_accepted peer_turn acknowledging a role assignment."""
+        _utterance = f"process_accepted:by={sender}"
         header = build_l9_header(
             use_case=self.use_case,
             event_type="process_accepted",
@@ -380,7 +372,7 @@ class AgentBus:
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity,
-            utterance=f"process_accepted:by={sender}",
+            utterance=_utterance,
             parent_ids=[parent_id],
             episode_id=episode_id,
             epistemic=make_epistemic_block(
@@ -388,8 +380,11 @@ class AgentBus:
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
             state_sequence=self._next_sequence(sender),
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": _utterance},
+            ],
         )
-        self.messages.append(self._wrap(header, "process_accepted", sender, receiver, f"process_accepted:by={sender}"))
+        self.messages.append(header)
         return header
 
     def emit_process_challenge(
@@ -402,6 +397,7 @@ class AgentBus:
         episode_id: str | None = None,
     ) -> Dict[str, Any]:
         """Emit a process_challenged peer_turn disputing a role assignment."""
+        _utterance = f"process_challenged:reason={reason}"
         header = build_l9_header(
             use_case=self.use_case,
             event_type="process_challenged",
@@ -409,7 +405,7 @@ class AgentBus:
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity,
-            utterance=f"process_challenged:reason={reason}",
+            utterance=_utterance,
             parent_ids=[parent_id],
             episode_id=episode_id,
             epistemic=make_epistemic_block(
@@ -417,8 +413,11 @@ class AgentBus:
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
             state_sequence=self._next_sequence(sender),
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": _utterance},
+            ],
         )
-        self.messages.append(self._wrap(header, "process_challenged", sender, receiver, f"process_challenged:reason={reason}"))
+        self.messages.append(header)
         return header
 
     def receive_peer_turn(
@@ -443,15 +442,14 @@ class AgentBus:
         """
         from sstp.ie.grounding import contingency_check, diagnose_repair_reason
         from sstp.epistemic.vocabulary import RepairReason
+        from sstp.ie.message import get_part
 
         header = {k: v for k, v in envelope.items() if k != "payload"}
-        payload = envelope.get("payload") or {}
-        if not isinstance(payload, dict):
-            payload = {}
+        ie_content = get_part(envelope, "ie")
 
-        grounding = payload.get("grounding") or {}
-        utterance = payload.get("utterance") or {}
-        belief = payload.get("belief") or {}
+        grounding = ie_content.get("grounding") or {}
+        utterance = ie_content.get("utterance") or {}
+        belief = ie_content.get("belief") or {}
 
         # Build epistemic dicts for contingency_check
         prior_turn_mid = grounding.get("responds_to")
@@ -466,7 +464,7 @@ class AgentBus:
                     prior_ie_addresses_evidence = list(getattr(e, "ie_addresses_evidence", []))
                     break
 
-        current_ie_concept_ids = list(utterance.get("concept_ids") or [])
+        current_ie_concept_ids = list(utterance.get("evidence") or utterance.get("concept_ids") or [])
         current_ie_addresses_evidence = list(utterance.get("addresses_evidence") or [])
         current_epistemic = (header.get("epistemic") or {})
 
@@ -479,9 +477,9 @@ class AgentBus:
             b_ie_addresses_evidence=current_ie_addresses_evidence,
         )
 
-        # Write result back into payload grounding block
-        payload = dict(payload)
-        payload["grounding"] = {
+        # Write result back into IE content grounding block
+        ie_content = dict(ie_content)
+        ie_content["grounding"] = {
             **grounding,
             "contingency_verified": verified,
             "contingency_score": score,
@@ -489,7 +487,7 @@ class AgentBus:
 
         # Apply to replica
         if replica is not None:
-            replica.apply(header, payload=payload)
+            replica.apply(header, payload=ie_content)
 
         if verified:
             # concept_id is in the L9 header epistemic block (not in belief)

@@ -34,6 +34,7 @@ from sstp.snp.l9 import (
     build_snp_payload,
 )
 from sstp.ie.l9 import build_l9_header
+from sstp.ie.message import get_part as _get_part
 from sstp.epistemic import (
     SpeechAct, EpistemicState, BeliefStatus,
     make_epistemic_block, infer_snp_epistemic,
@@ -860,6 +861,18 @@ class StarNegotiation:
         _phash = _hashlib.sha256(
             _json.dumps(pos_dict, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
+        _snp_payload = build_snp_payload(
+            operation=NegotiationOperation.PROPOSE,
+            proposal_id=proposal_id,
+            content=key,
+            status=NegotiationStatus.PENDING,
+            negotiation_id=self.panel_bus._negotiation_id,
+            payload_hash=_phash,
+            posterior=pos_dict.get("posterior") or conf,
+            supporting_evidence=pos_dict.get("supporting_evidence"),
+            against_evidence=pos_dict.get("against_evidence"),
+            reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
+        )
         snp_header = build_snp_l9_header(
             operation=NegotiationOperation.PROPOSE,
             use_case=self.panel_bus.use_case,
@@ -871,6 +884,10 @@ class StarNegotiation:
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
             epistemic=epistemic_block,
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": utterance},
+                {"type": "snp", "location": "inline", "content": _snp_payload},
+            ],
         )
         if self.panel_bus.proposal_store is not None:
             self.panel_bus.proposal_store.record(SemanticProposal(
@@ -883,18 +900,6 @@ class StarNegotiation:
                 payload_hash=_phash,
                 timestamp_ms=ts,
             ))
-        snp_header["snp_payload"] = build_snp_payload(
-            operation=NegotiationOperation.PROPOSE,
-            proposal_id=proposal_id,
-            content=key,
-            status=NegotiationStatus.PENDING,
-            negotiation_id=self.panel_bus._negotiation_id,
-            payload_hash=_phash,
-            posterior=pos_dict.get("posterior") or conf,
-            supporting_evidence=pos_dict.get("supporting_evidence"),
-            against_evidence=pos_dict.get("against_evidence"),
-            reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
-        )
         self.panel_bus.snp_trace.append(snp_header)
         ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS, 
             sender=controller,
@@ -956,19 +961,7 @@ class StarNegotiation:
         if _is_delib_pass:
             from sstp.epistemic.vocabulary import make_snp_epistemic_extension
             epistemic_block = make_snp_epistemic_extension(epistemic_block, deferred_to=controller)
-        snp_header = build_snp_l9_header(
-            operation=operation,
-            use_case=self.panel_bus.use_case,
-            sender=specialist,
-            receiver=controller,
-            timestamp_ms=ts,
-            proposal_id=proposal_id,
-            turn_depth=turn,
-            utterance=utterance,
-            episode_id=self.panel_bus._episode_id(),
-            epistemic=epistemic_block,
-        )
-        snp_header["snp_payload"] = build_snp_payload(
+        _snp_payload = build_snp_payload(
             operation=operation,
             proposal_id=proposal_id,
             content=key,
@@ -980,6 +973,22 @@ class StarNegotiation:
             reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
             addresses_evidence=addresses_ev,
             deferred_to=controller if _is_delib_pass else None,
+        )
+        snp_header = build_snp_l9_header(
+            operation=operation,
+            use_case=self.panel_bus.use_case,
+            sender=specialist,
+            receiver=controller,
+            timestamp_ms=ts,
+            proposal_id=proposal_id,
+            turn_depth=turn,
+            utterance=utterance,
+            episode_id=self.panel_bus._episode_id(),
+            epistemic=epistemic_block,
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": utterance},
+                {"type": "snp", "location": "inline", "content": _snp_payload},
+            ],
         )
         self.panel_bus.snp_trace.append(snp_header)
         ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
@@ -1163,7 +1172,7 @@ class StarNegotiation:
 
             for member_id in member_ids:
                 snp_hdr, ie_hdr = self._emit_propose(controller_id, member_id, ctrl_pos, round_idx)
-                _prop_id = snp_hdr.get("snp_payload", {}).get("proposal_id", snp_hdr["message"]["id"])
+                _prop_id = _get_part(snp_hdr, "snp").get("proposal_id") or snp_hdr["message"]["id"]
                 _prop_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
                     proposal_id=_prop_id,
@@ -1231,7 +1240,7 @@ class StarNegotiation:
                     ctrl_conf=ctrl_conf,
                     accept_threshold=accept_threshold,
                 )
-                _resp_prop_id = resp_snp.get("snp_payload", {}).get("proposal_id", resp_snp["message"]["id"])
+                _resp_prop_id = _get_part(resp_snp, "snp").get("proposal_id") or resp_snp["message"]["id"]
                 _resp_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
                     proposal_id=_prop_id,
@@ -1674,7 +1683,7 @@ class RingNegotiation:
                     epistemic_state=EpistemicState.TASKWORK if round_idx == 0 else EpistemicState.TEAM_PROCESS,
                 )
                 last_snp_id = snp_neg["message"]["id"]
-                _neg_prop_id = snp_neg.get("snp_payload", {}).get("proposal_id", snp_neg["message"]["id"])
+                _neg_prop_id = _get_part(snp_neg, "snp").get("proposal_id") or snp_neg["message"]["id"]
                 _neg_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
                     proposal_id=_neg_prop_id,
