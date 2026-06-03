@@ -129,7 +129,7 @@ def l9_header_to_pydantic(
     origin_attest = actors[0].get("attestation") if actors else None
     sem_ctx = l9_header.get("semantic") or l9_header.get("semantic_context", {})
     policy = l9_header.get("policy") or l9_header.get("policy_labels", {})
-    prov = l9_header.get("provenance", {})
+    prov = l9_header.get("attributes") or l9_header.get("provenance", {})
     msg_block = l9_header.get("message", {})
 
     lc = l9_header.get("logical_clock")
@@ -160,7 +160,7 @@ def l9_header_to_pydantic(
             "propagation": policy.get("propagation", "restricted"),
             "retention_policy": policy.get("retention_policy", "default"),
         },
-        "provenance": {
+        "attributes": {
             "sources": prov.get("sources", []),
         },
         "payload": payload,
@@ -226,7 +226,7 @@ def pydantic_to_l9_header(msg: _STBaseMessage) -> Dict[str, Any]:
             "propagation":      policy.propagation,
             "retention_policy": policy.retention_policy,
         },
-        "provenance": {
+        "attributes": {
             "sources":    list(prov.sources),
             "transforms": [],
             "created":    msg.dt_created,
@@ -301,7 +301,7 @@ def build_negotiate_envelope(
 
     _msg_block = l9_hdr.get("message", {})
     _actors = l9_hdr.get("actors") or []
-    _prov2 = l9_hdr.get("provenance", {})
+    _prov2 = l9_hdr.get("attributes") or l9_hdr.get("provenance", {})
     msg_dict: Dict[str, Any] = {
         "kind": "negotiate",
         "version": l9_hdr.get("version", "0"),
@@ -326,7 +326,7 @@ def build_negotiate_envelope(
             "propagation": "restricted",
             "retention_policy": "default",
         }),
-        "provenance": _prov2,
+        "attributes": _prov2,
         "payload": payload,
         "parent_ids": _msg_block.get("parents", []),
         "payload_refs": [],

@@ -355,7 +355,7 @@ class L9HeaderBuilder:
                 "propagation":      propagation,
                 "retention_policy": f"policy.{normalized_use_case}.default",
             },
-            "provenance": {
+            "attributes": {
                 "sources":    source_list,
                 "transforms": [],
                 "created":    _iso8601_from_timestamp_ms(timestamp_ms),
