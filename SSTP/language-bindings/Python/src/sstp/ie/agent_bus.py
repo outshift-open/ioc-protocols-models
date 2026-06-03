@@ -271,12 +271,14 @@ class AgentBus:
         taskwork_state: Any,
         episode_id: str | None = None,
     ) -> Dict[str, Any]:
-        """Emit a prior_injection peer_turn carrying the full taskwork reasoning chain."""
-        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock, IETaskworkBlock
+        """Emit a prior_injection peer_turn carrying belief state and taskwork reasoning.
+
+        IEPayload carries only the grounding-relevant belief block (concept_id, prior, posterior).
+        The taskwork reasoning chain (findings, likelihoods) is stored in a separate
+        "taskwork" key in the payload dict — taskwork is not a grounding concern.
+        """
+        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
         payload = IEPayload(
-            conversation_id=self.conversation_id,
-            episode_id=episode_id or "",
-            run_id=self.run_id,
             utterance=IEUtteranceBlock(
                 content=f"prior:{taskwork_state.concept_id}:{taskwork_state.posterior:.4f}",
                 concept_ids=[taskwork_state.concept_id],
@@ -291,15 +293,16 @@ class AgentBus:
                 posterior=taskwork_state.posterior,
                 revision_cause="semantic_memory",
             ),
-            taskwork=IETaskworkBlock(
-                findings=[
-                    {"finding_id": f.finding_id, "value": f.value, "source": f.source}
-                    for f in (taskwork_state.findings or [])
-                ],
-                likelihoods=list(taskwork_state.likelihoods or []),
-                reasoning_summary=taskwork_state.reasoning_summary or "",
-            ),
         )
+        payload_dict = payload.to_dict()
+        payload_dict["taskwork"] = {
+            "findings":          [
+                {"finding_id": f.finding_id, "value": f.value, "source": f.source}
+                for f in (taskwork_state.findings or [])
+            ],
+            "likelihoods":       list(taskwork_state.likelihoods or []),
+            "reasoning_summary": taskwork_state.reasoning_summary or "",
+        }
         header = build_l9_header(
             use_case=self.use_case,
             event_type="prior_injection",
@@ -313,11 +316,10 @@ class AgentBus:
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TASKWORK,
                 concept_id=taskwork_state.concept_id,
-    
             ),
             state_sequence=self._next_sequence(sender),
         )
-        envelope = {**header, "payload": payload.to_dict()}
+        envelope = {**header, "payload": payload_dict}
         self.messages.append(envelope)
         return header
 
@@ -329,20 +331,14 @@ class AgentBus:
         agreement: Any,
         episode_id: str | None = None,
     ) -> Dict[str, Any]:
-        """Emit a process_proposed peer_turn carrying a TeamProcessAgreement."""
-        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock, IEProcessBlock
-        process_block = IEProcessBlock(
-            coordinator_id=agreement.coordinator_id,
-            participant_ids=list(agreement.participant_ids),
-            role_assignments=[
-                {"agent_id": ra.agent_id, "role": ra.role, "responsible_for": list(ra.responsible_for)}
-                for ra in agreement.role_assignments
-            ],
-        )
+        """Emit a process_proposed peer_turn carrying a TeamProcessAgreement.
+
+        IEPayload carries only grounding-relevant belief state.
+        The process agreement data is stored in a separate "process" key — process
+        negotiation is not a grounding concern; it precedes grounding.
+        """
+        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
         payload = IEPayload(
-            conversation_id=self.conversation_id,
-            episode_id=episode_id or "",
-            run_id=self.run_id,
             utterance=IEUtteranceBlock(
                 content=f"process_proposal:coordinator={agreement.coordinator_id}",
                 concept_ids=["process:role_assignment"],
@@ -352,8 +348,16 @@ class AgentBus:
             ),
             grounding=IEGroundingBlock(),
             belief=IEBeliefBlock(concept_id="process:role_assignment", prior=1.0, posterior=1.0),
-            process=process_block,
         )
+        payload_dict = payload.to_dict()
+        payload_dict["process"] = {
+            "coordinator_id":   agreement.coordinator_id,
+            "participant_ids":  list(agreement.participant_ids),
+            "role_assignments": [
+                {"agent_id": ra.agent_id, "role": ra.role, "responsible_for": list(ra.responsible_for)}
+                for ra in agreement.role_assignments
+            ],
+        }
         header = build_l9_header(
             use_case=self.use_case,
             event_type="process_proposed",
@@ -369,7 +373,7 @@ class AgentBus:
             ),
             state_sequence=self._next_sequence(sender),
         )
-        envelope = {**header, "payload": payload.to_dict()}
+        envelope = {**header, "payload": payload_dict}
         self.messages.append(envelope)
         return header
 
