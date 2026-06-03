@@ -251,38 +251,31 @@ class AgentBus:
         *,
         sender: str,
         receiver: str,
-        taskwork_state: Any,
+        concept_id: str,
+        prior: float,
+        posterior: float,
+        evidence: "List[str] | None" = None,
         episode_id: str | None = None,
     ) -> Dict[str, Any]:
-        """Emit a initial_prior turn carrying independent taskwork reasoning.
+        """Emit an initial_prior turn declaring the sender's independent belief.
 
-        Uses IEPayload with taskwork=IETaskworkBlock(...) — same payload type
-        as peer_turn, distinguished by epistemic_state=taskwork in the L9 header
-        and the presence of the taskwork block. grounding is empty (no peer to
-        be contingent on for a prior declaration).
+        Carries IEPayload (utterance + grounding + belief) only.
+        Taskwork internals (findings, likelihoods) are agent-internal state
+        and do not appear on the wire.
         """
-        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock, IETaskworkBlock
+        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
+        _utterance = f"initial_prior:{concept_id}:{posterior:.4f}"
         payload = IEPayload(
             utterance=IEUtteranceBlock(
-                content=f"prior:{taskwork_state.concept_id}:{taskwork_state.posterior:.4f}",
-                evidence=[taskwork_state.concept_id],
+                evidence=list(evidence or [concept_id]),
                 addresses_evidence=[],
-                inferred_intent="initial_prior",
                 turn_depth=0,
             ),
             grounding=IEGroundingBlock(),
             belief=IEBeliefBlock(
-                prior=taskwork_state.prior,
-                posterior=taskwork_state.posterior,
+                prior=prior,
+                posterior=posterior,
                 revision_cause="semantic_memory",
-            ),
-            taskwork=IETaskworkBlock(
-                findings=[
-                    {"finding_id": f.finding_id, "value": f.value, "source": f.source}
-                    for f in (taskwork_state.findings or [])
-                ],
-                likelihoods=list(taskwork_state.likelihoods or []),
-                reasoning_summary=taskwork_state.reasoning_summary or "",
             ),
         )
         header = build_l9_header(
@@ -292,19 +285,17 @@ class AgentBus:
             receiver=receiver,
             timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity,
-            utterance=payload.utterance.content,
+            utterance=_utterance,
             episode_id=episode_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TASKWORK,
-                concept_id=taskwork_state.concept_id,
+                concept_id=concept_id,
             ),
             state_sequence=self._next_sequence(sender),
             payload_parts=[
-                {"type": "utterance", "location": "inline",
-                 "content": payload.utterance.content},
-                {"type": "ie", "location": "inline",
-                 "content": payload.to_dict()},
+                {"type": "utterance", "location": "inline", "content": _utterance},
+                {"type": "ie", "location": "inline", "content": payload.to_dict()},
             ],
         )
         self.messages.append(header)

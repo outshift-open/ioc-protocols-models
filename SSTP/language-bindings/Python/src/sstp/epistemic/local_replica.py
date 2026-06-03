@@ -47,12 +47,9 @@ class ReplicaEntry:
     # Grounding state from IE payload — populated by LocalStateReplica.apply()
     posterior:            Optional[float] = None   # sender's current belief strength
     contingency_verified: Optional[bool]  = None   # receiver-verified grounding result
-    # IE utterance concept fields — from IEPayload.utterance (replaces epistemic.scope)
+    # IE utterance concept fields — from IEPayload.utterance
     ie_concept_ids:        List = field(default_factory=list)  # concept URIs this turn asserts about
     ie_addresses_evidence: List = field(default_factory=list)  # concept URIs from prior turn engaged
-    # Taskwork chain from IE payload — present on initial_prior turns
-    taskwork_findings:    Optional[List]  = None   # [{finding_id, value, source}]
-    taskwork_likelihoods: Optional[List]  = None   # [(finding_id, ratio)]
 
 
 class LocalStateReplica:
@@ -96,8 +93,6 @@ class LocalStateReplica:
         contingency_verified: Optional[bool] = None
         ie_concept_ids: List = []
         ie_addresses_evidence: List = []
-        taskwork_findings: Optional[List] = None
-        taskwork_likelihoods: Optional[List] = None
         if payload:
             belief = payload.get("belief") or {}
             if "posterior" in belief:
@@ -112,10 +107,6 @@ class LocalStateReplica:
             utterance = payload.get("utterance") or {}
             ie_concept_ids = list(utterance.get("evidence") or utterance.get("concept_ids", []))
             ie_addresses_evidence = list(utterance.get("addresses_evidence") or [])
-            tw = payload.get("taskwork") or {}
-            if tw:
-                taskwork_findings = tw.get("findings")
-                taskwork_likelihoods = tw.get("likelihoods")
 
         entry = ReplicaEntry(
             message_id=mid,
@@ -128,8 +119,6 @@ class LocalStateReplica:
             contingency_verified=contingency_verified,
             ie_concept_ids=ie_concept_ids,
             ie_addresses_evidence=ie_addresses_evidence,
-            taskwork_findings=taskwork_findings,
-            taskwork_likelihoods=taskwork_likelihoods,
         )
         self._entries.append(entry)
         self._seen_ids.add(mid)

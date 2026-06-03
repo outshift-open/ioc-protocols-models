@@ -59,8 +59,6 @@ class ReplicaToM:
                 "epistemic_state": epistemic_state,
                 "posterior": entry.posterior,
                 "contingency_verified": entry.contingency_verified,
-                "taskwork_findings": entry.taskwork_findings,
-                "taskwork_likelihoods": entry.taskwork_likelihoods,
                 "message_id": entry.message_id,
                 "sequence": entry.sequence,
                 "revised": belief_status == "revised",

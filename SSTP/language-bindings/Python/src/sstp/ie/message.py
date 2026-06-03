@@ -1,24 +1,17 @@
 # Copyright 2026 Cisco Systems, Inc. and its affiliates
 # SPDX-License-Identifier: Apache-2.0
-"""IE payload v0.1 — single unified payload for the Interaction Engine.
+"""IE payload v0.1 — Interaction Engine wire payload.
 
-IEPayload carries everything an IE message needs:
-  utterance — what the sender is asserting and at what nesting depth
-  grounding — contingency verification state (null on initial_prior turns)
-  belief    — calibrated belief: prior (GAR anchor) and posterior
-  taskwork  — Bayesian evidence chain; present only on initial_prior turns,
-              null on all peer_turn / repair turns
+IEPayload carries the IE-specific content of a message:
+  utterance — evidence URIs, addresses_evidence, turn_depth
+  grounding — contingency verification state
+  belief    — prior (GAR anchor) and posterior
 
-This unification means initial_prior and peer_turn carry the same payload
-type. The presence of taskwork distinguishes a prior declaration from a
-grounding exchange; the presence of grounding.responds_to distinguishes a
-response from an opening assertion.
-
-ProcessPayload is kept separate — process negotiation precedes grounding
-and is a to-be-defined SNP team-process round, not an IE concern.
+IE is independent of taskwork and team_process. Those are internal agent
+concerns — they do not appear on the IE wire.
 
 Identity (group, episode, actors) is in the L9 header.
-The primary concept is in the L9 header epistemic.concept_id — not repeated here.
+The primary concept is in the L9 header epistemic.concept_id.
 """
 
 from __future__ import annotations
@@ -35,14 +28,12 @@ class IEUtteranceBlock:
     The primary concept being asserted is in L9 epistemic.concept_id.
 
     ``turn_depth``:
-      0 = top-level exchange or prior declaration
+      0 = top-level exchange or initial_prior
       >0 = inside a repair branch
     """
-    content:            str          # assertion text
     evidence:           List[str]    # supporting evidence concept URIs
     addresses_evidence: List[str]    # concept URIs from the prior turn being engaged;
                                      # input to contingency_check(); empty on first turn
-    inferred_intent:    str          # short semantic label
     turn_depth:         int = 0
 
 
@@ -50,7 +41,7 @@ class IEUtteranceBlock:
 class IEGroundingBlock:
     """Contingency verification state.
 
-    Null on initial_prior turns (no peer to be contingent on).
+    Null fields on initial_prior turns (no peer to be contingent on).
     Sender fills responds_to; receiver fills contingency_verified and score.
     """
     responds_to:          Optional[str]   = None
@@ -75,41 +66,22 @@ class IEBeliefBlock:
 
 
 @dataclass
-class IETaskworkBlock:
-    """Bayesian evidence chain for initial_prior turns.
-
-    Present only when epistemic_state=taskwork (prior declaration).
-    Null on peer_turn / repair turns.
-
-    findings   — structured observations extracted from patient/case data
-    likelihoods — per-finding likelihood ratios used in Naive Bayes posterior
-    reasoning_summary — LLM-generated explanation of the chain
-    """
-    findings:          List[dict]    # [{finding_id, value, source}]
-    likelihoods:       List[tuple]   # [(finding_id, likelihood_ratio)]
-    reasoning_summary: str = ""
-
-
-@dataclass
 class IEPayload:
-    """IE payload v0.1 — unified payload for all IE turns.
+    """IE payload v0.1 — utterance + grounding + belief.
 
-    initial_prior: grounding=IEGroundingBlock() (all null), taskwork=IETaskworkBlock(...)
-    peer_turn:       grounding=IEGroundingBlock(responds_to=...), taskwork=None
-    repair_required: grounding=IEGroundingBlock(repair_reason=...), taskwork=None
+    initial_prior: grounding=IEGroundingBlock() (all null)
+    peer_turn:     grounding=IEGroundingBlock(responds_to=...)
+    repair_*:      grounding=IEGroundingBlock(repair_reason=...)
     """
     utterance: IEUtteranceBlock
     grounding: IEGroundingBlock
     belief:    IEBeliefBlock
-    taskwork:  Optional[IETaskworkBlock] = None  # present only on initial_prior turns
 
     def to_dict(self) -> dict:
-        d: dict = {
+        return {
             "utterance": {
-                "content":            self.utterance.content,
                 "evidence":           list(self.utterance.evidence),
                 "addresses_evidence": list(self.utterance.addresses_evidence),
-                "inferred_intent":    self.utterance.inferred_intent,
                 "turn_depth":         self.utterance.turn_depth,
             },
             "grounding": {
@@ -125,26 +97,16 @@ class IEPayload:
                 "revision_cause": self.belief.revision_cause,
             },
         }
-        if self.taskwork is not None:
-            d["taskwork"] = {
-                "findings":          list(self.taskwork.findings),
-                "likelihoods":       [list(lr) for lr in self.taskwork.likelihoods],
-                "reasoning_summary": self.taskwork.reasoning_summary,
-            }
-        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "IEPayload":
         u = d.get("utterance", {})
         g = d.get("grounding", {})
         b = d.get("belief", {})
-        tw = d.get("taskwork")
         return cls(
             utterance=IEUtteranceBlock(
-                content=u.get("content", ""),
                 evidence=list(u.get("evidence") or u.get("concept_ids", [])),
                 addresses_evidence=list(u.get("addresses_evidence", [])),
-                inferred_intent=u.get("inferred_intent", ""),
                 turn_depth=int(u.get("turn_depth", 0)),
             ),
             grounding=IEGroundingBlock(
@@ -159,22 +121,14 @@ class IEPayload:
                 posterior=float(b.get("posterior", 0.5)),
                 revision_cause=b.get("revision_cause"),
             ),
-            taskwork=IETaskworkBlock(
-                findings=list(tw.get("findings", [])),
-                likelihoods=[tuple(lr) for lr in tw.get("likelihoods", [])],
-                reasoning_summary=tw.get("reasoning_summary", ""),
-            ) if tw else None,
         )
 
 
-# ── ProcessPayload — team process agreement (to-be-defined as SNP round) ─────
+# ── ProcessPayload — team process agreement ───────────────────────────────────
 
 @dataclass
 class ProcessPayload:
-    """Process payload — carried on process_proposed/accepted/challenged turns.
-
-    Placeholder until team-process is modelled as a proper SNP convergence round.
-    """
+    """Process payload — carried on process_proposed/accepted/challenged turns."""
     coordinator_id:   str
     participant_ids:  List[str] = field(default_factory=list)
     role_assignments: List[dict] = field(default_factory=list)
@@ -201,19 +155,13 @@ class ProcessPayload:
 
 
 def get_part(message: dict, type_: str) -> dict:
-    """Extract the content of a payload part by type from an L9 message dict.
-
-    Returns the content dict/str for the first matching inline part,
-    or an empty dict if not found.  Accepts both new (payload list) and
-    old (flat payload dict) message shapes for backwards compat.
-    """
+    """Extract the content of a payload part by type from an L9 message dict."""
     parts = message.get("payload")
     if isinstance(parts, list):
         for p in parts:
             if p.get("type") == type_ and p.get("location", "inline") == "inline":
                 return p.get("content") or {}
         return {}
-    # old flat payload dict — return as-is for IE parts
     if isinstance(parts, dict) and type_ == "ie":
         return parts
     return {}
@@ -223,7 +171,6 @@ __all__ = [
     "IEUtteranceBlock",
     "IEGroundingBlock",
     "IEBeliefBlock",
-    "IETaskworkBlock",
     "IEPayload",
     "ProcessPayload",
     "get_part",

@@ -38,7 +38,6 @@ from .message import (
     IEUtteranceBlock,
     IEGroundingBlock,
     IEBeliefBlock,
-    IETaskworkBlock,
     ProcessPayload,
     get_part,
 )
@@ -70,7 +69,6 @@ __all__ = [
     "IEUtteranceBlock",
     "IEGroundingBlock",
     "IEBeliefBlock",
-    "IETaskworkBlock",
     "ProcessPayload",
     "get_part",
     # SDK: domain-agnostic bus, store, and engine
