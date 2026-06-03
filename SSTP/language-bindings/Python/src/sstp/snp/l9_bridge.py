@@ -146,7 +146,7 @@ def l9_header_to_pydantic(
         "kind": kind,
         "version": l9_header.get("version", "0"),
         "message_id": msg_block.get("id", ""),
-        "dt_created": prov.get("created", ""),
+        "dt_created": prov.get("msg_created", "") or prov.get("created", ""),
         "origin": {
             "actor_id": origin_id,
             "attestation": origin_attest,
@@ -161,7 +161,7 @@ def l9_header_to_pydantic(
             "retention_policy": policy.get("retention_policy", "default"),
         },
         "attributes": {
-            "sources": prov.get("sources", []),
+            "msg_sources": prov.get("msg_sources") or prov.get("sources", []),
         },
         "payload": payload,
     }
@@ -175,7 +175,7 @@ def l9_header_to_pydantic(
         msg_dict["parent_ids"] = parents
     if logical_clock:
         msg_dict["logical_clock"] = logical_clock
-    expiry = prov.get("expiry")
+    expiry = prov.get("msg_expiry") or prov.get("expiry")
     if expiry:
         msg_dict["ttl_seconds"] = expiry
     model_cls = _KIND_MODEL_MAP.get(kind)
@@ -227,10 +227,10 @@ def pydantic_to_l9_header(msg: _STBaseMessage) -> Dict[str, Any]:
             "retention_policy": policy.retention_policy,
         },
         "attributes": {
-            "sources":    list(prov.sources),
-            "transforms": [],
-            "created":    msg.dt_created,
-            "expiry":     None,
+            "msg_sources":    list(prov.sources),
+            "msg_transforms": [],
+            "msg_created":    msg.dt_created,
+            "msg_expiry":     None,
         },
         "epistemic":     None,
         "logical_clock": lc_str,
@@ -306,7 +306,7 @@ def build_negotiate_envelope(
         "kind": "negotiate",
         "version": l9_hdr.get("version", "0"),
         "message_id": _msg_block.get("id", ""),
-        "dt_created": _prov2.get("created", ""),
+        "dt_created": _prov2.get("msg_created", "") or _prov2.get("created", ""),
         "origin": {
             "actor_id": _actors[0].get("id", "unknown") if _actors else "unknown",
             "attestation": _actors[0].get("attestation") if _actors else None,
@@ -334,7 +334,7 @@ def build_negotiate_envelope(
 
     if _msg_block.get("episode"):
         msg_dict["episode_id"] = _msg_block["episode"]
-    expiry2 = _prov2.get("expiry")
+    expiry2 = _prov2.get("msg_expiry") or _prov2.get("expiry")
     if expiry2 is not None:
         msg_dict["ttl_seconds"] = expiry2
 

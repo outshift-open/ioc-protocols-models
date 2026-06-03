@@ -23,7 +23,7 @@ def _parse_timestamp_ms(header: Dict[str, Any]) -> int:
     Old format: dt_created (backwards compat).
     """
     dt_str = (
-        header.get("attributes", {}).get("created", "")
+        header.get("attributes", {}).get("msg_created", "")
         or header.get("provenance", {}).get("created", "")
     )
     if not dt_str:

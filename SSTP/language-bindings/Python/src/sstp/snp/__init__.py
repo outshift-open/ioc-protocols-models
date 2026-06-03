@@ -47,7 +47,7 @@ Usage
             "propagation": "forward",
             "retention_policy": "pol-90d",
         },
-        "attributes": {"sources": ["urn:doc:abc"]},
+        "attributes": {"msg_sources": ["urn:doc:abc"]},
         "payload": {"goal": "book flight", "priority": "high"},
     })
 """
