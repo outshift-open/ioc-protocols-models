@@ -761,7 +761,6 @@ SemanticProposal := {
   sender: String,
   receiver: String,
   payload: Map[String, JsonValue],
-  payload_hash: String,
   origin: Origin,
   policy_labels: PolicyLabels,
   timestamp_sec: Int,
@@ -785,7 +784,6 @@ NegotiationPayload := {
   negotiation_id: Option[String],
   content: String,
   status: String,
-  payload_hash: Option[String],
   proposal_payload: Option[Map[String, JsonValue]],
 }
 ```
@@ -818,10 +816,9 @@ Therefore terminal agreement outcomes are represented as `decision_emitted` even
 ```text
 procedure CreateProposal(sender, receiver, proposal_payload, profile)
 1. proposal_id := UUID4()
-2. payload_hash := SHA256(CanonicalJson(proposal_payload))
-3. initialize proposal and negotiation stores for proposal_id
-4. emit BuildEnvelope(event_type = peer_turn, payload.operation = propose, payload.payload_hash = payload_hash)
-5. return proposal_id
+2. initialize proposal and negotiation stores for proposal_id
+3. emit BuildEnvelope(event_type = peer_turn, payload.operation = propose)
+4. return proposal_id
 ```
 
 ```text
@@ -846,9 +843,8 @@ procedure ResolveNegotiation(negotiation_id)
 
 ```text
 procedure VerifyProposalIntegrity(proposal_id)
-1. recompute SHA256(CanonicalJson(proposal_payload))
-2. compare with stored payload_hash
-3. return true iff equal
+1. verify proposal_id exists in ProposalStore
+2. return true iff found
 ```
 
 ### 12.5 Adaptation Invariants

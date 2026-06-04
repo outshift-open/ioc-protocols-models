@@ -101,9 +101,6 @@ class _STBaseMessage(BaseModel):
 
     origin: Origin
     semantic_context: SemanticContext
-    payload_hash: str
-    """SHA-256 hex digest of the serialised payload field."""
-
     policy_labels: PolicyLabels
     provenance: Provenance
 

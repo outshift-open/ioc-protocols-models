@@ -281,7 +281,7 @@ class L9HeaderBuilder:
           policy    — {sensitivity, propagation, retention_policy}
           provenance — {sources, transforms, created, expiry}
           epistemic — {speech_act, state, belief_status, concept_id, uncertainty}
-          payload   — list of PayloadPart: [{type, location, content|ref, hash}]
+          payload   — list of PayloadPart: [{type, location, content|ref}]
 
         ``payload_parts`` declares the payload parts carried by this message.
         Each part has: type ("utterance"|"ie"|"snp"|"process"), location

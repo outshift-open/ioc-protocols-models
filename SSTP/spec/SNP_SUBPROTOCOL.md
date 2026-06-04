@@ -89,14 +89,11 @@ SemanticProposal := {
   sender: String,
   receiver: String,
   payload: Map[String, JsonValue],
-  payload_hash: String,
   origin: Origin,
   policy_labels: PolicyLabels,
   timestamp_sec: TimestampSec,
 }
 ```
-
-`payload_hash` is SHA-256 over canonical JSON payload (`sort_keys=true`).
 
 ### 2.3 Negotiation Message
 
@@ -207,7 +204,6 @@ NegotiationPayload := {
   negotiation_id: Option[String],
   content: String,
   status: NegotiationStatus,
-  payload_hash: Option[String],
   proposal_payload: Option[Map[String, JsonValue]],
 }
 ```
@@ -216,7 +212,7 @@ Required rules:
 1. `profile` MUST equal `semantic_negotiation`.
 2. `operation` MUST be a value from `NegotiationOperation`.
 3. `proposal_id` MUST be present for every negotiation event.
-4. `proposal_payload` and `payload_hash` MUST be present for `operation = propose`.
+4. `proposal_payload` MUST be present for `operation = propose`.
 5. `operation in {accept, reject}` SHOULD use `status = resolved`.
 
 ### 3.3 Causality Rules
@@ -234,11 +230,10 @@ Required rules:
 ```text
 procedure CreateProposal(sender, receiver, proposal_payload, origin, policy, profile)
 1. proposal_id := UUID4()
-2. payload_hash := SHA256(CanonicalJson(proposal_payload))
-3. store SemanticProposal in ProposalStore[proposal_id]
-4. initialize NegotiationStore[proposal_id] := []
-5. emit envelope using operation=propose and event_type=peer_turn
-6. return proposal_id
+2. store SemanticProposal in ProposalStore[proposal_id]
+3. initialize NegotiationStore[proposal_id] := []
+4. emit envelope using operation=propose and event_type=peer_turn
+5. return proposal_id
 ```
 
 ### 4.2 SendNegotiation
@@ -284,10 +279,7 @@ procedure GetPendingNegotiations(receiver)
 
 ```text
 procedure VerifyProposalIntegrity(proposal_id)
-1. if proposal_id not in ProposalStore: return false
-2. stored_hash := ProposalStore[proposal_id].payload_hash
-3. recomputed := SHA256(CanonicalJson(ProposalStore[proposal_id].payload))
-4. return (stored_hash = recomputed)
+1. return (proposal_id in ProposalStore)
 ```
 
 ### 4.7 DetermineConvergence

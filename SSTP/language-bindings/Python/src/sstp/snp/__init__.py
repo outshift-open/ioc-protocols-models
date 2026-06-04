@@ -10,7 +10,7 @@ envelope models, SNP operation vocabulary and mapping, SAO negotiation state
 types, and the bridge that converts between them.
 
 The ``kind`` field is the discriminator. All kinds share a common envelope
-(origin, semantic_context, policy_labels, provenance, payload_hash) plus a
+(origin, semantic_context, policy_labels, provenance) plus a
 set of optional general fields.  ``kind="commit"`` promotes several of those
 optional fields to **required**.
 
@@ -41,7 +41,6 @@ Usage
         "semantic_context": {
             "schema_id": "urn:ioc:schema:intent:v1",
         },
-        "payload_hash": "sha256:deadbeef",
         "policy_labels": {
             "sensitivity": "internal",
             "propagation": "forward",

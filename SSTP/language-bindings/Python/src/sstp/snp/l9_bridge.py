@@ -37,7 +37,6 @@ Public API
 
 from __future__ import annotations
 
-import hashlib
 import json
 from typing import Any, Dict, Iterable
 
@@ -89,10 +88,6 @@ _KIND_MODEL_MAP: Dict[str, type[_STBaseMessage]] = {
     # NegMAS SAO (intentionally kept; NegMAS-specific extension)
     "negotiate":    SSTPNegotiateMessage,
 }
-
-
-def _payload_hash(payload: Dict[str, Any]) -> str:
-    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
 # ── L9 dict → Pydantic ────────────────────────────────────────────────────────
@@ -154,7 +149,6 @@ def l9_header_to_pydantic(
         "semantic_context": {
             "schema_id": sem_ctx.get("schema_id", ""),
         },
-        "payload_hash": _payload_hash(payload),
         "policy_labels": {
             "sensitivity": policy.get("sensitivity", "internal"),
             "propagation": policy.get("propagation", "restricted"),
@@ -320,7 +314,6 @@ def build_negotiate_envelope(
             "sao_response": _sao_response.model_dump() if _sao_response else None,
             "nmi": _nmi.model_dump() if _nmi else None,
         },
-        "payload_hash": _payload_hash(payload),
         "policy_labels": l9_hdr.get("policy") or l9_hdr.get("policy_labels", {
             "sensitivity": "internal",
             "propagation": "restricted",
