@@ -19,7 +19,6 @@ and the episode_id format have been parameterised.
 """
 from __future__ import annotations
 
-import hashlib as _hashlib
 import json as _json
 import logging
 import time
@@ -858,16 +857,12 @@ class StarNegotiation:
             concept_id=key if key else None,
 
         )
-        _phash = _hashlib.sha256(
-            _json.dumps(pos_dict, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
         _snp_payload = build_snp_payload(
             operation=NegotiationOperation.PROPOSE,
             proposal_id=proposal_id,
             content=key,
             status=NegotiationStatus.PENDING,
             negotiation_id=self.panel_bus._negotiation_id,
-            payload_hash=_phash,
             posterior=pos_dict.get("posterior") or conf,
             supporting_evidence=pos_dict.get("supporting_evidence"),
             against_evidence=pos_dict.get("against_evidence"),
@@ -897,7 +892,6 @@ class StarNegotiation:
                 sender=controller,
                 receiver=specialist,
                 payload=pos_dict,
-                payload_hash=_phash,
                 timestamp_ms=ts,
             ))
         self.panel_bus.snp_trace.append(snp_header)

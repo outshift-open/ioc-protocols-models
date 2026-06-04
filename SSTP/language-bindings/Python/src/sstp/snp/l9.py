@@ -140,7 +140,6 @@ def build_snp_payload(
     content: str,
     status: str,
     negotiation_id: str | None = None,
-    payload_hash: str | None = None,
     proposal_payload: Dict[str, Any] | None = None,
     posterior: Optional[float] = None,
     supporting_evidence: Optional[List[str]] = None,
@@ -177,9 +176,6 @@ def build_snp_payload(
     }
     if negotiation_id is not None:
         out["negotiation_id"] = negotiation_id
-    if payload_hash is not None:
-        out["payload_hash"] = payload_hash
-
     reasoning: Dict[str, Any] = {}
     if posterior is not None:
         reasoning["posterior"] = round(float(posterior), 4)

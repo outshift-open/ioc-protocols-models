@@ -705,12 +705,11 @@ class SemanticProposal:
     sender: str
     receiver: str
     payload: dict
-    payload_hash: str
     timestamp_ms: int
 
 
 class ProposalStore:
-    """Spec §2.6: proposal_id → SemanticProposal. Supports payload integrity verification."""
+    """Spec §2.6: proposal_id → SemanticProposal."""
 
     def __init__(self) -> None:
         self._store: Dict[str, SemanticProposal] = {}
@@ -720,16 +719,6 @@ class ProposalStore:
 
     def get(self, proposal_id: str) -> Optional[SemanticProposal]:
         return self._store.get(proposal_id)
-
-    def verify_integrity(self, proposal_id: str) -> bool:
-        import hashlib as _hl, json as _js
-        p = self.get(proposal_id)
-        if p is None:
-            return False
-        computed = _hl.sha256(
-            _js.dumps(p.payload, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
-        return computed == p.payload_hash
 
 
 @dataclass
