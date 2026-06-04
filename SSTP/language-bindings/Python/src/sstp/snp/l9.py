@@ -179,7 +179,6 @@ def build_snp_payload(
     reasoning: Dict[str, Any] = {}
     if posterior is not None:
         reasoning["posterior"] = round(float(posterior), 4)
-        reasoning["confidence"] = reasoning["posterior"]
     if supporting_evidence:
         reasoning["supporting_evidence"] = list(supporting_evidence)
     if against_evidence:
