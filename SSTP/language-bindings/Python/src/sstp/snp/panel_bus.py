@@ -917,8 +917,17 @@ class StarNegotiation:
         ctrl_conf: float = 0.5,
         accept_threshold: float = 0.1,
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        conf = self._confidence(position)
         key = self._position_key(position)
+        # Read specialist's own posterior from BeliefStore if wired — this is their
+        # independent calibrated belief, not a copy of the controller's position.
+        _concept_id_for_bs = f"urn:concept:{self.panel_bus.use_case}:{ctrl_position_key or key}"
+        if self.panel_bus.belief_store is not None:
+            _bs = self.panel_bus.belief_store.current_belief(
+                specialist, _concept_id_for_bs, self.panel_bus.use_case
+            )
+            conf = _bs.posterior if _bs is not None else self._confidence(position)
+        else:
+            conf = self._confidence(position)
         verb = "accepts" if operation == NegotiationOperation.ACCEPT else "counter-proposes"
         utterance = f"{specialist} {verb} {key} confidence={conf:.2f}"
         proposal_id = self.panel_bus._proposal_id(turn, specialist)
@@ -1117,19 +1126,17 @@ class StarNegotiation:
             initial_priors = {mid: self._confidence(specialist_positions[mid]) for mid in member_ids}
             initial_priors[controller_id] = self._confidence(controller_position)
 
-        # AF1: sync proposal confidence from BeliefState.posterior when a SemanticRule exists.
-        # inject_prior() has already set posterior = rule.confidence; proposals must emit that
-        # value, not the stale LLM confidence.  First episode: no rule → unchanged.
+        # AF1: sync controller's proposal confidence from BeliefState.posterior when a
+        # SemanticRule exists. Only the controller's position is aligned to the rule —
+        # specialists express their own independent priors, not the rule confidence.
         if (self.panel_bus.belief_store is not None
                 and self.panel_bus.semantic_rule_store is not None):
             _af1_rule = self.panel_bus.semantic_rule_store.latest(concept_id, self.panel_bus.use_case)
             if _af1_rule is not None:
-                for _af1_id, _af1_pos in ([(controller_id, controller_position)]
-                                           + [(mid, specialist_positions[mid]) for mid in member_ids]):
-                    _af1_bs = self.panel_bus.belief_store.current_belief(
-                        _af1_id, concept_id, self.panel_bus.use_case)
-                    if _af1_bs is not None:
-                        _af1_pos["confidence"] = _af1_bs.posterior
+                _af1_bs = self.panel_bus.belief_store.current_belief(
+                    controller_id, concept_id, self.panel_bus.use_case)
+                if _af1_bs is not None:
+                    controller_position["confidence"] = _af1_bs.posterior
 
         for round_idx in range(max_rounds):
             # Record NegotiationRound at start with current position snapshot
