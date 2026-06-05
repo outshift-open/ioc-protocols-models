@@ -968,6 +968,8 @@ class StarNegotiation:
             addresses_evidence=addresses_ev,
             deferred_to=controller if _is_delib_pass else None,
         )
+        # All specialist responses during debate are exchanges — only the final
+        # decision commit closes the negotiation branch.
         snp_header = build_snp_l9_header(
             operation=operation,
             use_case=self.panel_bus.use_case,
@@ -979,6 +981,7 @@ class StarNegotiation:
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
             epistemic=epistemic_block,
+            kind_override="exchange",
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": utterance},
                 {"type": "snp", "location": "inline", "content": _snp_payload},
@@ -1037,6 +1040,7 @@ class StarNegotiation:
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
             epistemic=epistemic_block,
+            kind_override="commit",
         )
         self.panel_bus.snp_trace.append(snp_header)
         ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK, 
@@ -1325,21 +1329,22 @@ class StarNegotiation:
         pre_final_positions = dict(specialist_positions)
         winning_position = self._leading_position(specialist_positions)
         win_key = self._position_key(winning_position)
-        genuine_accept_count = 0
-        # Use last IE message id as parent for final decisions — no extra propose needed
+        # Count genuine accepts before emitting the single commit
+        genuine_accept_count = sum(
+            1 for mid in member_ids
+            if self._position_key(pre_final_positions.get(mid, winning_position)) == win_key
+        )
+        # Emit one commit from the controller — the panel's single negotiation result
         _last_ie_mid = self.panel_bus.ie_bus.messages[-1]["message"]["id"] if self.panel_bus.ie_bus.messages else ""
-        for member_id in member_ids:
-            if self._position_key(pre_final_positions.get(member_id, winning_position)) == win_key:
-                genuine_accept_count += 1
-            self._emit_final_decision(
-                controller=controller_id,
-                specialist=member_id,
-                position=winning_position,
-                turn=final_turn,
-                ie_request_message_id=_last_ie_mid,
-                specialist_position=pre_final_positions.get(member_id),
-                accept_threshold=accept_threshold,
-            )
+        self._emit_final_decision(
+            controller=controller_id,
+            specialist=controller_id,
+            position=winning_position,
+            turn=final_turn,
+            ie_request_message_id=_last_ie_mid,
+            specialist_position=winning_position,
+            accept_threshold=accept_threshold,
+        )
 
         if self.panel_bus.convergence_store is not None:
             # GAR: fraction of agents whose posterior moved in same direction as grounded argument
