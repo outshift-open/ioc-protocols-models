@@ -203,7 +203,6 @@ def pydantic_to_l9_header(msg: _STBaseMessage) -> Dict[str, Any]:
         "version": msg.version,
         "kind": msg.kind,
         "subkind": None,
-        "group":   [origin.actor_id],
         "actors":  [{"id": origin.actor_id, "attestation": origin.attestation or "self_attested_local"}],
         "message": {
             "id":      msg.message_id,

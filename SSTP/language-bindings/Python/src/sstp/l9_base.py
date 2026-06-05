@@ -259,7 +259,6 @@ class L9HeaderBuilder:
         epistemic: Dict[str, Any] | None = None,
         kind_override: str | None = None,
         subkind: str | None = None,
-        group: "str | List[str] | None" = None,
         sequence_number: int | None = None,
         payload_parts: "List[Dict[str, Any]] | None" = None,
         # Deprecated params — accepted but ignored for backwards compat
@@ -269,26 +268,26 @@ class L9HeaderBuilder:
         conversation_id: str | None = None,
         cognition_protocol: str | None = None,
         provenance_transforms: "Any | None" = None,
+        group: "Any | None" = None,
     ) -> Dict[str, Any]:
         """Assemble the L9 envelope dict per the current wire format.
 
         New wire shape (2026 revision):
           protocol, version, kind, subkind
-          group     — list of actor_ids in this conversation
           actors    — list of {id, attestation} for senders
           message   — {id, parents, episode}
           semantic  — {schema_id, ontology_ref, sub_protocol}
           policy    — {sensitivity, propagation, retention_policy}
-          provenance — {sources, transforms, created, expiry}
+          attributes — {msg_sources, msg_transforms, msg_created, msg_expiry}
           epistemic — {speech_act, state, belief_status, concept_id, uncertainty}
           payload   — list of PayloadPart: [{type, location, content|ref}]
 
+        Group membership is a transport concern (pub-sub topic subscription).
+        It is not carried in the L9 header.
+
         ``payload_parts`` declares the payload parts carried by this message.
-        Each part has: type ("utterance"|"ie"|"snp"|"process"), location
-        ("inline"|"external"), content (str or dict for inline), ref+hash for external.
         ``kind_override`` bypasses the event-type-to-kind mapping.
         ``subkind`` is supportive of kind: "converged" | "abort" | null.
-        ``group`` identifies all actor_ids in this conversation (replaces conversation_id).
         ``sub_protocol`` identifies the sub-protocol: "IE" | "SNP".
         ``provenance_expiry`` is an ISO 8601 UTC string or null.
         """
@@ -297,8 +296,6 @@ class L9HeaderBuilder:
         kind = kind_override or self.kind_for_event_type(canonical_type)
         trust_level = schema_trust_level_for_kind(kind)
 
-        # backwards compat: conversation_id falls back to group
-        effective_group = group or conversation_id
         # backwards compat: cognition_protocol falls back to sub_protocol
         effective_sub_protocol = sub_protocol or cognition_protocol
 
@@ -321,22 +318,11 @@ class L9HeaderBuilder:
         parent_id_list = [str(i) for i in (parent_ids or []) if i]
         source_list = [str(i) for i in (provenance_sources or []) if i]
 
-        # group: normalise to list of actor_ids
-        if effective_group is None:
-            group_list = [str(sender or "unknown")]
-            if receiver:
-                group_list.append(str(receiver))
-        elif isinstance(effective_group, list):
-            group_list = [str(g) for g in effective_group if g]
-        else:
-            group_list = [str(effective_group)]
-
         header: Dict[str, Any] = {
             "protocol": self.PROTOCOL,
             "version":  self.VERSION,
             "kind":     kind,
             "subkind":  subkind,
-            "group":    group_list,
             "actors":   [{"id": str(sender or "unknown"), "attestation": "self_attested_local"}],
             "message": {
                 "id":      derived_message_id,

@@ -222,7 +222,6 @@ SSTPHeader := {
   kind:     Kind,
   subkind:  Option["converged" | "abort"],     -- supportive of kind
 
-  group:    Seq[String],                       -- actor_ids of all participants
   actors:   Seq[{id: String, attestation: String}], -- senders (usually one)
 
   message: {
@@ -265,7 +264,7 @@ Field constraints:
 7. turn_depth MUST be present and greater than zero on `contingency` messages; MAY be null otherwise.
 8. A `contingency` message MUST carry a child `episode_id` scoped to its parent exchange.
 9. `commit_resolution` MUST be present when `kind = commit`; MUST be null otherwise.
-10. `conversation_id` identifies the group of two or more agents engaged in this conversation.  Every message exchanged within the same agent group carries the same `conversation_id`, regardless of episode boundaries.  Set once at session open; threaded forward across all episodes for the same agent group.
+10. Group membership is a transport concern (pub-sub topic subscription) and is not carried in the L9 header. The audience of a message is implicit from the topic it is published to.
 
 ### 5.3 Generic Runtime Envelope
 
@@ -520,9 +519,8 @@ The first message in a session MUST carry `kind = intent`. It triggers service s
 ```text
 procedure InitiateSession(use_case, sender, receiver, intent_payload, profile)
 1. episode_id := new session identifier, e.g. "urn:ioc:{use_case}:session:{UUID4()}"
-2. conversation_id := identifier for this agent group, e.g. "urn:ioc:{use_case}:group:{UUID4()}"
-3. emit BuildEnvelope(event_type = "peer_turn", header_kind_override = "intent",
-     header_episode_id = episode_id, header_conversation_id = conversation_id, parent_ids = [],
+2. emit BuildEnvelope(event_type = "peer_turn", header_kind_override = "intent",
+     header_episode_id = episode_id, parent_ids = [],
      payload = intent_payload)
 4. service routing resolves the receiving endpoint from the intent payload
 5. session state is established at both sender and receiver

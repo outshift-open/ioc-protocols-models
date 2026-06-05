@@ -248,7 +248,6 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         epistemic: Dict[str, Any] | None = None,
         state_sequence: Dict[str, Any] | None = None,
         kind_override: str | None = None,
-        conversation_id: str | None = None,
         sequence_number: int | None = None,
         payload_parts: "List[Dict[str, Any]] | None" = None,
     ) -> Dict[str, Any]:
@@ -282,7 +281,6 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
             epistemic=epistemic,
             state_sequence=state_sequence,
             kind_override=kind_override,
-            conversation_id=conversation_id,
             sequence_number=sequence_number,
             payload_parts=payload_parts,
         )
@@ -311,7 +309,6 @@ def build_snp_l9_header(
     epistemic: Dict[str, Any] | None = None,
     state_sequence: Dict[str, Any] | None = None,
     kind_override: str | None = None,
-    conversation_id: str | None = None,
     sequence_number: int | None = None,
     payload_parts: "List[Dict[str, Any]] | None" = None,
 ) -> Dict[str, Any]:
@@ -338,7 +335,6 @@ def build_snp_l9_header(
         epistemic=epistemic,
         state_sequence=state_sequence,
         kind_override=kind_override,
-        conversation_id=conversation_id,
         sequence_number=sequence_number,
         payload_parts=payload_parts,
     )
