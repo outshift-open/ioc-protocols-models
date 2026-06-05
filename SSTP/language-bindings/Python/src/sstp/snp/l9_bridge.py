@@ -78,7 +78,7 @@ _KIND_MODEL_MAP: Dict[str, type[_STBaseMessage]] = {
     "exchange":     ExchangeMessage,
     "contingency":  ContingencyMessage,
     "commit:converged": SSTPCommitMessage,
-    "commit:abort":     SSTPCommitMessage,
+    "commit:rejected":     SSTPCommitMessage,
     "convergence":      ConvergenceMessage,
     # Legacy kinds (backward compat during transition)
     "delegation":   DelegationMessage,

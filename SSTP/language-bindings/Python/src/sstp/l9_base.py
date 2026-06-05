@@ -79,7 +79,7 @@ L9_VERSION: str = "0"
 
 # ── Shared utilities ──────────────────────────────────────────────────────────
 
-_CERTIFIED_KINDS: frozenset = frozenset({"commit:converged", "commit:abort"})
+_CERTIFIED_KINDS: frozenset = frozenset({"commit:converged", "commit:rejected"})
 
 # ── Schema lifecycle stages (§5 of the canonical model spec) ─────────────────
 #

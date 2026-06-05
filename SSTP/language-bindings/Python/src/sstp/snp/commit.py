@@ -41,7 +41,7 @@ class SSTPCommitMessage(_STBaseMessage):
     **required** here (per the spec's Commit-Specific Extensions section).
     """
 
-    kind: Literal["commit:converged", "commit:abort"]
+    kind: Literal["commit:converged", "commit:rejected"]
 
     # Override: typed semantic context carrying the final agreement
     semantic_context: NegotiateCommitSemanticContext  # type: ignore[override]
