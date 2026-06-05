@@ -1072,6 +1072,22 @@ class StarNegotiation:
         # Inject cross-episode social skill map into peer belief models before negotiation
         self.panel_bus._inject_skill_maps([controller_id] + list(member_ids))
 
+        # Panel session open — emit intent on the panel episode
+        _panel_episode_id = self.panel_bus._episode_id()
+        _intent_utterance = f"panel:open concept={ctrl_key_init} participants={[controller_id]+list(member_ids)}"
+        _intent_header = build_snp_l9_header(
+            operation=NegotiationOperation.PROPOSE,
+            use_case=self.panel_bus.use_case,
+            sender=controller_id,
+            receiver=None,
+            timestamp_ms=int(time.time() * 1000),
+            proposal_id=f"intent-{self.panel_bus._negotiation_id[:8]}",
+            utterance=_intent_utterance,
+            episode_id=_panel_episode_id,
+            kind_override="intent",
+        )
+        self.panel_bus.snp_trace.append(_intent_header)
+
         # Step 3: inject priors before the round opens
         if self.panel_bus.belief_store is not None:
             for agent_id, pos in (
@@ -1490,15 +1506,34 @@ class StarNegotiation:
                     description=f"Team converged: {win_key} at posterior={truth.consensus_posterior:.2f}",
                 )
                 self.panel_bus.semantic_rule_store.record(rule)
-                self.panel_bus.ie_bus.messages.append({
-                    "type": "rule_update",
-                    "kind": "knowledge",
-                    "concept_id": win_key,
-                    "use_case": self.panel_bus.use_case,
-                    "confidence": rule.confidence,
-                    "provenance_weight": rule.provenance_weight,
-                    "episode_id": truth.episode_id,
-                })
+                # Emit rule_update (kind=knowledge) on the panel SNP trace
+                _rule_utterance = (
+                    f"rule_update:{win_key}"
+                    f":posterior={truth.consensus_posterior:.4f}"
+                    f":gar={truth.genuine_agreement_ratio:.4f}"
+                    f":scr={truth.social_compliance_ratio:.4f}"
+                    f":provenance_weight={provenance_weight:.4f}"
+                )
+                _rule_header = build_snp_l9_header(
+                    operation=NegotiationOperation.ACCEPT,
+                    use_case=self.panel_bus.use_case,
+                    sender=controller_id,
+                    receiver=None,
+                    timestamp_ms=truth.formed_at_ms + 1,
+                    proposal_id=f"rule-{self.panel_bus._negotiation_id[:8]}",
+                    utterance=_rule_utterance,
+                    episode_id=truth.episode_id,
+                    kind_override="knowledge",
+                    epistemic=make_epistemic_block(
+                        speech_act=SpeechAct.ASSERTION,
+                        epistemic_state=EpistemicState.TASKWORK,
+                        concept_id=_conv_concept_id,
+                    ),
+                    payload_parts=[
+                        {"type": "utterance", "location": "inline", "content": _rule_utterance},
+                    ],
+                )
+                self.panel_bus.snp_trace.append(_rule_header)
 
         # Fix 4: batch-promote accumulated ArgumentOutcomes and write-back to AgentEpistemicStore
         if self.panel_bus.peer_interaction_store is not None:
@@ -1612,6 +1647,22 @@ class RingNegotiation:
 
         # Inject cross-episode social skill map into peer belief models before negotiation
         self.panel_bus._inject_skill_maps(list(member_ids))
+
+        # Panel session open — emit intent on the panel episode
+        _ring_episode_id = self.panel_bus._episode_id()
+        _ring_intent_utterance = f"panel:open concept={first_init_key} participants={list(member_ids)}"
+        _ring_intent_header = build_snp_l9_header(
+            operation=NegotiationOperation.NEGOTIATE,
+            use_case=self.panel_bus.use_case,
+            sender=member_ids[0] if member_ids else "ring",
+            receiver=None,
+            timestamp_ms=int(time.time() * 1000),
+            proposal_id=f"intent-{self.panel_bus._negotiation_id[:8]}",
+            utterance=_ring_intent_utterance,
+            episode_id=_ring_episode_id,
+            kind_override="intent",
+        )
+        self.panel_bus.snp_trace.append(_ring_intent_header)
 
         # Inject priors from SemanticRuleStore (or positional confidence) before loop
         for mid in member_ids:
@@ -1935,15 +1986,35 @@ class RingNegotiation:
                     description=f"Team converged: {win_key} at posterior={truth.consensus_posterior:.2f}",
                 )
                 self.panel_bus.semantic_rule_store.record(rule)
-                self.panel_bus.ie_bus.messages.append({
-                    "type": "rule_update",
-                    "kind": "knowledge",
-                    "concept_id": win_key,
-                    "use_case": self.panel_bus.use_case,
-                    "confidence": rule.confidence,
-                    "provenance_weight": rule.provenance_weight,
-                    "episode_id": truth.episode_id,
-                })
+                # Emit rule_update (kind=knowledge) on the panel SNP trace
+                _ring_sender = member_ids[0] if member_ids else "ring-controller"
+                _rule_utterance_r = (
+                    f"rule_update:{win_key}"
+                    f":posterior={truth.consensus_posterior:.4f}"
+                    f":gar={truth.genuine_agreement_ratio:.4f}"
+                    f":scr={truth.social_compliance_ratio:.4f}"
+                    f":provenance_weight={provenance_weight:.4f}"
+                )
+                _rule_header_r = build_snp_l9_header(
+                    operation=NegotiationOperation.ACCEPT,
+                    use_case=self.panel_bus.use_case,
+                    sender=_ring_sender,
+                    receiver=None,
+                    timestamp_ms=truth.formed_at_ms + 1,
+                    proposal_id=f"rule-{self.panel_bus._negotiation_id[:8]}",
+                    utterance=_rule_utterance_r,
+                    episode_id=truth.episode_id,
+                    kind_override="knowledge",
+                    epistemic=make_epistemic_block(
+                        speech_act=SpeechAct.ASSERTION,
+                        epistemic_state=EpistemicState.TASKWORK,
+                        concept_id=f"urn:concept:{self.panel_bus.use_case}:{win_key}",
+                    ),
+                    payload_parts=[
+                        {"type": "utterance", "location": "inline", "content": _rule_utterance_r},
+                    ],
+                )
+                self.panel_bus.snp_trace.append(_rule_header_r)
 
         # Fix 4: batch-promote accumulated ArgumentOutcomes and write-back to AgentEpistemicStore
         if self.panel_bus.peer_interaction_store is not None:
