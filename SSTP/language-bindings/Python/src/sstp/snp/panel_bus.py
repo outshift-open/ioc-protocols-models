@@ -1326,8 +1326,9 @@ class StarNegotiation:
         winning_position = self._leading_position(specialist_positions)
         win_key = self._position_key(winning_position)
         genuine_accept_count = 0
+        # Use last IE message id as parent for final decisions — no extra propose needed
+        _last_ie_mid = self.panel_bus.ie_bus.messages[-1]["message"]["id"] if self.panel_bus.ie_bus.messages else ""
         for member_id in member_ids:
-            _, ie_propose = self._emit_propose(controller_id, member_id, winning_position, final_turn)
             if self._position_key(pre_final_positions.get(member_id, winning_position)) == win_key:
                 genuine_accept_count += 1
             self._emit_final_decision(
@@ -1335,7 +1336,7 @@ class StarNegotiation:
                 specialist=member_id,
                 position=winning_position,
                 turn=final_turn,
-                ie_request_message_id=ie_propose["message"]["id"],
+                ie_request_message_id=_last_ie_mid,
                 specialist_position=pre_final_positions.get(member_id),
                 accept_threshold=accept_threshold,
             )
