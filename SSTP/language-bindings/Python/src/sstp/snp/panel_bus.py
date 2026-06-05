@@ -1325,25 +1325,13 @@ class StarNegotiation:
             if top_count > n / 2:
                 resolution_label = "timeout_majority"
 
-        final_turn = max_rounds
         pre_final_positions = dict(specialist_positions)
         winning_position = self._leading_position(specialist_positions)
         win_key = self._position_key(winning_position)
-        # Count genuine accepts before emitting the single commit
+        # Count genuine accepts for GAR computation
         genuine_accept_count = sum(
             1 for mid in member_ids
             if self._position_key(pre_final_positions.get(mid, winning_position)) == win_key
-        )
-        # Emit one commit from the controller — the panel's single negotiation result
-        _last_ie_mid = self.panel_bus.ie_bus.messages[-1]["message"]["id"] if self.panel_bus.ie_bus.messages else ""
-        self._emit_final_decision(
-            controller=controller_id,
-            specialist=controller_id,
-            position=winning_position,
-            turn=final_turn,
-            ie_request_message_id=_last_ie_mid,
-            specialist_position=winning_position,
-            accept_threshold=accept_threshold,
         )
 
         if self.panel_bus.convergence_store is not None:
@@ -1426,42 +1414,34 @@ class StarNegotiation:
             )
             self.panel_bus.convergence_store.record(truth)
 
-            # Spec §4.9: emit convergence_emitted to each participant individually.
+            # Emit one commit:converged — panel_bus is a shared observable bus,
+            # all participants see it without individual addressing.
             _conv_proposal_id = f"convergence-{self.panel_bus._negotiation_id[:8]}"
-            _conv_utterance = f"SNP convergence: {win_key} → {truth.outcome}"
-            convergence_header = None
-            for _recv in truth.participant_ids:
-                _ch = build_snp_l9_header(
-                    operation=NegotiationOperation.ACCEPT,
-                    use_case=self.panel_bus.use_case,
-                    sender=controller_id,
-                    receiver=_recv,
-                    timestamp_ms=truth.formed_at_ms,
-                    proposal_id=_conv_proposal_id,
-                    utterance=_conv_utterance,
-                    episode_id=truth.episode_id,
-                    kind_override="commit:converged",
-                )
-                _ch["participant_ids"] = truth.participant_ids
-                _ch["consensus_posterior"] = truth.consensus_posterior
-                _ch["genuine_agreement_ratio"] = truth.genuine_agreement_ratio
-                _ch["social_compliance_ratio"] = truth.social_compliance_ratio
-                self.panel_bus.snp_trace.append(_ch)
-                if convergence_header is None:
-                    convergence_header = _ch  # keep first for downstream references
-            if convergence_header is None:
-                convergence_header = build_snp_l9_header(
-                    operation=NegotiationOperation.ACCEPT,
-                    use_case=self.panel_bus.use_case,
-                    sender=controller_id,
-                    receiver=None,
-                    timestamp_ms=truth.formed_at_ms,
-                    proposal_id=_conv_proposal_id,
-                    utterance=_conv_utterance,
-                    episode_id=truth.episode_id,
-                    kind_override="commit:converged",
-                )
-                self.panel_bus.snp_trace.append(convergence_header)
+            _conv_utterance = (
+                f"SNP convergence: {win_key} → {truth.outcome}"
+                f" posterior={truth.consensus_posterior:.4f}"
+                f" gar={truth.genuine_agreement_ratio:.4f}"
+                f" scr={truth.social_compliance_ratio:.4f}"
+            )
+            convergence_header = build_snp_l9_header(
+                operation=NegotiationOperation.ACCEPT,
+                use_case=self.panel_bus.use_case,
+                sender=controller_id,
+                receiver=None,
+                timestamp_ms=truth.formed_at_ms,
+                proposal_id=_conv_proposal_id,
+                utterance=_conv_utterance,
+                episode_id=truth.episode_id,
+                kind_override="commit:converged",
+                payload_parts=[
+                    {"type": "utterance", "location": "inline", "content": _conv_utterance},
+                ],
+            )
+            convergence_header["participant_ids"] = truth.participant_ids
+            convergence_header["consensus_posterior"] = truth.consensus_posterior
+            convergence_header["genuine_agreement_ratio"] = truth.genuine_agreement_ratio
+            convergence_header["social_compliance_ratio"] = truth.social_compliance_ratio
+            self.panel_bus.snp_trace.append(convergence_header)
 
             # C10: push consensus_posterior into each participant's AgentTOM and BeliefState.
             # Use URN concept_id (matching inject_prior's lookup key) not bare win_key.
@@ -1910,41 +1890,33 @@ class RingNegotiation:
 
             # Spec §4.9: emit convergence_emitted to each participant individually.
             _ring_sender = member_ids[0] if member_ids else "ring"
+            # One commit:converged — ring_bus is a shared observable bus.
             _ring_conv_proposal_id = f"convergence-{self.panel_bus._negotiation_id[:8]}"
-            _ring_conv_utterance = f"SNP ring convergence: {win_key} → {truth.outcome}"
-            convergence_header = None
-            for _recv in truth.participant_ids:
-                _ch = build_snp_l9_header(
-                    operation=NegotiationOperation.ACCEPT,
-                    use_case=self.panel_bus.use_case,
-                    sender=_ring_sender,
-                    receiver=_recv,
-                    timestamp_ms=formed_at,
-                    proposal_id=_ring_conv_proposal_id,
-                    utterance=_ring_conv_utterance,
-                    episode_id=truth.episode_id,
-                    kind_override="commit:converged",
-                )
-                _ch["participant_ids"] = truth.participant_ids
-                _ch["consensus_posterior"] = truth.consensus_posterior
-                _ch["genuine_agreement_ratio"] = truth.genuine_agreement_ratio
-                _ch["social_compliance_ratio"] = truth.social_compliance_ratio
-                self.panel_bus.snp_trace.append(_ch)
-                if convergence_header is None:
-                    convergence_header = _ch
-            if convergence_header is None:
-                convergence_header = build_snp_l9_header(
-                    operation=NegotiationOperation.ACCEPT,
-                    use_case=self.panel_bus.use_case,
-                    sender=_ring_sender,
-                    receiver=None,
-                    timestamp_ms=formed_at,
-                    proposal_id=_ring_conv_proposal_id,
-                    utterance=_ring_conv_utterance,
-                    episode_id=truth.episode_id,
-                    kind_override="commit:converged",
-                )
-                self.panel_bus.snp_trace.append(convergence_header)
+            _ring_conv_utterance = (
+                f"SNP ring convergence: {win_key} → {truth.outcome}"
+                f" posterior={truth.consensus_posterior:.4f}"
+                f" gar={truth.genuine_agreement_ratio:.4f}"
+                f" scr={truth.social_compliance_ratio:.4f}"
+            )
+            convergence_header = build_snp_l9_header(
+                operation=NegotiationOperation.ACCEPT,
+                use_case=self.panel_bus.use_case,
+                sender=_ring_sender,
+                receiver=None,
+                timestamp_ms=formed_at,
+                proposal_id=_ring_conv_proposal_id,
+                utterance=_ring_conv_utterance,
+                episode_id=truth.episode_id,
+                kind_override="commit:converged",
+                payload_parts=[
+                    {"type": "utterance", "location": "inline", "content": _ring_conv_utterance},
+                ],
+            )
+            convergence_header["participant_ids"] = truth.participant_ids
+            convergence_header["consensus_posterior"] = truth.consensus_posterior
+            convergence_header["genuine_agreement_ratio"] = truth.genuine_agreement_ratio
+            convergence_header["social_compliance_ratio"] = truth.social_compliance_ratio
+            self.panel_bus.snp_trace.append(convergence_header)
 
             # C10: push consensus_posterior into each participant's AgentTOM and BeliefState.
             # Use URN concept_id (matching inject_prior's lookup key) not bare win_key.
