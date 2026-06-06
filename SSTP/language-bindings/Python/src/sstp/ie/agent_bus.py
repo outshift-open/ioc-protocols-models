@@ -69,14 +69,27 @@ class AgentBus:
         turn_depth: int | None = None,
         kind_override: str | None = None,
         error: Optional[Dict[str, Any]] = None,
+        epistemic: Optional[Dict[str, Any]] = None,
+        ie_payload: "Any | None" = None,
         **_: Any,
     ) -> Dict[str, Any]:
         """Emit a peer_turn with explicit epistemic annotation.
 
-        All agent-to-agent interactions are peer_turns.  The speech_act and
-        epistemic_state carries the role of this turn — delegation, result, error,
-        or social repair — without privileging either party.
+        ``epistemic`` overrides the auto-derived epistemic block.
+        ``ie_payload`` is an IEPayload instance; when provided its dict is
+        added as payload[type=ie] alongside the utterance part.
         """
+        _epistemic = epistemic or make_epistemic_block(
+            speech_act=speech_act,
+            epistemic_state=epistemic_state,
+        )
+        _payload_parts: List[Dict[str, Any]] = [
+            {"type": "utterance", "location": "inline", "content": utterance},
+        ]
+        if ie_payload is not None:
+            _payload_parts.append(
+                {"type": "ie", "location": "inline", "content": ie_payload.to_dict()}
+            )
         header = build_l9_header(
             use_case=self.use_case,
             event_type="peer_turn",
@@ -89,14 +102,9 @@ class AgentBus:
             episode_id=episode_id,
             turn_depth=turn_depth,
             kind_override=kind_override,
-            epistemic=make_epistemic_block(
-                speech_act=speech_act,
-                epistemic_state=epistemic_state,
-            ),
+            epistemic=_epistemic,
             state_sequence=self._next_sequence(sender),
-            payload_parts=[
-                {"type": "utterance", "location": "inline", "content": utterance},
-            ],
+            payload_parts=_payload_parts,
         )
         if error is not None:
             header["error"] = error
@@ -550,6 +558,218 @@ class AgentBus:
                 target_epistemic=current_epistemic,
                 episode_id=(header.get("message") or {}).get("episode"),
             )
+
+
+    # ── Semantic high-level emit methods ─────────────────────────────────────
+    # These hide all protocol mechanics from the application.
+    # The app passes domain arguments; the bus derives kind, subkind,
+    # speech_act, state, belief_status, and payload structure.
+
+    def emit_task_assignment(
+        self,
+        *,
+        sender: str,
+        receiver: str,
+        utterance: str,
+        parent_id: str | None = None,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Orchestrator assigns a task to an agent.
+
+        kind=exchange, subprotocol=IE, state=team_process, speech_act=assertion.
+        """
+        return self.emit_peer_turn(
+            sender=sender,
+            receiver=receiver,
+            utterance=utterance,
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.TEAM_PROCESS,
+            parent_id=parent_id,
+            episode_id=episode_id,
+        )
+
+    def emit_taskwork_result(
+        self,
+        *,
+        sender: str,
+        receiver: str,
+        utterance: str,
+        concept_id: str | None = None,
+        posterior: float | None = None,
+        parent_id: str | None = None,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Agent returns its independent taskwork result to the orchestrator.
+
+        kind=exchange, subprotocol=IE, state=taskwork, speech_act=assertion.
+        Carries concept_id and uncertainty derived from posterior.
+        """
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        _uncertainty = round(1.0 - posterior, 4) if posterior is not None else 0.5
+        epistemic = make_epistemic_block(
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.TASKWORK,
+            belief_status=BeliefStatus.ASSERTED,
+            concept_id=concept_id,
+            uncertainty=_uncertainty,
+        )
+        return self.emit_peer_turn(
+            sender=sender,
+            receiver=receiver,
+            utterance=utterance,
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.TASKWORK,
+            parent_id=parent_id,
+            episode_id=episode_id,
+            epistemic=epistemic,
+        )
+
+    def emit_session_open(
+        self,
+        *,
+        coordinator: str,
+        subject: str,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Open a coordination session with an intent message.
+
+        kind=intent, subprotocol=IE, state=team_process.
+        """
+        _utterance = f"session:open subject={subject}"
+        return self.emit_peer_turn(
+            sender=coordinator,
+            receiver=coordinator,
+            utterance=_utterance,
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.TEAM_PROCESS,
+            kind_override="intent",
+            episode_id=episode_id,
+        )
+
+    def emit_session_close(
+        self,
+        *,
+        coordinator: str,
+        subject: str,
+        accepted: bool,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Close a coordination session.
+
+        kind=commit, subkind=converged (accepted=True) or rejected (accepted=False).
+        """
+        _outcome = "commit:converged" if accepted else "commit:rejected"
+        _utterance = f"session:close subject={subject} accepted={accepted}"
+        return self.emit_peer_turn(
+            sender=coordinator,
+            receiver=coordinator,
+            utterance=_utterance,
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.TEAM_PROCESS,
+            kind_override=_outcome,
+            episode_id=episode_id,
+        )
+
+    def emit_knowledge_rule(
+        self,
+        *,
+        coordinator: str,
+        concept_id: str,
+        posterior: float,
+        gar: float,
+        scr: float,
+        provenance_weight: float,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Announce a new knowledge rule produced by this session.
+
+        kind=knowledge, subprotocol=IE, state=taskwork.
+        """
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        from sstp.ie.l9 import build_l9_header as _build
+        _utterance = (
+            f"rule_update:{concept_id}"
+            f":posterior={posterior:.4f}"
+            f":gar={gar:.4f}"
+            f":scr={scr:.4f}"
+            f":provenance_weight={provenance_weight:.4f}"
+        )
+        header = _build(
+            use_case=self.use_case,
+            event_type="rule_update",
+            sender=coordinator,
+            receiver=coordinator,
+            timestamp_ms=int(time.time() * 1000),
+            sensitivity=self.sensitivity,
+            utterance=_utterance,
+            episode_id=episode_id,
+            epistemic=make_epistemic_block(
+                speech_act=SpeechAct.ASSERTION,
+                epistemic_state=EpistemicState.TASKWORK,
+                belief_status=BeliefStatus.ASSERTED,
+                concept_id=concept_id,
+            ),
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": _utterance},
+            ],
+        )
+        self.messages.append(header)
+        return header
+
+    def emit_grounding_turn(
+        self,
+        *,
+        speaker: str,
+        listener: str,
+        utterance: str,
+        concept_id: str | None = None,
+        prior: float = 0.5,
+        posterior: float = 0.5,
+        revision_cause: str = "grounded_argument",
+        evidence: "List[str] | None" = None,
+        addresses_evidence: "List[str] | None" = None,
+        turn_depth: int = 0,
+        parent_id: str | None = None,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Agent asserts a position in a pairwise IE grounding exchange.
+
+        kind=exchange, subprotocol=IE, state=grounding.
+        Constructs IEPayload internally — the app passes domain values only.
+        """
+        from sstp.ie.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        ie_payload = IEPayload(
+            utterance=IEUtteranceBlock(
+                evidence=list(evidence or []),
+                addresses_evidence=list(addresses_evidence or []),
+                turn_depth=turn_depth,
+            ),
+            grounding=IEGroundingBlock(),
+            belief=IEBeliefBlock(
+                prior=prior,
+                posterior=posterior,
+                revision_cause=revision_cause,
+            ),
+        )
+        epistemic = make_epistemic_block(
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.GROUNDING,
+            belief_status=BeliefStatus.ASSERTED,
+            concept_id=concept_id,
+            uncertainty=round(1.0 - posterior, 4),
+        )
+        return self.emit_peer_turn(
+            sender=speaker,
+            receiver=listener,
+            utterance=utterance,
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.GROUNDING,
+            parent_id=parent_id,
+            episode_id=episode_id,
+            epistemic=epistemic,
+            ie_payload=ie_payload,
+        )
 
 
 __all__ = ["AgentBus"]
