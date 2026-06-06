@@ -374,8 +374,8 @@ class InteractionProtocolAdapter:
         _KIND_TO_PHASE_EVENT = {
             # New 5-value vocabulary
             "contingency": ("peer_dialogue", "repair_required"),
-            "commit:converged": ("peer_dialogue", "repair_applied"),
-            "commit:rejected":     ("peer_dialogue", "repair_applied"),
+            "commit": ("peer_dialogue", "repair_applied"),
+            "commit":     ("peer_dialogue", "repair_applied"),
             "convergence": ("peer_dialogue", "decision_emitted"),
             # Legacy kinds (backward compat)
             "query":       ("peer_dialogue", "repair_required"),

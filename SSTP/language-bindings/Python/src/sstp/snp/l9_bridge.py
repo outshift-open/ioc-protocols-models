@@ -77,8 +77,7 @@ _KIND_MODEL_MAP: Dict[str, type[_STBaseMessage]] = {
     "intent":       IntentMessage,
     "exchange":     ExchangeMessage,
     "contingency":  ContingencyMessage,
-    "commit:converged": SSTPCommitMessage,
-    "commit:rejected":     SSTPCommitMessage,
+    "commit":           SSTPCommitMessage,
     "convergence":      ConvergenceMessage,
     # Legacy kinds (backward compat during transition)
     "delegation":   DelegationMessage,
@@ -202,7 +201,7 @@ def pydantic_to_l9_header(msg: _STBaseMessage) -> Dict[str, Any]:
         "protocol":     "SSTP",
         "version":      msg.version,
         "kind":         msg.kind,
-        "sub_protocol": None,
+        "subprotocol": None,
         "subkind":      None,
         "actors":  [{"id": origin.actor_id, "attestation": origin.attestation or "self_attested_local"}],
         "message": {

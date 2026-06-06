@@ -220,8 +220,8 @@ SSTPHeader := {
   protocol:     "SSTP",
   version:      "0",
   kind:         Kind,
-  sub_protocol: Option["IE" | "SNP"],          -- top-level routing; parallel to kind
-  subkind:      Option["converged" | "abort"], -- supportive of kind
+  subprotocol: Option["IE" | "SNP"],          -- identifies the sub-protocol; top-level routing
+  subkind:      Option["converged" | "rejected"], -- supportive of kind
 
   actors:   Seq[{id: String, attestation: String}], -- senders (usually one)
 

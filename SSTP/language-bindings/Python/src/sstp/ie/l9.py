@@ -61,10 +61,10 @@ _KIND_BY_EVENT_TYPE: Dict[str, str] = {
     "turn_ingested":           "exchange",
     "peer_turn":               "exchange",
     "repair_required":         "contingency",
-    "repair_applied":          "commit:converged",
-    "decision_emitted":        "commit:converged",
-    "episode_persisted":       "commit:converged",
-    "conversation_terminated": "commit:converged",
+    "repair_applied":          "commit",
+    "decision_emitted":        "commit",
+    "episode_persisted":       "commit",
+    "conversation_terminated": "commit",
     "epistemic_clarification": "contingency",
     # Team process negotiation (pre-panel role + decomposition agreement)
     "process_proposed":        "exchange",
@@ -188,7 +188,7 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
         sender: str,
         receiver: str | None,
         timestamp_ms: int,
-        sub_protocol: str | None = "IE",
+        subprotocol: str | None = "IE",
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """Build an IE L9 header, normalising the event_type alias first.
@@ -209,7 +209,7 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
             sender=sender,
             receiver=receiver,
             timestamp_ms=timestamp_ms,
-            sub_protocol=sub_protocol,
+            subprotocol=subprotocol,
             **kwargs,
         )
 
@@ -237,7 +237,7 @@ def build_l9_header(
     payload_parts: "List[Dict[str, Any]] | None" = None,
     message_id: str | None = None,
     ontology_ref: str | None = None,
-    sub_protocol: str | None = "IE",
+    subprotocol: str | None = "IE",
     epistemic: Dict[str, Any] | None = None,
     state_sequence: Dict[str, Any] | None = None,
     kind_override: str | None = None,
@@ -268,7 +268,7 @@ def build_l9_header(
         (``repair_applied`` → ``peer_turn``) are carried in the event
         payload's ``repair.trigger_message_id`` field, not here.
 
-    All other envelope fields (``kind``, ``schema_id``, ``sub_protocol``,
+    All other envelope fields (``kind``, ``schema_id``, ``subprotocol``,
     ``ttl_seconds``, ``origin``, ``policy_labels``, ``provenance``,
     ``episode_id``, ``payload_refs``) are derived
     automatically from the event type and use-case.
@@ -290,7 +290,7 @@ def build_l9_header(
         payload_parts=payload_parts,
         message_id=message_id,
         ontology_ref=ontology_ref,
-        sub_protocol=sub_protocol,
+        subprotocol=subprotocol,
         epistemic=epistemic,
         state_sequence=state_sequence,
         kind_override=kind_override,

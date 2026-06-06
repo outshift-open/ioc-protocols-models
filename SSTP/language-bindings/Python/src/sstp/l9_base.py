@@ -79,7 +79,7 @@ L9_VERSION: str = "0"
 
 # ── Shared utilities ──────────────────────────────────────────────────────────
 
-_CERTIFIED_KINDS: frozenset = frozenset({"commit:converged", "commit:rejected"})
+_CERTIFIED_KINDS: frozenset = frozenset({"commit"})
 
 # ── Schema lifecycle stages (§5 of the canonical model spec) ─────────────────
 #
@@ -255,7 +255,7 @@ class L9HeaderBuilder:
         provenance_expiry: str | None = None,
         message_id: str | None = None,
         ontology_ref: str | None = None,
-        sub_protocol: str | None = None,
+        subprotocol: str | None = None,
         epistemic: Dict[str, Any] | None = None,
         kind_override: str | None = None,
         subkind: str | None = None,
@@ -269,11 +269,12 @@ class L9HeaderBuilder:
         cognition_protocol: str | None = None,
         provenance_transforms: "Any | None" = None,
         group: "Any | None" = None,
+        sub_protocol: str | None = None,  # deprecated alias for subprotocol
     ) -> Dict[str, Any]:
         """Assemble the L9 envelope dict per the current wire format.
 
         New wire shape (2026 revision):
-          protocol, version, kind, sub_protocol, subkind
+          protocol, version, kind, subprotocol, subkind
           actors    — list of {id, attestation} for senders
           message   — {id, parents, episode}
           semantic  — {schema_id, ontology_ref}
@@ -286,18 +287,27 @@ class L9HeaderBuilder:
         It is not carried in the L9 header.
 
         ``payload_parts`` declares the payload parts carried by this message.
-        ``kind_override`` bypasses the event-type-to-kind mapping.
-        ``subkind`` is supportive of kind: "converged" | "abort" | null.
-        ``sub_protocol`` identifies the sub-protocol: "IE" | "SNP".
+        ``kind_override`` bypasses the event-type-to-kind mapping.  If it
+        contains a colon (e.g. "commit:converged"), the part before the colon
+        becomes kind and the part after becomes subkind.
+        ``subkind`` qualifies kind: "converged" | "rejected" | null.
+        ``subprotocol`` identifies the sub-protocol: "IE" | "SNP".
         ``provenance_expiry`` is an ISO 8601 UTC string or null.
         """
         normalized_use_case = normalize_use_case(use_case)
         canonical_type = str(event_type).strip().lower()
         kind = kind_override or self.kind_for_event_type(canonical_type)
+
+        # Split compound kind strings (e.g. "commit:converged" → kind="commit", subkind="converged")
+        if ":" in kind:
+            kind, _auto_subkind = kind.split(":", 1)
+            if subkind is None:
+                subkind = _auto_subkind
+
         trust_level = schema_trust_level_for_kind(kind)
 
-        # backwards compat: cognition_protocol falls back to sub_protocol
-        effective_sub_protocol = sub_protocol or cognition_protocol
+        # backwards compat: sub_protocol and cognition_protocol fall back to subprotocol
+        effective_subprotocol = subprotocol or sub_protocol or cognition_protocol
 
         derived_message_id = message_id or str(
             uuid5(
@@ -319,11 +329,11 @@ class L9HeaderBuilder:
         source_list = [str(i) for i in (provenance_sources or []) if i]
 
         header: Dict[str, Any] = {
-            "protocol":     self.PROTOCOL,
-            "version":      self.VERSION,
-            "kind":         kind,
-            "sub_protocol": effective_sub_protocol,
-            "subkind":      subkind,
+            "protocol":    self.PROTOCOL,
+            "version":     self.VERSION,
+            "kind":        kind,
+            "subprotocol": effective_subprotocol,
+            "subkind":     subkind,
             "actors":   [{"id": str(sender or "unknown"), "attestation": "self_attested_local"}],
             "message": {
                 "id":      derived_message_id,
