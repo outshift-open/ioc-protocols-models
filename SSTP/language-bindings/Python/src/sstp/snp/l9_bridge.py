@@ -199,10 +199,11 @@ def pydantic_to_l9_header(msg: _STBaseMessage) -> Dict[str, Any]:
             lc_str = f"lamport:{msg.logical_clock.value}"
 
     header: Dict[str, Any] = {
-        "protocol": "SSTP",
-        "version": msg.version,
-        "kind": msg.kind,
-        "subkind": None,
+        "protocol":     "SSTP",
+        "version":      msg.version,
+        "kind":         msg.kind,
+        "sub_protocol": None,
+        "subkind":      None,
         "actors":  [{"id": origin.actor_id, "attestation": origin.attestation or "self_attested_local"}],
         "message": {
             "id":      msg.message_id,
@@ -212,7 +213,6 @@ def pydantic_to_l9_header(msg: _STBaseMessage) -> Dict[str, Any]:
         "semantic": {
             "schema_id":    sem_ctx.schema_id,
             "ontology_ref": None,
-            "sub_protocol": None,
         },
         "policy": {
             "sensitivity":      policy.sensitivity,

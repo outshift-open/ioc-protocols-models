@@ -273,10 +273,10 @@ class L9HeaderBuilder:
         """Assemble the L9 envelope dict per the current wire format.
 
         New wire shape (2026 revision):
-          protocol, version, kind, subkind
+          protocol, version, kind, sub_protocol, subkind
           actors    — list of {id, attestation} for senders
           message   — {id, parents, episode}
-          semantic  — {schema_id, ontology_ref, sub_protocol}
+          semantic  — {schema_id, ontology_ref}
           policy    — {sensitivity, propagation, retention_policy}
           attributes — {msg_sources, msg_transforms, msg_created, msg_expiry}
           epistemic — {speech_act, state, belief_status, concept_id, uncertainty}
@@ -319,10 +319,11 @@ class L9HeaderBuilder:
         source_list = [str(i) for i in (provenance_sources or []) if i]
 
         header: Dict[str, Any] = {
-            "protocol": self.PROTOCOL,
-            "version":  self.VERSION,
-            "kind":     kind,
-            "subkind":  subkind,
+            "protocol":     self.PROTOCOL,
+            "version":      self.VERSION,
+            "kind":         kind,
+            "sub_protocol": effective_sub_protocol,
+            "subkind":      subkind,
             "actors":   [{"id": str(sender or "unknown"), "attestation": "self_attested_local"}],
             "message": {
                 "id":      derived_message_id,
@@ -334,7 +335,6 @@ class L9HeaderBuilder:
                     normalized_use_case, canonical_type, kind, trust_level
                 ),
                 "ontology_ref": ontology_ref,
-                "sub_protocol": effective_sub_protocol,
             },
             "policy": {
                 "sensitivity":      sensitivity,

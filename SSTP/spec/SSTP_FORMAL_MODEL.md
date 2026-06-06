@@ -217,10 +217,11 @@ EpistemicBlock := {
 }
 
 SSTPHeader := {
-  protocol: "SSTP",
-  version:  "0",
-  kind:     Kind,
-  subkind:  Option["converged" | "abort"],     -- supportive of kind
+  protocol:     "SSTP",
+  version:      "0",
+  kind:         Kind,
+  sub_protocol: Option["IE" | "SNP"],          -- top-level routing; parallel to kind
+  subkind:      Option["converged" | "abort"], -- supportive of kind
 
   actors:   Seq[{id: String, attestation: String}], -- senders (usually one)
 
@@ -233,7 +234,6 @@ SSTPHeader := {
   semantic: {
     schema_id:    Option[UriString],
     ontology_ref: Option[UriString],
-    sub_protocol: Option["IE" | "SNP"],
   },
 
   policy: Option[{
