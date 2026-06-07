@@ -624,7 +624,7 @@ class AgentBus:
             epistemic=epistemic,
         )
 
-    def emit_session_open(
+    def emit_episode_open(
         self,
         *,
         coordinator: str,
@@ -646,7 +646,7 @@ class AgentBus:
             episode_id=episode_id,
         )
 
-    def emit_session_close(
+    def emit_episode_close(
         self,
         *,
         coordinator: str,
