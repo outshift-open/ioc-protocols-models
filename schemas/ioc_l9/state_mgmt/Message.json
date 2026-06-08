@@ -1,0 +1,14 @@
+{
+  "description": "A single message within a conversation episode.",
+  "properties": {
+    "content": {
+      "title": "Content",
+      "type": "string"
+    }
+  },
+  "required": [
+    "content"
+  ],
+  "title": "Message",
+  "type": "object"
+}

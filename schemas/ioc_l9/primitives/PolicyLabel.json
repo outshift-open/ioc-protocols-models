@@ -1,0 +1,24 @@
+{
+  "description": "Data governance and access-control labels applied to the message.\n## TODO Nandu, Peter please review",
+  "properties": {
+    "sensitivity": {
+      "title": "Sensitivity",
+      "type": "string"
+    },
+    "propagation": {
+      "title": "Propagation",
+      "type": "string"
+    },
+    "retention_policy": {
+      "title": "Retention Policy",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sensitivity",
+    "propagation",
+    "retention_policy"
+  ],
+  "title": "PolicyLabel",
+  "type": "object"
+}

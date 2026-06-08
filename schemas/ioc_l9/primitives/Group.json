@@ -1,0 +1,19 @@
+{
+  "description": "Logical grouping of actors \u2014 e.g. a team, session, or conversation thread.\nUsed in L9Header to scope the message to a shared context.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "name"
+  ],
+  "title": "Group",
+  "type": "object"
+}

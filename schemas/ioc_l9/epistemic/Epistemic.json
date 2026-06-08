@@ -1,0 +1,6 @@
+{
+  "description": "Agent epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
+  "properties": {},
+  "title": "Epistemic",
+  "type": "object"
+}
