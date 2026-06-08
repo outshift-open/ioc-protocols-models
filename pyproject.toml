@@ -1,0 +1,14 @@
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "ioc-l9"
+version = "0.1.0"
+description = "IOC L9 Protocol Package"
+authors = []
+packages = [{include = "ioc_l9"}]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+pydantic = ">=2.0"
