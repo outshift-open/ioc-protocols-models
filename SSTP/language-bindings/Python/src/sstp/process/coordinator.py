@@ -9,6 +9,14 @@ TeamCoordinator runs team-process SNP episodes (TP-1, TP-2, TP-R).  It is the
 only writer of TeamProcessStore.  Application code calls the three public
 methods; all L9/Episode/PanelNegotiationBus mechanics are internal.
 
+SNP messages from team-process episodes flow directly into the ie_bus.messages
+shared by the panel buses (unified bus).  No separate trace accumulation needed.
+
+When participant_l9s is supplied each specialist joins the IE episode and emits
+its own exchange+ready, producing genuine participant responses on the bus.
+The SNP round runs inside the open IE episode so all messages are temporally
+interleaved correctly.
+
 Episode types
 -------------
 TP-1  form_team()            concept:role_assignment + concept:team_goal
@@ -87,6 +95,12 @@ class TeamCoordinator:
         gate.check_coordination().
     coordinator_agent_id:
         The agent_id used by the Coordinator in L9 messages.
+    participant_l9s:
+        Optional mapping of agent_id → L9 for each specialist.  When supplied,
+        each specialist joins the IE episode and emits its own exchange, so the
+        message stream shows genuine participant responses instead of coordinator
+        monologue.  When absent the coordinator speaks for all members (legacy
+        behaviour).
     """
 
     def __init__(
@@ -96,12 +110,14 @@ class TeamCoordinator:
         store: TeamProcessStore,
         gate: PhaseGate,
         coordinator_agent_id: str = "coordinator",
+        participant_l9s: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._l9 = l9
         self._panel_bus_factory = panel_bus_factory
         self._store = store
         self._gate = gate
         self._coordinator_id = coordinator_agent_id
+        self._participant_l9s: Dict[str, Any] = dict(participant_l9s or {})
 
     # ── TP-1: team formation ───────────────────────────────────────────────
 
@@ -128,42 +144,70 @@ class TeamCoordinator:
         )
 
         eid = self._episode_id("role_assignment")
+        group_ids = [a.agent_id for a in available_agents]
         episode = self._l9.open(
             concept_id=CONCEPT_ROLE_ASSIGNMENT,
-            group=[a.agent_id for a in available_agents],
+            group=group_ids,
             episode_id=eid,
         )
+        # Capture the intent envelope so participants can join
+        intent_envelope = self._l9._bus.messages[-1]
 
         # Collect capability assertions.
-        # In a real distributed system each agent calls episode.say() in response
-        # to the intent.  Here we build the role map from capability declarations
-        # directly, then let the SNP round handle conflicts.
         role_claims: Dict[str, List[AgentCapability]] = {}  # concept_id → claimants
         for cap in available_agents:
             for cid in cap.concept_ids:
                 role_claims.setdefault(cid, []).append(cap)
 
-        # Coordinator asserts the proposed assignments into the episode.
+        # Resolve winner per concept (highest confidence wins)
         role_assignments: Dict[str, str] = {}  # agent_id → concept_id
         for concept_id, claimants in role_claims.items():
-            # Sort by confidence descending; highest confidence wins.
             claimants.sort(key=lambda c: c.confidence, reverse=True)
             winner = claimants[0]
             role_assignments[winner.agent_id] = concept_id
-            episode.say(
-                utterance=f"role_proposal agent={winner.agent_id} concept={concept_id} confidence={winner.confidence:.2f}",
-                posterior=winner.confidence,
-                evidence=[CONCEPT_ROLE_ASSIGNMENT, concept_id],
-            )
 
-        episode.done(posterior=0.9)
+        # Each participant joins the episode and asserts its capability claim.
+        # All group members must signal done regardless of whether they won a role.
+        # If participant_l9s are provided the agent speaks for itself; otherwise
+        # the coordinator speaks on behalf of members (legacy path).
+        for cap in available_agents:
+            won_concept = role_assignments.get(cap.agent_id)
+            if won_concept:
+                utterance = (
+                    f"capability_claim agent={cap.agent_id} concept={won_concept} confidence={cap.confidence:.2f}"
+                )
+                evidence = [CONCEPT_ROLE_ASSIGNMENT, won_concept]
+            else:
+                claimed = ", ".join(cap.concept_ids)
+                utterance = (
+                    f"capability_claim agent={cap.agent_id} claimed={claimed} confidence={cap.confidence:.2f} outcome=no_role_assigned"
+                )
+                evidence = [CONCEPT_ROLE_ASSIGNMENT]
+            participant_l9 = self._participant_l9s.get(cap.agent_id)
+            if participant_l9 is not None:
+                member_ep = participant_l9.join(intent_envelope)
+                member_ep.say(
+                    utterance=utterance,
+                    posterior=cap.confidence,
+                    evidence=evidence,
+                    final=True,
+                )
+                episode._record_done(cap.agent_id, cap.confidence)
+            else:
+                # Legacy: coordinator speaks for this member
+                episode.say(
+                    utterance=utterance,
+                    posterior=cap.confidence,
+                    evidence=evidence,
+                )
+                episode._record_done(cap.agent_id, cap.confidence)
 
-        # Run SNP to confirm (in a stub: accept immediately; real SNP round handled
-        # by panel_bus_factory when specialists counter-propose).
+        # SNP round — conflicts resolved by the panel; SCR reflects residual
+        # non-compliance after convergence.  Runs inside the open IE episode.
         panel_bus = self._panel_bus_factory(CONCEPT_ROLE_ASSIGNMENT)
         scr = self._run_coordination_snp(panel_bus, role_assignments, available_agents)
 
-        self._acknowledge_group(episode, available_agents)
+        episode.done(posterior=0.9)
         episode.close()
 
         state = TeamProcessState(
@@ -215,8 +259,9 @@ class TeamCoordinator:
             group=group,
             episode_id=eid,
         )
+        intent_envelope = self._l9._bus.messages[-1]
 
-        # Record each agent's prior confirmation.
+        # Each agent confirms its prior for its owned concept.
         for agent_id, priors in agent_priors.items():
             concept_id = current.role_assignments.get(agent_id, "concept:unknown")
             prior_val = priors.get(concept_id, 0.5)
@@ -228,14 +273,32 @@ class TeamCoordinator:
                 confidence=prior_val,
                 episode_id=eid,
             ))
-            episode.say(
-                utterance=f"prior_confirmed agent={agent_id} concept={concept_id} prior={prior_val:.3f}",
-                posterior=prior_val,
-                evidence=[CONCEPT_SHARED_MENTAL_MODEL, concept_id],
-            )
+            utterance = f"prior_confirmed agent={agent_id} concept={concept_id} prior={prior_val:.3f}"
+            participant_l9 = self._participant_l9s.get(agent_id)
+            if participant_l9 is not None:
+                member_ep = participant_l9.join(intent_envelope)
+                member_ep.say(
+                    utterance=utterance,
+                    posterior=prior_val,
+                    evidence=[CONCEPT_SHARED_MENTAL_MODEL, concept_id],
+                    final=True,
+                )
+                episode._record_done(agent_id, prior_val)
+            else:
+                # Legacy: coordinator speaks for this member
+                episode.say(
+                    utterance=utterance,
+                    posterior=prior_val,
+                    evidence=[CONCEPT_SHARED_MENTAL_MODEL, concept_id],
+                )
+                episode._record_done(agent_id, prior_val)
+
+        # SNP round — agents negotiate convergence on the shared prior values.
+        # Runs inside the open IE episode; IE active for linguistic repair only.
+        panel_bus = self._panel_bus_factory(CONCEPT_SHARED_MENTAL_MODEL)
+        scr = self._run_alignment_snp(panel_bus, current.role_assignments, agent_priors)
 
         episode.done(posterior=0.9)
-        self._acknowledge_group(episode, list(agent_priors.keys()))
         episode.close()
 
         state = TeamProcessState(
@@ -243,11 +306,11 @@ class TeamCoordinator:
             role_assignments=current.role_assignments,
             team_goal=current.team_goal,
             converged_episode_id=eid,
-            scr_at_convergence=0.0,
+            scr_at_convergence=scr,
             gate_open=True,
         )
         self._store.update(state)
-        LOGGER.info("coordinator.align_mental_model.done phase=ACTION gate=OPEN")
+        LOGGER.info("coordinator.align_mental_model.done phase=ACTION gate=OPEN scr=%.2f", scr)
         return state
 
     # ── TP-R: re-entry ─────────────────────────────────────────────────────
@@ -312,6 +375,15 @@ class TeamCoordinator:
             )
             episode.done(posterior=0.8)
             self._acknowledge_group(episode, group)
+
+            # SNP round to re-converge on the affected concept.
+            reentry_positions = {
+                agent_id: {"decision_key": current.role_assignments.get(agent_id, concept_id), "confidence": 0.8}
+                for agent_id in group
+            }
+            panel_bus = self._panel_bus_factory(concept_id)
+            scr = self._run_reentry_snp(panel_bus, concept_id, group, reentry_positions)
+
             episode.close()
             last_eid = eid
 
@@ -356,10 +428,126 @@ class TeamCoordinator:
         role_assignments: Dict[str, str],
         available_agents: List[AgentCapability],
     ) -> float:
-        """Run coordination SNP and return SCR.  Stub — real SNP via panel_bus."""
-        # In a full implementation this calls panel_bus.run_star_negotiation()
-        # with coordination positions.  For now returns 0.0 (full genuine agreement).
-        return 0.0
+        """TP-1 SNP round: agents negotiate role assignments via StarNegotiation.
+
+        Each agent's position is its claimed concept_id with its declared confidence.
+        The controller is the first agent in role_assignments; remaining agents are
+        members.  Returns SCR from the convergence result.
+        """
+        from sstp.snp.panel_bus import StarNegotiation
+
+        agents = list(role_assignments.keys())
+        if not agents:
+            return 0.0
+
+        controller_id = agents[0]
+        member_ids = agents[1:]
+
+        # Build positions: {agent_id → {"decision_key": concept_id, "confidence": float}}
+        cap_map = {c.agent_id: c for c in available_agents}
+        positions: Dict[str, Any] = {}
+        for agent_id, concept_id in role_assignments.items():
+            conf = cap_map[agent_id].confidence if agent_id in cap_map else 0.8
+            positions[agent_id] = {"decision_key": concept_id, "confidence": conf}
+
+        controller_position = positions.get(controller_id, {"decision_key": "coordinator", "confidence": 0.9})
+        panel_bus.reset()
+        star = StarNegotiation(panel_bus, CONCEPT_ROLE_ASSIGNMENT.split(":")[-1])
+        try:
+            _, _, trace = star.run(
+                controller_id=controller_id,
+                member_ids=member_ids,
+                controller_position=controller_position,
+                specialist_positions=positions,
+                task_goal=f"agree on role assignments for {CONCEPT_ROLE_ASSIGNMENT}",
+                agent_beliefs={a: {"role": role_assignments.get(a, ""), "confidence": positions[a]["confidence"]}
+                               for a in agents},
+            )
+            last = trace[-1] if trace else {}
+            return float(last.get("scr", 0.0))
+        except Exception as exc:
+            LOGGER.warning("coordinator.tp1_snp_failed: %s", exc)
+            return 0.0
+
+    def _run_alignment_snp(
+        self,
+        panel_bus: Any,
+        role_assignments: Dict[str, str],
+        agent_priors: Dict[str, Dict[str, float]],
+    ) -> float:
+        """TP-2 SNP round: agents negotiate convergence on shared prior values.
+
+        Each agent proposes its prior for its owned concept.  The controller is
+        the first agent in role_assignments.  Returns SCR.
+        """
+        from sstp.snp.panel_bus import StarNegotiation
+
+        agents = list(role_assignments.keys())
+        if not agents:
+            return 0.0
+
+        controller_id = agents[0]
+        member_ids = agents[1:]
+
+        positions: Dict[str, Any] = {}
+        for agent_id, concept_id in role_assignments.items():
+            priors = agent_priors.get(agent_id, {})
+            prior_val = priors.get(concept_id, 0.5)
+            positions[agent_id] = {"decision_key": concept_id, "confidence": prior_val}
+
+        controller_position = positions.get(controller_id, {"decision_key": "shared_mental_model", "confidence": 0.9})
+        panel_bus.reset()
+        star = StarNegotiation(panel_bus, CONCEPT_SHARED_MENTAL_MODEL.split(":")[-1])
+        try:
+            _, _, trace = star.run(
+                controller_id=controller_id,
+                member_ids=member_ids,
+                controller_position=controller_position,
+                specialist_positions=positions,
+                task_goal=f"align priors for {CONCEPT_SHARED_MENTAL_MODEL}",
+                agent_beliefs={a: {"role": role_assignments.get(a, ""), "confidence": positions[a]["confidence"]}
+                               for a in agents},
+            )
+            last = trace[-1] if trace else {}
+            return float(last.get("scr", 0.0))
+        except Exception as exc:
+            LOGGER.warning("coordinator.tp2_snp_failed: %s", exc)
+            return 0.0
+
+    def _run_reentry_snp(
+        self,
+        panel_bus: Any,
+        concept_id: str,
+        group: List[str],
+        positions: Dict[str, Any],
+    ) -> float:
+        """TP-R SNP round: re-converge on a single coordination concept after re-entry."""
+        from sstp.snp.panel_bus import StarNegotiation
+
+        if not group:
+            return 0.0
+
+        controller_id = group[0]
+        member_ids = group[1:]
+        controller_position = positions.get(controller_id, {"decision_key": concept_id, "confidence": 0.8})
+
+        panel_bus.reset()
+        star = StarNegotiation(panel_bus, concept_id.split(":")[-1])
+        try:
+            _, _, trace = star.run(
+                controller_id=controller_id,
+                member_ids=member_ids,
+                controller_position=controller_position,
+                specialist_positions=positions,
+                task_goal=f"reentry convergence for {concept_id}",
+                agent_beliefs={a: {"role": concept_id, "confidence": positions[a]["confidence"]}
+                               for a in group},
+            )
+            last = trace[-1] if trace else {}
+            return float(last.get("scr", 0.0))
+        except Exception as exc:
+            LOGGER.warning("coordinator.tpr_snp_failed concept=%s: %s", concept_id, exc)
+            return 0.0
 
 
 __all__ = [

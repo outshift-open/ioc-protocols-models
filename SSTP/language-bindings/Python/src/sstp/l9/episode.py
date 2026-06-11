@@ -196,7 +196,7 @@ class Episode:
         return self._last_message_id
 
     def done(self, posterior: float) -> str:
-        """Emit a standalone done signal — kind=ready, no further content."""
+        """Emit a standalone done signal — kind=commit, subkind=ready, no further content."""
         h = self._bus._emit_ready(
             sender=self._agent_id,
             receiver=None,
@@ -235,14 +235,15 @@ class Episode:
         """
         if contingency_id not in self._open_contingencies:
             raise ValueError(f"No open contingency with id {contingency_id!r}")
-        h = self._bus.emit_peer_turn(
-            sender=self._agent_id,
-            receiver=None,
-            utterance=f"repair_verified:contingency={contingency_id}",
-            kind_override="commit:resolved",
-            parent_id=contingency_id,
-            episode_id=self._episode_id,
-        )
+        with self._bus._lifecycle_emit():
+            h = self._bus.emit_peer_turn(
+                sender=self._agent_id,
+                receiver=None,
+                utterance=f"repair_verified:contingency={contingency_id}",
+                kind_override="commit:resolved",
+                parent_id=contingency_id,
+                episode_id=self._episode_id,
+            )
         del self._open_contingencies[contingency_id]
         self._last_message_id = h["message"]["id"]
         return self._last_message_id
@@ -277,7 +278,7 @@ class Episode:
         self._gar = 1.0
         self._scr = 0.0
 
-        h = self._bus.emit_episode_close(
+        h = self._bus._emit_episode_close(
             coordinator=self._agent_id,
             subject=self._concept_id,
             accepted=accepted,

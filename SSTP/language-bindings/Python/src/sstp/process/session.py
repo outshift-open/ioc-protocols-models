@@ -157,10 +157,13 @@ class TaskSession:
         except Exception:
             epistemic = None
 
+        from sstp.epistemic import SpeechAct, EpistemicState
         header = self._bus.emit_peer_turn(
             sender=agent_id,
             receiver=receiver,
             utterance=utterance,
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.TASKWORK,
             parent_id=parent_id,
             epistemic=epistemic,
         )
@@ -339,6 +342,46 @@ class TaskSession:
             scr=scr,
             episode_id=episode_id,
             flagged=flagged,
+        )
+
+    # ── Session lifecycle (outer frame) ───────────────────────────────────
+
+    def open_session(
+        self,
+        subject: str,
+        episode_id: Optional[str] = None,
+        coordinator: str = "orchestrator",
+    ) -> Dict[str, Any]:
+        """Emit kind=intent to open the outer session frame.
+
+        This is the only legitimate caller of bus._emit_episode_open from
+        outside the subprotocol layer.  Application code must call this
+        method rather than touching the bus directly.
+        """
+        return self._bus._emit_episode_open(
+            coordinator=coordinator,
+            subject=subject,
+            episode_id=episode_id,
+        )
+
+    def close_session(
+        self,
+        subject: str,
+        accepted: bool,
+        episode_id: Optional[str] = None,
+        coordinator: str = "orchestrator",
+    ) -> Dict[str, Any]:
+        """Emit kind=commit:converged or commit:rejected to close the outer session.
+
+        This is the only legitimate caller of bus._emit_episode_close from
+        outside the subprotocol layer.  Application code must call this
+        method rather than touching the bus directly.
+        """
+        return self._bus._emit_episode_close(
+            coordinator=coordinator,
+            subject=subject,
+            accepted=accepted,
+            episode_id=episode_id,
         )
 
 

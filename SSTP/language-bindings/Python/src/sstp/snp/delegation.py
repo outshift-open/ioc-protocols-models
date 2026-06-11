@@ -1,0 +1,20 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""sstp/delegation.py — DelegationMessage kind.
+
+Legacy negotiation kind. Not in SSTP spec vocabulary.
+Retained for ``l9_bridge.py`` backward compatibility.
+"""
+from __future__ import annotations
+
+from typing import Literal
+
+from ._base import _STBaseMessage
+
+
+class DelegationMessage(_STBaseMessage):
+    """Transfer of a task or authority to another agent."""
+
+    kind: Literal["delegation"]

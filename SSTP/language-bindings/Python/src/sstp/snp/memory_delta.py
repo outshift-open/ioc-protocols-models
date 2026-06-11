@@ -1,0 +1,20 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""sstp/memory_delta.py — MemoryDeltaMessage kind.
+
+Legacy negotiation kind. Not in SSTP spec vocabulary.
+Retained for ``l9_bridge.py`` backward compatibility.
+"""
+from __future__ import annotations
+
+from typing import Literal
+
+from ._base import _STBaseMessage
+
+
+class MemoryDeltaMessage(_STBaseMessage):
+    """An incremental update to a shared memory / knowledge graph."""
+
+    kind: Literal["memory_delta"]
