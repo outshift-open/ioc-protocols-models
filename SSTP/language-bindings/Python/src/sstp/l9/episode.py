@@ -235,11 +235,14 @@ class Episode:
         """
         if contingency_id not in self._open_contingencies:
             raise ValueError(f"No open contingency with id {contingency_id!r}")
+        from sstp.epistemic import SpeechAct, EpistemicState
         with self._bus._lifecycle_emit():
             h = self._bus.emit_peer_turn(
                 sender=self._agent_id,
                 receiver=None,
                 utterance=f"repair_verified:contingency={contingency_id}",
+                speech_act=SpeechAct.ASSERTION,
+                epistemic_state=EpistemicState.GROUNDING,
                 kind_override="commit:resolved",
                 parent_id=contingency_id,
                 episode_id=self._episode_id,

@@ -37,6 +37,14 @@ class ProtocolViolation(RuntimeError):
     """
 
 
+def get_ie_repair(header: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return the ie-repair payload content from an L9 header, or None."""
+    for part in header.get("payload") or []:
+        if part.get("type") == "ie-repair":
+            return part.get("content")
+    return None
+
+
 def _is_lifecycle_kind(kind_override: str) -> bool:
     """Return True if *kind_override* is a protected lifecycle kind."""
     base = kind_override.split(":")[0]
@@ -108,6 +116,7 @@ class AgentBus:
         kind_override: str | None = None,
         error: Optional[Dict[str, Any]] = None,
         epistemic: Optional[Dict[str, Any]] = None,
+        topic: "str | None" = None,
         ie_payload: "Any | None" = None,
         **_: Any,
     ) -> Dict[str, Any]:
@@ -152,6 +161,7 @@ class AgentBus:
             turn_depth=turn_depth,
             kind_override=kind_override,
             epistemic=_epistemic,
+            topic=topic,
             state_sequence=self._next_sequence(sender),
             payload_parts=_payload_parts,
         )
@@ -192,13 +202,15 @@ class AgentBus:
         sender: str,
         receiver: str,
         target_message_id: str,
-        repair_reason: RepairReason,
+        repair_reason: "RepairReason | str",
         target_epistemic: Optional[Dict[str, Any]] = None,
         episode_id: str | None = None,
         turn_depth: int | None = None,
     ) -> Dict[str, Any]:
-        repair_concept_id = (target_epistemic or {}).get("concept_id")
-        _utterance = f"repair_required:reason={repair_reason.value}:target={target_message_id}"
+        from sstp.ie.l9 import get_topic
+        _repair_topic = get_topic({"topic": None, "epistemic": target_epistemic}) if target_epistemic else None
+        _reason_str = repair_reason.value if isinstance(repair_reason, RepairReason) else str(repair_reason)
+        _utterance = f"repair_required:reason={_reason_str}:target={target_message_id}"
         header = build_l9_header(
             use_case=self.use_case,
             event_type="repair_required",
@@ -210,21 +222,25 @@ class AgentBus:
             parent_ids=[target_message_id],
             episode_id=episode_id,
             turn_depth=turn_depth,
+            topic=_repair_topic,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.GROUNDING,
                 belief_status=BeliefStatus.CHALLENGED,
-                concept_id=repair_concept_id,
             ),
             state_sequence=self._next_sequence(sender),
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
             ],
         )
-        header["repair"] = {
-            "target_message_id": target_message_id,
-            "repair_reason": repair_reason.value,
-        }
+        header["payload"].append({
+            "type": "ie-repair",
+            "location": "inline",
+            "content": {
+                "target_message_id": target_message_id,
+                "repair_reason": _reason_str,
+            },
+        })
         self.messages.append(header)
         return header
 
@@ -344,10 +360,10 @@ class AgentBus:
             sensitivity=self.sensitivity,
             utterance=_utterance,
             episode_id=episode_id,
+            topic=concept_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TASKWORK,
-                concept_id=concept_id,
             ),
             state_sequence=self._next_sequence(sender),
             payload_parts=[
@@ -540,8 +556,8 @@ class AgentBus:
             replica.apply(header, payload=ie_content)
 
         if verified:
-            # concept_id is in the L9 header epistemic block (not in belief)
-            ep_concept_id = (header.get("epistemic") or {}).get("concept_id", "")
+            from sstp.ie.l9 import get_topic
+            ep_concept_id = get_topic(header) or ""
             # Update BeliefState
             if belief_store is not None and ep_concept_id:
                 from sstp.epistemic.stores import BeliefRevision
@@ -586,7 +602,7 @@ class AgentBus:
                     holder_confidence=float(belief.get("prior", 0.5)),
                     confirmer_confidence=float(belief.get("posterior", 0.5)),
                     contingency_verified=True,
-                    speech_acts=[ep.get("speech_act", "")],
+                    speech_acts=[ep.get("message_act", "")],
                     grounding_message_ids=[prior_turn_mid or "", header["message"]["id"]],
                     formed_at_ms=int(time.time() * 1000),
                 )
@@ -659,7 +675,6 @@ class AgentBus:
             speech_act=SpeechAct.ASSERTION,
             epistemic_state=EpistemicState.TASKWORK,
             belief_status=BeliefStatus.ASSERTED,
-            concept_id=concept_id,
             uncertainty=_uncertainty,
         )
         return self.emit_peer_turn(
@@ -671,6 +686,7 @@ class AgentBus:
             parent_id=parent_id,
             episode_id=episode_id,
             epistemic=epistemic,
+            topic=concept_id,
         )
 
     def _emit_episode_open(
@@ -783,11 +799,11 @@ class AgentBus:
             sensitivity=self.sensitivity,
             utterance=_utterance,
             episode_id=episode_id,
+            topic=concept_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TASKWORK,
                 belief_status=BeliefStatus.ASSERTED,
-                concept_id=concept_id,
             ),
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
@@ -836,7 +852,6 @@ class AgentBus:
             speech_act=SpeechAct.ASSERTION,
             epistemic_state=EpistemicState.GROUNDING,
             belief_status=BeliefStatus.ASSERTED,
-            concept_id=concept_id,
             uncertainty=round(1.0 - posterior, 4),
         )
         return self.emit_peer_turn(
@@ -847,6 +862,7 @@ class AgentBus:
             epistemic_state=EpistemicState.GROUNDING,
             parent_id=parent_id,
             episode_id=episode_id,
+            topic=concept_id,
             epistemic=epistemic,
             ie_payload=ie_payload,
         )
@@ -913,7 +929,6 @@ class AgentBus:
             speech_act=SpeechAct.ASSERTION,
             epistemic_state=EpistemicState.GROUNDING,
             belief_status=BeliefStatus.ASSERTED,
-            concept_id=concept_id,
             uncertainty=round(1.0 - posterior, 4),
         )
         return self.emit_peer_turn(
@@ -925,6 +940,7 @@ class AgentBus:
             parent_id=parent_id,
             episode_id=episode_id,
             kind_override="exchange:ready",
+            topic=concept_id,
             epistemic=epistemic,
         )
 
@@ -945,7 +961,6 @@ class AgentBus:
             speech_act=SpeechAct.ASSERTION,
             epistemic_state=EpistemicState.GROUNDING,
             belief_status=BeliefStatus.ASSERTED,
-            concept_id=concept_id,
             uncertainty=round(1.0 - posterior, 4),
         )
         with self._lifecycle_emit():
@@ -958,6 +973,7 @@ class AgentBus:
                 parent_id=parent_id,
                 episode_id=episode_id,
                 kind_override="commit:ready",
+                topic=concept_id,
                 epistemic=epistemic,
             )
 
@@ -994,11 +1010,11 @@ class AgentBus:
             parent_ids=[parent_id] if parent_id else None,
             episode_id=episode_id,
             kind_override="knowledge",
+            topic=concept_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TASKWORK,
                 belief_status=BeliefStatus.ASSERTED,
-                concept_id=concept_id,
                 uncertainty=round(1.0 - posterior, 4),
             ),
             payload_parts=[

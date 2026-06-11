@@ -3,7 +3,7 @@
 
 from sstp.epistemic.vocabulary import (
     SpeechAct, EpistemicState, TaskPhase, BeliefStatus,
-    make_epistemic_block, make_snp_epistemic_extension,
+    make_epistemic_block,
     infer_snp_epistemic, infer_snp_speech_act,
 )
 from sstp.epistemic.local_replica import LocalStateReplica, ReplicaEntry
@@ -27,7 +27,7 @@ from sstp.epistemic.bayes import (
 
 __all__ = [
     "SpeechAct", "EpistemicState", "TaskPhase", "BeliefStatus",
-    "make_epistemic_block", "make_snp_epistemic_extension",
+    "make_epistemic_block",
     "infer_snp_epistemic", "infer_snp_speech_act",
     "LocalStateReplica", "ReplicaEntry",
     "EpistemicSnapshot", "snapshot", "roll_forward", "replay_from_origin",

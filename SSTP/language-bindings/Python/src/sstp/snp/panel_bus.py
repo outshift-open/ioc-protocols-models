@@ -766,7 +766,6 @@ class PanelBus:
             epistemic_state=epistemic_state,
             belief_status=belief_status,
             uncertainty=round(1.0 - confidence, 4),
-            concept_id=ctrl_position_key if ctrl_position_key else None,
         )
         snp_header = build_snp_l9_header(
             operation=operation,
@@ -779,10 +778,25 @@ class PanelBus:
             utterance=utterance,
             parent_ids=[parent_snp_id] if parent_snp_id else None,
             episode_id=self._episode_id(),
+            topic=ctrl_position_key if ctrl_position_key else None,
             epistemic=epistemic_block,
         )
         self.ie_bus.messages.append(snp_header)
         return snp_header
+
+
+def get_snp_convergence_metrics(header: Dict[str, Any]) -> Dict[str, Any]:
+    """Return convergence metrics from a commit:converged L9 header.
+
+    Reads from payload[type=snp-convergence].content.  Returns an empty dict
+    if the header carries no convergence payload (not a convergence message).
+
+    Keys: mpc, gar, scr, participant_ids, episode_id.
+    """
+    for part in header.get("payload") or []:
+        if part.get("type") == "snp-convergence":
+            return dict(part.get("content") or {})
+    return {}
 
 
 class StarNegotiation:
@@ -840,8 +854,6 @@ class StarNegotiation:
             epistemic_state=_epistemic_state,
             belief_status=BeliefStatus.ASSERTED,
             uncertainty=round(1.0 - conf, 4),
-            concept_id=key if key else None,
-
         )
         _snp_payload = build_snp_payload(
             operation=NegotiationOperation.PROPOSE,
@@ -864,6 +876,7 @@ class StarNegotiation:
             turn_depth=turn,
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
+            topic=key if key else None,
             epistemic=epistemic_block,
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": utterance},
@@ -937,11 +950,7 @@ class StarNegotiation:
             epistemic_state=epistemic_state,
             belief_status=belief_status,
             uncertainty=round(1.0 - conf, 4),
-            concept_id=ctrl_position_key if ctrl_position_key else None,
         )
-        if _is_delib_pass:
-            from sstp.epistemic.vocabulary import make_snp_epistemic_extension
-            epistemic_block = make_snp_epistemic_extension(epistemic_block, deferred_to=controller)
         _snp_payload = build_snp_payload(
             operation=operation,
             proposal_id=proposal_id,
@@ -967,6 +976,7 @@ class StarNegotiation:
             turn_depth=turn,
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
+            topic=ctrl_position_key if ctrl_position_key else None,
             epistemic=epistemic_block,
             kind_override="exchange",
             payload_parts=[
@@ -1391,6 +1401,15 @@ class StarNegotiation:
                 f" gar={truth.genuine_agreement_ratio:.4f}"
                 f" scr={truth.social_compliance_ratio:.4f}"
             )
+            _snp_convergence = {
+                "profile": "semantic_negotiation",
+                "operation": NegotiationOperation.ACCEPT,
+                "participant_ids": list(truth.participant_ids),
+                "mpc": truth.consensus_posterior,
+                "gar": truth.genuine_agreement_ratio,
+                "scr": truth.social_compliance_ratio,
+                "episode_id": truth.episode_id,
+            }
             convergence_header = build_snp_l9_header(
                 operation=NegotiationOperation.ACCEPT,
                 use_case=self.panel_bus.use_case,
@@ -1403,12 +1422,9 @@ class StarNegotiation:
                 kind_override="commit:converged",
                 payload_parts=[
                     {"type": "utterance", "location": "inline", "content": _conv_utterance},
+                    {"type": "snp-convergence", "location": "inline", "content": _snp_convergence},
                 ],
             )
-            convergence_header["participant_ids"] = truth.participant_ids
-            convergence_header["consensus_posterior"] = truth.consensus_posterior
-            convergence_header["genuine_agreement_ratio"] = truth.genuine_agreement_ratio
-            convergence_header["social_compliance_ratio"] = truth.social_compliance_ratio
             self.panel_bus.ie_bus.messages.append(convergence_header)
 
             # C10: push consensus_posterior into each participant's AgentTOM and BeliefState.
@@ -1478,10 +1494,10 @@ class StarNegotiation:
                     utterance=_rule_utterance,
                     episode_id=truth.episode_id,
                     kind_override="knowledge",
+                    topic=_conv_concept_id,
                     epistemic=make_epistemic_block(
                         speech_act=SpeechAct.ASSERTION,
                         epistemic_state=EpistemicState.TASKWORK,
-                        concept_id=_conv_concept_id,
                     ),
                     payload_parts=[
                         {"type": "utterance", "location": "inline", "content": _rule_utterance},
@@ -1867,6 +1883,15 @@ class RingNegotiation:
                 f" gar={truth.genuine_agreement_ratio:.4f}"
                 f" scr={truth.social_compliance_ratio:.4f}"
             )
+            _ring_snp_convergence = {
+                "profile": "semantic_negotiation",
+                "operation": NegotiationOperation.ACCEPT,
+                "participant_ids": list(truth.participant_ids),
+                "mpc": truth.consensus_posterior,
+                "gar": truth.genuine_agreement_ratio,
+                "scr": truth.social_compliance_ratio,
+                "episode_id": truth.episode_id,
+            }
             convergence_header = build_snp_l9_header(
                 operation=NegotiationOperation.ACCEPT,
                 use_case=self.panel_bus.use_case,
@@ -1879,12 +1904,9 @@ class RingNegotiation:
                 kind_override="commit:converged",
                 payload_parts=[
                     {"type": "utterance", "location": "inline", "content": _ring_conv_utterance},
+                    {"type": "snp-convergence", "location": "inline", "content": _ring_snp_convergence},
                 ],
             )
-            convergence_header["participant_ids"] = truth.participant_ids
-            convergence_header["consensus_posterior"] = truth.consensus_posterior
-            convergence_header["genuine_agreement_ratio"] = truth.genuine_agreement_ratio
-            convergence_header["social_compliance_ratio"] = truth.social_compliance_ratio
             self.panel_bus.ie_bus.messages.append(convergence_header)
 
             # C10: push consensus_posterior into each participant's AgentTOM and BeliefState.
@@ -1952,10 +1974,10 @@ class RingNegotiation:
                     utterance=_rule_utterance_r,
                     episode_id=truth.episode_id,
                     kind_override="knowledge",
+                    topic=f"urn:concept:{self.panel_bus.use_case}:{win_key}",
                     epistemic=make_epistemic_block(
                         speech_act=SpeechAct.ASSERTION,
                         epistemic_state=EpistemicState.TASKWORK,
-                        concept_id=f"urn:concept:{self.panel_bus.use_case}:{win_key}",
                     ),
                     payload_parts=[
                         {"type": "utterance", "location": "inline", "content": _rule_utterance_r},

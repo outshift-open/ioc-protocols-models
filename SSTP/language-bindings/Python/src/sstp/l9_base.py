@@ -257,6 +257,7 @@ class L9HeaderBuilder:
         ontology_ref: str | None = None,
         subprotocol: str | None = None,
         epistemic: Dict[str, Any] | None = None,
+        topic: str | None = None,
         kind_override: str | None = None,
         subkind: str | None = None,
         sequence_number: int | None = None,
@@ -280,7 +281,8 @@ class L9HeaderBuilder:
           semantic  — {schema_id, ontology_ref}
           policy    — {sensitivity, propagation, retention_policy}
           attributes — {msg_sources, msg_transforms, msg_created, msg_expiry}
-          epistemic — {speech_act, state, belief_status, concept_id, uncertainty}
+          epistemic — {message_act, state, belief_status, uncertainty}
+          topic     — concept URI this message is about (replaces epistemic.concept_id)
           payload   — list of PayloadPart: [{type, location, content|ref}]
 
         Group membership is a transport concern (pub-sub topic subscription).
@@ -334,6 +336,7 @@ class L9HeaderBuilder:
             "kind":        kind,
             "subprotocol": effective_subprotocol,
             "subkind":     subkind,
+            "topic":       topic or None,
             "actors":   [{"id": str(sender or "unknown"), "attestation": "self_attested_local"}],
             "message": {
                 "id":      derived_message_id,

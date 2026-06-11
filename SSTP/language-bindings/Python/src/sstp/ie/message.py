@@ -11,7 +11,7 @@ IE is independent of taskwork and team_process. Those are internal agent
 concerns — they do not appear on the IE wire.
 
 Identity (group, episode, actors) is in the L9 header.
-The primary concept is in the L9 header epistemic.concept_id.
+The primary concept is in the L9 header topic field.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ class IEUtteranceBlock:
     """The sender's assertion in this turn.
 
     ``evidence`` carries supporting evidence concept URIs for the argument.
-    The primary concept being asserted is in L9 epistemic.concept_id.
+    The primary concept being asserted is in the L9 header topic field.
 
     ``turn_depth``:
       0 = top-level exchange or initial_prior

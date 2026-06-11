@@ -221,6 +221,15 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
 _DEFAULT_BUILDER = IEL9HeaderBuilder()
 
 
+def get_topic(header: Dict[str, Any]) -> "str | None":
+    """Return the topic concept_id from an L9 header.
+
+    Reads header["topic"] first (new format), falls back to
+    header["epistemic"]["concept_id"] (old format) for backward compat.
+    """
+    return header.get("topic") or (header.get("epistemic") or {}).get("concept_id")
+
+
 def build_l9_header(
     *,
     use_case: str,
@@ -241,6 +250,7 @@ def build_l9_header(
     ontology_ref: str | None = None,
     subprotocol: str | None = "IE",
     epistemic: Dict[str, Any] | None = None,
+    topic: "str | None" = None,
     state_sequence: Dict[str, Any] | None = None,
     kind_override: str | None = None,
     conversation_id: str | None = None,
@@ -294,6 +304,7 @@ def build_l9_header(
         ontology_ref=ontology_ref,
         subprotocol=subprotocol,
         epistemic=epistemic,
+        topic=topic,
         state_sequence=state_sequence,
         kind_override=kind_override,
         conversation_id=conversation_id,
@@ -309,4 +320,5 @@ __all__ = [
     "schema_id_for",
     "IEL9HeaderBuilder",
     "build_l9_header",
+    "get_topic",
 ]

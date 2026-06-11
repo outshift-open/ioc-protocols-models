@@ -124,7 +124,7 @@ class TaskSession:
                 ["concept:drug_interaction",
                  "urn:concept:healthcare:drug_interaction:warfarin+ibuprofen"]
 
-            Passed directly to make_epistemic_block(scope=...).
+            Passed as context for scope tracking (not written to wire).
         speech_act:
             Overrides default "assertion".
         belief_status:
@@ -151,8 +151,6 @@ class TaskSession:
                 epistemic_state=TaskPhase.TASKWORK,
                 belief_status=_belief_status,
                 uncertainty=uncertainty,
-                concept_id=concept_id,
-                scope=effective_scope,
             )
         except Exception:
             epistemic = None
@@ -165,6 +163,7 @@ class TaskSession:
             speech_act=SpeechAct.ASSERTION,
             epistemic_state=EpistemicState.TASKWORK,
             parent_id=parent_id,
+            topic=concept_id,
             epistemic=epistemic,
         )
 
@@ -307,11 +306,13 @@ class TaskSession:
             # Extract metrics from panel_bus if available.
             snp_trace = list(getattr(panel_bus, "snp_trace", []))
             if snp_trace:
+                from sstp.snp.panel_bus import get_snp_convergence_metrics
                 last = snp_trace[-1]
-                mpc = float(last.get("mpc", 0.5))
-                gar = float(last.get("gar", 0.0))
-                scr = float(last.get("scr", 0.0))
-                episode_id = last.get("episode_id", "")
+                metrics = get_snp_convergence_metrics(last)
+                mpc = float(metrics.get("mpc", 0.5))
+                gar = float(metrics.get("gar", 0.0))
+                scr = float(metrics.get("scr", 0.0))
+                episode_id = metrics.get("episode_id", "")
 
             LOGGER.info(
                 "session.negotiate concept=%s resolution=%s mpc=%.3f scr=%.3f",

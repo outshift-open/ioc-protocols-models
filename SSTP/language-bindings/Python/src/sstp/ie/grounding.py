@@ -89,7 +89,7 @@ def contingency_check(
         return False, 0.0
 
     # An explicit challenge counts as contingent — B engaged with the argument
-    if (response_b_epistemic or {}).get("speech_act") in ("challenge", "alignment_challenge"):
+    if (response_b_epistemic or {}).get("message_act") in ("challenge", "alignment_challenge"):
         return True, 1.0
 
     a_concepts = _get_concept_ids(utterance_a_epistemic, a_ie_concept_ids, a_ie_addresses_evidence)

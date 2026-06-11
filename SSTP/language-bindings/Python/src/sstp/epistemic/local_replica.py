@@ -50,6 +50,10 @@ class ReplicaEntry:
     # IE utterance concept fields — from IEPayload.utterance
     ie_concept_ids:        List = field(default_factory=list)  # concept URIs this turn asserts about
     ie_addresses_evidence: List = field(default_factory=list)  # concept URIs from prior turn engaged
+    # SNP deliberation-pass field — from payload[type=snp].proposal_payload
+    snp_deferred_to: Optional[str] = None  # agent_id this turn defers to; only set on compliance accepts
+    # Header-level topic — what the message is about (header["topic"], with fallback to epistemic["concept_id"])
+    topic: Optional[str] = None
 
 
 class LocalStateReplica:
@@ -108,6 +112,22 @@ class LocalStateReplica:
             ie_concept_ids = list(utterance.get("evidence") or utterance.get("concept_ids", []))
             ie_addresses_evidence = list(utterance.get("addresses_evidence") or [])
 
+        # Extract deferred_to from payload[type=snp].proposal_payload — present only
+        # on SNP deliberation-pass compliance accepts. Never read from epistemic.
+        snp_deferred_to: Optional[str] = None
+        for part in header.get("payload") or []:
+            if part.get("type") == "snp":
+                snp_deferred_to = (part.get("content") or {}).get(
+                    "proposal_payload", {}
+                ).get("deferred_to")
+                break
+
+        # topic: header["topic"] (new format) with fallback to epistemic["concept_id"]
+        topic: Optional[str] = (
+            header.get("topic")
+            or (header.get("epistemic") or {}).get("concept_id")
+        ) or None
+
         entry = ReplicaEntry(
             message_id=mid,
             sender=sender,
@@ -119,6 +139,8 @@ class LocalStateReplica:
             contingency_verified=contingency_verified,
             ie_concept_ids=ie_concept_ids,
             ie_addresses_evidence=ie_addresses_evidence,
+            snp_deferred_to=snp_deferred_to,
+            topic=topic,
         )
         self._entries.append(entry)
         self._seen_ids.add(mid)
@@ -137,7 +159,7 @@ class LocalStateReplica:
         belief_counts: Dict[str, int] = {"asserted": 0, "deferred": 0,
                                           "retracted": 0, "revised": 0,
                                           "challenged": 0, "unresolved": 0}
-        speech_act_counts: Dict[str, int] = {}
+        message_act_counts: Dict[str, int] = {}
         phase_counts: Dict[str, int] = {"taskwork": 0, "grounding": 0, "team_process": 0}
 
         taskwork_total = 0
@@ -158,9 +180,9 @@ class LocalStateReplica:
             ep = e.epistemic or {}
             bs = ep.get("belief_status", "asserted")
             belief_counts[bs] = belief_counts.get(bs, 0) + 1
-            sa = ep.get("speech_act", "")
+            sa = ep.get("message_act", "")
             if sa:
-                speech_act_counts[sa] = speech_act_counts.get(sa, 0) + 1
+                message_act_counts[sa] = message_act_counts.get(sa, 0) + 1
             phase = ep.get("state", "")
             if phase in phase_counts:
                 phase_counts[phase] += 1
@@ -194,7 +216,7 @@ class LocalStateReplica:
         total_accepts = belief_counts["asserted"] + belief_counts["deferred"]
         genuine = sum(
             1 for e in self._entries
-            if (e.epistemic or {}).get("speech_act") in ("assertion", "belief_assertion")
+            if (e.epistemic or {}).get("message_act") in ("assertion", "belief_assertion")
             and (e.epistemic or {}).get("belief_status") == "asserted"
         )
         epistemic_strength = genuine / total_accepts if total_accepts > 0 else 0.0
@@ -221,12 +243,12 @@ class LocalStateReplica:
             "participants": sorted(by_sender.keys()),
             "sender_message_counts": {s: len(es) for s, es in by_sender.items()},
             "sender_high_water": dict(self._sender_high_water),
-            "last_speech_acts": {
-                s: (es[-1].epistemic or {}).get("speech_act")
+            "last_message_acts": {
+                s: (es[-1].epistemic or {}).get("message_act")
                 for s, es in by_sender.items()
             },
             "belief_counts": belief_counts,
-            "speech_act_counts": speech_act_counts,
+            "message_act_counts": message_act_counts,
             "phase_counts": phase_counts,
             "epistemic_strength": round(epistemic_strength, 4),
             "taskwork_independence_ratio": round(taskwork_independence_ratio, 4),
