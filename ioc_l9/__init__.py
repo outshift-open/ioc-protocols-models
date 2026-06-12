@@ -1,58 +1,173 @@
 """
-ioc_l9 package — L9 message format for the IOC protocol stack.
+ioc_l9 package — L9 message envelope and IE/SNP payload models.
 
-An L9 message is the fundamental unit of communication between agents.
-It consists of a Header (routing + metadata) and a Payload (the actual data).
+An L9 message is the fundamental unit of communication between agents in a MAS.
+It is defined by Figure 1 of the L9 specification and carries:
 
-The `kind` field in the header drives CFN routing decisions, directing the
-message to the appropriate Cognitive Engine (CE) for processing.
+  - routing + metadata header fields (protocol, kind, epistemic, …)
+  - one or more typed payload parts (ie, snp, utterance, …)
 
-Kind values and their meaning:
-  exchange     — direct message transfer between agents
-  intent       — agents negotiate shared understanding of intent/ambiguity
-  contingency  — fallback handling: negotiation, repair, or escalation
-  commit       — agents commit to a shared understanding before acting
-  knowledge    — knowledge-base update or retrieval
+Kind values (spec §kind):
+  intent      — opens an episode; declares the topic
+  exchange    — substantive work: proposals, peer turns, assessments
+  contingency — signals a grounding problem that must be repaired before continuing
+  commit      — closes a negotiation branch or repair cycle
+  knowledge   — writes a converged fact to permanent memory
+
+SubProtocol values:
+  IE  — Interaction Engine: grounding, contingency detection, repair
+  SNP — Semantic Negotiation Protocol: multi-agent convergence
 """
 
-from typing import Optional
-from pydantic import BaseModel
+from __future__ import annotations
 
-from ioc_l9.primitives import Actor, SemanticContext, PolicyLabel, Provenance, Group
-from ioc_l9.epistemic import Epistemic
+from enum import Enum
+from typing import Annotated, List, Optional, Union
+
+from pydantic import BaseModel, Field
+
+from ioc_l9.primitives import (
+    ActorRef, AttributesCtx, Group, MessageRef, PolicyCtx, SemanticCtx,
+)
+from ioc_l9.epistemic import AbstractEpistemic, IEEpistemic
 
 
-class L9Header(BaseModel):
+# ── Discriminated union over all known epistemic subtypes ─────────────────────
+# To register a new subtype, add it to this Union alongside its Literal value.
+
+EpistemicField = Annotated[
+    Union[IEEpistemic, AbstractEpistemic],
+    Field(discriminator="epistemic_kind"),
+]
+
+
+# ── Protocol-level enumerations ────────────────────────────────────────────────
+
+class Kind(str, Enum):
+    intent      = "intent"
+    exchange    = "exchange"
+    contingency = "contingency"
+    commit      = "commit"
+    knowledge   = "knowledge"
+
+
+class SubKind(str, Enum):
+    converged = "converged"
+    rejected  = "rejected"
+    abort     = "abort"
+
+
+class SubProtocol(str, Enum):
+    IE  = "IE"
+    SNP = "SNP"
+
+
+# ── IE payload types (spec §IE Payload Schema) ─────────────────────────────────
+
+class RepairReason(str, Enum):
+    grounding_failure    = "grounding_failure"     # response did not engage prior evidence
+    scope_mismatch       = "scope_mismatch"        # concept is outside the sender's known scope
+    ungroundable_novelty = "ungroundable_novelty"  # claim cannot be grounded in shared ontology
+
+
+class RevisionCause(str, Enum):
+    grounded_argument = "grounded_argument"  # peer's argument was contingent → genuine revision
+    social_compliance = "social_compliance"  # yielded to pressure without being persuaded
+    semantic_memory   = "semantic_memory"    # prior loaded from SemanticMemory at episode open
+    new_evidence      = "new_evidence"       # external data injection
+    repair_resolution = "repair_resolution"  # revised after a successful repair cycle
+
+
+class IEUtterance(BaseModel):
     """
-    Routing and metadata envelope for every L9 message.
-    The CFN layer reads the header — especially `kind` and `sub_kind` —
-    to decide which Cognitive Engine (CE) should handle the message.
+    Utterance portion of the IE payload — what the sender is arguing from
+    and which prior-turn concepts it is engaging.
     """
-    protocol: str                        # protocol name, e.g. "SSTP"
-    version: str                         # protocol version string, e.g. "1.0"
-    kind: str                            # message kind — drives CFN routing (see module docstring)
-    sub_kind: str                        # finer-grained classification within the kind
-    group: Group                         # group/session context this message belongs to
-    actors: list[Actor]                  # all participants: sender(s), receiver(s), observers
-    semantic: SemanticContext            # ontological/schema context for interpreting the payload
-    policy: Optional[PolicyLabel] = None      # optional data governance labels
-    provenance: Optional[Provenance] = None   # optional origin/lineage tracking
-    epistemic: Optional[Epistemic] = None     # optional agent belief/knowledge state
+    evidence: List[str] = Field(default_factory=list)
+    addresses_evidence: List[str] = Field(default_factory=list)  # ∅ on first turn
+    turn_depth: int = 0  # 0 = top-level; >0 = inside a repair branch
 
 
-class L9Payload(BaseModel):
+class IEGrounding(BaseModel):
     """
-    The actual content being carried by an L9 message.
-    The `type` field describes the payload format; `data` holds the content.
+    Grounding verification result — filled by the *receiver*, not the sender.
+    Records whether the incoming turn genuinely engaged the prior turn's evidence.
     """
-    type: str   # payload content type, e.g. "text", "json-schema", "task"
-    data: dict  # free-form payload data — structure is defined by `type`
+    contingency_verified: Optional[bool] = None    # True iff score ≥ θ_c
+    contingency_score: Optional[float] = None      # |evidence ∩ prior| / |prior|
+    repair_reason: Optional[RepairReason] = None   # set when contingency_verified=False
+    challenges: List[str] = Field(default_factory=list)  # concept URIs the receiver disputes
 
 
-class L9(BaseModel):
+class IEBelief(BaseModel):
     """
-    A complete L9 message: header (routing/metadata) + payload (content).
-    This is the top-level structure passed between agents and through the CFN.
+    Belief state of the sender for a specific concept in this episode.
+    prior is immutable after the initial_prior declaration (invariant T2).
     """
-    header: L9Header
-    payload: L9Payload
+    prior: float = 0.5      # π(a,c,ε) — GAR anchor; immutable once declared
+    posterior: float = 0.5  # ρ(a,c,ε) — current belief after all revisions
+    revision_cause: Optional[RevisionCause] = None
+
+
+class IEPayload(BaseModel):
+    """Complete IE sub-protocol payload (spec §IE Payload Schema)."""
+    utterance: IEUtterance = Field(default_factory=IEUtterance)
+    grounding: IEGrounding = Field(default_factory=IEGrounding)
+    belief: IEBelief = Field(default_factory=IEBelief)
+
+
+# ── Payload wrapper ────────────────────────────────────────────────────────────
+
+class PayloadPart(BaseModel):
+    """
+    One typed section of a message payload.
+    type ∈ { "utterance", "ie", "snp", "process", … }
+    content holds an IEPayload when type="ie".
+    """
+    type: str
+    location: str = "inline"
+    content: Optional[object] = None  # IEPayload | SNPPayload | str | dict
+    ref: Optional[str] = None         # external payload reference URN
+
+
+# ── Complete L9 message ────────────────────────────────────────────────────────
+
+class L9Message(BaseModel):
+    """
+    Complete L9 message — the full envelope described in Figure 1 of the spec.
+
+    All L9 header fields are inlined at the top level (matching the abstract
+    schema M := { kind, subkind, subprotocol, epistemic, message, payload }).
+    """
+    # ── header identity ──
+    protocol: str = "SSTP"
+    version: str = "0"
+    subprotocol: Optional[SubProtocol] = None
+    kind: Kind
+    subkind: Optional[SubKind] = None
+
+    # ── header routing ──
+    actor: Optional[ActorRef] = None
+    message: MessageRef = Field(default_factory=MessageRef)
+    semantic: SemanticCtx = Field(default_factory=SemanticCtx)
+    policy: Optional[PolicyCtx] = None
+    attributes: AttributesCtx = Field(default_factory=AttributesCtx)
+
+    # ── header epistemic ──
+    epistemic: EpistemicField = Field(default_factory=AbstractEpistemic)
+
+    # ── payload ──
+    payload: List[PayloadPart] = Field(default_factory=list)
+
+    def ie_payload(self) -> Optional[IEPayload]:
+        """Return the typed IEPayload from the payload list, or None."""
+        for part in self.payload:
+            if part.type == "ie" and isinstance(part.content, IEPayload):
+                return part.content
+        return None
+
+
+# Legacy aliases — kept so any existing code that imported the old names
+# still resolves without an immediate error.
+L9Header = L9Message   # old name pointed at a header-only model; L9Message is now the full envelope
+L9Payload = PayloadPart
