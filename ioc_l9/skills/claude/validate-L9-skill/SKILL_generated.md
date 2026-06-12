@@ -1,16 +1,14 @@
 ---
 name: validate-L9-skill
-description: Skill for validating IOC L9 protocol messages — covering header routing metadata, payload content, and all nested structures including actors, semantic context, policy labels, and provenance.
+description: Skill for validating IOC L9 protocol messages, including header routing metadata and payload content, for use in CFN-based agent communication pipelines.
 ---
 
 # validate-L9-skill
 
 ## Description
-
-Skill for validating IOC L9 protocol messages. The L9 protocol defines a structured envelope for passing messages between agents and through the Cognitive Function Network (CFN). Every L9 message consists of two top-level components: a `header` (routing and metadata) and a `payload` (content). This skill covers validation of all required fields, nested object structures, and optional governance labels across both Python (Pydantic) and Go (structs) implementations.
+Skill for validating IOC L9 protocol model. The L9 protocol defines a structured message envelope used to route and process communications between agents, humans, and systems through the Cognitive Function Network (CFN). Every L9 message consists of a `header` (routing and metadata) and a `payload` (content). This skill helps developers construct, inspect, and validate L9 messages against the protocol schema.
 
 ## Repository
-
 For complete documentation and specifications, see: https://github.com/cisco-eti/ioc-cfn-protocols-models
 
 ---
@@ -21,85 +19,83 @@ The top-level `L9` object has exactly two required fields:
 
 | Field     | Type        | Required | Description                                      |
 |-----------|-------------|----------|--------------------------------------------------|
-| `header`  | `L9Header`  | ✅ Yes   | Routing and metadata envelope                    |
-| `payload` | `L9Payload` | ✅ Yes   | Actual content carried by the message            |
+| `header`  | `L9Header`  | Yes      | Routing envelope read by the CFN layer           |
+| `payload` | `L9Payload` | Yes      | Content being carried by the message             |
 
 ### L9Header Fields
 
 | Field        | Type              | Required | Description                                                  |
 |--------------|-------------------|----------|--------------------------------------------------------------|
-| `protocol`   | `string`          | ✅ Yes   | Protocol identifier (e.g. `"L9"`)                            |
-| `version`    | `string`          | ✅ Yes   | Protocol version (e.g. `"1.0.0"`)                            |
-| `kind`       | `string`          | ✅ Yes   | Top-level message category used by CFN routing               |
-| `sub_kind`   | `string`          | ✅ Yes   | Sub-category for fine-grained CE selection                   |
-| `group`      | `Group`           | ✅ Yes   | Logical grouping / session scope                             |
-| `actors`     | `array[Actor]`    | ✅ Yes   | Participants — senders and receivers                         |
-| `semantic`   | `SemanticContext` | ✅ Yes   | Ontological framework for payload interpretation             |
-| `policy`     | `PolicyLabel`     | ❌ No    | Data governance and access-control labels (nullable)         |
-| `provenance` | `Provenance`      | ❌ No    | Origin and lineage tracking (nullable, fields TBD)           |
-| `epistemic`  | `Epistemic`       | ❌ No    | Agent belief/knowledge state at send time (nullable, placeholder) |
+| `protocol`   | string            | Yes      | Protocol identifier (e.g., `"L9"`)                          |
+| `version`    | string            | Yes      | Protocol version (e.g., `"1.0.0"`)                          |
+| `kind`       | string            | Yes      | Top-level message category used by CFN for CE routing        |
+| `sub_kind`   | string            | Yes      | Subcategory for finer-grained CE selection                   |
+| `group`      | `Group`           | Yes      | Logical grouping scoping the message to a shared context     |
+| `actors`     | `Actor[]`         | Yes      | List of participants (senders, receivers, observers)         |
+| `semantic`   | `SemanticContext` | Yes      | Ontological framework for payload interpretation             |
+| `policy`     | `PolicyLabel`     | No       | Data governance and access-control labels                    |
+| `provenance` | `Provenance`      | No       | Origin and lineage tracking for the message                  |
+| `epistemic`  | `Epistemic`       | No       | Agent belief/knowledge state at time of sending              |
 
 ### Actor Fields
 
-| Field  | Type     | Required | Description                                      |
-|--------|----------|----------|--------------------------------------------------|
-| `id`   | `string` | ✅ Yes   | Unique identifier for the actor                  |
-| `type` | `string` | ✅ Yes   | Actor type: `"human"`, `"agent"`, or `"system"`  |
-| `name` | `string` | ✅ Yes   | Display name                                     |
-| `role` | `string` | ✅ Yes   | Functional role in the exchange                  |
+| Field  | Type   | Required | Description                                      |
+|--------|--------|----------|--------------------------------------------------|
+| `id`   | string | Yes      | Unique identifier for the actor                  |
+| `type` | string | Yes      | Actor type: `"human"`, `"agent"`, or `"system"`  |
+| `name` | string | Yes      | Human-readable display name                      |
+| `role` | string | Yes      | Functional role in this exchange                 |
 
 ### Group Fields
 
-| Field  | Type     | Required | Description                        |
-|--------|----------|----------|------------------------------------|
-| `id`   | `string` | ✅ Yes   | Unique group identifier            |
-| `name` | `string` | ✅ Yes   | Human-readable group name          |
+| Field  | Type   | Required | Description                          |
+|--------|--------|----------|--------------------------------------|
+| `id`   | string | Yes      | Unique identifier for the group      |
+| `name` | string | Yes      | Human-readable name for the group    |
 
 ### SemanticContext Fields
 
-| Field                | Type     | Required | Description                                              |
-|----------------------|----------|----------|----------------------------------------------------------|
-| `schema_id`          | `string` | ✅ Yes   | Identifier for the schema governing this message         |
-| `ontology_ref`       | `string` | ✅ Yes   | Reference to the ontology used for interpretation        |
-| `cognition_protocol` | `string` | ✅ Yes   | Protocol name passed to the cognitive engine             |
+| Field                | Type   | Required | Description                                              |
+|----------------------|--------|----------|----------------------------------------------------------|
+| `schema_id`          | string | Yes      | Identifier for the schema governing the payload          |
+| `ontology_ref`       | string | Yes      | Reference to the ontology used for interpretation        |
+| `cognition_protocol` | string | Yes      | Cognition protocol used to select the appropriate CE     |
 
 ### L9Payload Fields
 
-| Field  | Type     | Required | Description                                      |
-|--------|----------|----------|--------------------------------------------------|
-| `type` | `string` | ✅ Yes   | Describes the payload format (e.g. `"text"`)     |
-| `data` | `object` | ✅ Yes   | Arbitrary content object — schema varies by type |
+| Field  | Type   | Required | Description                                    |
+|--------|--------|----------|------------------------------------------------|
+| `type` | string | Yes      | Describes the payload format (e.g., `"text"`)  |
+| `data` | object | Yes      | Arbitrary content object carrying the message  |
 
 ### PolicyLabel Fields
 
-| Field              | Type     | Required | Description                                  |
-|--------------------|----------|----------|----------------------------------------------|
-| `sensitivity`      | `string` | ✅ Yes   | Data sensitivity classification              |
-| `propagation`      | `string` | ✅ Yes   | How the label propagates downstream          |
-| `retention_policy` | `string` | ✅ Yes   | Retention rules for this message             |
+| Field              | Type   | Required | Description                                  |
+|--------------------|--------|----------|----------------------------------------------|
+| `sensitivity`      | string | Yes      | Data sensitivity classification              |
+| `propagation`      | string | Yes      | Rules for how labels propagate downstream    |
+| `retention_policy` | string | Yes      | Data retention requirements                  |
 
 ---
 
 ## Instructions
 
 1. Validate that every L9 message contains both required top-level fields: `header` and `payload`.
-2. Validate `L9Header` — all six required fields (`protocol`, `version`, `kind`, `sub_kind`, `group`, `actors`, `semantic`) must be present and non-empty.
-3. Validate the `group` object contains both `id` and `name`.
-4. Validate that `actors` is a non-empty array and each actor contains all four required fields: `id`, `type`, `name`, `role`.
-5. Validate `semantic` contains all three required fields: `schema_id`, `ontology_ref`, `cognition_protocol`.
-6. Validate `L9Payload` contains both `type` (string) and `data` (object).
-7. When `policy` is present (non-null), validate all three `PolicyLabel` fields: `sensitivity`, `propagation`, `retention_policy`.
-8. Treat `provenance` and `epistemic` as valid empty objects `{}` when present — their fields are TBD.
-9. Report all validation errors together rather than stopping at the first failure.
-10. When generating L9 messages, always set `protocol` to `"L9"` and `version` to `"1.0.0"` unless instructed otherwise.
+2. Validate `L9Header` required fields: `protocol`, `version`, `kind`, `sub_kind`, `group`, `actors`, and `semantic`.
+3. Validate each `Actor` in the `actors` array contains `id`, `type`, `name`, and `role`.
+4. Validate `Group` contains both `id` and `name`.
+5. Validate `SemanticContext` contains `schema_id`, `ontology_ref`, and `cognition_protocol`.
+6. Validate `L9Payload` contains both `type` and `data`, where `data` must be an object (not a scalar or array).
+7. When `policy` is present, validate `PolicyLabel` contains `sensitivity`, `propagation`, and `retention_policy`.
+8. Report all missing required fields clearly, referencing the full dot-path (e.g., `header.semantic.schema_id`).
+9. Confirm the `protocol` field value matches the expected protocol identifier for the context.
+10. When generating L9 messages, always populate all required fields before adding optional ones.
 
 ---
 
 ## Basic Examples
 
 ### Minimal Valid L9 Message
-
-The smallest valid L9 message — required fields only, no optional governance labels:
 
 ```json
 {
@@ -135,100 +131,52 @@ The smallest valid L9 message — required fields only, no optional governance l
 }
 ```
 
-### Multi-Actor Message with Policy Label
-
-A message between a human and an AI agent, with data governance labels applied:
+### Full L9 Message with Optional Fields
 
 ```json
 {
   "header": {
     "protocol": "L9",
     "version": "1.0.0",
-    "kind": "request",
-    "sub_kind": "analysis",
+    "kind": "task",
+    "sub_kind": "analysis-request",
     "group": {
       "id": "session-42",
       "name": "Threat Analysis Session"
     },
     "actors": [
       {
-        "id": "analyst-007",
-        "type": "human",
-        "name": "Alice Chen",
+        "id": "agent-triage-01",
+        "type": "agent",
+        "name": "Triage Agent",
         "role": "sender"
       },
       {
-        "id": "ce-ioc-engine-01",
+        "id": "agent-analysis-02",
         "type": "agent",
-        "name": "IOC Cognitive Engine",
+        "name": "Analysis Agent",
         "role": "receiver"
       }
     ],
     "semantic": {
-      "schema_id": "ioc_threat_v2",
-      "ontology_ref": "mitre-attack-v14",
-      "cognition_protocol": "threat-analysis"
+      "schema_id": "threat-analysis-v2",
+      "ontology_ref": "ioc-ontology-v1",
+      "cognition_protocol": "deep-analysis"
     },
     "policy": {
       "sensitivity": "confidential",
       "propagation": "inherit",
-      "retention_policy": "90-days"
+      "retention_policy": "30-days"
     },
     "provenance": {},
     "epistemic": {}
   },
   "payload": {
-    "type": "ioc_bundle",
+    "type": "structured",
     "data": {
-      "indicators": ["198.51.100.42", "malware.example.com"],
-      "confidence": 0.87,
-      "tlp": "amber"
-    }
-  }
-}
-```
-
-### System-to-System Message
-
-A message between two system actors routing through the CFN:
-
-```json
-{
-  "header": {
-    "protocol": "L9",
-    "version": "1.0.0",
-    "kind": "event",
-    "sub_kind": "heartbeat",
-    "group": {
-      "id": "cfn-cluster-prod",
-      "name": "Production CFN Cluster"
-    },
-    "actors": [
-      {
-        "id": "node-cfn-03",
-        "type": "system",
-        "name": "CFN Node 03",
-        "role": "sender"
-      },
-      {
-        "id": "node-cfn-01",
-        "type": "system",
-        "name": "CFN Node 01",
-        "role": "receiver"
-      }
-    ],
-    "semantic": {
-      "schema_id": "cfn_internal_v1",
-      "ontology_ref": "cfn-ops",
-      "cognition_protocol": "heartbeat"
-    }
-  },
-  "payload": {
-    "type": "status",
-    "data": {
-      "status": "healthy",
-      "uptime_seconds": 86400,
-      "load": 0.42
+      "task_id": "task-9981",
+      "priority": "high",
+      "description": "Analyze the attached IOC for threat classification."
     }
   }
 }
@@ -238,14 +186,14 @@ A message between two system actors routing through the CFN:
 
 ## Code Examples
 
-### Python — Pydantic Validation
+### Python (Pydantic)
 
-**Model definitions** (`models/l9.py`):
+#### Defining the Models
 
 ```python
 from __future__ import annotations
-from typing import Optional
-from pydantic import BaseModel, Field
+from typing import Any, Optional
+from pydantic import BaseModel
 
 
 class Actor(BaseModel):
@@ -273,13 +221,11 @@ class PolicyLabel(BaseModel):
 
 
 class Provenance(BaseModel):
-    """Origin and lineage tracking. Fields TBD."""
-    pass
+    pass  # Fields TBD
 
 
 class Epistemic(BaseModel):
-    """Agent belief/knowledge state. Currently a placeholder."""
-    pass
+    pass  # Fields TBD
 
 
 class L9Header(BaseModel):
@@ -297,7 +243,7 @@ class L9Header(BaseModel):
 
 class L9Payload(BaseModel):
     type: str
-    data: dict
+    data: dict[str, Any]
 
 
 class L9(BaseModel):
@@ -305,118 +251,109 @@ class L9(BaseModel):
     payload: L9Payload
 ```
 
-**Validation helper** (`validation/validate_l9.py`):
+#### Constructing and Validating a Message
+
+```python
+from pydantic import ValidationError
+
+raw_message = {
+    "header": {
+        "protocol": "L9",
+        "version": "1.0.0",
+        "kind": "message",
+        "sub_kind": "chat",
+        "group": {"id": "group-001", "name": "Test Group"},
+        "actors": [
+            {"id": "user-001", "type": "human", "name": "Jane Smith", "role": "analyst"}
+        ],
+        "semantic": {
+            "schema_id": "l9_v1",
+            "ontology_ref": "standard",
+            "cognition_protocol": "chat"
+        }
+    },
+    "payload": {
+        "type": "text",
+        "data": {"content": "Hello, world!"}
+    }
+}
+
+try:
+    message = L9(**raw_message)
+    print(f"Valid L9 message: kind={message.header.kind}, sub_kind={message.header.sub_kind}")
+    print(f"Actors: {[a.name for a in message.header.actors]}")
+    print(f"Payload type: {message.payload.type}")
+except ValidationError as e:
+    for error in e.errors():
+        field_path = " -> ".join(str(loc) for loc in error["loc"])
+        print(f"Validation error at '{field_path}': {error['msg']}")
+```
+
+#### Validating from JSON String
 
 ```python
 import json
-from pathlib import Path
-from pydantic import ValidationError
-from models.l9 import L9
 
-
-def validate_l9_message(message: dict) -> tuple[bool, list[str]]:
-    """
-    Validate an L9 message dict against the schema.
-
-    Returns:
-        (is_valid, errors) — errors is an empty list when valid.
-    """
+def validate_l9_message(json_str: str) -> L9 | None:
     try:
-        L9.model_validate(message)
-        return True, []
-    except ValidationError as exc:
-        errors = [
-            f"{' -> '.join(str(loc) for loc in err['loc'])}: {err['msg']}"
-            for err in exc.errors()
-        ]
-        return False, errors
+        data = json.loads(json_str)
+        return L9(**data)
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON: {e}")
+        return None
+    except ValidationError as e:
+        print(f"Schema validation failed:\n{e}")
+        return None
 
-
-def validate_l9_file(path: str | Path) -> tuple[bool, list[str]]:
-    """Load a JSON file and validate it as an L9 message."""
-    with open(path) as f:
-        data = json.load(f)
-    return validate_l9_message(data)
-
-
-# --- Usage ---
-if __name__ == "__main__":
-    message = {
-        "header": {
-            "protocol": "L9",
-            "version": "1.0.0",
-            "kind": "message",
-            "sub_kind": "chat",
-            "group": {"id": "g1", "name": "Demo Group"},
-            "actors": [
-                {"id": "u1", "type": "human", "name": "Bob", "role": "sender"}
-            ],
-            "semantic": {
-                "schema_id": "l9_v1",
-                "ontology_ref": "standard",
-                "cognition_protocol": "chat"
-            }
-        },
-        "payload": {
-            "type": "text",
-            "data": {"content": "Validate me."}
-        }
-    }
-
-    valid, errors = validate_l9_message(message)
-    if valid:
-        print("✅ Message is valid.")
-    else:
-        print("❌ Validation failed:")
-        for err in errors:
-            print(f"  - {err}")
+# Usage
+json_input = '{"header": {...}, "payload": {...}}'
+msg = validate_l9_message(json_input)
 ```
 
-**Building an L9 message programmatically**:
+#### Serializing a Message
 
 ```python
-from models.l9 import L9, L9Header, L9Payload, Actor, Group, SemanticContext, PolicyLabel
-
+# Build a message programmatically
 message = L9(
     header=L9Header(
         protocol="L9",
         version="1.0.0",
-        kind="request",
-        sub_kind="analysis",
-        group=Group(id="session-99", name="Analysis Session"),
+        kind="task",
+        sub_kind="analysis-request",
+        group=Group(id="session-42", name="Threat Analysis Session"),
         actors=[
-            Actor(id="analyst-1", type="human", name="Carol", role="sender"),
-            Actor(id="ce-engine-1", type="agent", name="CE Engine", role="receiver"),
+            Actor(id="agent-01", type="agent", name="Triage Agent", role="sender"),
+            Actor(id="agent-02", type="agent", name="Analysis Agent", role="receiver"),
         ],
         semantic=SemanticContext(
-            schema_id="ioc_v2",
-            ontology_ref="mitre-attack-v14",
-            cognition_protocol="threat-analysis"
+            schema_id="threat-analysis-v2",
+            ontology_ref="ioc-ontology-v1",
+            cognition_protocol="deep-analysis"
         ),
         policy=PolicyLabel(
-            sensitivity="internal",
+            sensitivity="confidential",
             propagation="inherit",
             retention_policy="30-days"
         )
     ),
     payload=L9Payload(
-        type="text",
-        data={"content": "Analyze this IOC bundle."}
+        type="structured",
+        data={"task_id": "task-9981", "priority": "high"}
     )
 )
 
 # Serialize to JSON
-print(message.model_dump_json(indent=2))
+print(message.model_dump_json(indent=2, exclude_none=True))
 ```
 
 ---
 
-### Go — Struct Validation
+### Go (Structs)
 
-**Model definitions** (`models/l9.go`):
+#### Defining the Structs
 
 ```go
-package models
+package l9protocol
 
 // Actor represents a participant in a protocol exchange.
 type Actor struct {
@@ -426,7 +363,7 @@ type Actor struct {
     Role string `json:"role"`
 }
 
-// Group is a logical grouping of actors scoping the message context.
+// Group is a logical grouping of actors.
 type Group struct {
     ID   string `json:"id"`
     Name string `json:"name"`
@@ -446,12 +383,72 @@ type PolicyLabel struct {
     RetentionPolicy string `json:"retention_policy"`
 }
 
-// Provenance tracks message origin and lineage. Fields TBD.
+// Provenance tracks origin and lineage (fields TBD).
 type Provenance struct{}
 
-// Epistemic captures agent belief/knowledge state. Currently a placeholder.
+// Epistemic represents agent belief/knowledge state (fields TBD).
 type Epistemic struct{}
 
 // L9Header is the routing and metadata envelope for every L9 message.
 type L9Header struct {
-    
+    Protocol   string           `json:"protocol"`
+    Version    string           `json:"version"`
+    Kind       string           `json:"kind"`
+    SubKind    string           `json:"sub_kind"`
+    Group      Group            `json:"group"`
+    Actors     []Actor          `json:"actors"`
+    Semantic   SemanticContext  `json:"semantic"`
+    Policy     *PolicyLabel     `json:"policy,omitempty"`
+    Provenance *Provenance      `json:"provenance,omitempty"`
+    Epistemic  *Epistemic       `json:"epistemic,omitempty"`
+}
+
+// L9Payload holds the actual content of an L9 message.
+type L9Payload struct {
+    Type string                 `json:"type"`
+    Data map[string]interface{} `json:"data"`
+}
+
+// L9 is the top-level L9 message structure.
+type L9 struct {
+    Header  L9Header  `json:"header"`
+    Payload L9Payload `json:"payload"`
+}
+```
+
+#### Validating a Message
+
+```go
+package l9protocol
+
+import (
+    "encoding/json"
+    "errors"
+    "fmt"
+)
+
+// Validate checks that all required fields are present and non-empty.
+func (m *L9) Validate() error {
+    // Header required fields
+    if m.Header.Protocol == "" {
+        return errors.New("missing required field: header.protocol")
+    }
+    if m.Header.Version == "" {
+        return errors.New("missing required field: header.version")
+    }
+    if m.Header.Kind == "" {
+        return errors.New("missing required field: header.kind")
+    }
+    if m.Header.SubKind == "" {
+        return errors.New("missing required field: header.sub_kind")
+    }
+    if m.Header.Group.ID == "" || m.Header.Group.Name == "" {
+        return errors.New("missing required field(s) in header.group: id, name")
+    }
+    if len(m.Header.Actors) == 0 {
+        return errors.New("header.actors must contain at least one actor")
+    }
+    for i, actor := range m.Header.Actors {
+        if actor.ID == "" || actor.Type == "" || actor.Name == "" || actor.Role == "" {
+            return fmt.Errorf("actor at index %d is missing required fields (id, type, name, role)", i)
+        }

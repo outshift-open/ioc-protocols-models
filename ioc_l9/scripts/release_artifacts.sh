@@ -68,7 +68,7 @@ get_version() {
     
     # Use provided version if given
     if [ -n "$provided_version" ]; then
-        log_info "Using provided version: $provided_version"
+        log_info "Using provided version: $provided_version" >&2
         echo "$provided_version"
         return
     fi
@@ -84,7 +84,7 @@ get_version() {
         exit 1
     fi
     
-    log_info "Using schema version: $version"
+    log_info "Using schema version: $version" >&2
     echo "$version"
 }
 
@@ -94,8 +94,8 @@ create_version_tag() {
     
     log_step "Creating Version Tag"
     
-    # Create single tag for the protocol version
-    local tag="v$version"
+    # Create single tag for the protocol version (without "v" prefix)
+    local tag="$version"
     
     # Check if tag already exists
     if git tag -l "$tag" | grep -q "^$tag$"; then
@@ -105,7 +105,7 @@ create_version_tag() {
     fi
     
     log_info "Creating Git tag: $tag"
-    git tag "$tag" -m "IOC L9 Protocol v$version - Complete release (docs + Python + Go)"
+    git tag "$tag" -m "IOC L9 Protocol v$version - Complete release"
     git push origin "$tag"
     
     # Verify Go module is accessible with the new tag
@@ -119,7 +119,41 @@ create_version_tag() {
         log_warning "Go module published but may take time to be accessible via go get"
     fi
     
-    log_success "Version tag v$version created successfully"
+    # Create version.json in artifacts folder
+    create_version_json "$version"
+    
+    log_success "Version tag $version created successfully"
+}
+
+# Create version.json file in artifacts folder
+create_version_json() {
+    local version="$1"
+    local artifacts_dir="$PROJECT_ROOT/ioc_l9_artifacts"
+    local version_file="$artifacts_dir/version.json"
+    
+    log_info "Creating version.json in artifacts folder..."
+    
+    # Ensure artifacts directory exists
+    if [ ! -d "$artifacts_dir" ]; then
+        log_error "Artifacts directory not found: $artifacts_dir"
+        log_error "Please run publish_artifacts.sh first to create artifacts"
+        exit 1
+    fi
+    
+    # Create version.json with release information
+    cat > "$version_file" << EOF
+{
+  "version": "$version",
+  "release_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
+    
+    if [ -f "$version_file" ]; then
+        log_success "Created version.json: $version_file"
+    else
+        log_error "Failed to create version.json"
+        exit 1
+    fi
 }
 
 # Main function
@@ -141,9 +175,10 @@ main() {
     
     log_step "Release Complete"
     log_success "Release tag created successfully!"
-    log_success "✅ Git tag: v$VERSION"
-    log_info "Release v$VERSION is ready for distribution and consumption."
-    log_info "Go module can be accessed with: go get ...@v$VERSION"
+    log_success "✅ Git tag: $VERSION"
+    log_success "✅ Version metadata: ioc_l9_artifacts/version.json"
+    log_info "Release $VERSION is ready for distribution and consumption."
+    log_info "Go module can be accessed with: go get ...@$VERSION"
 }
 
 # Handle script arguments

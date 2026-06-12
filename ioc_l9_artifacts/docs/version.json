@@ -1,9 +1,0 @@
-{
-  "version": "1.0.0",
-  "release_date": "2026-06-12T00:06:43Z",
-  "artifacts": {
-    "schema": "l9.json",
-    "documentation": "protocol_reference.html",
-    "usage_guide": "Artifacts.md"
-  }
-}

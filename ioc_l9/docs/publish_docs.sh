@@ -147,20 +147,6 @@ finalize_docs() {
     local artifact_folder=$(cd "$IOC_L9_DIR" && make -s print-artifact-folder)
     local output_dir="$artifact_folder/docs"
     
-    # Create version info file
-    log_info "Creating version info..."
-    cat > "$output_dir/version.json" << EOF
-{
-  "version": "$version",
-  "release_date": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "artifacts": {
-    "schema": "l9.json",
-    "documentation": "protocol_reference.html",
-    "usage_guide": "Artifacts.md"
-  }
-}
-EOF
-    
     # Create index file for artifacts
     log_info "Creating artifacts index..."
     cat > "$output_dir/index.html" << EOF
@@ -207,10 +193,6 @@ EOF
         <p>Comprehensive guide on how to use the published Python and Go language bindings in your projects.</p>
     </div>
     
-    <div class="artifact">
-        <h3><a href="version.json">ℹ️ Version Information</a></h3>
-        <p>Machine-readable version and artifact metadata in JSON format.</p>
-    </div>
     
     <div class="bindings">
         <h2>Language Bindings</h2>
@@ -234,7 +216,6 @@ EOF
     log_info "✅ Protocol reference: protocol_reference.html"
     log_info "✅ JSON schema: l9.json"
     log_info "✅ Usage guide: Artifacts.md"
-    log_info "✅ Version info: version.json"
     log_info "✅ Artifacts index: index.html"
 }
 
@@ -259,7 +240,6 @@ main() {
                 echo "  - protocol_reference.html    Interactive HTML documentation"
                 echo "  - l9.json                    JSON schema file"
                 echo "  - Artifacts.md               Usage guide"
-                echo "  - version.json               Version metadata"
                 echo "  - index.html                 Artifacts index page"
                 echo ""
                 echo "Configuration:"
