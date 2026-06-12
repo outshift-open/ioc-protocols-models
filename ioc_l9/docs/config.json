@@ -1,0 +1,21 @@
+{
+  "description_is_markdown": true,
+  "expand_buttons": true,
+  "copy_css": true,
+  "copy_js": true,
+  "minify": false,
+  "show_breadcrumbs": true,
+  "collapse_long_descriptions": true,
+  "collapse_long_examples": true,
+  "link_to_reused_ref": true,
+  "recursive_detection_depth": 25,
+  "deprecated_from_description": true,
+  "default_from_description": true,
+  "template_name": "js",
+  "template_md_options": {
+    "badge_as_image": false,
+    "show_heading_numbers": true,
+    "show_array_restrictions": true,
+    "show_toc": true
+  }
+}
