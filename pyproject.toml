@@ -10,5 +10,14 @@ authors = []
 packages = [{include = "ioc_l9"}]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+python = ">=3.9,<4.0"
 pydantic = ">=2.0"
+json-schema-for-humans = ">=0.47.0"
+
+[tool.poetry.group.dev.dependencies]
+datamodel-code-generator = ">=0.25.0"
+pytest = ">=7.0.0"
+openai = "^2.41.0"
+python-dotenv = "<1.0"
+json-schema-for-humans = ">=0.47.0"
+

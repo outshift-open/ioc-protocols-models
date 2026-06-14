@@ -163,7 +163,7 @@ jobs:
       runner-group: arc-runner-set
       enable-private-ecr: false
       enable-public-ecr: false
-      chart-path: "deploy/charts/${{ github.event.repository.name }}"
+      chart-path: "deploy/charts/ioc-cfn-protocols-models"
       #ecr-public-registry-alias: ${{ vars.ECR_PUBLIC_REGISTRY_ALIAS}}
       enable-chartmuseum: true
     secrets:
