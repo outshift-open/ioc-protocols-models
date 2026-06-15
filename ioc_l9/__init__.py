@@ -15,7 +15,7 @@ Kind values (spec §kind):
   knowledge   — writes a converged fact to permanent memory
 
 SubProtocol values:
-  IE  — Interaction Engine: grounding, contingency detection, repair
+  IE  — Semantic Interaction Exchange Protocol: grounding, contingency detection, repair
   SNP — Semantic Negotiation Protocol: multi-agent convergence
 """
 
@@ -29,14 +29,14 @@ from pydantic import BaseModel, Field
 from ioc_l9.primitives import (
     ActorRef, AttributesCtx, Group, MessageRef, PolicyCtx, SemanticCtx,
 )
-from ioc_l9.epistemic import AbstractEpistemic, IEEpistemic
+from ioc_l9.epistemic import AbstractEpistemic, SIEPEpistemic
 
 
 # ── Discriminated union over all known epistemic subtypes ─────────────────────
 # To register a new subtype, add it to this Union alongside its Literal value.
 
 EpistemicField = Annotated[
-    Union[IEEpistemic, AbstractEpistemic],
+    Union[SIEPEpistemic, AbstractEpistemic],
     Field(discriminator="epistemic_kind"),
 ]
 
@@ -58,7 +58,7 @@ class SubKind(str, Enum):
 
 
 class SubProtocol(str, Enum):
-    IE  = "IE"
+    SIEP = "SIEP"
     SNP = "SNP"
 
 
@@ -78,7 +78,7 @@ class RevisionCause(str, Enum):
     repair_resolution = "repair_resolution"  # revised after a successful repair cycle
 
 
-class IEUtterance(BaseModel):
+class SIEPUtterance(BaseModel):
     """
     Utterance portion of the IE payload — what the sender is arguing from
     and which prior-turn concepts it is engaging.
@@ -88,7 +88,7 @@ class IEUtterance(BaseModel):
     turn_depth: int = 0  # 0 = top-level; >0 = inside a repair branch
 
 
-class IEGrounding(BaseModel):
+class SIEPGrounding(BaseModel):
     """
     Grounding verification result — filled by the *receiver*, not the sender.
     Records whether the incoming turn genuinely engaged the prior turn's evidence.
@@ -99,7 +99,7 @@ class IEGrounding(BaseModel):
     challenges: List[str] = Field(default_factory=list)  # concept URIs the receiver disputes
 
 
-class IEBelief(BaseModel):
+class SIEPBelief(BaseModel):
     """
     Belief state of the sender for a specific concept in this episode.
     prior is immutable after the initial_prior declaration (invariant T2).
@@ -109,11 +109,11 @@ class IEBelief(BaseModel):
     revision_cause: Optional[RevisionCause] = None
 
 
-class IEPayload(BaseModel):
+class SIEPPayload(BaseModel):
     """Complete IE sub-protocol payload (spec §IE Payload Schema)."""
-    utterance: IEUtterance = Field(default_factory=IEUtterance)
-    grounding: IEGrounding = Field(default_factory=IEGrounding)
-    belief: IEBelief = Field(default_factory=IEBelief)
+    utterance: SIEPUtterance = Field(default_factory=SIEPUtterance)
+    grounding: SIEPGrounding = Field(default_factory=SIEPGrounding)
+    belief: SIEPBelief = Field(default_factory=SIEPBelief)
 
 
 # ── Payload wrapper ────────────────────────────────────────────────────────────
@@ -122,11 +122,11 @@ class PayloadPart(BaseModel):
     """
     One typed section of a message payload.
     type ∈ { "utterance", "ie", "snp", "process", … }
-    content holds an IEPayload when type="ie".
+    content holds an SIEPPayload when type="siep".
     """
     type: str
     location: str = "inline"
-    content: Optional[object] = None  # IEPayload | SNPPayload | str | dict
+    content: Optional[object] = None  # SIEPPayload | SNPPayload | str | dict
     ref: Optional[str] = None         # external payload reference URN
 
 
@@ -159,10 +159,10 @@ class L9Message(BaseModel):
     # ── payload ──
     payload: List[PayloadPart] = Field(default_factory=list)
 
-    def ie_payload(self) -> Optional[IEPayload]:
-        """Return the typed IEPayload from the payload list, or None."""
+    def siep_payload(self) -> Optional[SIEPPayload]:
+        """Return the typed SIEPPayload from the payload list, or None."""
         for part in self.payload:
-            if part.type == "ie" and isinstance(part.content, IEPayload):
+            if part.type == "siep" and isinstance(part.content, SIEPPayload):
                 return part.content
         return None
 

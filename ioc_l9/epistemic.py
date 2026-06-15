@@ -12,7 +12,7 @@ discriminator field lets any receiver deserialize back to the right type
 without out-of-band knowledge.
 
 Currently defined subtypes:
-  IEEpistemic ("ie")  — ToM/Interaction-Engine flavoured belief tracking;
+  SIEPEpistemic ("siep") — ToM/Semantic Interaction Exchange Protocol flavoured belief tracking;
                         carries belief_status and concept_id.
 
 Add further subtypes (e.g. "fuzzy", "bayesian", "frame") by:
@@ -44,12 +44,12 @@ class EpistemicState(str, Enum):
     team_process = "team_process"  # team-level coordination, negotiation, convergence
 
 
-# ── IE/ToM-specific enumerations ──────────────────────────────────────────────
+# ── SIEP/ToM-specific enumerations ──────────────────────────────────────────────
 
 class BeliefStatus(str, Enum):
     """
     Sender's self-declared epistemic position at send time.
-    Used by the Interaction Engine (ToM) for belief tracking.
+    Used by the Semantic Interaction Exchange Protocol (ToM) for belief tracking.
     (L9 spec §epistemic.belief_status)
     """
     asserted   = "asserted"    # sender holds this belief and states it directly
@@ -85,18 +85,18 @@ class AbstractEpistemic(BaseModel):
 
 # ── IE / ToM subtype ──────────────────────────────────────────────────────────
 
-class IEEpistemic(AbstractEpistemic):
+class SIEPEpistemic(AbstractEpistemic):
     """
-    Interaction-Engine (ToM) flavoured epistemic block.
+    Semantic Interaction Exchange Protocol (ToM) flavoured epistemic block.
 
     Extends the abstract base with the two IE-specific tracking fields:
       belief_status — sender's self-declared position in the ToM belief cycle
       concept_id    — URI of the concept under discussion ("concept:{name}"
                       or a sub-concept URN)
 
-    These fields are specific to IE/ToM and must NOT be assumed present when
-    processing a message whose epistemic_kind is not "ie".
+    These fields are specific to SIEP/ToM and must NOT be assumed present when
+    processing a message whose epistemic_kind is not "siep".
     """
-    epistemic_kind: Literal["ie"] = "ie"
+    epistemic_kind: Literal["siep"] = "siep"
     belief_status:  Optional[BeliefStatus] = None
     concept_id:     Optional[str] = None
