@@ -317,6 +317,16 @@ make publish_bindings
 - **Module Path**: `github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang`
 - **Go Module Publishing**: Uses Git tags for versioning
 
+#### Listing Published Go Modules
+To see all published Go module versions:
+```bash
+# List all Go module tags
+git ls-remote --tags origin | grep "ioc_l9/language_bindings/golang"
+
+# Check specific version availability
+go list -m github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang@v1.0.0
+```
+
 #### Pre-Publishing Validation
 The system runs comprehensive tests before publishing:
 - **Python**: `make test_bindings LANGUAGE=python`
@@ -326,11 +336,13 @@ The system runs comprehensive tests before publishing:
 ## IOC L9 artifact Versioning Explained
 
 ### Version Management
-- **Uses single Git tag** `v{version}` for the complete release
+- **Uses dual Git tags** for proper Go module support:
+  - Repository tag: `{version}` (e.g., `1.0.0`) for the complete release
+  - Go module tag: `ioc_l9/language_bindings/golang/v{version}` (e.g., `ioc_l9/language_bindings/golang/v1.0.0`) for Go module versioning
 - **Single Source of Truth**: Version is defined in `spec/json_schema/l9.json`
 - **Version Metadata**: created as part of publishing artifacts
-- **Python Package**: References tag for source code linking
-- **Go Module**: Uses tag directly for versioning
+- **Python Package**: References repository tag for source code linking
+- **Go Module**: Uses module-specific tag for proper versioning
   ```bash
   go get github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang@v1.0.0
   ```

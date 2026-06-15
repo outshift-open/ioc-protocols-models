@@ -157,7 +157,7 @@ main() {
     publish_skills
     
     # Step 3: Publish language bindings
-    # publish_bindings
+    publish_bindings
     
     # Get artifact folder for success message
     local artifact_folder=$(cd "$IOC_L9_DIR" && make -s print-artifact-folder)
@@ -167,8 +167,8 @@ main() {
     log_success "✅ Documentation artifacts: $artifact_folder/docs/"
     log_success "✅ Skills artifacts: $artifact_folder/skills/"
     log_success "✅ Python package: PyPI"
-    log_success "✅ Go module: Ready for tagging"
-    log_info "Artifacts v$VERSION are ready. Use release_artifacts.sh to create Git tag."
+    log_success "✅ Go module: Published with proper tags"
+    log_info "Artifacts v$VERSION are ready. Use release_artifacts.sh to create repository tag."
 }
 
 # Handle script arguments

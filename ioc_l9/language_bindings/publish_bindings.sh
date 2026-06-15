@@ -168,23 +168,106 @@ publish_golang() {
     fi
     
     log_success "Go tests passed"
-    log_success "Go module v$version ready for publishing"
     
-    # Note: Git tag will be created after all bindings are published
-    # For Go modules, the Git repository itself IS the module registry
-    # so "publishing" means creating and pushing Git tags
-    # Future implementation can publish to appropriate registries as required
-    # either here or via github actions
+    # Create Go module-specific tag for proper versioning
+    create_go_module_tag "$version"
+    
+    log_success "Go module v$version published successfully"
 }
 
+# Create Go module-specific tag
+create_go_module_tag() {
+    local version="$1"
+    
+    log_info "Creating Go module tag..."
+    
+    # Create Go module-specific tag (with "v" prefix and subpath)
+    local go_module_tag="ioc_l9/language_bindings/golang/v$version"
+    
+    # Ensure we're in project root
+    cd "$PROJECT_ROOT"
+    
+    # Check if Go module tag already exists
+    if git tag -l "$go_module_tag" | grep -q "^$go_module_tag$"; then
+        log_error "Go module tag $go_module_tag already exists"
+        log_info "Use 'git tag -d $go_module_tag' to delete locally and 'git push origin :refs/tags/$go_module_tag' to delete remotely"
+        exit 1
+    fi
+    
+    # Create Go module-specific tag
+    log_info "Creating Go module tag: $go_module_tag"
+    git tag "$go_module_tag" -m "IOC L9 Protocol Go module v$version"
+    
+    # Push the tag
+    log_info "Pushing Go module tag to origin..."
+    git push origin "$go_module_tag"
+    
+    # Verify Go module is accessible with the new tag
+    log_info "Verifying Go module accessibility..."
+    local module_path="github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang"
+    
+    # Test that the module can be fetched with the Go module tag
+    if go list -m "$module_path@v$version" >/dev/null 2>&1; then
+        log_success "Go module accessible at v$version"
+        log_info "Usage: go get $module_path@v$version"
+    else
+        log_warning "Go module published but may take time to be accessible via go get"
+        log_info "Try: go get $module_path@v$version"
+    fi
+}
+
+
+# Show help information
+show_help() {
+    cat << EOF
+Usage: $0 <language>
+
+Publishes IOC L9 Protocol language bindings after validation.
+
+Languages:
+  python    Publish Python package to PyPI
+  golang    Publish Go module with proper Git tags
+  all       Publish both Python and Go bindings
+
+Examples:
+  $0 python    # Publish Python package only
+  $0 golang    # Publish Go module only  
+  $0 all       # Publish all language bindings
+
+Go Module Management:
+  # List all published Go module versions
+  git ls-remote --tags origin | grep "ioc_l9/language_bindings/golang"
+  
+  # Check specific version availability
+  go list -m github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang@v1.0.0
+  
+  # Install specific version
+  go get github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang@v1.0.0
+
+Requirements:
+  - Python: PyPI API token configured (poetry config pypi-token.pypi <token>)
+  - Go: Git push permissions to repository
+  - All: Generated bindings must exist (run make generate_bindings first)
+
+EOF
+}
 
 # Main function
 main() {
     local language="${1:-}"
     
+    # Handle help flag
+    case "$language" in
+        --help|-h|help)
+            show_help
+            exit 0
+            ;;
+    esac
+    
     if [ -z "$language" ]; then
         echo "Usage: $0 <language>"
         echo "Languages: python, golang, all"
+        echo "Use --help for more information"
         exit 1
     fi
     
