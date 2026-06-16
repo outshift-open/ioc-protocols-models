@@ -30,45 +30,6 @@ class L9Payload(BaseModel):
 
 
 
-    """
-    Agents A & B (both are A2A)
-
-CFMgmt. MAS1 = A & B
-
-{
-  "header": {
-    "actors": [
-      {
-        "type": "SenderAgent",
-        "id": "Agent A"
-      },
-      {
-        "type": "Group",
-        "id": "MAS1"
-      }
-    ],
-    "group-identifier": "MAS1"
-  }
-}
-
-
-    "actors": [
-      {
-        "type": "SenderAgent",
-        "id": "Agent A"
-      },
-      {
-        "type": "ReceiverAgent",
-        "id": "Agent B"
-      },
-        {
-        "type": "ReceiverAgent",
-        "id": "Agent C"
-      }
-    ],
-
-    """
-
 class L9Header(BaseModel):
     """
     Routing and metadata envelope for every L9 message.
@@ -87,7 +48,7 @@ class L9Header(BaseModel):
     context: Optional[Context] = None               # optional context 
     
 
-class L92(BaseModel):
+class L9(BaseModel):
     """
     A complete L9 message: header (routing/metadata) + payload (content).
     This is the top-level structure passed between agents and through the CFN.
