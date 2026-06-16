@@ -18,27 +18,7 @@ Kind values and their meaning:
 from typing import Optional
 from pydantic import BaseModel
 
-from ioc_l9.primitives import Actor, SemanticContext, PolicyLabel, Provenance, Group
-from ioc_l9.epistemic import Epistemic
-
-
-class L9Header(BaseModel):
-    """
-    Routing and metadata envelope for every L9 message.
-    The CFN layer reads the header — especially `kind` and `sub_kind` —
-    to decide which Cognitive Engine (CE) should handle the message.
-    """
-    protocol: str                        # protocol name, e.g. "SSTP"
-    version: str                         # protocol version string, e.g. "1.0"
-    kind: str                            # message kind — drives CFN routing (see module docstring)
-    sub_kind: str                        # finer-grained classification within the kind
-    group: Group                         # group/session context this message belongs to
-    actors: list[Actor]                  # all participants: sender(s), receiver(s), observers
-    semantic: SemanticContext            # ontological/schema context for interpreting the payload
-    policy: Optional[PolicyLabel] = None      # optional data governance labels
-    provenance: Optional[Provenance] = None   # optional origin/lineage tracking
-    epistemic: Optional[Epistemic] = None     # optional agent belief/knowledge state
-
+from ioc_l9.primitives import Actors, PolicyLabel, Message, Context
 
 class L9Payload(BaseModel):
     """
@@ -49,7 +29,65 @@ class L9Payload(BaseModel):
     data: dict  # free-form payload data — structure is defined by `type`
 
 
-class L9(BaseModel):
+
+    """
+    Agents A & B (both are A2A)
+
+CFMgmt. MAS1 = A & B
+
+{
+  "header": {
+    "actors": [
+      {
+        "type": "SenderAgent",
+        "id": "Agent A"
+      },
+      {
+        "type": "Group",
+        "id": "MAS1"
+      }
+    ],
+    "group-identifier": "MAS1"
+  }
+}
+
+
+    "actors": [
+      {
+        "type": "SenderAgent",
+        "id": "Agent A"
+      },
+      {
+        "type": "ReceiverAgent",
+        "id": "Agent B"
+      },
+        {
+        "type": "ReceiverAgent",
+        "id": "Agent C"
+      }
+    ],
+
+    """
+
+class L9Header(BaseModel):
+    """
+    Routing and metadata envelope for every L9 message.
+    The CFN layer reads the header — especially `kind` and `sub_kind` —
+    to decide which Cognitive Engine (CE) should handle the message.
+    """
+    protocol: str                        # protocol name, e.g. "SSTP"
+    subprotocol: str                      # subprotocol name, e.g. "CIP"
+    version: str                         # protocol version string, e.g. "1.0"
+    kind: str                            # message kind — drives CFN routing (see module docstring)
+    subkind: str                        # finer-grained classification within the kind
+    actors: Actors                 # all participants: sender(s), receiver(s), observers
+    message: Optional[Message] = None 
+    policy: Optional[PolicyLabel] = None      # optional data governance labels
+    attributes: Optional[dict] = None
+    context: Optional[Context] = None               # optional context 
+    
+
+class L92(BaseModel):
     """
     A complete L9 message: header (routing/metadata) + payload (content).
     This is the top-level structure passed between agents and through the CFN.
