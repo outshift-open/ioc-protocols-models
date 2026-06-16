@@ -69,7 +69,7 @@ def generate(base_output_dir: Path, filter_name: str | None = None, version: str
     print(f"Found {label} — writing to {base_output_dir}/\n")
 
     for subdir, name, model in sorted(models, key=lambda x: (x[0], x[1])):
-        output_dir = base_output_dir if subdir == "root" else base_output_dir / subdir
+        output_dir = base_output_dir if subdir in ("root", "src") else base_output_dir / subdir
         output_dir.mkdir(parents=True, exist_ok=True)
         schema = model.model_json_schema()
         schema["version"] = version
