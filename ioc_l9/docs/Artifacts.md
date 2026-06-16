@@ -70,6 +70,12 @@ go list -m -versions github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_b
 
 # Check current version in project
 go list -m github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang
+
+# List all published Go module tags
+git ls-remote --tags origin | grep "ioc_l9/language_bindings/golang"
+
+# Verify specific version availability
+go list -m github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang@v1.0.0
 ```
 
 ### Dependency Management

@@ -88,41 +88,35 @@ get_version() {
     echo "$version"
 }
 
-# Create single git tag for complete release
+# Create repository-level tag for complete release
 create_version_tag() {
     local version="$1"
     
-    log_step "Creating Version Tag"
+    log_step "Creating Repository Tag"
     
-    # Create single tag for the protocol version (without "v" prefix)
-    local tag="$version"
+    # Create repository-level tag (without "v" prefix)
+    local repo_tag="$version"
     
-    # Check if tag already exists
-    if git tag -l "$tag" | grep -q "^$tag$"; then
-        log_error "Tag $tag already exists"
-        log_info "Use 'git tag -d $tag' to delete locally and 'git push origin :refs/tags/$tag' to delete remotely"
+    # Check if repository tag already exists
+    if git tag -l "$repo_tag" | grep -q "^$repo_tag$"; then
+        log_error "Repository tag $repo_tag already exists"
+        log_info "Use 'git tag -d $repo_tag' to delete locally and 'git push origin :refs/tags/$repo_tag' to delete remotely"
         exit 1
     fi
     
-    log_info "Creating Git tag: $tag"
-    git tag "$tag" -m "IOC L9 Protocol v$version - Complete release"
-    git push origin "$tag"
+    # Create repository-level tag
+    log_info "Creating repository tag: $repo_tag"
+    git tag "$repo_tag" -m "IOC L9 Protocol v$version - Complete release"
     
-    # Verify Go module is accessible with the new tag
-    log_info "Verifying Go module accessibility..."
-    local module_path="github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang"
-    
-    # Test that the module can be fetched
-    if go list -m "$module_path@$tag" >/dev/null 2>&1; then
-        log_success "Go module accessible at $tag"
-    else
-        log_warning "Go module published but may take time to be accessible via go get"
-    fi
+    # Push the tag
+    log_info "Pushing repository tag to origin..."
+    git push origin "$repo_tag"
     
     # Create version.json in artifacts folder
     create_version_json "$version"
     
-    log_success "Version tag $version created successfully"
+    log_success "Repository tag $repo_tag created successfully"
+    log_info "Note: Go module tags are created during language binding publishing"
 }
 
 # Create version.json file in artifacts folder
@@ -174,11 +168,11 @@ main() {
     create_version_tag "$VERSION"
     
     log_step "Release Complete"
-    log_success "Release tag created successfully!"
-    log_success "✅ Git tag: $VERSION"
+    log_success "Repository release created successfully!"
+    log_success "✅ Repository tag: $VERSION"
     log_success "✅ Version metadata: ioc_l9_artifacts/version.json"
     log_info "Release $VERSION is ready for distribution and consumption."
-    log_info "Go module can be accessed with: go get ...@$VERSION"
+    log_info "Note: Go module tags are created when publishing language bindings"
 }
 
 # Handle script arguments
