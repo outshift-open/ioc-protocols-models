@@ -50,7 +50,7 @@ class Semantic(BaseModel):
     ontology_ref: str         # URI or ID of the ontology governing the domain vocabulary
     provenance: Optional[Provenance] = None   # optional origin/lineage tracking
 
-class Context:
+class Context(BaseModel):
     topic: str
     epistemic: Optional[Epistemic] = None
     semantic: Optional[Semantic] = None
