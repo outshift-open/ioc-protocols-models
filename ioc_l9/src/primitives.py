@@ -1,14 +1,13 @@
 from pydantic import BaseModel
-
-
-class Group(BaseModel):
+from typing import Optional
+from ioc_l9.src.epistemic import Epistemic
+class Message(BaseModel):
     """
-    Logical grouping of actors — e.g. a team, session, or conversation thread.
-    Used in L9Header to scope the message to a shared context.
+    Represents a message in the protocol.
     """
-    id: str       # unique group identifier
-    name: str     # human-readable label for the group
-
+    id: str       # unique message identifier
+    parents: str  # message content
+    episode: str
 
 class Actor(BaseModel):
     """
@@ -16,21 +15,12 @@ class Actor(BaseModel):
     Multiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).
     """
     id: str    # unique identifier for this actor
-    type: str  # actor category: "human" | "agent" | "system"
-    name: str  # display name
     role: str  # role in this exchange: "sender" | "receiver" | "observer" etc.
+    attestation: Optional[str] = None  # optional attestation or credential information
 
-
-class SemanticContext(BaseModel):
-    """
-    Describes the semantic/ontological framework needed to correctly interpret the payload.
-    The CFN routing layer uses this to select appropriate cognitive engines (CEs).
-    """
-    schema_id: str            # identifies the payload schema/format
-    ontology_ref: str         # URI or ID of the ontology governing the domain vocabulary
-    cognition_protocol: str   # which cognitive protocol should process this message
-
-
+class Actors(BaseModel):
+    actors: list[Actor]
+    groups: list[str]
 class PolicyLabel(BaseModel):
     """
     Data governance and access-control labels applied to the message.
@@ -47,3 +37,20 @@ class Provenance(BaseModel):
     and through which transformations. Fields TBD.
     """
     # TODO: add fields — e.g. source_agent_id, created_at, derived_from
+
+
+
+
+class Semantic(BaseModel):
+    """
+    Describes the semantic/ontological framework needed to correctly interpret the payload.
+    The CFN routing layer uses this to select appropriate cognitive engines (CEs).
+    """
+    schema_id: str            # identifies the payload schema/format
+    ontology_ref: str         # URI or ID of the ontology governing the domain vocabulary
+    provenance: Optional[Provenance] = None   # optional origin/lineage tracking
+
+class Context(BaseModel):
+    topic: str
+    epistemic: Optional[Epistemic] = None
+    semantic: Optional[Semantic] = None
