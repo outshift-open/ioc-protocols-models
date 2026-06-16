@@ -7,26 +7,87 @@
           "title": "Id",
           "type": "string"
         },
-        "type": {
-          "title": "Type",
-          "type": "string"
-        },
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
         "role": {
           "title": "Role",
           "type": "string"
+        },
+        "attestation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attestation"
         }
       },
       "required": [
         "id",
-        "type",
-        "name",
         "role"
       ],
       "title": "Actor",
+      "type": "object"
+    },
+    "Actors": {
+      "properties": {
+        "actors": {
+          "items": {
+            "$ref": "#/$defs/Actor"
+          },
+          "title": "Actors",
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Groups",
+          "type": "array"
+        }
+      },
+      "required": [
+        "actors",
+        "groups"
+      ],
+      "title": "Actors",
+      "type": "object"
+    },
+    "Context": {
+      "properties": {
+        "topic": {
+          "title": "Topic",
+          "type": "string"
+        },
+        "epistemic": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Epistemic"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "semantic": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Semantic"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "topic"
+      ],
+      "title": "Context",
       "type": "object"
     },
     "Epistemic": {
@@ -35,30 +96,15 @@
       "title": "Epistemic",
       "type": "object"
     },
-    "Group": {
-      "description": "Logical grouping of actors \u2014 e.g. a team, session, or conversation thread.\nUsed in L9Header to scope the message to a shared context.",
-      "properties": {
-        "id": {
-          "title": "Id",
-          "type": "string"
-        },
-        "name": {
-          "title": "Name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "id",
-        "name"
-      ],
-      "title": "Group",
-      "type": "object"
-    },
     "L9Header": {
       "description": "Routing and metadata envelope for every L9 message.\nThe CFN layer reads the header \u2014 especially `kind` and `sub_kind` \u2014\nto decide which Cognitive Engine (CE) should handle the message.",
       "properties": {
         "protocol": {
           "title": "Protocol",
+          "type": "string"
+        },
+        "subprotocol": {
+          "title": "Subprotocol",
           "type": "string"
         },
         "version": {
@@ -69,22 +115,23 @@
           "title": "Kind",
           "type": "string"
         },
-        "sub_kind": {
-          "title": "Sub Kind",
+        "subkind": {
+          "title": "Subkind",
           "type": "string"
         },
-        "group": {
-          "$ref": "#/$defs/Group"
-        },
         "actors": {
-          "items": {
-            "$ref": "#/$defs/Actor"
-          },
-          "title": "Actors",
-          "type": "array"
+          "$ref": "#/$defs/Actors"
         },
-        "semantic": {
-          "$ref": "#/$defs/SemanticContext"
+        "message": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Message"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "policy": {
           "anyOf": [
@@ -97,21 +144,22 @@
           ],
           "default": null
         },
-        "provenance": {
+        "attributes": {
           "anyOf": [
             {
-              "$ref": "#/$defs/Provenance"
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "title": "Attributes"
         },
-        "epistemic": {
+        "context": {
           "anyOf": [
             {
-              "$ref": "#/$defs/Epistemic"
+              "$ref": "#/$defs/Context"
             },
             {
               "type": "null"
@@ -122,12 +170,11 @@
       },
       "required": [
         "protocol",
+        "subprotocol",
         "version",
         "kind",
-        "sub_kind",
-        "group",
-        "actors",
-        "semantic"
+        "subkind",
+        "actors"
       ],
       "title": "L9Header",
       "type": "object"
@@ -149,6 +196,30 @@
         "data"
       ],
       "title": "L9Payload",
+      "type": "object"
+    },
+    "Message": {
+      "description": "Represents a message in the protocol.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "parents": {
+          "title": "Parents",
+          "type": "string"
+        },
+        "episode": {
+          "title": "Episode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "parents",
+        "episode"
+      ],
+      "title": "Message",
       "type": "object"
     },
     "PolicyLabel": {
@@ -181,7 +252,7 @@
       "title": "Provenance",
       "type": "object"
     },
-    "SemanticContext": {
+    "Semantic": {
       "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nThe CFN routing layer uses this to select appropriate cognitive engines (CEs).",
       "properties": {
         "schema_id": {
@@ -192,17 +263,23 @@
           "title": "Ontology Ref",
           "type": "string"
         },
-        "cognition_protocol": {
-          "title": "Cognition Protocol",
-          "type": "string"
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "schema_id",
-        "ontology_ref",
-        "cognition_protocol"
+        "ontology_ref"
       ],
-      "title": "SemanticContext",
+      "title": "Semantic",
       "type": "object"
     }
   },
@@ -221,5 +298,5 @@
   ],
   "title": "L9",
   "type": "object",
-  "version": "1.0.0"
+  "version": "0.0.2"
 }
