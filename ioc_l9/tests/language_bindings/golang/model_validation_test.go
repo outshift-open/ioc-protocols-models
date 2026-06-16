@@ -18,48 +18,6 @@ import (
 	l9 "github.com/cisco-eti/ioc-cfn-protocols-models/ioc_l9/language_bindings/golang"
 )
 
-// Helper function for struct-based Actor validation
-func testActorWithGeneratedModels(t *testing.T) {
-	// Test valid Actor using generated struct
-	validActor := l9.Actor{
-		ID:   "actor-123",
-		Type: "human",
-		Name: "John Doe",
-		Role: "analyst",
-	}
-
-	// Test JSON marshaling of valid Actor
-	jsonBytes, err := json.Marshal(validActor)
-	if err != nil {
-		t.Errorf("Failed to marshal valid Actor: %v", err)
-		return
-	}
-
-	// Test JSON unmarshaling back to struct
-	var unmarshaledActor l9.Actor
-	err = json.Unmarshal(jsonBytes, &unmarshaledActor)
-	if err != nil {
-		t.Errorf("Failed to unmarshal Actor JSON: %v", err)
-		return
-	}
-
-	// Verify all fields are preserved
-	if unmarshaledActor.ID != validActor.ID {
-		t.Errorf("Actor ID mismatch: expected %s, got %s", validActor.ID, unmarshaledActor.ID)
-	}
-	if unmarshaledActor.Type != validActor.Type {
-		t.Errorf("Actor Type mismatch: expected %s, got %s", validActor.Type, unmarshaledActor.Type)
-	}
-	if unmarshaledActor.Name != validActor.Name {
-		t.Errorf("Actor Name mismatch: expected %s, got %s", validActor.Name, unmarshaledActor.Name)
-	}
-	if unmarshaledActor.Role != validActor.Role {
-		t.Errorf("Actor Role mismatch: expected %s, got %s", validActor.Role, unmarshaledActor.Role)
-	}
-
-	t.Log("✓ Actor struct validation passed")
-}
-
 // TestActorRequiredFields tests Actor required field validation
 func TestActorRequiredFields(t *testing.T) {
 	// Check if generated models exist
@@ -70,8 +28,6 @@ func TestActorRequiredFields(t *testing.T) {
 	// Test valid Actor using generated struct
 	validActor := l9.Actor{
 		ID:   "actor-123",
-		Type: "human",
-		Name: "John Doe",
 		Role: "analyst",
 	}
 
@@ -94,12 +50,6 @@ func TestActorRequiredFields(t *testing.T) {
 	if unmarshaledActor.ID != validActor.ID {
 		t.Errorf("Actor ID mismatch: expected %s, got %s", validActor.ID, unmarshaledActor.ID)
 	}
-	if unmarshaledActor.Type != validActor.Type {
-		t.Errorf("Actor Type mismatch: expected %s, got %s", validActor.Type, unmarshaledActor.Type)
-	}
-	if unmarshaledActor.Name != validActor.Name {
-		t.Errorf("Actor Name mismatch: expected %s, got %s", validActor.Name, unmarshaledActor.Name)
-	}
 	if unmarshaledActor.Role != validActor.Role {
 		t.Errorf("Actor Role mismatch: expected %s, got %s", validActor.Role, unmarshaledActor.Role)
 	}
@@ -107,110 +57,234 @@ func TestActorRequiredFields(t *testing.T) {
 	// Test invalid Actor JSON (missing required fields)
 	invalidActorJSON := `{"id": "actor-123"}`
 
-	var invalidActor map[string]interface{}
+	var invalidActor l9.Actor
 	err = json.Unmarshal([]byte(invalidActorJSON), &invalidActor)
-	if err != nil {
-		t.Errorf("Failed to parse invalid Actor JSON: %v", err)
-		return
-	}
-
-	// Should be missing required fields
-	missingFields := []string{}
-	requiredFieldsForInvalid := []string{"id", "type", "name", "role"}
-	for _, field := range requiredFieldsForInvalid {
-		if _, exists := invalidActor[field]; !exists {
-			missingFields = append(missingFields, field)
-		}
-	}
-
-	if len(missingFields) != 3 { // Should be missing type, name, role
-		t.Errorf("Expected 3 missing fields, got %d: %v", len(missingFields), missingFields)
+	if err == nil {
+		t.Error("Expected unmarshal error for Actor missing required 'role' field")
 	}
 
 	t.Log("✓ Actor required fields validation passed")
 }
 
-// TestSemanticContextRequiredFields tests SemanticContext required field validation
-func TestSemanticContextRequiredFields(t *testing.T) {
+// TestActorOptionalAttestation tests Actor optional attestation field
+func TestActorOptionalAttestation(t *testing.T) {
 	if !generatedModelsExist(t) {
 		return
 	}
 
-	// Test valid SemanticContext JSON
-	validContextJSON := `{
-		"schema_id": "ioc_l9_v1.0",
-		"ontology_ref": "https://example.com/ontology", 
-		"cognition_protocol": "reasoning_v1"
-	}`
+	actorJSON := `{"id": "actor-123", "role": "analyst", "attestation": "signed_token"}`
 
-	var context map[string]interface{}
-	err := json.Unmarshal([]byte(validContextJSON), &context)
+	var actor l9.Actor
+	err := json.Unmarshal([]byte(actorJSON), &actor)
 	if err != nil {
-		t.Errorf("Failed to parse valid SemanticContext JSON: %v", err)
+		t.Errorf("Failed to unmarshal Actor with attestation: %v", err)
 		return
 	}
 
-	// Verify all required fields are present
-	requiredFields := []string{"schema_id", "ontology_ref", "cognition_protocol"}
-	for _, field := range requiredFields {
-		if _, exists := context[field]; !exists {
-			t.Errorf("SemanticContext missing required field: %s", field)
-		}
+	if actor.ID != "actor-123" {
+		t.Errorf("Actor ID mismatch: expected actor-123, got %s", actor.ID)
 	}
 
-	// Test invalid SemanticContext JSON (missing required fields)
-	invalidContextJSON := `{"schema_id": "test"}`
-
-	var invalidContext map[string]interface{}
-	err = json.Unmarshal([]byte(invalidContextJSON), &invalidContext)
-	if err != nil {
-		t.Errorf("Failed to parse invalid SemanticContext JSON: %v", err)
-		return
-	}
-
-	// Should be missing required fields
-	missingFields := []string{}
-	for _, field := range requiredFields {
-		if _, exists := invalidContext[field]; !exists {
-			missingFields = append(missingFields, field)
-		}
-	}
-
-	if len(missingFields) != 2 { // Should be missing ontology_ref, cognition_protocol
-		t.Errorf("Expected 2 missing fields, got %d: %v", len(missingFields), missingFields)
-	}
-
-	t.Log("✓ SemanticContext required fields validation passed")
+	t.Log("✓ Actor optional attestation validation passed")
 }
 
-// TestGroupValidation tests Group model validation
-func TestGroupValidation(t *testing.T) {
+// TestActorsRequiredFields tests Actors struct required field validation
+func TestActorsRequiredFields(t *testing.T) {
 	if !generatedModelsExist(t) {
 		return
 	}
 
-	// Test valid Group JSON
-	validGroupJSON := `{
-		"id": "group-456",
-		"name": "Test Team"
-	}`
+	// Test valid Actors
+	validActors := l9.Actors{
+		Actors: []l9.Actor{{ID: "actor-123", Role: "analyst"}},
+		Groups: []string{"security_team"},
+	}
 
-	var group map[string]interface{}
-	err := json.Unmarshal([]byte(validGroupJSON), &group)
+	jsonBytes, err := json.Marshal(validActors)
 	if err != nil {
-		t.Errorf("Failed to parse valid Group JSON: %v", err)
+		t.Errorf("Failed to marshal valid Actors: %v", err)
 		return
 	}
 
-	// Verify required fields
-	if group["id"] != "group-456" {
-		t.Errorf("Expected group id 'group-456', got %v", group["id"])
-	}
-	if group["name"] != "Test Team" {
-		t.Errorf("Expected group name 'Test Team', got %v", group["name"])
+	var unmarshaledActors l9.Actors
+	err = json.Unmarshal(jsonBytes, &unmarshaledActors)
+	if err != nil {
+		t.Errorf("Failed to unmarshal Actors JSON: %v", err)
+		return
 	}
 
-	t.Log("✓ Group validation passed")
+	if len(unmarshaledActors.Actors) != 1 {
+		t.Errorf("Expected 1 actor, got %d", len(unmarshaledActors.Actors))
+	}
+	if len(unmarshaledActors.Groups) != 1 {
+		t.Errorf("Expected 1 group, got %d", len(unmarshaledActors.Groups))
+	}
+
+	// Test missing required fields
+	invalidActorsJSON := `{"actors": [{"id": "a1", "role": "analyst"}]}`
+	var invalidActors l9.Actors
+	err = json.Unmarshal([]byte(invalidActorsJSON), &invalidActors)
+	if err == nil {
+		t.Error("Expected unmarshal error for Actors missing required 'groups' field")
+	}
+
+	t.Log("✓ Actors required fields validation passed")
+}
+
+// TestSemanticRequiredFields tests Semantic required field validation
+func TestSemanticRequiredFields(t *testing.T) {
+	if !generatedModelsExist(t) {
+		return
+	}
+
+	// Test valid Semantic
+	validSemantic := l9.Semantic{
+		SchemaID:    "ioc_l9_v1.0",
+		OntologyRef: "https://example.com/ontology",
+	}
+
+	jsonBytes, err := json.Marshal(validSemantic)
+	if err != nil {
+		t.Errorf("Failed to marshal valid Semantic: %v", err)
+		return
+	}
+
+	var unmarshaledSemantic l9.Semantic
+	err = json.Unmarshal(jsonBytes, &unmarshaledSemantic)
+	if err != nil {
+		t.Errorf("Failed to unmarshal Semantic JSON: %v", err)
+		return
+	}
+
+	if unmarshaledSemantic.SchemaID != validSemantic.SchemaID {
+		t.Errorf("SchemaID mismatch: expected %s, got %s", validSemantic.SchemaID, unmarshaledSemantic.SchemaID)
+	}
+	if unmarshaledSemantic.OntologyRef != validSemantic.OntologyRef {
+		t.Errorf("OntologyRef mismatch: expected %s, got %s", validSemantic.OntologyRef, unmarshaledSemantic.OntologyRef)
+	}
+
+	// Test invalid Semantic JSON (missing required fields)
+	invalidSemanticJSON := `{"schema_id": "test"}`
+	var invalidSemantic l9.Semantic
+	err = json.Unmarshal([]byte(invalidSemanticJSON), &invalidSemantic)
+	if err == nil {
+		t.Error("Expected unmarshal error for Semantic missing required 'ontology_ref' field")
+	}
+
+	t.Log("✓ Semantic required fields validation passed")
+}
+
+// TestPolicyLabelValidation tests PolicyLabel model validation
+func TestPolicyLabelValidation(t *testing.T) {
+	if !generatedModelsExist(t) {
+		return
+	}
+
+	// Test valid PolicyLabel
+	validPolicy := l9.PolicyLabel{
+		Sensitivity:     "confidential",
+		Propagation:     "restricted",
+		RetentionPolicy: "30_days",
+	}
+
+	jsonBytes, err := json.Marshal(validPolicy)
+	if err != nil {
+		t.Errorf("Failed to marshal valid PolicyLabel: %v", err)
+		return
+	}
+
+	var unmarshaledPolicy l9.PolicyLabel
+	err = json.Unmarshal(jsonBytes, &unmarshaledPolicy)
+	if err != nil {
+		t.Errorf("Failed to unmarshal PolicyLabel JSON: %v", err)
+		return
+	}
+
+	if unmarshaledPolicy.Sensitivity != "confidential" {
+		t.Errorf("Expected sensitivity 'confidential', got %s", unmarshaledPolicy.Sensitivity)
+	}
+
+	// Test missing required fields
+	invalidPolicyJSON := `{"sensitivity": "confidential"}`
+	var invalidPolicy l9.PolicyLabel
+	err = json.Unmarshal([]byte(invalidPolicyJSON), &invalidPolicy)
+	if err == nil {
+		t.Error("Expected unmarshal error for PolicyLabel missing required fields")
+	}
+
+	t.Log("✓ PolicyLabel validation passed")
+}
+
+// TestMessageValidation tests Message model validation
+func TestMessageValidation(t *testing.T) {
+	if !generatedModelsExist(t) {
+		return
+	}
+
+	// Test valid Message
+	validMessage := l9.Message{
+		ID:      "msg-001",
+		Parents: "msg-000",
+		Episode: "ep-001",
+	}
+
+	jsonBytes, err := json.Marshal(validMessage)
+	if err != nil {
+		t.Errorf("Failed to marshal valid Message: %v", err)
+		return
+	}
+
+	var unmarshaledMessage l9.Message
+	err = json.Unmarshal(jsonBytes, &unmarshaledMessage)
+	if err != nil {
+		t.Errorf("Failed to unmarshal Message JSON: %v", err)
+		return
+	}
+
+	if unmarshaledMessage.ID != "msg-001" {
+		t.Errorf("Expected message ID 'msg-001', got %s", unmarshaledMessage.ID)
+	}
+
+	// Test missing required fields
+	invalidMessageJSON := `{"id": "msg-001"}`
+	var invalidMessage l9.Message
+	err = json.Unmarshal([]byte(invalidMessageJSON), &invalidMessage)
+	if err == nil {
+		t.Error("Expected unmarshal error for Message missing required fields")
+	}
+
+	t.Log("✓ Message validation passed")
+}
+
+// TestContextValidation tests Context model validation
+func TestContextValidation(t *testing.T) {
+	if !generatedModelsExist(t) {
+		return
+	}
+
+	// Test valid Context with required field only
+	validContextJSON := `{"topic": "threat_analysis"}`
+
+	var context l9.Context
+	err := json.Unmarshal([]byte(validContextJSON), &context)
+	if err != nil {
+		t.Errorf("Failed to unmarshal Context JSON: %v", err)
+		return
+	}
+
+	if context.Topic != "threat_analysis" {
+		t.Errorf("Expected topic 'threat_analysis', got %s", context.Topic)
+	}
+
+	// Test missing required field
+	invalidContextJSON := `{}`
+	var invalidContext l9.Context
+	err = json.Unmarshal([]byte(invalidContextJSON), &invalidContext)
+	if err == nil {
+		t.Error("Expected unmarshal error for Context missing required 'topic' field")
+	}
+
+	t.Log("✓ Context validation passed")
 }
 
 // TestL9HeaderValidation tests L9Header model validation
@@ -222,48 +296,42 @@ func TestL9HeaderValidation(t *testing.T) {
 	// Test valid L9Header JSON
 	validHeaderJSON := `{
 		"protocol": "L9",
+		"subprotocol": "SSTP",
 		"version": "1.0",
 		"kind": "message",
-		"sub_kind": "chat",
-		"group": {
-			"id": "group-456", 
-			"name": "Test Team"
-		},
-		"actors": [{
-			"id": "actor-123",
-			"type": "human",
-			"name": "John Doe", 
-			"role": "analyst"
-		}],
-		"semantic": {
-			"schema_id": "ioc_l9_v1.0",
-			"ontology_ref": "https://example.com/ontology",
-			"cognition_protocol": "reasoning_v1"
+		"subkind": "chat",
+		"actors": {
+			"actors": [{"id": "actor-123", "role": "analyst"}],
+			"groups": ["security_team"]
 		}
 	}`
 
-	var header map[string]interface{}
+	var header l9.L9Header
 	err := json.Unmarshal([]byte(validHeaderJSON), &header)
 	if err != nil {
-		t.Errorf("Failed to parse valid L9Header JSON: %v", err)
+		t.Errorf("Failed to unmarshal valid L9Header JSON: %v", err)
 		return
 	}
 
-	// Verify required fields
-	requiredFields := []string{"protocol", "version", "kind", "sub_kind", "group", "actors", "semantic"}
-	for _, field := range requiredFields {
-		if _, exists := header[field]; !exists {
-			t.Errorf("L9Header missing required field: %s", field)
-		}
+	if header.Protocol != "L9" {
+		t.Errorf("Expected protocol 'L9', got %s", header.Protocol)
+	}
+	if header.Subprotocol != "SSTP" {
+		t.Errorf("Expected subprotocol 'SSTP', got %s", header.Subprotocol)
+	}
+	if header.Subkind != "chat" {
+		t.Errorf("Expected subkind 'chat', got %s", header.Subkind)
+	}
+	if len(header.Actors.Actors) != 1 {
+		t.Errorf("Expected 1 actor, got %d", len(header.Actors.Actors))
 	}
 
-	// Verify nested structures
-	if actors, ok := header["actors"].([]interface{}); ok {
-		if len(actors) != 1 {
-			t.Errorf("Expected 1 actor, got %d", len(actors))
-		}
-	} else {
-		t.Error("Actors field is not an array")
+	// Test missing required fields
+	invalidHeaderJSON := `{"protocol": "L9", "version": "1.0"}`
+	var invalidHeader l9.L9Header
+	err = json.Unmarshal([]byte(invalidHeaderJSON), &invalidHeader)
+	if err == nil {
+		t.Error("Expected unmarshal error for L9Header missing required fields")
 	}
 
 	t.Log("✓ L9Header validation passed")
@@ -278,24 +346,14 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 	// Test valid complete L9 message using generated structs
 	validL9 := l9.L9Json{
 		Header: l9.L9Header{
-			Protocol: "L9",
-			Version:  "1.0",
-			Kind:     "message",
-			SubKind:  "chat",
-			Group: l9.Group{
-				ID:   "group-456",
-				Name: "Test Team",
-			},
-			Actors: []l9.Actor{{
-				ID:   "actor-123",
-				Type: "human",
-				Name: "John Doe",
-				Role: "analyst",
-			}},
-			Semantic: l9.SemanticContext{
-				SchemaID:          "ioc_l9_v1.0",
-				OntologyRef:       "https://example.com/ontology",
-				CognitionProtocol: "reasoning_v1",
+			Protocol:    "L9",
+			Subprotocol: "SSTP",
+			Version:     "1.0",
+			Kind:        "message",
+			Subkind:     "chat",
+			Actors: l9.Actors{
+				Actors: []l9.Actor{{ID: "actor-123", Role: "analyst"}},
+				Groups: []string{"team_alpha"},
 			},
 		},
 		Payload: l9.L9Payload{
@@ -329,8 +387,11 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 	if unmarshaledL9.Header.Kind != validL9.Header.Kind {
 		t.Errorf("Kind mismatch: expected %s, got %s", validL9.Header.Kind, unmarshaledL9.Header.Kind)
 	}
-	if unmarshaledL9.Header.SubKind != validL9.Header.SubKind {
-		t.Errorf("SubKind mismatch: expected %s, got %s", validL9.Header.SubKind, unmarshaledL9.Header.SubKind)
+	if unmarshaledL9.Header.Subkind != validL9.Header.Subkind {
+		t.Errorf("Subkind mismatch: expected %s, got %s", validL9.Header.Subkind, unmarshaledL9.Header.Subkind)
+	}
+	if unmarshaledL9.Header.Subprotocol != validL9.Header.Subprotocol {
+		t.Errorf("Subprotocol mismatch: expected %s, got %s", validL9.Header.Subprotocol, unmarshaledL9.Header.Subprotocol)
 	}
 
 	// Verify payload fields are preserved
@@ -348,42 +409,29 @@ func TestJSONSerializationRoundTrip(t *testing.T) {
 	}
 
 	// Test Actor round-trip
-	originalActorJSON := `{
-		"id": "actor-123",
-		"type": "human",
-		"name": "John Doe", 
-		"role": "analyst"
-	}`
+	originalActor := l9.Actor{
+		ID:   "actor-123",
+		Role: "analyst",
+	}
 
-	// Parse JSON
-	var actor map[string]interface{}
-	err := json.Unmarshal([]byte(originalActorJSON), &actor)
+	jsonBytes, err := json.Marshal(originalActor)
 	if err != nil {
-		t.Errorf("Failed to unmarshal Actor JSON: %v", err)
+		t.Errorf("Failed to marshal Actor: %v", err)
 		return
 	}
 
-	// Marshal back to JSON
-	marshaledJSON, err := json.Marshal(actor)
-	if err != nil {
-		t.Errorf("Failed to marshal Actor back to JSON: %v", err)
-		return
-	}
-
-	// Parse marshaled JSON
-	var roundTripActor map[string]interface{}
-	err = json.Unmarshal(marshaledJSON, &roundTripActor)
+	var roundTripActor l9.Actor
+	err = json.Unmarshal(jsonBytes, &roundTripActor)
 	if err != nil {
 		t.Errorf("Failed to unmarshal round-trip Actor JSON: %v", err)
 		return
 	}
 
-	// Compare key fields
-	if actor["id"] != roundTripActor["id"] {
-		t.Errorf("Round-trip failed for id: expected %v, got %v", actor["id"], roundTripActor["id"])
+	if originalActor.ID != roundTripActor.ID {
+		t.Errorf("Round-trip failed for id: expected %v, got %v", originalActor.ID, roundTripActor.ID)
 	}
-	if actor["name"] != roundTripActor["name"] {
-		t.Errorf("Round-trip failed for name: expected %v, got %v", actor["name"], roundTripActor["name"])
+	if originalActor.Role != roundTripActor.Role {
+		t.Errorf("Round-trip failed for role: expected %v, got %v", originalActor.Role, roundTripActor.Role)
 	}
 
 	t.Log("✓ JSON serialization round-trip passed")
@@ -404,11 +452,14 @@ func TestGeneratedModelsStructure(t *testing.T) {
 	// Check for expected struct definitions
 	expectedStructs := []string{
 		"type Actor struct",
-		"type SemanticContext struct",
-		"type Group struct",
+		"type Actors struct",
+		"type Semantic struct",
+		"type Context struct",
 		"type L9Header struct",
 		"type L9Payload struct",
 		"type L9Json struct",
+		"type PolicyLabel struct",
+		"type Message struct",
 	}
 
 	for _, structDef := range expectedStructs {

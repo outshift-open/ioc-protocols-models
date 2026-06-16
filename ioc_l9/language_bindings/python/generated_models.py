@@ -9,53 +9,64 @@ from pydantic import BaseModel, Field
 
 
 class Actor(BaseModel):
-    id: str = Field(..., title="Id")
-    type: str = Field(..., title="Type")
-    name: str = Field(..., title="Name")
-    role: str = Field(..., title="Role")
+    id: str = Field(..., title='Id')
+    role: str = Field(..., title='Role')
+    attestation: str | None = Field(None, title='Attestation')
+
+
+class Actors(BaseModel):
+    actors: list[Actor] = Field(..., title='Actors')
+    groups: list[str] = Field(..., title='Groups')
 
 
 class Epistemic(BaseModel):
     pass
 
 
-class Group(BaseModel):
-    id: str = Field(..., title="Id")
-    name: str = Field(..., title="Name")
-
-
 class L9Payload(BaseModel):
-    type: str = Field(..., title="Type")
-    data: dict[str, Any] = Field(..., title="Data")
+    type: str = Field(..., title='Type')
+    data: dict[str, Any] = Field(..., title='Data')
+
+
+class Message(BaseModel):
+    id: str = Field(..., title='Id')
+    parents: str = Field(..., title='Parents')
+    episode: str = Field(..., title='Episode')
 
 
 class PolicyLabel(BaseModel):
-    sensitivity: str = Field(..., title="Sensitivity")
-    propagation: str = Field(..., title="Propagation")
-    retention_policy: str = Field(..., title="Retention Policy")
+    sensitivity: str = Field(..., title='Sensitivity')
+    propagation: str = Field(..., title='Propagation')
+    retention_policy: str = Field(..., title='Retention Policy')
 
 
 class Provenance(BaseModel):
     pass
 
 
-class SemanticContext(BaseModel):
-    schema_id: str = Field(..., title="Schema Id")
-    ontology_ref: str = Field(..., title="Ontology Ref")
-    cognition_protocol: str = Field(..., title="Cognition Protocol")
+class Semantic(BaseModel):
+    schema_id: str = Field(..., title='Schema Id')
+    ontology_ref: str = Field(..., title='Ontology Ref')
+    provenance: Provenance | None = None
+
+
+class Context(BaseModel):
+    topic: str = Field(..., title='Topic')
+    epistemic: Epistemic | None = None
+    semantic: Semantic | None = None
 
 
 class L9Header(BaseModel):
-    protocol: str = Field(..., title="Protocol")
-    version: str = Field(..., title="Version")
-    kind: str = Field(..., title="Kind")
-    sub_kind: str = Field(..., title="Sub Kind")
-    group: Group
-    actors: list[Actor] = Field(..., title="Actors")
-    semantic: SemanticContext
+    protocol: str = Field(..., title='Protocol')
+    subprotocol: str = Field(..., title='Subprotocol')
+    version: str = Field(..., title='Version')
+    kind: str = Field(..., title='Kind')
+    subkind: str = Field(..., title='Subkind')
+    actors: Actors
+    message: Message | None = None
     policy: PolicyLabel | None = None
-    provenance: Provenance | None = None
-    epistemic: Epistemic | None = None
+    attributes: dict[str, Any] | None = Field(None, title='Attributes')
+    context: Context | None = None
 
 
 class L9(BaseModel):
