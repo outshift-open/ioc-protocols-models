@@ -9,8 +9,10 @@ Output: schemas/ioc_l9/<source_module>/<ModelName>.json
              schemas/ioc_l9/state_mgmt/Team.json
 
 Usage:  python scripts/generate_schemas.py
+        python scripts/generate_schemas.py --model L9
 """
 
+import argparse
 import inspect
 import json
 import sys
@@ -37,7 +39,7 @@ MODULES = [
 ]
 
 # ── collect all BaseModel subclasses, keyed by source subdir ─────────────────
-def collect_models(modules):
+def collect_models(modules, filter_name: str | None = None):
     seen = set()
     models = []  # list of (subdir, name, class)
     for module, subdir in modules:
@@ -47,15 +49,20 @@ def collect_models(modules):
                 and obj is not BaseModel
                 and obj not in seen
                 and obj.__module__.startswith("ioc_l9")
+                and (filter_name is None or name == filter_name)
             ):
                 seen.add(obj)
                 models.append((subdir, name, obj))
     return models
 
 # ── write schemas ─────────────────────────────────────────────────────────────
-def generate(base_output_dir: Path) -> None:
-    models = collect_models(MODULES)
-    print(f"Found {len(models)} models — writing to {base_output_dir}/\n")
+def generate(base_output_dir: Path, filter_name: str | None = None) -> None:
+    models = collect_models(MODULES, filter_name)
+    if not models:
+        print(f"No model named '{filter_name}' found.")
+        sys.exit(1)
+    label = f"model '{filter_name}'" if filter_name else f"{len(models)} models"
+    print(f"Found {label} — writing to {base_output_dir}/\n")
 
     for subdir, name, model in sorted(models, key=lambda x: (x[0], x[1])):
         output_dir = base_output_dir / subdir
@@ -65,9 +72,14 @@ def generate(base_output_dir: Path) -> None:
         out_path.write_text(json.dumps(schema, indent=2))
         print(f"  ✓ {subdir}/{name:25s} → {out_path.relative_to(REPO_ROOT)}")
 
-    print(f"\nDone. {len(models)} schemas written.")
+    written = len(models)
+    print(f"\nDone. {written} schema{'s' if written != 1 else ''} written.")
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate JSON schemas for ioc_l9 models.")
+    parser.add_argument("--model", metavar="NAME", help="Generate schema for a single model by class name (e.g. L9)")
+    args = parser.parse_args()
+
     base_output_dir = REPO_ROOT / "schemas" / "ioc_l9"
-    generate(base_output_dir)
+    generate(base_output_dir, filter_name=args.model)
