@@ -31,14 +31,14 @@ sys.path.insert(0, str(REPO_ROOT))
 import ioc_l9.src.primitives as primitives_module
 import ioc_l9.src.epistemic  as epistemic_module
 import ioc_l9.src.state_mgmt as state_mgmt_module
-import ioc_l9.src             as root_module
+import ioc_l9.src             as src_module
 
 # Map each module to the subdirectory name it should produce
 MODULES = [
     (primitives_module, "primitives"),
     (epistemic_module,  "epistemic"),
     (state_mgmt_module, "state_mgmt"),
-    (root_module,       "root"),
+    (src_module,        "src"),
 ]
 
 # ── collect all BaseModel subclasses, keyed by source subdir ─────────────────
