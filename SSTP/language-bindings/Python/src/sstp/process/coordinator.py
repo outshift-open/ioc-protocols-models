@@ -7,7 +7,7 @@ coordinator.py — TeamCoordinator: team-process episode orchestration.
 
 TeamCoordinator runs team-process SNP episodes (TP-1, TP-2, TP-R).  It is the
 only writer of TeamProcessStore.  Application code calls the three public
-methods; all L9/Episode/PanelNegotiationBus mechanics are internal.
+methods; all L9/Episode/PanelBus mechanics are internal.
 
 SNP messages from team-process episodes flow directly into the ie_bus.messages
 shared by the panel buses (unified bus).  No separate trace accumulation needed.
@@ -85,7 +85,7 @@ class TeamCoordinator:
     l9:
         The L9 instance for the coordinator agent.  Used to open/join Episodes.
     panel_bus_factory:
-        Callable(concept_id) → PanelNegotiationBus.  Called once per team-process
+        Callable(concept_id) → PanelBus.  Called once per team-process
         SNP round.  The factory is responsible for constructing a bus with the
         appropriate stores and repair function.
     store:
@@ -106,7 +106,7 @@ class TeamCoordinator:
     def __init__(
         self,
         l9: Any,                                 # sstp.l9.episode.L9
-        panel_bus_factory: Callable[[str], Any], # concept_id → PanelNegotiationBus
+        panel_bus_factory: Callable[[str], Any], # concept_id → PanelBus
         store: TeamProcessStore,
         gate: PhaseGate,
         coordinator_agent_id: str = "coordinator",

@@ -155,18 +155,15 @@ class ReplicaToM:
         unresolved = []
         for ch in challenges:
             ch_ep = ch.epistemic or {}
-            # challenges field now lives in IEPayload.grounding — fall back to epistemic for compat
             challenged_ids = set(ch_ep.get("challenges", []))
             challenged_entries = [
                 e for e in self.replica._entries if e.message_id in challenged_ids
             ]
             for challenged in challenged_entries:
                 sender = challenged.sender
-                # Use ie_concept_ids (from payload) as primary; fall back to entry.topic/scope
                 ch_scope = (
                     set(challenged.ie_concept_ids)
                     or ({challenged.topic} - {None})
-                    or set((challenged.epistemic or {}).get("scope", []))
                 )
                 later_entries = [
                     e for e in self.replica._entries

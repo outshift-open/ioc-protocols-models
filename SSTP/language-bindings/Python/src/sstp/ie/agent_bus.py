@@ -72,7 +72,6 @@ class AgentBus:
         self.use_case = use_case
         self.sensitivity = sensitivity
         self.messages: List[Dict[str, Any]] = []
-        self._seq_counters: Dict[str, int] = {}
         self._current_phase: str = "taskwork"   # taskwork | grounding | team_process
         self._taskwork_store: Optional[Any] = None   # TaskworkStore; injected by app
         self._protocol_context: bool = False  # True only inside _lifecycle_emit()
@@ -97,11 +96,6 @@ class AgentBus:
         """Filtered view of messages containing only SNP messages."""
         return [m for m in self.messages if m.get("subprotocol") == "SNP"]
 
-    def _next_sequence(self, actor_id: str) -> Dict[str, Any]:
-        n = self._seq_counters.get(actor_id, 0)
-        self._seq_counters[actor_id] = n + 1
-        return {"counter": n, "actor_id": actor_id}
-
     def emit_peer_turn(
         self,
         *,
@@ -112,7 +106,6 @@ class AgentBus:
         epistemic_state: EpistemicState,
         parent_id: str | None = None,
         episode_id: str | None = None,
-        turn_depth: int | None = None,
         kind_override: str | None = None,
         error: Optional[Dict[str, Any]] = None,
         epistemic: Optional[Dict[str, Any]] = None,
@@ -158,11 +151,9 @@ class AgentBus:
             utterance=utterance,
             parent_ids=[parent_id] if parent_id else None,
             episode_id=episode_id,
-            turn_depth=turn_depth,
             kind_override=kind_override,
             epistemic=_epistemic,
             topic=topic,
-            state_sequence=self._next_sequence(sender),
             payload_parts=_payload_parts,
         )
         if error is not None:
@@ -171,19 +162,18 @@ class AgentBus:
         return header
 
     def emit_request(self, *, sender: str, receiver: str, utterance: str,
-                     episode_id: str | None = None, turn_depth: int | None = None,
+                     episode_id: str | None = None,
                      epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
                                    speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
-                                   episode_id=episode_id, turn_depth=turn_depth)
+                                   episode_id=episode_id)
 
     def emit_response(self, *, sender: str, receiver: str, utterance: str,
                       parent_id: str | None = None, episode_id: str | None = None,
-                      turn_depth: int | None = None,
                       epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
                                    speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
-                                   parent_id=parent_id, episode_id=episode_id, turn_depth=turn_depth)
+                                   parent_id=parent_id, episode_id=episode_id)
 
     def emit_error(self, *, sender: str, receiver: str, error_type: str, error_message: str,
                    traceback: str | None = None, parent_id: str | None = None,
@@ -205,7 +195,6 @@ class AgentBus:
         repair_reason: "RepairReason | str",
         target_epistemic: Optional[Dict[str, Any]] = None,
         episode_id: str | None = None,
-        turn_depth: int | None = None,
     ) -> Dict[str, Any]:
         from sstp.ie.l9 import get_topic
         _repair_topic = get_topic({"topic": None, "epistemic": target_epistemic}) if target_epistemic else None
@@ -221,14 +210,13 @@ class AgentBus:
             utterance=_utterance,
             parent_ids=[target_message_id],
             episode_id=episode_id,
-            turn_depth=turn_depth,
             topic=_repair_topic,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.GROUNDING,
                 belief_status=BeliefStatus.CHALLENGED,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
             ],
@@ -283,7 +271,7 @@ class AgentBus:
             sensitivity=self.sensitivity,
             utterance=_utterance,
             parent_ids=[target_message_id],
-            state_sequence=self._next_sequence(sender),
+
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.GROUNDING,
@@ -365,7 +353,7 @@ class AgentBus:
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TASKWORK,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
                 {"type": "ie", "location": "inline", "content": payload.to_dict()},
@@ -410,7 +398,7 @@ class AgentBus:
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": content},
                 {"type": "process", "location": "inline", "content": payload.to_dict()},
@@ -443,7 +431,7 @@ class AgentBus:
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
             ],
@@ -476,7 +464,7 @@ class AgentBus:
                 speech_act=SpeechAct.CHALLENGE,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
             ],

@@ -475,7 +475,6 @@ class PanelBus:
             sensitivity="confidential",
             utterance=utterance,
             parent_ids=[snp_message_id],
-            turn_depth=ie_depth,
             episode_id=child_state_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
@@ -519,7 +518,6 @@ class PanelBus:
             sensitivity="confidential",
             utterance=repaired,
             parent_ids=[repair_required_header["message"]["id"]],
-            turn_depth=ie_depth,
             episode_id=child_state_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
@@ -725,7 +723,6 @@ class PanelBus:
             receiver=receiver,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             parent_ids=[parent_snp_id] if parent_snp_id else None,
             episode_id=self._episode_id(),
@@ -774,7 +771,6 @@ class PanelBus:
             receiver=receiver,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             parent_ids=[parent_snp_id] if parent_snp_id else None,
             episode_id=self._episode_id(),
@@ -873,7 +869,6 @@ class StarNegotiation:
             receiver=specialist,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
             topic=key if key else None,
@@ -973,7 +968,6 @@ class StarNegotiation:
             receiver=controller,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
             topic=ctrl_position_key if ctrl_position_key else None,
@@ -1024,7 +1018,6 @@ class StarNegotiation:
             receiver=specialist,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
             epistemic=epistemic_block,
@@ -2019,19 +2012,9 @@ class RingNegotiation:
         return winning_position, resolution_label, list(self.panel_bus.snp_trace)
 
 
-# Aliases for backward compatibility with existing app code
-PanelNegotiationBus = PanelBus
-PanelNegotiationStar = StarNegotiation
-PanelNegotiationRing = RingNegotiation
-
-
 __all__ = [
     "IERepairExhausted",
     "PanelBus",
     "StarNegotiation",
     "RingNegotiation",
-    # backward-compat aliases
-    "PanelNegotiationBus",
-    "PanelNegotiationStar",
-    "PanelNegotiationRing",
 ]

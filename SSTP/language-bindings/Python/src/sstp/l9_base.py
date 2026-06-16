@@ -262,15 +262,6 @@ class L9HeaderBuilder:
         subkind: str | None = None,
         sequence_number: int | None = None,
         payload_parts: "List[Dict[str, Any]] | None" = None,
-        # Deprecated params — accepted but ignored for backwards compat
-        turn_depth: int | None = None,
-        payload_refs: "Any | None" = None,
-        state_sequence: "Any | None" = None,
-        conversation_id: str | None = None,
-        cognition_protocol: str | None = None,
-        provenance_transforms: "Any | None" = None,
-        group: "Any | None" = None,
-        sub_protocol: str | None = None,  # deprecated alias for subprotocol
     ) -> Dict[str, Any]:
         """Assemble the L9 envelope dict per the current wire format.
 
@@ -308,8 +299,7 @@ class L9HeaderBuilder:
 
         trust_level = schema_trust_level_for_kind(kind)
 
-        # backwards compat: sub_protocol and cognition_protocol fall back to subprotocol
-        effective_subprotocol = subprotocol or sub_protocol or cognition_protocol
+        effective_subprotocol = subprotocol
 
         derived_message_id = message_id or str(
             uuid5(

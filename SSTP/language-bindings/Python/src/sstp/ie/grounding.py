@@ -31,21 +31,13 @@ def _get_concept_ids(
     ie_concept_ids: Optional[List[str]] = None,
     ie_addresses_evidence: Optional[List[str]] = None,
 ) -> Set[str]:
-    """Extract concept_ids for grounding checks.
-
-    Primary source: ``concept_id`` from the L9 header epistemic block.
-    IE payload fields: ``ie_concept_ids`` and ``ie_addresses_evidence`` from ReplicaEntry
-    (populated from IEPayload.utterance when the message was applied to the replica).
-    Fallback: ``scope`` and ``addresses_evidence`` from epistemic block for backwards compat
-    with messages that pre-date the payload migration.
-    """
+    """Extract concept_ids for grounding checks from IE payload fields and epistemic block."""
     if not epistemic and not ie_concept_ids and not ie_addresses_evidence:
         return set()
     ep = epistemic or {}
     primary = ep.get("concept_id")
-    # IE payload fields take precedence over header fallbacks
-    concepts = set(ie_concept_ids or ep.get("scope") or [])
-    addresses = set(ie_addresses_evidence or ep.get("addresses_evidence") or [])
+    concepts = set(ie_concept_ids or [])
+    addresses = set(ie_addresses_evidence or [])
     result = concepts | addresses
     if primary:
         result.add(primary)
@@ -78,11 +70,8 @@ def contingency_check(
 ) -> tuple[bool, float]:
     """Check whether B's response is contingent on A's argument.
 
-    Primary concept data comes from IE payload fields (ie_concept_ids,
-    ie_addresses_evidence) stored on ReplicaEntry. Falls back to epistemic
-    block scope/addresses_evidence for backwards compat.
-
-    ALIGNMENT_CHALLENGE speech_act is always treated as contingent.
+    Concept data comes from IE payload fields (ie_concept_ids, ie_addresses_evidence)
+    stored on ReplicaEntry. ALIGNMENT_CHALLENGE speech_act is always treated as contingent.
     Returns (is_contingent: bool, overlap_ratio: float).
     """
     if response_b_epistemic is None and not b_ie_concept_ids and not b_ie_addresses_evidence:

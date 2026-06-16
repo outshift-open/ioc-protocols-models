@@ -17,15 +17,8 @@ from typing import Any, Dict, List, Optional, Set
 
 
 def _parse_timestamp_ms(header: Dict[str, Any]) -> int:
-    """Parse created timestamp from L9 header to milliseconds.
-
-    New format: provenance.created (ISO 8601).
-    Old format: dt_created (backwards compat).
-    """
-    dt_str = (
-        header.get("attributes", {}).get("msg_created", "")
-        or header.get("provenance", {}).get("created", "")
-    )
+    """Parse created timestamp from L9 header to milliseconds."""
+    dt_str = header.get("attributes", {}).get("msg_created", "")
     if not dt_str:
         return 0
     try:
@@ -40,7 +33,7 @@ class ReplicaEntry:
     """A single message recorded in a local replica."""
     message_id: str
     sender: str
-    sequence: int                        # -1 if state_sequence not provided
+    sequence: int                        # always -1; retained for query compatibility
     timestamp_ms: int
     epistemic: Optional[Dict[str, Any]]  # the epistemic block, if present
     operation: Optional[str]             # SNP/IE operation, for local inference
@@ -82,16 +75,11 @@ class LocalStateReplica:
         ``belief.posterior`` and ``grounding.contingency_verified`` values are
         extracted and stored on the ReplicaEntry so ReplicaToM can use them.
         """
-        # New wire format: message.id; old: message_id (backwards compat)
         mid = header["message"]["id"]
         if not mid or mid in self._seen_ids:
             return False
-        # New: actors[0].id; old: origin.actor_id
-        sender = (
-            (header.get("actors") or [{}])[0].get("id", "unknown")
-        )
-        seq_block = header.get("state_sequence") or {}
-        seq = int(seq_block.get("counter", -1))
+        sender = (header.get("actors") or [{}])[0].get("id", "unknown")
+        seq = -1
 
         posterior: Optional[float] = None
         contingency_verified: Optional[bool] = None

@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from sstp.epistemic.vocabulary import (
-    SpeechAct, EpistemicState, TaskPhase, BeliefStatus,
+    SpeechAct, EpistemicState, BeliefStatus,
     make_epistemic_block,
-    infer_snp_epistemic, infer_snp_speech_act,
+    infer_snp_epistemic,
 )
 from sstp.epistemic.local_replica import LocalStateReplica, ReplicaEntry
 from sstp.epistemic.snapshot import EpistemicSnapshot, snapshot, roll_forward, replay_from_origin
@@ -26,9 +26,9 @@ from sstp.epistemic.bayes import (
 )
 
 __all__ = [
-    "SpeechAct", "EpistemicState", "TaskPhase", "BeliefStatus",
+    "SpeechAct", "EpistemicState", "BeliefStatus",
     "make_epistemic_block",
-    "infer_snp_epistemic", "infer_snp_speech_act",
+    "infer_snp_epistemic",
     "LocalStateReplica", "ReplicaEntry",
     "EpistemicSnapshot", "snapshot", "roll_forward", "replay_from_origin",
     "ReplicaToM",

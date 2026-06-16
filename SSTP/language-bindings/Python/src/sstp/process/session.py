@@ -6,7 +6,7 @@
 session.py — TaskSession: taskwork episode orchestration.
 
 TaskSession is the adaptation layer for clinical (taskwork) turns.  It wraps
-AgentBus.emit_peer_turn() and PanelNegotiationBus negotiation rounds behind a
+AgentBus.emit_peer_turn() and PanelBus negotiation rounds behind a
 single surface that:
 
   1. Checks PhaseGate before every turn — suppresses silently if not permitted.
@@ -48,7 +48,7 @@ class ConvergenceResult:
 
 
 class TaskSession:
-    """Taskwork adaptation layer — wraps AgentBus and PanelNegotiationBus.
+    """Taskwork adaptation layer — wraps AgentBus and PanelBus.
 
     Parameters
     ----------
@@ -141,14 +141,14 @@ class TaskSession:
         uncertainty = round(1.0 - posterior, 4)
 
         try:
-            from sstp.epistemic import SpeechAct, TaskPhase, BeliefStatus, make_epistemic_block
+            from sstp.epistemic import SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block
 
             _speech_act = SpeechAct(speech_act) if speech_act in [m.value for m in SpeechAct] else SpeechAct.BELIEF_ASSERTION
             _belief_status = BeliefStatus(belief_status) if belief_status in [m.value for m in BeliefStatus] else BeliefStatus.ASSERTED
 
             epistemic = make_epistemic_block(
                 speech_act=_speech_act,
-                epistemic_state=TaskPhase.TASKWORK,
+                epistemic_state=EpistemicState.TASKWORK,
                 belief_status=_belief_status,
                 uncertainty=uncertainty,
             )
@@ -226,7 +226,7 @@ class TaskSession:
         self,
         concept_id: str,
         participants: List[str],
-        panel_bus: Any,               # PanelNegotiationBus
+        panel_bus: Any,               # PanelBus
         *,
         controller_id: Optional[str] = None,
         specialist_positions: Optional[Dict[str, Any]] = None,
@@ -249,7 +249,7 @@ class TaskSession:
         participants:
             List of agent_ids that should participate.
         panel_bus:
-            PanelNegotiationBus instance (already constructed by the app).
+            PanelBus instance (already constructed by the app).
         controller_id:
             The SNP controller agent.  Defaults to first participant.
         specialist_positions:
@@ -274,7 +274,7 @@ class TaskSession:
                 flagged=False,
             )
 
-        from sstp.snp.panel_bus import PanelNegotiationStar, IERepairExhausted
+        from sstp.snp.panel_bus import StarNegotiation, IERepairExhausted
 
         _controller = controller_id or f"{concept_id.split(':')[-1]}-controller"
         _members = [p for p in participants if p != _controller]
@@ -284,10 +284,10 @@ class TaskSession:
         if not _positions:
             _controller_pos = {}
         else:
-            _controller_pos = PanelNegotiationStar._leading_position(_positions)
+            _controller_pos = StarNegotiation._leading_position(_positions)
 
         panel_bus.reset()
-        star = PanelNegotiationStar(panel_bus, concept_id.split(":")[-1])
+        star = StarNegotiation(panel_bus, concept_id.split(":")[-1])
 
         mpc = 0.5
         gar = 0.0

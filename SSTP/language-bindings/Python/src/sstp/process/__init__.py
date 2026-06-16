@@ -7,7 +7,7 @@ sstp.process — Team process and taskwork adaptation layer.
 
 Sits between application code and the Episode/AgentBus APIs.  Application agents
 call TeamCoordinator and TaskSession; the layer translates to L9.open(),
-Episode.say(), emit_peer_turn(), and PanelNegotiationBus.
+Episode.say(), emit_peer_turn(), and PanelBus.
 
 Usage::
 
