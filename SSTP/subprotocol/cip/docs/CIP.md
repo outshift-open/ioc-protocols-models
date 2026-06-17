@@ -1,10 +1,10 @@
-# Congestion Interaction Protocol (CIP)
+# Contingency Interaction Protocol (CIP)
 
 > **Placeholder** — documentation to be written.
 
 ## Overview
 
-CIP is a subprotocol of SSTP responsible for managing congestion during agent interactions.
+CIP is a subprotocol of SSTP responsible for managing contingency during agent interactions.
 
 ## Sections
 
