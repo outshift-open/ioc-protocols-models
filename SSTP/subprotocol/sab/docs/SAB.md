@@ -10,5 +10,5 @@ SAB is a subprotocol of SSTP that enables agents to reach semantic alignment thr
 
 - Purpose
 - Message Flow
-- Kind / SubKind Values
+- Kind / subkind Values
 - Schema Reference

@@ -10,5 +10,5 @@ CIP is a subprotocol of SSTP responsible for managing contingency during agent i
 
 - Purpose
 - Message Flow
-- Kind / SubKind Values
+- Kind / subkind Values
 - Schema Reference

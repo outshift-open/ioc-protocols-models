@@ -10,5 +10,5 @@ SIEP is a subprotocol of SSTP governing the structured exchange of semantic inte
 
 - Purpose
 - Message Flow
-- Kind / SubKind Values
+- Kind / subkind Values
 - Schema Reference

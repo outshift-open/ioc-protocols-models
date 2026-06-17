@@ -10,5 +10,5 @@ TFP is a subprotocol of SSTP that coordinates agent team formation through a poo
 
 - Purpose
 - Message Flow
-- Kind / SubKind Values
+- Kind / subkind Values
 - Schema Reference
