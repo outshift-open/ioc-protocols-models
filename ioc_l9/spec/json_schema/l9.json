@@ -31,30 +31,6 @@
       "title": "Actor",
       "type": "object"
     },
-    "Actors": {
-      "properties": {
-        "actors": {
-          "items": {
-            "$ref": "#/$defs/Actor"
-          },
-          "title": "Actors",
-          "type": "array"
-        },
-        "groups": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Groups",
-          "type": "array"
-        }
-      },
-      "required": [
-        "actors",
-        "groups"
-      ],
-      "title": "Actors",
-      "type": "object"
-    },
     "Context": {
       "properties": {
         "topic": {
@@ -119,8 +95,8 @@
           "title": "Subkind",
           "type": "string"
         },
-        "actors": {
-          "$ref": "#/$defs/Actors"
+        "participants": {
+          "$ref": "#/$defs/ParticipantSet"
         },
         "message": {
           "anyOf": [
@@ -174,7 +150,7 @@
         "version",
         "kind",
         "subkind",
-        "actors"
+        "participants"
       ],
       "title": "L9Header",
       "type": "object"
@@ -220,6 +196,34 @@
         "episode"
       ],
       "title": "Message",
+      "type": "object"
+    },
+    "ParticipantSet": {
+      "properties": {
+        "actors": {
+          "items": {
+            "$ref": "#/$defs/Actor"
+          },
+          "title": "Actors",
+          "type": "array"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Groups"
+        }
+      },
+      "required": [
+        "actors",
+        "groups"
+      ],
+      "title": "ParticipantSet",
       "type": "object"
     },
     "PolicyLabel": {
@@ -298,5 +302,5 @@
   ],
   "title": "L9",
   "type": "object",
-  "version": "0.0.2"
+  "version": "1.0.0"
 }

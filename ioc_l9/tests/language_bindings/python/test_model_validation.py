@@ -54,9 +54,9 @@ class TestGeneratedModelValidation:
         assert actor_with_attestation.attestation == "signed_token_xyz"
 
     def test_actors_required_fields(self):
-        """Test Actors model required field validation."""
+        """Test ParticipantSet model required field validation."""
         # Valid data
-        valid_actors = gen.Actors(
+        valid_actors = gen.ParticipantSet(
             actors=[gen.Actor(id="actor_001", role="analyst")],
             groups=["security_team"]
         )
@@ -65,7 +65,7 @@ class TestGeneratedModelValidation:
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            gen.Actors(actors=[])  # Missing groups
+            gen.ParticipantSet(actors=[])  # Missing groups
 
     def test_semantic_required_fields(self):
         """Test Semantic required field validation."""
@@ -168,7 +168,7 @@ class TestGeneratedModelValidation:
             version="1.0.0",
             kind="threat_intel",
             subkind="indicator",
-            actors=gen.Actors(
+            actors=gen.ParticipantSet(
                 actors=[gen.Actor(id="actor_001", role="analyst")],
                 groups=["security_team"]
             ),
@@ -250,7 +250,7 @@ class TestGeneratedModelValidation:
                 version="1.0",
                 kind="message",
                 subkind="chat",
-                actors=gen.Actors(
+                actors=gen.ParticipantSet(
                     actors=[gen.Actor(id="user1", role="analyst")],
                     groups=["team_alpha"]
                 ),
@@ -276,7 +276,7 @@ class TestGeneratedModelValidation:
             gen.Actor()  # Missing all required fields
 
         with pytest.raises(ValidationError):
-            gen.Actors()  # Missing all required fields
+            gen.ParticipantSet()  # Missing all required fields
 
         with pytest.raises(ValidationError):
             gen.Actor(id="test")  # Missing role

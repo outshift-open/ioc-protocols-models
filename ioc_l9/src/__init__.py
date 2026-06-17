@@ -18,7 +18,7 @@ Kind values and their meaning:
 from typing import Optional
 from pydantic import BaseModel
 
-from ioc_l9.src.primitives import Actors, PolicyLabel, Message, Context
+from ioc_l9.src.primitives import ParticipantSet, PolicyLabel, Message, Context
 
 class L9Payload(BaseModel):
     """
@@ -41,7 +41,7 @@ class L9Header(BaseModel):
     version: str                         # protocol version string, e.g. "1.0"
     kind: str                            # message kind — drives CFN routing (see module docstring)
     subkind: str                        # finer-grained classification within the kind
-    actors: Actors                 # all participants: sender(s), receiver(s), observers
+    participants: ParticipantSet   # all participants: sender(s), receiver(s), observers
     message: Optional[Message] = None 
     policy: Optional[PolicyLabel] = None      # optional data governance labels
     attributes: Optional[dict] = None

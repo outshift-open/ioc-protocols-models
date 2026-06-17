@@ -14,7 +14,7 @@ class Actor(BaseModel):
     attestation: str | None = Field(None, title='Attestation')
 
 
-class Actors(BaseModel):
+class ParticipantSet(BaseModel):
     actors: list[Actor] = Field(..., title='Actors')
     groups: list[str] = Field(..., title='Groups')
 
@@ -62,7 +62,7 @@ class L9Header(BaseModel):
     version: str = Field(..., title='Version')
     kind: str = Field(..., title='Kind')
     subkind: str = Field(..., title='Subkind')
-    actors: Actors
+    participants: ParticipantSet
     message: Message | None = None
     policy: PolicyLabel | None = None
     attributes: dict[str, Any] | None = Field(None, title='Attributes')
