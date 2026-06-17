@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict
 from ioc_l9.src.epistemic import Epistemic
 class Message(BaseModel):
     """
@@ -19,8 +19,8 @@ class Actor(BaseModel):
     attestation: Optional[str] = None  # optional attestation or credential information
 
 class Actors(BaseModel):
-    actors: list[Actor]
-    groups: list[str]
+    actors: list[Actor] # The list of actors in this message
+    groups: Optional[Dict] # a place to add mas_id, workspace_id or any other grouping of the actors
 class PolicyLabel(BaseModel):
     """
     Data governance and access-control labels applied to the message.
