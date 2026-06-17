@@ -1,10 +1,10 @@
-# Team Formation via Pooling (TFP)
+# Team Formation via Polling (TFP)
 
 > **Placeholder** — documentation to be written.
 
 ## Overview
 
-TFP is a subprotocol of SSTP that coordinates agent team formation through a pooling mechanism.
+TFP is a subprotocol of SSTP that coordinates agent team formation through a polling mechanism.
 
 ## Sections
 
