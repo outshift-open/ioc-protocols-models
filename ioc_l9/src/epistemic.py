@@ -1,3 +1,7 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Epistemic state — represents an agent's belief, knowledge, and uncertainty
 about the world or about a specific message/task at a point in time.
