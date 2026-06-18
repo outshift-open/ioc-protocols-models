@@ -1,0 +1,803 @@
+{
+  "schema": "ioc.tfp.message_dump.v1",
+  "episode": "urn:ioc:secops:episode:incident-4471-team-formation",
+  "poll_id": "urn:ioc:tfp:poll:db62a91f",
+  "message_count": 14,
+  "generated_at": "2026-06-18T23:27:16.320178+00:00",
+  "messages": [
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "intent",
+        "subkind": "team_form_poll",
+        "actors": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "topic:tfp/polls/secops",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "parents": "",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:poll_open",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "poll_open",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "task": {
+            "task_id": "incident-4471",
+            "description": "Triage a suspicious-login security incident across SIEM + endpoint data",
+            "objective": "Confirm or dismiss compromise within 30 minutes"
+          },
+          "required_skills": [
+            {
+              "skill": "skill:log_triage",
+              "min_proficiency": 0.7,
+              "weight": 2.0,
+              "mandatory": true
+            },
+            {
+              "skill": "skill:threat_intel",
+              "min_proficiency": 0.6,
+              "weight": 1.5,
+              "mandatory": true
+            },
+            {
+              "skill": "skill:host_forensics",
+              "min_proficiency": 0.6,
+              "weight": 1.0,
+              "mandatory": false
+            }
+          ],
+          "reasoning_summary": "Need log triage + threat intel; host forensics is a nice-to-have."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "comms-bot",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "b8545608-7c83-49ac-9d86-469ef053c01a",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:decline",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "decline",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "reason": "None of my skills match the required skills for this poll."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "log-analyst",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "39d65638-34de-4f20-84da-841b1143d904",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:bid",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:log_triage",
+                "proficiency": 0.92
+              },
+              {
+                "skill": "skill:siem_query",
+                "proficiency": 0.8
+              }
+            ],
+            "fit_score": 0.9
+          },
+          "reasoning_summary": "fit\u22480.4089"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "threat-intel",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "089af5d8-1263-41ae-9997-398b3da85ab2",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:bid",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:threat_intel",
+                "proficiency": 0.88
+              },
+              {
+                "skill": "skill:ioc_enrichment",
+                "proficiency": 0.85
+              }
+            ],
+            "fit_score": 0.82
+          },
+          "reasoning_summary": "fit\u22480.2933"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "forensics",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "9110da29-f22d-4646-937e-d7132ed3fcf2",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:bid",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:host_forensics",
+                "proficiency": 0.9
+              },
+              {
+                "skill": "skill:log_triage",
+                "proficiency": 0.6
+              }
+            ],
+            "fit_score": 0.7
+          },
+          "reasoning_summary": "fit\u22480.2"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "intel-2",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "6de8e39b-46cd-4176-91d7-515332d4c73d",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:bid",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:threat_intel",
+                "proficiency": 0.72
+              }
+            ],
+            "fit_score": 0.7
+          },
+          "reasoning_summary": "fit\u22480.24"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "slow-intel",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "e9ef4796-996b-45ef-b456-61baba896102",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:bid",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:threat_intel",
+                "proficiency": 0.99
+              }
+            ],
+            "fit_score": 0.95
+          },
+          "reasoning_summary": "fit\u22480.33"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "73ac4faa-ba31-4794-862e-95149ab3c867",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:select",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "select",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "selection": {
+            "members": [
+              "log-analyst",
+              "threat-intel"
+            ],
+            "roles": [
+              {
+                "agent_id": "log-analyst",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:log_triage"
+                ]
+              },
+              {
+                "agent_id": "threat-intel",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:threat_intel"
+                ]
+              }
+            ],
+            "coverage": 1.0,
+            "unmet_skills": [],
+            "aggregate_fit": 0.3511
+          }
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "log-analyst",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "b5d4100d-217b-4407-b507-d8e34b5d78a6",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:accept",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "accept",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "reason": "Skills match the task and I have capacity this shift."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "0bad2bfd-8c27-4748-994e-f81ef9674dcc",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:select",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "select",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "selection": {
+            "members": [
+              "log-analyst",
+              "threat-intel"
+            ],
+            "roles": [
+              {
+                "agent_id": "log-analyst",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:log_triage"
+                ]
+              },
+              {
+                "agent_id": "threat-intel",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:threat_intel"
+                ]
+              }
+            ],
+            "coverage": 1.0,
+            "unmet_skills": [],
+            "aggregate_fit": 0.3511
+          }
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "threat-intel",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "250457f6-7a2e-4c2d-be3c-d03766749ce4",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:reject",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "reject",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "reason": "Already committed to incident-4470 this shift; at capacity."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "intel-2",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "521358b4-7990-44a0-bde2-c465de9e5239",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:select",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "select",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "selection": {
+            "members": [
+              "log-analyst",
+              "intel-2"
+            ],
+            "roles": [
+              {
+                "agent_id": "log-analyst",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:log_triage"
+                ]
+              },
+              {
+                "agent_id": "intel-2",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:threat_intel"
+                ]
+              }
+            ],
+            "coverage": 1.0,
+            "unmet_skills": [],
+            "aggregate_fit": 0.3245
+          }
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team_form_response",
+        "actors": {
+          "actors": [
+            {
+              "id": "intel-2",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "ba1ddcd0-b839-421a-9d5e-d36f4952d239",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:accept",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "accept",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "reason": "Skills match the task and I have capacity this shift."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "commit",
+        "subkind": "team_form_converged",
+        "actors": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "topic:tfp/polls/secops",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "3456a913-b64f-4b8f-a89d-6a8d476f2a00",
+          "parents": "cb7953dd-1bd8-48bb-8d05-4cee8bfdd368",
+          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+        },
+        "policy": null,
+        "context": {
+          "topic": "tfp:form_converged",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "form_converged",
+          "poll_id": "urn:ioc:tfp:poll:db62a91f",
+          "required_skills": [],
+          "selection": {
+            "members": [
+              "log-analyst",
+              "intel-2"
+            ],
+            "roles": [
+              {
+                "agent_id": "log-analyst",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:log_triage"
+                ]
+              },
+              {
+                "agent_id": "intel-2",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:threat_intel"
+                ]
+              }
+            ],
+            "coverage": 1.0,
+            "unmet_skills": [],
+            "aggregate_fit": 0.3245
+          },
+          "reasoning_summary": "coverage=1.0 aggregate_fit=0.3245"
+        }
+      }
+    }
+  ]
+}
