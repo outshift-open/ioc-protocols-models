@@ -80,8 +80,12 @@
           "type": "string"
         },
         "parents": {
+          "description": "Ordered list of parent message IDs (causal ancestry). Empty list for root messages.",
+          "items": {
+            "type": "string"
+          },
           "title": "Parents",
-          "type": "string"
+          "type": "array"
         },
         "episode": {
           "title": "Episode",
