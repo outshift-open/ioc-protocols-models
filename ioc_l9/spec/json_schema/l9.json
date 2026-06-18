@@ -72,8 +72,19 @@
       "title": "Epistemic",
       "type": "object"
     },
+    "Kind": {
+      "enum": [
+        "intent",
+        "contingency",
+        "exchange",
+        "commit",
+        "knowledge"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
     "L9Header": {
-      "description": "Routing and metadata envelope for every L9 message.\nThe CFN layer reads the header \u2014 especially `kind` and `sub_kind` \u2014\nto decide which Cognitive Engine (CE) should handle the message.",
+      "description": "Routing and metadata envelope for every L9 message.\nThe CFN layer reads the header \u2014 especially `kind` and `subkind` \u2014\nto decide which Cognitive Engine (CE) should handle the message.",
       "properties": {
         "protocol": {
           "title": "Protocol",
@@ -88,12 +99,19 @@
           "type": "string"
         },
         "kind": {
-          "title": "Kind",
-          "type": "string"
+          "$ref": "#/$defs/Kind"
         },
         "subkind": {
-          "title": "Subkind",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subkind"
         },
         "participants": {
           "$ref": "#/$defs/ParticipantSet"
@@ -149,7 +167,6 @@
         "subprotocol",
         "version",
         "kind",
-        "subkind",
         "participants"
       ],
       "title": "L9Header",
@@ -302,5 +319,5 @@
   ],
   "title": "L9",
   "type": "object",
-  "version": "1.0.0"
+  "version": "0.0.3"
 }

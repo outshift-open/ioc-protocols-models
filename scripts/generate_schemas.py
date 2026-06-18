@@ -13,7 +13,7 @@ Usage:  python scripts/generate_schemas.py
 """
 
 # ── Schema version — increment manually on breaking/significant changes ───────
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "0.0.3"
 
 import argparse
 import inspect
