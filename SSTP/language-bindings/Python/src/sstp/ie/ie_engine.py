@@ -285,6 +285,12 @@ class IEEngine:
             result = self.llm_client.complete_json("tom_agent_utterance", payload)
             utterance = str(result.get("utterance", "")).strip()
             if utterance:
+                _rationale = str(result.get("rationale", "")).strip()
+                _thought = str(result.get("thought_summary", "")).strip()
+                if _rationale:
+                    utterance += f" | {_rationale}"
+                if _thought:
+                    utterance += f" | {_thought}"
                 return utterance, None
 
         if enable_derailment and speaker_belief is not None:

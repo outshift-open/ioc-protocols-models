@@ -1,16 +1,7 @@
 # Copyright 2026 Cisco Systems, Inc. and its affiliates
 # SPDX-License-Identifier: Apache-2.0
 
-"""cognition.py — Per-agent Theory-of-Mind state with cross-episode peer modelling.
-
-AgentTOM keeps only the prediction loop (2nd-order ToM) and drift signals.
-LLM-based introspection (seed/update/assess_utterance/detect_ambiguity/peer_alignment)
-has been removed — those functions are now handled structurally:
-  - grounding checks: contingency_check() in sstp/ie/grounding.py
-  - belief tracking: AgentBeliefStore.record_revision() via receive_peer_turn()
-  - drift: anchor_gap from TaskworkState.prior vs BeliefState.current_confidence
-  - alignment: ReplicaToM.alignment_matrix() from epistemic replica
-"""
+"""cognition.py — Per-agent Theory-of-Mind state with cross-episode peer modelling."""
 
 from __future__ import annotations
 
@@ -31,22 +22,35 @@ _PEER_MODEL_REVISION_THRESHOLD = 0.35
 _PEER_ERROR_WINDOW = 5
 
 
+def _build_listener_belief(
+    belief_store: Optional[Any],
+    agent_id: str,
+    concept_id: str,
+    use_case: str,
+) -> Dict[str, Any]:
+    """Build a listener_belief dict from AgentBeliefStore for the ie_utterance_judge."""
+    if belief_store is None or not concept_id:
+        return {}
+    bs = belief_store.current_belief(agent_id, concept_id, use_case)
+    if bs is None:
+        return {}
+    recent_revisions = bs.revision_history[-3:] if bs.revision_history else []
+    return {
+        "prior": bs.prior,
+        "posterior": bs.posterior,
+        "public_confidence": bs.public_confidence,
+        "social_compliance_ratio": bs.social_compliance_ratio,
+        "revision_count": bs.revision_count,
+        "recent_causes": [r.cause for r in recent_revisions],
+        "argument_summary": next(
+            (r.argument_summary for r in reversed(recent_revisions) if r.argument_summary),
+            "",
+        ),
+    }
+
+
 class AgentTOM:
-    """Per-agent Theory-of-Mind state — prediction loop and drift signals only.
-
-    Keeps:
-      - Cross-episode peer belief model (_peer_beliefs, persisted in AgentEpistemicStore)
-      - 2nd-order ToM prediction loop (predict_peer_response → update_peer → _revise_peer_model)
-      - Peer-EMA tracking (_peer_ema) for drift_signals()
-
-    Removed (replaced by structural equivalents):
-      - seed() / update() — use AgentBeliefStore + TaskworkStore
-      - assess_utterance() — use contingency_check() in sstp/ie/grounding.py
-      - assess_task_alignment() — use epistemic_state field in L9 header
-      - detect_ambiguity() — use diagnose_repair_reason() in grounding.py
-      - peer_alignment() — use ReplicaToM.alignment_matrix()
-      - analyze_pairwise_agent_tom() — use ReplicaToM.alignment_matrix()
-    """
+    """Per-agent Theory-of-Mind state — prediction loop and drift signals."""
 
     def __init__(
         self,
@@ -64,10 +68,7 @@ class AgentTOM:
             epistemic_store if epistemic_store is not None else AgentEpistemicStore(agent_id)
         )
 
-    # ── Deprecated no-op stubs (kept for import compatibility) ────────────────
-
     def seed(self, role_description: str, session_context: Dict[str, Any]) -> Dict[str, Any]:
-        """Deprecated. Use AgentBeliefStore + TaskworkStore instead."""
         return {"role": role_description, "objective": role_description,
                 "context_summary": "", "inferred_constraints": [], "confidence": 0.5}
 
@@ -118,17 +119,18 @@ class AgentTOM:
     # ── Accessors ──────────────────────────────────────────────────────────────
 
     def belief(self) -> Dict[str, Any]:
-        """Deprecated stub — own belief is now in AgentBeliefStore."""
-        return {}
+        """Return peer EMA mean as confidence proxy."""
+        if self._peer_ema:
+            confidence = round(sum(self._peer_ema.values()) / len(self._peer_ema), 4)
+        else:
+            confidence = 0.5
+        return {"confidence": confidence}
 
     def peer_belief(self, peer_id: str) -> Dict[str, Any]:
         """Return this agent's prediction-loop model of peer_id."""
         return dict(self._peer_beliefs.get(peer_id, {}))
 
-    # ── Deprecated stubs ───────────────────────────────────────────────────────
-
     def update(self, utterance: str = "", task_goal: str = "", *args, **kwargs) -> Dict[str, Any]:
-        """Deprecated. BeliefState is updated via AgentBeliefStore.record_revision()."""
         return {}
 
     def assess_utterance(self, utterance: str = "", task_goal: str = "", speaker: str = "",
@@ -137,8 +139,11 @@ class AgentTOM:
                          confidence_before: Optional[float] = None,
                          speaker_epistemic: Optional[Dict[str, Any]] = None,
                          listener_prior_epistemic: Optional[Dict[str, Any]] = None,
+                         belief_store: Optional[Any] = None,
+                         concept_id: str = "",
+                         use_case: str = "",
                          ) -> Dict[str, Any]:
-        """Grounding check: structural when epistemic blocks available, LLM fallback otherwise."""
+        """Grounding check: structural topic check first, then LLM argument-engagement check."""
         from sstp.ie.grounding import contingency_check, diagnose_repair_reason
         has_concepts = (
             bool((speaker_epistemic or {}).get("scope") or
@@ -148,26 +153,80 @@ class AgentTOM:
         if has_concepts:
             verified, score = contingency_check(listener_prior_epistemic, speaker_epistemic)
             repair = diagnose_repair_reason(listener_prior_epistemic, speaker_epistemic)
+            if not verified:
+                # Topic mismatch — no need to invoke LLM judge
+                return {
+                    "aligned": False,
+                    "alignment_score": score,
+                    "disagreement_score": round(1.0 - score, 4),
+                    "derailed": True,
+                    "derailment_cause": repair.value if repair is not None else None,
+                    "grounding_failure": True,
+                    "contingency_score": score,
+                    "ambiguous": False,
+                    "ambiguity_score": 0.0,
+                    "judge_confidence": 1.0,
+                    "critique": "structural_grounding_check:topic_mismatch",
+                }
+            if listener_prior_utterance is not None:
+                # Topic aligned — run LLM judge to check argument engagement
+                _listener_id = listener or self.agent_id
+                llm_payload: Dict[str, Any] = {
+                    "utterance": utterance,
+                    "task_goal": task_goal,
+                    "speaker": speaker,
+                    "listener": _listener_id,
+                    "speaker_belief": self._peer_beliefs.get(speaker, {}),
+                    "listener_belief": _build_listener_belief(
+                        belief_store, _listener_id, concept_id, use_case
+                    ),
+                    "history": (history or [])[-4:],
+                    "listener_prior_utterance": listener_prior_utterance,
+                }
+                if confidence_before is not None:
+                    llm_payload["confidence_before"] = confidence_before
+                llm_result = self._llm.complete_json("ie_utterance_judge", llm_payload)
+                llm_contingency = max(0.0, min(1.0, float(llm_result.get("contingency_score", 1.0))))
+                merged_score = round(min(score, llm_contingency), 4)
+                merged_aligned = verified and bool(llm_result.get("aligned", True)) and merged_score >= 0.5
+                return {
+                    "aligned": merged_aligned,
+                    "alignment_score": round(max(0.0, min(1.0, float(llm_result.get("alignment_score", score)))), 4),
+                    "disagreement_score": round(1.0 - merged_score, 4),
+                    "derailed": not merged_aligned,
+                    "derailment_cause": llm_result.get("derailment_cause") or None,
+                    "grounding_failure": not merged_aligned,
+                    "contingency_score": merged_score,
+                    "ambiguous": bool(llm_result.get("ambiguous", False)),
+                    "ambiguity_score": round(max(0.0, min(1.0, float(llm_result.get("ambiguity_score", 0.0)))), 4),
+                    "judge_confidence": round(max(0.0, min(1.0, float(llm_result.get("judge_confidence", 0.85)))), 4),
+                    "critique": f"structural+llm: {llm_result.get('critique', '')}",
+                }
+            # No prior utterance — structural result is sufficient
             return {
                 "aligned": verified,
                 "alignment_score": score,
                 "disagreement_score": round(1.0 - score, 4),
-                "derailed": not verified,
-                "derailment_cause": repair.value if repair is not None else None,
-                "grounding_failure": not verified,
+                "derailed": False,
+                "derailment_cause": None,
+                "grounding_failure": False,
                 "contingency_score": score,
                 "ambiguous": False,
                 "ambiguity_score": 0.0,
                 "judge_confidence": 1.0,
-                "critique": "structural_grounding_check",
+                "critique": "structural_grounding_check:no_prior",
             }
         # Fallback: LLM judge when no structured epistemic context is available
+        _listener_id = listener or self.agent_id
         payload: Dict[str, Any] = {
             "utterance": utterance,
             "task_goal": task_goal,
             "speaker": speaker,
-            "listener": listener or self.agent_id,
+            "listener": _listener_id,
             "speaker_belief": self._peer_beliefs.get(speaker, {}),
+            "listener_belief": _build_listener_belief(
+                belief_store, _listener_id, concept_id, use_case
+            ),
             "history": (history or [])[-4:],
         }
         if listener_prior_utterance is not None:
@@ -204,21 +263,40 @@ class AgentTOM:
         return verdict
 
     def assess_task_alignment(self, task_goal: str = "", utterance: str = "") -> Dict[str, Any]:
-        """Deprecated. epistemic_state in L9 header carries phase classification."""
         return {"actor": self.agent_id, "task_goal": task_goal,
                 "aligned": True, "alignment_score": 0.5, "rationale": "structural"}
 
     def detect_ambiguity(self, utterance: str = "", task_goal: str = "") -> Dict[str, Any]:
-        """Deprecated. diagnose_repair_reason() in grounding.py covers this."""
-        return {"ambiguous": False, "ambiguity_score": 0.0,
-                "ambiguous_spans": [], "plausible_interpretations": []}
+        if not utterance:
+            return {"ambiguous": False, "ambiguity_score": 0.0,
+                    "ambiguous_spans": [], "plausible_interpretations": []}
+        result = self._llm.complete_json("detect_ambiguity", {
+            "utterance": utterance,
+            "task_goal": task_goal,
+            "agent_id": self.agent_id,
+        })
+        return {
+            "ambiguous": bool(result.get("ambiguous", False)),
+            "ambiguity_score": round(max(0.0, min(1.0, float(result.get("ambiguity_score", 0.0)))), 4),
+            "ambiguous_spans": list(result.get("ambiguous_spans", [])),
+            "plausible_interpretations": list(result.get("plausible_interpretations", [])),
+        }
 
     def peer_alignment(self, peer_id: str = "", task_goal: str = "",
                        peer_belief_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Deprecated. Use ReplicaToM.alignment_matrix() instead."""
-        return {"task_goal": task_goal, "alignment_score": 0.5,
-                "disagreement_score": 0.5, "attribution_accuracy": 0.5,
-                "coherence_rationale": "structural", "role_objectives": {}}
+        peer = peer_belief_override or self._peer_beliefs.get(peer_id, {})
+        ema = self._peer_ema.get(peer_id, 0.5)
+        alignment_score = round(
+            (float(peer.get("confidence", 0.5)) * 0.5 + ema * 0.5), 4
+        )
+        return {
+            "task_goal": task_goal,
+            "alignment_score": alignment_score,
+            "disagreement_score": round(1.0 - alignment_score, 4),
+            "attribution_accuracy": round(float(peer.get("confidence", 0.5)), 4),
+            "coherence_rationale": peer.get("context_summary", ""),
+            "role_objectives": {peer_id: peer.get("objective", "")},
+        }
 
     # ── Peer belief update ─────────────────────────────────────────────────────
 
@@ -279,9 +357,12 @@ class AgentTOM:
 
         self._peer_beliefs[peer_id] = updated_peer
 
-        # Alignment score used for both prediction error and peer EMA
-        alignment_score = float(
-            self.assess_task_alignment(task_goal, utterance).get("alignment_score", 0.5)
+        # argument_strength from the tom_belief_update LLM result — replaces the
+        # assess_task_alignment stub that always returned 0.5.
+        alignment_score = round(
+            max(0.0, min(1.0, float(
+                result.get("argument_strength", result.get("alignment_score", alignment_score))
+            ))), 4
         )
         self._peer_ema[peer_id] = round(
             _EMA_ALPHA * alignment_score + (1 - _EMA_ALPHA) * self._peer_ema.get(peer_id, 1.0),
@@ -471,27 +552,24 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
             self._agent_toms[agent_id] = AgentTOM(agent_id, self.llm, store)
         return self._agent_toms[agent_id]
 
-    # ── Deprecated no-op stubs ────────────────────────────────────────────────
-
     def seed_belief(self, agent_id: str, role_description: str,
                     session_context: Dict[str, Any]) -> Dict[str, Any]:
-        """Deprecated. Use AgentBeliefStore + TaskworkStore."""
         return self.agent(agent_id).seed(role_description, session_context)
 
     def update_belief(self, agent_id: str, utterance: str,
                       task_goal: str) -> Dict[str, Any]:
-        """Deprecated. BeliefState updated via receive_peer_turn()."""
         return self.agent(agent_id).update(utterance, task_goal)
 
     def detect_ambiguity(self, utterance: str, task_goal: str,
                          agent_id: Optional[str] = None) -> Dict[str, Any]:
-        """Deprecated. diagnose_repair_reason() in grounding.py covers this."""
-        return {"ambiguous": False, "ambiguity_score": 0.0,
-                "ambiguous_spans": [], "plausible_interpretations": []}
+        _id = agent_id or next(iter(self._agent_toms), None)
+        if _id is None:
+            return {"ambiguous": False, "ambiguity_score": 0.0,
+                    "ambiguous_spans": [], "plausible_interpretations": []}
+        return self.agent(_id).detect_ambiguity(utterance, task_goal)
 
     def update(self, view: Dict[str, Any], utterance: str,
                task_goal: str, actor: str = "agent") -> Dict[str, Any]:
-        """Deprecated. BeliefState updated via receive_peer_turn()."""
         return view if view else {}
 
     # ── Active methods ────────────────────────────────────────────────────────
@@ -509,7 +587,6 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
 
     def assess_task_alignment(self, actor: str, task_goal: str, utterance: str,
                                schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Deprecated. epistemic_state in L9 header carries phase classification."""
         return {"actor": actor, "task_goal": task_goal,
                 "aligned": True, "alignment_score": 0.5, "rationale": "structural"}
 
@@ -545,7 +622,6 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
 
     def analyze_pairwise_agent_tom(self, agent_views: Dict[str, Dict[str, Any]],
                                    task_goal: str) -> Dict[str, Any]:
-        """Deprecated. Use ReplicaToM.alignment_matrix() instead."""
         return {f"{a}<->{b}": {"alignment_score": 0.5, "disagreement_score": 0.5,
                                "attribution_accuracy": 0.5, "coherence_rationale": "structural"}
                 for i, a in enumerate(sorted(agent_views))

@@ -606,9 +606,29 @@ class PanelBus:
             _lst_ids = _get_concept_ids(listener_epistemic)
             if _spk_ids and _lst_ids:
                 _contingent, _ratio = _contingency_check(speaker_epistemic, listener_epistemic)
-                contingency_score = _ratio
-                is_deliberation_pass = not _contingent
-                result = {"contingency_score": contingency_score, "posterior_confidence": None}
+                if not _contingent:
+                    # Topic mismatch — no need to call LLM judge
+                    contingency_score = _ratio
+                    is_deliberation_pass = True
+                    result = {"contingency_score": contingency_score, "posterior_confidence": None}
+                else:
+                    # Topic aligned — run LLM judge to check argument engagement
+                    result = self.tom_engine.agent(listener).assess_utterance(
+                        response_b, task_goal,
+                        speaker=listener,
+                        listener=speaker,
+                        listener_prior_utterance=utterance_a,
+                        confidence_before=confidence_before,
+                        speaker_epistemic=listener_epistemic,
+                        listener_prior_epistemic=speaker_epistemic,
+                        belief_store=self.belief_store,
+                        concept_id=cid,
+                        use_case=self.use_case,
+                    )
+                    llm_contingency = float(result.get("contingency_score", 1.0))
+                    contingency_score = round(min(_ratio, llm_contingency), 4)
+                    result["contingency_score"] = contingency_score
+                    is_deliberation_pass = contingency_score < 0.4
             else:
                 # Ask listener's model: does my response engage with what speaker said?
                 result = self.tom_engine.agent(listener).assess_utterance(
@@ -617,6 +637,9 @@ class PanelBus:
                     listener=speaker,
                     listener_prior_utterance=utterance_a,
                     confidence_before=confidence_before,
+                    belief_store=self.belief_store,
+                    concept_id=cid,
+                    use_case=self.use_case,
                 )
                 contingency_score = float(result.get("contingency_score", 1.0))
                 is_deliberation_pass = contingency_score < 0.4
@@ -813,6 +836,20 @@ class StarNegotiation:
         if isinstance(pos, dict):
             return float(pos.get("confidence") or pos.get("roi_score") or 0.5)
         return 0.5
+
+    @staticmethod
+    def _position_utterance(agent_id: str, verb: str, pos: Any) -> str:
+        key = StarNegotiation._position_key(pos)
+        conf = StarNegotiation._confidence(pos)
+        base = f"{agent_id} {verb} {key} confidence={conf:.2f}"
+        if isinstance(pos, dict):
+            rationale = str(pos.get("rationale") or pos.get("reasoning") or "").strip()
+            thought = str(pos.get("thought_summary") or pos.get("summary") or "").strip()
+            if rationale:
+                base += f" | {rationale}"
+            if thought:
+                base += f" | {thought}"
+        return base
 
     @staticmethod
     def _leading_position(positions: Dict[str, Any]) -> Any:
@@ -1117,10 +1154,7 @@ class StarNegotiation:
             )
             self.panel_bus.round_store.record(_neg_round)
 
-            prop_utt = (
-                f"{controller_id} proposes {self._position_key(ctrl_pos)}"
-                f" confidence={self._confidence(ctrl_pos):.2f}"
-            )
+            prop_utt = self._position_utterance(controller_id, "proposes", ctrl_pos)
             tom_predictions: Dict[str, Dict] = {}
             if self.panel_bus.tom_engine is not None:
                 ctrl_agent = self.panel_bus.tom_engine.agent(controller_id)
@@ -1242,10 +1276,8 @@ class StarNegotiation:
 
                 # Post-response bilateral grounding verification using B's actual response
                 verb = "accepts" if operation == NegotiationOperation.ACCEPT else "counter-proposes"
-                response_utt = (
-                    f"{member_id} {verb} "
-                    f"{self._position_key(specialist_positions[member_id])} "
-                    f"confidence={self._confidence(specialist_positions[member_id]):.2f}"
+                response_utt = self._position_utterance(
+                    member_id, verb, specialist_positions[member_id]
                 )
                 self.panel_bus._verify_grounding_bilateral(
                     utterance_a=prop_utt,
@@ -1552,11 +1584,23 @@ class RingNegotiation:
         return 0.5
 
     @staticmethod
-    def _utterance(member_id: str, pos: Any, operation: str) -> str:
+    def _position_utterance(agent_id: str, verb: str, pos: Any) -> str:
         key = RingNegotiation._position_key(pos)
         conf = RingNegotiation._confidence(pos)
+        base = f"{agent_id} {verb} {key} confidence={conf:.2f}"
+        if isinstance(pos, dict):
+            rationale = str(pos.get("rationale") or pos.get("reasoning") or "").strip()
+            thought = str(pos.get("thought_summary") or pos.get("summary") or "").strip()
+            if rationale:
+                base += f" | {rationale}"
+            if thought:
+                base += f" | {thought}"
+        return base
+
+    @staticmethod
+    def _utterance(member_id: str, pos: Any, operation: str) -> str:
         verb = {"negotiate": "proposes", "accept": "accepts", "reject": "rejects"}[operation]
-        return f"{member_id} {verb} {key} confidence={conf:.2f}"
+        return RingNegotiation._position_utterance(member_id, verb, pos)
 
     @staticmethod
     def _check_termination(positions: Dict[str, Any], n: int, accept_threshold: float = 0.6) -> str | None:
