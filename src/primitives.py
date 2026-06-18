@@ -9,8 +9,8 @@ class Message(BaseModel):
     """
     Represents a message in the protocol.
     """
-    id: str       # unique message identifier
-    parents: str  # message content
+    id: str              # unique message identifier
+    parents: list[str]   # ordered list of parent message IDs (causal ancestry)
     episode: str
 
 class Actor(BaseModel):

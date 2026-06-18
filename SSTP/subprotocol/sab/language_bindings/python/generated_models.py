@@ -25,7 +25,11 @@ class Epistemic(BaseModel):
 
 class Message(BaseModel):
     id: str = Field(..., title="Id")
-    parents: list[str] = Field(..., title="Parents")
+    parents: list[str] = Field(
+        ...,
+        description="Ordered list of parent message IDs (causal ancestry). Empty list for root messages.",
+        title="Parents",
+    )
     episode: str = Field(..., title="Episode")
 
 
