@@ -21,6 +21,7 @@ SubProtocol values:
 
 from __future__ import annotations
 
+<<<<<<< HEAD:ioc_l9/__init__.py
 from enum import Enum
 from typing import Annotated, List, Optional, Union
 
@@ -87,6 +88,9 @@ class SIEPUtterance(BaseModel):
     addresses_evidence: List[str] = Field(default_factory=list)  # ∅ on first turn
     turn_depth: int = 0  # 0 = top-level; >0 = inside a repair branch
 
+=======
+from ioc_l9.src.primitives import Actors, PolicyLabel, Message, Context
+>>>>>>> main:ioc_l9/src/__init__.py
 
 class SIEPGrounding(BaseModel):
     """
@@ -99,7 +103,30 @@ class SIEPGrounding(BaseModel):
     challenges: List[str] = Field(default_factory=list)  # concept URIs the receiver disputes
 
 
+<<<<<<< HEAD:ioc_l9/__init__.py
 class SIEPBelief(BaseModel):
+=======
+
+class L9Header(BaseModel):
+    """
+    Routing and metadata envelope for every L9 message.
+    The CFN layer reads the header — especially `kind` and `sub_kind` —
+    to decide which Cognitive Engine (CE) should handle the message.
+    """
+    protocol: str                        # protocol name, e.g. "SSTP"
+    subprotocol: str                      # subprotocol name, e.g. "CIP"
+    version: str                         # protocol version string, e.g. "1.0"
+    kind: str                            # message kind — drives CFN routing (see module docstring)
+    subkind: str                        # finer-grained classification within the kind
+    actors: Actors                 # all participants: sender(s), receiver(s), observers
+    message: Optional[Message] = None 
+    policy: Optional[PolicyLabel] = None      # optional data governance labels
+    attributes: Optional[dict] = None
+    context: Optional[Context] = None               # optional context 
+    
+
+class L9(BaseModel):
+>>>>>>> main:ioc_l9/src/__init__.py
     """
     Belief state of the sender for a specific concept in this episode.
     prior is immutable after the initial_prior declaration (invariant T2).
