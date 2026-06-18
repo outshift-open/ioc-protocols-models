@@ -17,7 +17,7 @@ Kind values and their meaning:
 
 from typing import Optional
 from enum import Enum
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
 
 from ioc_l9.src.primitives import ParticipantSet, PolicyLabel, Message, Context
 
@@ -28,29 +28,6 @@ class Kind(str, Enum):
     exchange    = "exchange"
     commit      = "commit"
     knowledge   = "knowledge"
-
-class Subkind(str, Enum):
-    # knowledge
-    query        = "query"
-    distillation = "distillation"
-    extraction   = "extraction"
-    feedback     = "feedback"
-    # commit
-    converged    = "converged"
-    resolved     = "resolved"
-    abort        = "abort"
-    # exchange
-    teamwork     = "teamwork"
-    conversation = "conversation"
-
-# Allowed subkinds per kind (None = subkind must be null, ... = any free-form string)
-SUBKIND_MAP: dict[Kind, set[Subkind] | None] = {
-    Kind.knowledge:  {Subkind.query, Subkind.distillation, Subkind.extraction, Subkind.feedback},
-    Kind.commit:     {Subkind.converged, Subkind.resolved, Subkind.abort},
-    Kind.exchange:   {Subkind.teamwork, Subkind.conversation},
-    Kind.contingency: None,   # subkind must be null
-    Kind.intent:     ...,     # any free-form string allowed
-}
 
 class L9Payload(BaseModel):
     """
@@ -71,33 +48,13 @@ class L9Header(BaseModel):
     protocol: str                          # protocol name, e.g. "SSTP"
     subprotocol: str                       # subprotocol name, e.g. "CIP"
     version: str                           # protocol version string, e.g. "1.0"
-    kind: Kind                      # one of: intent | contingency | exchange | commit | knowledge
-    subkind: Optional[Subkind] = None  # finer-grained classification within the kind (see SUBKIND_MAP)
+    kind: Kind                             # one of: intent | contingency | exchange | commit | knowledge
+    subkind: Optional[str] = None          # free-form classification within the kind
     participants: ParticipantSet           # all participants: sender(s), receiver(s), observers
     message: Optional[Message] = None
     policy: Optional[PolicyLabel] = None   # optional data governance labels
     attributes: Optional[dict] = None
     context: Optional[Context] = None      # optional context
-
-    @model_validator(mode="after")
-    def validate_kind_and_subkind(self) -> "L9Header":
-        kind = self.kind
-        subkind = self.subkind
-        rule = SUBKIND_MAP[kind]
-
-        if rule is None:
-            if subkind is not None:
-                raise ValueError(
-                    f"kind='{kind.value}' does not allow a subkind (must be null), got '{subkind.value}'"
-                )
-        elif rule is not ...:
-            if subkind not in rule:
-                raise ValueError(
-                    f"Invalid subkind '{subkind}' for kind='{kind.value}'. "
-                    f"Must be one of: {sorted(s.value for s in rule)}"
-                )
-
-        return self
 
 
 class L9(BaseModel):
