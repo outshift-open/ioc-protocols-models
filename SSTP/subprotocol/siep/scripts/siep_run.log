@@ -8,9 +8,9 @@
   kind         : intent
   subprotocol  : SIEP
   actor        : coordinator
-  message.id   : 9bdf1171…
+  message.id   : 641418ae…
   parents      : []
-  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
+  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
   epistemic (siep):
     state        = team_process
     message_act  = —
@@ -34,9 +34,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 75aca8a4…
-  parents      : ['9bdf1171…']
-  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
+  message.id   : 2bffc977…
+  parents      : ['641418ae…']
+  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
   epistemic (siep):
     state        = taskwork
     message_act  = assertion
@@ -61,9 +61,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : c638a08a…
-  parents      : ['9bdf1171…']
-  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
+  message.id   : 2166e120…
+  parents      : ['641418ae…']
+  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
   epistemic (siep):
     state        = taskwork
     message_act  = assertion
@@ -88,9 +88,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 36903f71…
-  parents      : ['c638a08a…']
-  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
+  message.id   : 458f9f5e…
+  parents      : ['2166e120…']
+  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -115,9 +115,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : eba40ac3…
-  parents      : ['36903f71…']
-  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
+  message.id   : d3dbe789…
+  parents      : ['458f9f5e…']
+  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -142,9 +142,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : e92bb733…
-  parents      : ['36903f71…']
-  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
+  message.id   : 9ff95a57…
+  parents      : ['458f9f5e…']
+  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -169,9 +169,9 @@
   kind         : contingency
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : d1c111e8…
-  parents      : ['e92bb733…']
-  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
+  message.id   : c8ac200f…
+  parents      : ['9ff95a57…']
+  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
   epistemic (siep):
     state        = grounding
     message_act  = challenge
@@ -190,7 +190,7 @@
   siep.belief    :
     prior             = 0.5
     posterior         = 0.5
-  utterance    : repair_required:reason=scope_mismatch:target=e92bb733-2777-46d1-9a98-b6a08329f89c
+  utterance    : repair_required:reason=scope_mismatch:target=9ff95a57-787a-4138-b033-331827f88618
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   8 · exchange  REPAIR
 ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -198,9 +198,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 27e71d53…
-  parents      : ['d1c111e8…']
-  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
+  message.id   : d7748bd9…
+  parents      : ['c8ac200f…']
+  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -226,9 +226,9 @@
   kind         : commit:converged
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : 7b0d2eab…
-  parents      : ['27e71d53…']
-  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
+  message.id   : 3c146d20…
+  parents      : ['d7748bd9…']
+  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -265,7 +265,7 @@
 ════════════════════════════════════════════════════════════════════════════════════════════════════
 
 ====================================================================================================
-  L9 MESSAGE SEQUENCE  —  run=ee58f2c4…
+  L9 MESSAGE SEQUENCE  —  run=63b16529…
 ====================================================================================================
   seq  step / label                      kind          actor           state            score  ✓
 ----------------------------------------------------------------------------------------------------

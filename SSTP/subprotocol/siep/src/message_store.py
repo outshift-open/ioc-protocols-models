@@ -149,41 +149,14 @@ class MessageStore:
         """Write the full message sequence for this run to a JSON file."""
         conn = sqlite3.connect(str(self.db_path))
         rows = conn.execute(
-            "SELECT seq, step_label, kind, subkind, actor, state, "
-            "message_act, belief_status, concept_id, uncertainty, "
-            "score, verified, payload_json, ts "
+            "SELECT seq, step_label, kind, subkind, actor, ts, payload_json "
             "FROM l9_messages WHERE run_id=? ORDER BY seq",
             (self.run_id,),
         ).fetchall()
         conn.close()
 
-        messages = []
-        for (seq, label, kind, subkind, actor, state,
-             message_act, belief_status, concept_id, uncertainty,
-             score, verified, payload_json, ts) in rows:
-            messages.append({
-                "seq": seq,
-                "step_label": label,
-                "kind": f"{kind}:{subkind}" if subkind else kind,
-                "actor": actor,
-                "state": state,
-                "message_act": message_act,
-                "belief_status": belief_status,
-                "concept_id": concept_id,
-                "uncertainty": uncertainty,
-                "contingency_score": score,
-                "contingency_verified": bool(verified) if verified is not None else None,
-                "timestamp": ts,
-                "l9_message": json.loads(payload_json),
-            })
-
-        output = {
-            "run_id": self.run_id,
-            "episode_id": messages[0]["l9_message"]["header"]["message"]["episode"] if messages else None,
-            "total_messages": len(messages),
-            "messages": messages,
-        }
-        path.write_text(json.dumps(output, indent=2))
+        messages = [json.loads(payload_json) for (_, _, _, _, _, _, payload_json) in rows]
+        path.write_text(json.dumps(messages, indent=2))
 
     def print_table(self) -> None:
         """Print the stored sequence for this run as a formatted table."""

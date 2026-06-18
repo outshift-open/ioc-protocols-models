@@ -1,753 +1,622 @@
-{
-  "run_id": "ee58f2c4-f9fe-49b2-b6ea-bfeb7dd30ae3",
-  "episode_id": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9",
-  "total_messages": 9,
-  "messages": [
-    {
-      "seq": 1,
-      "step_label": "1 \u00b7 intent",
+[
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SIEP",
+      "version": "1.0.0",
       "kind": "intent",
-      "actor": "coordinator",
-      "state": "team_process",
-      "message_act": null,
-      "belief_status": null,
-      "concept_id": "concept:task_objective",
-      "uncertainty": 0.0,
-      "contingency_score": null,
-      "contingency_verified": null,
-      "timestamp": "2026-06-18T21:44:32.649061Z",
-      "l9_message": {
-        "header": {
-          "protocol": "SSTP",
-          "subprotocol": "SIEP",
-          "version": "1.0.0",
-          "kind": "intent",
-          "subkind": null,
-          "actors": {
-            "actors": [
-              {
-                "id": "coordinator",
-                "role": "sender",
-                "attestation": null
-              }
-            ],
-            "groups": null
-          },
-          "message": {
-            "id": "9bdf1171-3e83-465f-ba5c-aa49724ef556",
-            "parents": [],
-            "episode": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9"
-          },
-          "policy": null,
-          "attributes": null,
-          "context": {
-            "topic": "concept:task_objective",
-            "epistemic": {
-              "message_act": null,
-              "state": "team_process",
-              "belief_status": null,
-              "concept_id": "concept:task_objective",
-              "uncertainty": 0.0,
-              "epistemic_kind": "siep"
-            },
-            "semantic": {
-              "schema_id": "urn:ioc:siep:payload:v1",
-              "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-              "provenance": null
-            }
+      "subkind": null,
+      "actors": {
+        "actors": [
+          {
+            "id": "coordinator",
+            "role": "sender",
+            "attestation": null
           }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "641418ae-c74c-47f1-902a-66cbfb4befe9",
+        "parents": [],
+        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+      },
+      "policy": null,
+      "attributes": null,
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {
+          "message_act": null,
+          "state": "team_process",
+          "belief_status": null,
+          "concept_id": "concept:task_objective",
+          "uncertainty": 0.0,
+          "epistemic_kind": "siep"
         },
-        "payload": {
-          "type": "siep",
-          "data": {
-            "utterance": {
-              "evidence": [],
-              "addresses_evidence": [],
-              "turn_depth": 0
-            },
-            "grounding": {
-              "contingency_verified": null,
-              "contingency_score": null,
-              "repair_reason": null,
-              "challenges": []
-            },
-            "belief": {
-              "prior": 0.5,
-              "posterior": 0.5,
-              "revision_cause": null
-            }
-          }
+        "semantic": {
+          "schema_id": "urn:ioc:siep:payload:v1",
+          "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+          "provenance": null
         }
       }
     },
-    {
-      "seq": 2,
-      "step_label": "2 \u00b7 prior (agent-alpha)",
-      "kind": "exchange",
-      "actor": "agent-alpha",
-      "state": "taskwork",
-      "message_act": "assertion",
-      "belief_status": "asserted",
-      "concept_id": "concept:task_objective",
-      "uncertainty": 0.0,
-      "contingency_score": null,
-      "contingency_verified": null,
-      "timestamp": "2026-06-18T21:44:32.649061Z",
-      "l9_message": {
-        "header": {
-          "protocol": "SSTP",
-          "subprotocol": "SIEP",
-          "version": "1.0.0",
-          "kind": "exchange",
-          "subkind": null,
-          "actors": {
-            "actors": [
-              {
-                "id": "agent-alpha",
-                "role": "sender",
-                "attestation": null
-              }
-            ],
-            "groups": null
-          },
-          "message": {
-            "id": "75aca8a4-ac25-4286-9c3a-b2741a741fe0",
-            "parents": [
-              "9bdf1171-3e83-465f-ba5c-aa49724ef556"
-            ],
-            "episode": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9"
-          },
-          "policy": null,
-          "attributes": null,
-          "context": {
-            "topic": "concept:task_objective",
-            "epistemic": {
-              "message_act": "assertion",
-              "state": "taskwork",
-              "belief_status": "asserted",
-              "concept_id": "concept:task_objective",
-              "uncertainty": 0.0,
-              "epistemic_kind": "siep"
-            },
-            "semantic": {
-              "schema_id": "urn:ioc:siep:payload:v1",
-              "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-              "provenance": null
-            }
-          }
+    "payload": {
+      "type": "siep",
+      "data": {
+        "utterance": {
+          "evidence": [],
+          "addresses_evidence": [],
+          "turn_depth": 0
         },
-        "payload": {
-          "type": "siep",
-          "data": {
-            "utterance": {
-              "evidence": [
-                "concept:task_objective"
-              ],
-              "addresses_evidence": [],
-              "turn_depth": 0
-            },
-            "grounding": {
-              "contingency_verified": null,
-              "contingency_score": null,
-              "repair_reason": null,
-              "challenges": []
-            },
-            "belief": {
-              "prior": 0.72,
-              "posterior": 0.72,
-              "revision_cause": "semantic_memory"
-            }
-          }
-        }
-      }
-    },
-    {
-      "seq": 3,
-      "step_label": "3 \u00b7 prior (agent-beta)",
-      "kind": "exchange",
-      "actor": "agent-beta",
-      "state": "taskwork",
-      "message_act": "assertion",
-      "belief_status": "asserted",
-      "concept_id": "concept:task_objective",
-      "uncertainty": 0.0,
-      "contingency_score": null,
-      "contingency_verified": null,
-      "timestamp": "2026-06-18T21:44:32.649061Z",
-      "l9_message": {
-        "header": {
-          "protocol": "SSTP",
-          "subprotocol": "SIEP",
-          "version": "1.0.0",
-          "kind": "exchange",
-          "subkind": null,
-          "actors": {
-            "actors": [
-              {
-                "id": "agent-beta",
-                "role": "sender",
-                "attestation": null
-              }
-            ],
-            "groups": null
-          },
-          "message": {
-            "id": "c638a08a-df8e-48a7-b2ea-94ddac6c0c0b",
-            "parents": [
-              "9bdf1171-3e83-465f-ba5c-aa49724ef556"
-            ],
-            "episode": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9"
-          },
-          "policy": null,
-          "attributes": null,
-          "context": {
-            "topic": "concept:task_objective",
-            "epistemic": {
-              "message_act": "assertion",
-              "state": "taskwork",
-              "belief_status": "asserted",
-              "concept_id": "concept:task_objective",
-              "uncertainty": 0.0,
-              "epistemic_kind": "siep"
-            },
-            "semantic": {
-              "schema_id": "urn:ioc:siep:payload:v1",
-              "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-              "provenance": null
-            }
-          }
+        "grounding": {
+          "contingency_verified": null,
+          "contingency_score": null,
+          "repair_reason": null,
+          "challenges": []
         },
-        "payload": {
-          "type": "siep",
-          "data": {
-            "utterance": {
-              "evidence": [
-                "concept:task_objective"
-              ],
-              "addresses_evidence": [],
-              "turn_depth": 0
-            },
-            "grounding": {
-              "contingency_verified": null,
-              "contingency_score": null,
-              "repair_reason": null,
-              "challenges": []
-            },
-            "belief": {
-              "prior": 0.65,
-              "posterior": 0.65,
-              "revision_cause": "semantic_memory"
-            }
-          }
-        }
-      }
-    },
-    {
-      "seq": 4,
-      "step_label": "4 \u00b7 exchange  GOOD \u2713",
-      "kind": "exchange",
-      "actor": "agent-alpha",
-      "state": "grounding",
-      "message_act": "assertion",
-      "belief_status": "asserted",
-      "concept_id": "concept:task_objective",
-      "uncertainty": 0.28,
-      "contingency_score": null,
-      "contingency_verified": null,
-      "timestamp": "2026-06-18T21:44:32.649061Z",
-      "l9_message": {
-        "header": {
-          "protocol": "SSTP",
-          "subprotocol": "SIEP",
-          "version": "1.0.0",
-          "kind": "exchange",
-          "subkind": null,
-          "actors": {
-            "actors": [
-              {
-                "id": "agent-alpha",
-                "role": "sender",
-                "attestation": null
-              }
-            ],
-            "groups": null
-          },
-          "message": {
-            "id": "36903f71-8082-4381-9f72-3076e117f149",
-            "parents": [
-              "c638a08a-df8e-48a7-b2ea-94ddac6c0c0b"
-            ],
-            "episode": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9"
-          },
-          "policy": null,
-          "attributes": {
-            "utterance_text": "agent-beta, bound to task_objective:deliverable_spec pathway only"
-          },
-          "context": {
-            "topic": "concept:task_objective",
-            "epistemic": {
-              "message_act": "assertion",
-              "state": "grounding",
-              "belief_status": "asserted",
-              "concept_id": "concept:task_objective",
-              "uncertainty": 0.28,
-              "epistemic_kind": "siep"
-            },
-            "semantic": {
-              "schema_id": "urn:ioc:siep:payload:v1",
-              "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-              "provenance": null
-            }
-          }
-        },
-        "payload": {
-          "type": "siep",
-          "data": {
-            "utterance": {
-              "evidence": [
-                "concept:task_objective",
-                "urn:concept:task_objective:deliverable_spec"
-              ],
-              "addresses_evidence": [
-                "concept:task_objective"
-              ],
-              "turn_depth": 0
-            },
-            "grounding": {
-              "contingency_verified": null,
-              "contingency_score": null,
-              "repair_reason": null,
-              "challenges": []
-            },
-            "belief": {
-              "prior": 0.72,
-              "posterior": 0.72,
-              "revision_cause": null
-            }
-          }
-        }
-      }
-    },
-    {
-      "seq": 5,
-      "step_label": "5 \u00b7 exchange  grounding_ok \u2713",
-      "kind": "exchange",
-      "actor": "agent-beta",
-      "state": "grounding",
-      "message_act": "assertion",
-      "belief_status": "asserted",
-      "concept_id": "concept:task_objective",
-      "uncertainty": 0.0,
-      "contingency_score": 1.0,
-      "contingency_verified": true,
-      "timestamp": "2026-06-18T21:44:32.649061Z",
-      "l9_message": {
-        "header": {
-          "protocol": "SSTP",
-          "subprotocol": "SIEP",
-          "version": "1.0.0",
-          "kind": "exchange",
-          "subkind": null,
-          "actors": {
-            "actors": [
-              {
-                "id": "agent-beta",
-                "role": "sender",
-                "attestation": null
-              }
-            ],
-            "groups": null
-          },
-          "message": {
-            "id": "eba40ac3-23ac-4cf1-b05a-9296599e6e1d",
-            "parents": [
-              "36903f71-8082-4381-9f72-3076e117f149"
-            ],
-            "episode": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9"
-          },
-          "policy": null,
-          "attributes": null,
-          "context": {
-            "topic": "concept:task_objective",
-            "epistemic": {
-              "message_act": "assertion",
-              "state": "grounding",
-              "belief_status": "asserted",
-              "concept_id": "concept:task_objective",
-              "uncertainty": 0.0,
-              "epistemic_kind": "siep"
-            },
-            "semantic": {
-              "schema_id": "urn:ioc:siep:payload:v1",
-              "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-              "provenance": null
-            }
-          }
-        },
-        "payload": {
-          "type": "siep",
-          "data": {
-            "utterance": {
-              "evidence": [
-                "concept:task_objective",
-                "urn:concept:task_objective:deliverable_spec"
-              ],
-              "addresses_evidence": [
-                "concept:task_objective",
-                "urn:concept:task_objective:deliverable_spec"
-              ],
-              "turn_depth": 0
-            },
-            "grounding": {
-              "contingency_verified": true,
-              "contingency_score": 1.0,
-              "repair_reason": null,
-              "challenges": []
-            },
-            "belief": {
-              "prior": 0.65,
-              "posterior": 0.65,
-              "revision_cause": "grounded_argument"
-            }
-          }
-        }
-      }
-    },
-    {
-      "seq": 6,
-      "step_label": "6 \u00b7 exchange  BAD \u2717",
-      "kind": "exchange",
-      "actor": "agent-alpha",
-      "state": "grounding",
-      "message_act": "assertion",
-      "belief_status": "asserted",
-      "concept_id": "concept:task_objective",
-      "uncertainty": 0.28,
-      "contingency_score": null,
-      "contingency_verified": null,
-      "timestamp": "2026-06-18T21:44:32.649061Z",
-      "l9_message": {
-        "header": {
-          "protocol": "SSTP",
-          "subprotocol": "SIEP",
-          "version": "1.0.0",
-          "kind": "exchange",
-          "subkind": null,
-          "actors": {
-            "actors": [
-              {
-                "id": "agent-alpha",
-                "role": "sender",
-                "attestation": null
-              }
-            ],
-            "groups": null
-          },
-          "message": {
-            "id": "e92bb733-2777-46d1-9a98-b6a08329f89c",
-            "parents": [
-              "36903f71-8082-4381-9f72-3076e117f149"
-            ],
-            "episode": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9"
-          },
-          "policy": null,
-          "attributes": {
-            "utterance_text": "What does the timeline look like for next sprint?"
-          },
-          "context": {
-            "topic": "concept:task_objective",
-            "epistemic": {
-              "message_act": "assertion",
-              "state": "grounding",
-              "belief_status": "asserted",
-              "concept_id": "concept:task_objective",
-              "uncertainty": 0.28,
-              "epistemic_kind": "siep"
-            },
-            "semantic": {
-              "schema_id": "urn:ioc:siep:payload:v1",
-              "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-              "provenance": null
-            }
-          }
-        },
-        "payload": {
-          "type": "siep",
-          "data": {
-            "utterance": {
-              "evidence": [
-                "concept:timeline",
-                "concept:resource_availability"
-              ],
-              "addresses_evidence": [],
-              "turn_depth": 0
-            },
-            "grounding": {
-              "contingency_verified": null,
-              "contingency_score": null,
-              "repair_reason": null,
-              "challenges": []
-            },
-            "belief": {
-              "prior": 0.72,
-              "posterior": 0.72,
-              "revision_cause": null
-            }
-          }
-        }
-      }
-    },
-    {
-      "seq": 7,
-      "step_label": "7 \u00b7 contingency  repair_required",
-      "kind": "contingency",
-      "actor": "agent-beta",
-      "state": "grounding",
-      "message_act": "challenge",
-      "belief_status": "challenged",
-      "concept_id": "concept:task_objective",
-      "uncertainty": 0.0,
-      "contingency_score": 0.0,
-      "contingency_verified": false,
-      "timestamp": "2026-06-18T21:44:32.649061Z",
-      "l9_message": {
-        "header": {
-          "protocol": "SSTP",
-          "subprotocol": "SIEP",
-          "version": "1.0.0",
-          "kind": "contingency",
-          "subkind": null,
-          "actors": {
-            "actors": [
-              {
-                "id": "agent-beta",
-                "role": "sender",
-                "attestation": null
-              }
-            ],
-            "groups": null
-          },
-          "message": {
-            "id": "d1c111e8-9676-4c2e-a42d-34d6ff8f539a",
-            "parents": [
-              "e92bb733-2777-46d1-9a98-b6a08329f89c"
-            ],
-            "episode": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9"
-          },
-          "policy": null,
-          "attributes": {
-            "utterance_text": "repair_required:reason=scope_mismatch:target=e92bb733-2777-46d1-9a98-b6a08329f89c"
-          },
-          "context": {
-            "topic": "concept:task_objective",
-            "epistemic": {
-              "message_act": "challenge",
-              "state": "grounding",
-              "belief_status": "challenged",
-              "concept_id": "concept:task_objective",
-              "uncertainty": 0.0,
-              "epistemic_kind": "siep"
-            },
-            "semantic": {
-              "schema_id": "urn:ioc:siep:payload:v1",
-              "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-              "provenance": null
-            }
-          }
-        },
-        "payload": {
-          "type": "siep",
-          "data": {
-            "utterance": {
-              "evidence": [],
-              "addresses_evidence": [],
-              "turn_depth": 0
-            },
-            "grounding": {
-              "contingency_verified": false,
-              "contingency_score": 0.0,
-              "repair_reason": "scope_mismatch",
-              "challenges": [
-                "concept:task_objective",
-                "urn:concept:task_objective:deliverable_spec"
-              ]
-            },
-            "belief": {
-              "prior": 0.5,
-              "posterior": 0.5,
-              "revision_cause": null
-            }
-          }
-        }
-      }
-    },
-    {
-      "seq": 8,
-      "step_label": "8 \u00b7 exchange  REPAIR",
-      "kind": "exchange",
-      "actor": "agent-alpha",
-      "state": "grounding",
-      "message_act": "assertion",
-      "belief_status": "asserted",
-      "concept_id": "concept:task_objective",
-      "uncertainty": 0.28,
-      "contingency_score": null,
-      "contingency_verified": null,
-      "timestamp": "2026-06-18T21:44:32.649061Z",
-      "l9_message": {
-        "header": {
-          "protocol": "SSTP",
-          "subprotocol": "SIEP",
-          "version": "1.0.0",
-          "kind": "exchange",
-          "subkind": null,
-          "actors": {
-            "actors": [
-              {
-                "id": "agent-alpha",
-                "role": "sender",
-                "attestation": null
-              }
-            ],
-            "groups": null
-          },
-          "message": {
-            "id": "27e71d53-ad0c-4bf7-ad14-28f736eb91c5",
-            "parents": [
-              "d1c111e8-9676-4c2e-a42d-34d6ff8f539a"
-            ],
-            "episode": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9"
-          },
-          "policy": null,
-          "attributes": {
-            "utterance_text": "agent-alpha, re-anchored to task_objective:deliverable_spec pathway"
-          },
-          "context": {
-            "topic": "concept:task_objective",
-            "epistemic": {
-              "message_act": "assertion",
-              "state": "grounding",
-              "belief_status": "asserted",
-              "concept_id": "concept:task_objective",
-              "uncertainty": 0.28,
-              "epistemic_kind": "siep"
-            },
-            "semantic": {
-              "schema_id": "urn:ioc:siep:payload:v1",
-              "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-              "provenance": null
-            }
-          }
-        },
-        "payload": {
-          "type": "siep",
-          "data": {
-            "utterance": {
-              "evidence": [
-                "concept:task_objective",
-                "urn:concept:task_objective:deliverable_spec"
-              ],
-              "addresses_evidence": [
-                "concept:task_objective",
-                "urn:concept:task_objective:deliverable_spec"
-              ],
-              "turn_depth": 1
-            },
-            "grounding": {
-              "contingency_verified": null,
-              "contingency_score": null,
-              "repair_reason": null,
-              "challenges": []
-            },
-            "belief": {
-              "prior": 0.72,
-              "posterior": 0.72,
-              "revision_cause": "repair_resolution"
-            }
-          }
-        }
-      }
-    },
-    {
-      "seq": 9,
-      "step_label": "9 \u00b7 commit:converged  repair_verified \u2713",
-      "kind": "commit:converged",
-      "actor": "agent-beta",
-      "state": "grounding",
-      "message_act": "assertion",
-      "belief_status": "revised",
-      "concept_id": "concept:task_objective",
-      "uncertainty": 0.0,
-      "contingency_score": 1.0,
-      "contingency_verified": true,
-      "timestamp": "2026-06-18T21:44:32.649061Z",
-      "l9_message": {
-        "header": {
-          "protocol": "SSTP",
-          "subprotocol": "SIEP",
-          "version": "1.0.0",
-          "kind": "commit",
-          "subkind": "converged",
-          "actors": {
-            "actors": [
-              {
-                "id": "agent-beta",
-                "role": "sender",
-                "attestation": null
-              }
-            ],
-            "groups": null
-          },
-          "message": {
-            "id": "7b0d2eab-8cf6-43e1-a520-7d4b1ee678db",
-            "parents": [
-              "27e71d53-ad0c-4bf7-ad14-28f736eb91c5"
-            ],
-            "episode": "urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9"
-          },
-          "policy": null,
-          "attributes": {
-            "utterance_text": "repair_verified:agent-alpha re-anchored"
-          },
-          "context": {
-            "topic": "concept:task_objective",
-            "epistemic": {
-              "message_act": "assertion",
-              "state": "grounding",
-              "belief_status": "revised",
-              "concept_id": "concept:task_objective",
-              "uncertainty": 0.0,
-              "epistemic_kind": "siep"
-            },
-            "semantic": {
-              "schema_id": "urn:ioc:siep:payload:v1",
-              "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-              "provenance": null
-            }
-          }
-        },
-        "payload": {
-          "type": "siep",
-          "data": {
-            "utterance": {
-              "evidence": [],
-              "addresses_evidence": [],
-              "turn_depth": 0
-            },
-            "grounding": {
-              "contingency_verified": true,
-              "contingency_score": 1.0,
-              "repair_reason": null,
-              "challenges": []
-            },
-            "belief": {
-              "prior": 0.5,
-              "posterior": 0.5,
-              "revision_cause": null
-            }
-          }
+        "belief": {
+          "prior": 0.5,
+          "posterior": 0.5,
+          "revision_cause": null
         }
       }
     }
-  ]
-}
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SIEP",
+      "version": "1.0.0",
+      "kind": "exchange",
+      "subkind": null,
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-alpha",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "2bffc977-dd78-477c-a04a-c4a78491e826",
+        "parents": [
+          "641418ae-c74c-47f1-902a-66cbfb4befe9"
+        ],
+        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+      },
+      "policy": null,
+      "attributes": null,
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {
+          "message_act": "assertion",
+          "state": "taskwork",
+          "belief_status": "asserted",
+          "concept_id": "concept:task_objective",
+          "uncertainty": 0.0,
+          "epistemic_kind": "siep"
+        },
+        "semantic": {
+          "schema_id": "urn:ioc:siep:payload:v1",
+          "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "siep",
+      "data": {
+        "utterance": {
+          "evidence": [
+            "concept:task_objective"
+          ],
+          "addresses_evidence": [],
+          "turn_depth": 0
+        },
+        "grounding": {
+          "contingency_verified": null,
+          "contingency_score": null,
+          "repair_reason": null,
+          "challenges": []
+        },
+        "belief": {
+          "prior": 0.72,
+          "posterior": 0.72,
+          "revision_cause": "semantic_memory"
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SIEP",
+      "version": "1.0.0",
+      "kind": "exchange",
+      "subkind": null,
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-beta",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "2166e120-1b23-477f-ba4e-98df859139fd",
+        "parents": [
+          "641418ae-c74c-47f1-902a-66cbfb4befe9"
+        ],
+        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+      },
+      "policy": null,
+      "attributes": null,
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {
+          "message_act": "assertion",
+          "state": "taskwork",
+          "belief_status": "asserted",
+          "concept_id": "concept:task_objective",
+          "uncertainty": 0.0,
+          "epistemic_kind": "siep"
+        },
+        "semantic": {
+          "schema_id": "urn:ioc:siep:payload:v1",
+          "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "siep",
+      "data": {
+        "utterance": {
+          "evidence": [
+            "concept:task_objective"
+          ],
+          "addresses_evidence": [],
+          "turn_depth": 0
+        },
+        "grounding": {
+          "contingency_verified": null,
+          "contingency_score": null,
+          "repair_reason": null,
+          "challenges": []
+        },
+        "belief": {
+          "prior": 0.65,
+          "posterior": 0.65,
+          "revision_cause": "semantic_memory"
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SIEP",
+      "version": "1.0.0",
+      "kind": "exchange",
+      "subkind": null,
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-alpha",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "458f9f5e-3c45-4d81-8af2-301fd13ad143",
+        "parents": [
+          "2166e120-1b23-477f-ba4e-98df859139fd"
+        ],
+        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+      },
+      "policy": null,
+      "attributes": {
+        "utterance_text": "agent-beta, bound to task_objective:deliverable_spec pathway only"
+      },
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {
+          "message_act": "assertion",
+          "state": "grounding",
+          "belief_status": "asserted",
+          "concept_id": "concept:task_objective",
+          "uncertainty": 0.28,
+          "epistemic_kind": "siep"
+        },
+        "semantic": {
+          "schema_id": "urn:ioc:siep:payload:v1",
+          "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "siep",
+      "data": {
+        "utterance": {
+          "evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "addresses_evidence": [
+            "concept:task_objective"
+          ],
+          "turn_depth": 0
+        },
+        "grounding": {
+          "contingency_verified": null,
+          "contingency_score": null,
+          "repair_reason": null,
+          "challenges": []
+        },
+        "belief": {
+          "prior": 0.72,
+          "posterior": 0.72,
+          "revision_cause": null
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SIEP",
+      "version": "1.0.0",
+      "kind": "exchange",
+      "subkind": null,
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-beta",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "d3dbe789-a51a-4834-81dd-b724b2add91e",
+        "parents": [
+          "458f9f5e-3c45-4d81-8af2-301fd13ad143"
+        ],
+        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+      },
+      "policy": null,
+      "attributes": null,
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {
+          "message_act": "assertion",
+          "state": "grounding",
+          "belief_status": "asserted",
+          "concept_id": "concept:task_objective",
+          "uncertainty": 0.0,
+          "epistemic_kind": "siep"
+        },
+        "semantic": {
+          "schema_id": "urn:ioc:siep:payload:v1",
+          "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "siep",
+      "data": {
+        "utterance": {
+          "evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "addresses_evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "turn_depth": 0
+        },
+        "grounding": {
+          "contingency_verified": true,
+          "contingency_score": 1.0,
+          "repair_reason": null,
+          "challenges": []
+        },
+        "belief": {
+          "prior": 0.65,
+          "posterior": 0.65,
+          "revision_cause": "grounded_argument"
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SIEP",
+      "version": "1.0.0",
+      "kind": "exchange",
+      "subkind": null,
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-alpha",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "9ff95a57-787a-4138-b033-331827f88618",
+        "parents": [
+          "458f9f5e-3c45-4d81-8af2-301fd13ad143"
+        ],
+        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+      },
+      "policy": null,
+      "attributes": {
+        "utterance_text": "What does the timeline look like for next sprint?"
+      },
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {
+          "message_act": "assertion",
+          "state": "grounding",
+          "belief_status": "asserted",
+          "concept_id": "concept:task_objective",
+          "uncertainty": 0.28,
+          "epistemic_kind": "siep"
+        },
+        "semantic": {
+          "schema_id": "urn:ioc:siep:payload:v1",
+          "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "siep",
+      "data": {
+        "utterance": {
+          "evidence": [
+            "concept:timeline",
+            "concept:resource_availability"
+          ],
+          "addresses_evidence": [],
+          "turn_depth": 0
+        },
+        "grounding": {
+          "contingency_verified": null,
+          "contingency_score": null,
+          "repair_reason": null,
+          "challenges": []
+        },
+        "belief": {
+          "prior": 0.72,
+          "posterior": 0.72,
+          "revision_cause": null
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SIEP",
+      "version": "1.0.0",
+      "kind": "contingency",
+      "subkind": null,
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-beta",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "c8ac200f-7a77-4f9f-baad-61cca535a051",
+        "parents": [
+          "9ff95a57-787a-4138-b033-331827f88618"
+        ],
+        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+      },
+      "policy": null,
+      "attributes": {
+        "utterance_text": "repair_required:reason=scope_mismatch:target=9ff95a57-787a-4138-b033-331827f88618"
+      },
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {
+          "message_act": "challenge",
+          "state": "grounding",
+          "belief_status": "challenged",
+          "concept_id": "concept:task_objective",
+          "uncertainty": 0.0,
+          "epistemic_kind": "siep"
+        },
+        "semantic": {
+          "schema_id": "urn:ioc:siep:payload:v1",
+          "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "siep",
+      "data": {
+        "utterance": {
+          "evidence": [],
+          "addresses_evidence": [],
+          "turn_depth": 0
+        },
+        "grounding": {
+          "contingency_verified": false,
+          "contingency_score": 0.0,
+          "repair_reason": "scope_mismatch",
+          "challenges": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ]
+        },
+        "belief": {
+          "prior": 0.5,
+          "posterior": 0.5,
+          "revision_cause": null
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SIEP",
+      "version": "1.0.0",
+      "kind": "exchange",
+      "subkind": null,
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-alpha",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "d7748bd9-5e9a-4413-8204-0a68cbe65a89",
+        "parents": [
+          "c8ac200f-7a77-4f9f-baad-61cca535a051"
+        ],
+        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+      },
+      "policy": null,
+      "attributes": {
+        "utterance_text": "agent-alpha, re-anchored to task_objective:deliverable_spec pathway"
+      },
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {
+          "message_act": "assertion",
+          "state": "grounding",
+          "belief_status": "asserted",
+          "concept_id": "concept:task_objective",
+          "uncertainty": 0.28,
+          "epistemic_kind": "siep"
+        },
+        "semantic": {
+          "schema_id": "urn:ioc:siep:payload:v1",
+          "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "siep",
+      "data": {
+        "utterance": {
+          "evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "addresses_evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "turn_depth": 1
+        },
+        "grounding": {
+          "contingency_verified": null,
+          "contingency_score": null,
+          "repair_reason": null,
+          "challenges": []
+        },
+        "belief": {
+          "prior": 0.72,
+          "posterior": 0.72,
+          "revision_cause": "repair_resolution"
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SIEP",
+      "version": "1.0.0",
+      "kind": "commit",
+      "subkind": "converged",
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-beta",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "3c146d20-0804-42a6-a6b1-3c5807f57bf4",
+        "parents": [
+          "d7748bd9-5e9a-4413-8204-0a68cbe65a89"
+        ],
+        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+      },
+      "policy": null,
+      "attributes": {
+        "utterance_text": "repair_verified:agent-alpha re-anchored"
+      },
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {
+          "message_act": "assertion",
+          "state": "grounding",
+          "belief_status": "revised",
+          "concept_id": "concept:task_objective",
+          "uncertainty": 0.0,
+          "epistemic_kind": "siep"
+        },
+        "semantic": {
+          "schema_id": "urn:ioc:siep:payload:v1",
+          "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "siep",
+      "data": {
+        "utterance": {
+          "evidence": [],
+          "addresses_evidence": [],
+          "turn_depth": 0
+        },
+        "grounding": {
+          "contingency_verified": true,
+          "contingency_score": 1.0,
+          "repair_reason": null,
+          "challenges": []
+        },
+        "belief": {
+          "prior": 0.5,
+          "posterior": 0.5,
+          "revision_cause": null
+        }
+      }
+    }
+  }
+]
