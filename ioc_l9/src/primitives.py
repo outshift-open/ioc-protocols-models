@@ -9,7 +9,7 @@ class Message(BaseModel):
     parents: str  # message content
     episode: str
 
-class ActorRef(BaseModel):
+class Actor(BaseModel):
     """
     Identity of the message sender (L9 header §actor).
     attestation may be omitted when the transport layer uniquely identifies the sender.
