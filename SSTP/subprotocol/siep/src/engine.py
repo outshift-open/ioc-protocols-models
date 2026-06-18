@@ -9,10 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
+from ioc_l9.src import L9
 from SSTP.subprotocol.siep.src.builder import (
     EpistemicState,
     Kind,
-    L9Message,
     RepairReason,
     RevisionCause,
     SIEPBelief,
@@ -22,13 +22,27 @@ from SSTP.subprotocol.siep.src.builder import (
     SIEPUtterance,
     contingency_score,
 )
+from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
 
 THETA_C = 0.40
 D_MAX = 3
 
 
-def _concept(msg: L9Message) -> Optional[str]:
-    return msg.epistemic.concept_id
+def _concept(msg: L9) -> Optional[str]:
+    context = msg.header.context
+    epistemic = context.epistemic if context else None
+    return epistemic.concept_id if epistemic else None
+
+
+def _sender_id(msg: L9) -> str:
+    actors = msg.header.actors.actors
+    if not actors:
+        raise ValueError("SIEP L9 message is missing a sender actor.")
+    return actors[0].id
+
+
+def _siep_payload(msg: L9) -> SIEPMessagePayload:
+    return SIEPMessagePayload.model_validate(msg.payload.data)
 
 
 @dataclass
@@ -44,20 +58,21 @@ class SIEPEngine:
         self.agent_id = agent_id
         self.episode = episode_urn
         self._priors: Dict[Tuple[str, str], SIEPBelief] = {}
-        self._last_exchange: Dict[str, L9Message] = {}
+        self._last_exchange: Dict[str, L9] = {}
         self._repairs: Dict[str, RepairBranch] = {}
 
-    def process(self, msg: L9Message) -> List[L9Message]:
-        if msg.kind == Kind.intent:
+    def process(self, msg: L9) -> List[L9]:
+        if msg.header.kind == Kind.intent.value:
             return []
-        if msg.kind == Kind.exchange:
+        if msg.header.kind == Kind.exchange.value:
             return self._on_exchange(msg)
         return []
 
-    def _on_exchange(self, msg: L9Message) -> List[L9Message]:
-        sender = msg.actor.id
-        siep_payload = msg.siep_payload()
-        if msg.epistemic.state == EpistemicState.taskwork and siep_payload:
+    def _on_exchange(self, msg: L9) -> List[L9]:
+        sender = _sender_id(msg)
+        siep_payload = _siep_payload(msg)
+        epistemic = msg.header.context.epistemic if msg.header.context else None
+        if epistemic and epistemic.state == EpistemicState.taskwork.value:
             key = (sender, _concept(msg) or "")
             if key not in self._priors:
                 self._priors[key] = SIEPBelief(
@@ -68,17 +83,14 @@ class SIEPEngine:
             self._last_exchange[sender] = msg
             return []
 
-        if msg.message.parents:
+        message = msg.header.message
+        if message and message.parents:
             for branch in self._repairs.values():
-                if branch.contingency_msg_id in msg.message.parents:
+                if branch.contingency_msg_id in message.parents:
                     return self._on_repair_attempt(msg, branch)
 
-        if siep_payload is None:
-            self._last_exchange[sender] = msg
-            return []
-
         prior = self._last_exchange.get(sender)
-        prior_payload = prior.siep_payload() if prior else None
+        prior_payload = _siep_payload(prior) if prior else None
         prior_evidence = prior_payload.utterance.evidence if prior_payload else []
         score = contingency_score(siep_payload.utterance.evidence, prior_evidence)
         self._last_exchange[sender] = msg
@@ -86,15 +98,15 @@ class SIEPEngine:
             return [self._grounding_ok(msg, score)]
         return [self._request_repair(msg, score, prior_evidence)]
 
-    def _grounding_ok(self, prior: L9Message, score: float) -> L9Message:
+    def _grounding_ok(self, prior: L9, score: float) -> L9:
         concept = _concept(prior)
         my_belief = self._priors.get((self.agent_id, concept or ""))
-        evidence = prior.siep_payload().utterance.evidence if prior.siep_payload() else []
+        evidence = _siep_payload(prior).utterance.evidence
         return (
             self._builder()
             .exchange().grounding().asserted()
             .concept(concept or "")
-            .parents(prior.message.id)
+            .parents(prior.header.message.id)
             .payload(SIEPPayload(
                 utterance=SIEPUtterance(evidence=evidence, addresses_evidence=evidence),
                 grounding=SIEPGrounding(contingency_verified=True, contingency_score=round(score, 4)),
@@ -107,14 +119,14 @@ class SIEPEngine:
             .build()
         )
 
-    def _request_repair(self, bad: L9Message, score: float, prior_evidence: List[str]) -> L9Message:
-        bad_payload = bad.siep_payload()
-        reason = self._classify(bad_payload.utterance.evidence if bad_payload else [], prior_evidence)
+    def _request_repair(self, bad: L9, score: float, prior_evidence: List[str]) -> L9:
+        bad_payload = _siep_payload(bad)
+        reason = self._classify(bad_payload.utterance.evidence, prior_evidence)
         msg = (
             self._builder()
             .contingency().grounding().challenged()
             .concept(_concept(bad) or "")
-            .parents(bad.message.id)
+            .parents(bad.header.message.id)
             .payload(SIEPPayload(
                 grounding=SIEPGrounding(
                     contingency_verified=False,
@@ -123,21 +135,21 @@ class SIEPEngine:
                     challenges=prior_evidence,
                 ),
             ))
-            .text(f"repair_required:reason={reason.value}:target={bad.message.id}")
+            .text(f"repair_required:reason={reason.value}:target={bad.header.message.id}")
             .build()
         )
-        self._repairs[bad.message.id] = RepairBranch(
-            contingency_msg_id=msg.message.id,
-            bad_turn_id=bad.message.id,
+        self._repairs[bad.header.message.id] = RepairBranch(
+            contingency_msg_id=msg.header.message.id,
+            bad_turn_id=bad.header.message.id,
             bad_turn_evidence=prior_evidence,
         )
         return msg
 
-    def _on_repair_attempt(self, msg: L9Message, branch: RepairBranch) -> List[L9Message]:
+    def _on_repair_attempt(self, msg: L9, branch: RepairBranch) -> List[L9]:
         branch.depth += 1
-        siep_payload = msg.siep_payload()
+        siep_payload = _siep_payload(msg)
         score = contingency_score(
-            siep_payload.utterance.evidence if siep_payload else [],
+            siep_payload.utterance.evidence,
             branch.bad_turn_evidence,
         )
         if score >= THETA_C:
@@ -148,25 +160,25 @@ class SIEPEngine:
             return [self._exhaust_repair(msg, branch)]
         return [self._request_repair(msg, score, branch.bad_turn_evidence)]
 
-    def _close_repair(self, repair: L9Message, score: float) -> L9Message:
+    def _close_repair(self, repair: L9, score: float) -> L9:
         return (
             self._builder()
             .commit_converged().grounding().revised()
             .concept(_concept(repair) or "")
-            .parents(repair.message.id)
+            .parents(repair.header.message.id)
             .payload(SIEPPayload(
                 grounding=SIEPGrounding(contingency_verified=True, contingency_score=round(score, 4)),
             ))
-            .text(f"repair_verified:{repair.actor.id} re-anchored")
+            .text(f"repair_verified:{_sender_id(repair)} re-anchored")
             .build()
         )
 
-    def _exhaust_repair(self, last: L9Message, branch: RepairBranch) -> L9Message:
+    def _exhaust_repair(self, last: L9, branch: RepairBranch) -> L9:
         return (
             self._builder()
             .commit_rejected().grounding().unresolved()
             .concept(_concept(last) or "")
-            .parents(last.message.id)
+            .parents(last.header.message.id)
             .text(f"repair_exhausted:depth={branch.depth}:target={branch.bad_turn_id}")
             .build()
         )

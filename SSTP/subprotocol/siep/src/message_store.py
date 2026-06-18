@@ -28,14 +28,14 @@ Schema
 
 from __future__ import annotations
 
-import dataclasses
 import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from SSTP.subprotocol.siep.src.builder import L9Message
+from ioc_l9.src import L9
+from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
 
 _DEFAULT_DB = Path(__file__).resolve().parents[4] / "episodes.db"
 
@@ -71,17 +71,12 @@ VALUES
 """
 
 
-def _msg_to_dict(msg: L9Message) -> dict:
-    """Serialise an L9Message to a plain dict (JSON-safe)."""
-    def _conv(obj):
-        if dataclasses.is_dataclass(obj):
-            return {k: _conv(v) for k, v in dataclasses.asdict(obj).items()}
-        if hasattr(obj, "value"):
-            return obj.value
-        if isinstance(obj, list):
-            return [_conv(i) for i in obj]
-        return obj
-    return _conv(msg)
+def _sender_id(msg: L9) -> str:
+    return msg.header.actors.actors[0].id
+
+
+def _siep_payload(msg: L9) -> SIEPMessagePayload:
+    return SIEPMessagePayload.model_validate(msg.payload.data)
 
 
 class MessageStore:
@@ -98,9 +93,10 @@ class MessageStore:
 
     def __init__(self, db_path: Path = _DEFAULT_DB, run_id: Optional[str] = None) -> None:
         import uuid as _uuid
+
         self.run_id = run_id or str(_uuid.uuid4())
         self.db_path = db_path
-        self._buffer: List[Tuple[str, L9Message]] = []
+        self._buffer: List[Tuple[str, L9]] = []
         self._seq = 0
 
         conn = sqlite3.connect(str(db_path))
@@ -108,7 +104,7 @@ class MessageStore:
         conn.commit()
         conn.close()
 
-    def append(self, label: str, msg: L9Message) -> None:
+    def append(self, label: str, msg: L9) -> None:
         """Buffer one message; call flush() to persist."""
         self._buffer.append((label, msg))
 
@@ -120,26 +116,27 @@ class MessageStore:
         rows = []
         for label, msg in self._buffer:
             self._seq += 1
-            ep = msg.message.epistemic if hasattr(msg.message, "epistemic") else msg.epistemic
-            siep = msg.siep_payload()
-            score    = siep.grounding.contingency_score if siep else None
-            verified = siep.grounding.contingency_verified if siep else None
+            context = msg.header.context
+            epistemic = context.epistemic if context else None
+            siep = _siep_payload(msg)
+            score = siep.grounding.contingency_score
+            verified = siep.grounding.contingency_verified
             rows.append((
                 self.run_id,
-                msg.message.episode,
+                msg.header.message.episode,
                 self._seq,
                 label,
-                msg.kind.value,
-                msg.subkind.value if msg.subkind else None,
-                msg.actor.id if msg.actor else None,
-                msg.epistemic.state.value if msg.epistemic.state else None,
-                msg.epistemic.message_act.value if msg.epistemic.message_act else None,
-                msg.epistemic.belief_status.value if msg.epistemic.belief_status else None,
-                msg.epistemic.concept_id,
-                msg.epistemic.uncertainty,
+                msg.header.kind,
+                msg.header.subkind,
+                _sender_id(msg),
+                epistemic.state if epistemic else None,
+                epistemic.message_act if epistemic else None,
+                epistemic.belief_status if epistemic else None,
+                epistemic.concept_id if epistemic else None,
+                epistemic.uncertainty if epistemic else None,
                 score,
                 (1 if verified else 0) if verified is not None else None,
-                json.dumps(_msg_to_dict(msg)),
+                msg.model_dump_json(),
                 ts,
             ))
         conn = sqlite3.connect(str(self.db_path))
@@ -182,7 +179,7 @@ class MessageStore:
 
         output = {
             "run_id": self.run_id,
-            "episode_id": messages[0]["l9_message"]["message"]["episode"] if messages else None,
+            "episode_id": messages[0]["l9_message"]["header"]["message"]["episode"] if messages else None,
             "total_messages": len(messages),
             "messages": messages,
         }

@@ -11,6 +11,18 @@ from enum import Enum
 from typing import Any, List, Optional
 import uuid
 
+from ioc_l9.src import L9, L9Header, L9Payload
+from ioc_l9.src.epistemic import Epistemic
+from ioc_l9.src.primitives import Actor, Actors, Context, Message, Semantic
+from SSTP.subprotocol.siep.src.siep_payload import (
+    SIEPMessagePayload,
+    SIEPBeliefBlock,
+    SIEPGroundingBlock,
+    SIEPUtteranceBlock,
+    SIEP_ONTOLOGY_REF,
+    SIEP_SCHEMA_URN,
+)
+
 
 class Kind(str, Enum):
     intent = "intent"
@@ -114,6 +126,8 @@ class SIEPEpistemic:
 
 @dataclass
 class L9Message:
+    """Internal compatibility dataclass retained for non-wire SIEP uses."""
+
     kind: Kind
     actor: ActorRef
     message: MessageRef
@@ -225,30 +239,72 @@ class SIEPMessageBuilder:
         self._text = utterance
         return self
 
-    def build(self) -> L9Message:
+    def build(self) -> L9:
         if self._kind is None:
             raise ValueError("Set a kind before calling build().")
-        payload_parts: List[PayloadPart] = []
-        if self._siep_payload is not None:
-            payload_parts.append(PayloadPart(type="siep", location="inline", content=self._siep_payload))
-        if self._text:
-            payload_parts.append(PayloadPart(type="utterance", location="inline", content=self._text))
-        return L9Message(
-            protocol="SSTP",
-            version="1.0.0",
-            subprotocol="SIEP",
-            kind=self._kind,
-            subkind=self._subkind,
-            actor=ActorRef(id=self._sender),
-            message=MessageRef(id=str(uuid.uuid4()), parents=self._parents, episode=self._ep),
-            epistemic=SIEPEpistemic(
-                message_act=self._msg_act,
-                state=self._ep_state,
-                belief_status=self._belief_status,
-                concept_id=self._concept,
-                uncertainty=self._uncertainty,
+
+        msg_id = str(uuid.uuid4())
+        payload = self._to_pydantic_payload()
+        attributes = {"utterance_text": self._text} if self._text else None
+        l9 = L9(
+            header=L9Header(
+                protocol="SSTP",
+                subprotocol="SIEP",
+                version="1.0.0",
+                kind=self._kind.value,
+                subkind=self._subkind.value if self._subkind else None,
+                actors=Actors(actors=[Actor(id=self._sender, role="sender")]),
+                message=Message(id=msg_id, parents=list(self._parents), episode=self._ep),
+                attributes=attributes,
+                context=Context(
+                    topic=self._concept or "",
+                    epistemic=Epistemic(
+                        message_act=self._msg_act.value if self._msg_act else None,
+                        state=self._ep_state.value if self._ep_state else None,
+                        belief_status=self._belief_status.value if self._belief_status else None,
+                        concept_id=self._concept,
+                        uncertainty=self._uncertainty,
+                    ),
+                    semantic=Semantic(
+                        schema_id=SIEP_SCHEMA_URN,
+                        ontology_ref=SIEP_ONTOLOGY_REF,
+                    ),
+                ),
             ),
-            payload=payload_parts,
+            payload=L9Payload(
+                type="siep",
+                data=payload.model_dump(),
+            ),
+        )
+        return l9
+
+    def _to_pydantic_payload(self) -> SIEPMessagePayload:
+        internal = self._siep_payload or SIEPPayload()
+        return SIEPMessagePayload(
+            utterance=SIEPUtteranceBlock(
+                evidence=list(internal.utterance.evidence),
+                addresses_evidence=list(internal.utterance.addresses_evidence),
+                turn_depth=internal.utterance.turn_depth,
+            ),
+            grounding=SIEPGroundingBlock(
+                contingency_verified=internal.grounding.contingency_verified,
+                contingency_score=internal.grounding.contingency_score,
+                repair_reason=(
+                    internal.grounding.repair_reason.value
+                    if internal.grounding.repair_reason
+                    else None
+                ),
+                challenges=list(internal.grounding.challenges),
+            ),
+            belief=SIEPBeliefBlock(
+                prior=internal.belief.prior,
+                posterior=internal.belief.posterior,
+                revision_cause=(
+                    internal.belief.revision_cause.value
+                    if internal.belief.revision_cause
+                    else None
+                ),
+            ),
         )
 
 

@@ -11,8 +11,8 @@ import uuid
 from pathlib import Path
 from typing import List, Tuple
 
+from ioc_l9.src import L9
 from SSTP.subprotocol.siep.src.builder import (
-    L9Message,
     RevisionCause,
     SIEPBelief,
     SIEPMessageBuilder,
@@ -21,10 +21,11 @@ from SSTP.subprotocol.siep.src.builder import (
 )
 from SSTP.subprotocol.siep.src.engine import SIEPEngine
 from SSTP.subprotocol.siep.src.message_store import MessageStore
+from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
 
 C = "concept:task_objective"
 SUB = "urn:concept:task_objective:deliverable_spec"
-EpisodeLog = List[Tuple[str, L9Message]]
+EpisodeLog = List[Tuple[str, L9]]
 _W = 100
 
 
@@ -37,12 +38,12 @@ def run_demo() -> None:
     def builder(sender: str) -> SIEPMessageBuilder:
         return SIEPMessageBuilder(episode, sender)
 
-    def emit(label: str, msg: L9Message) -> L9Message:
+    def emit(label: str, msg: L9) -> L9:
         log.append((label, msg))
         store.append(label, msg)
         return msg
 
-    def engine_responses(msg: L9Message, label: str) -> List[L9Message]:
+    def engine_responses(msg: L9, label: str) -> List[L9]:
         responses = engine.process(msg)
         for response in responses:
             log.append((label, response))
@@ -55,7 +56,7 @@ def run_demo() -> None:
     s2 = emit(
         "2 · prior (agent-alpha)",
         builder("agent-alpha").exchange().taskwork().asserted().concept(C)
-        .parents(s1.message.id)
+        .parents(s1.header.message.id)
         .payload(SIEPPayload(
             utterance=SIEPUtterance(evidence=[C]),
             belief=SIEPBelief(prior=0.72, posterior=0.72, revision_cause=RevisionCause.semantic_memory),
@@ -67,18 +68,19 @@ def run_demo() -> None:
     s3 = emit(
         "3 · prior (agent-beta)",
         builder("agent-beta").exchange().taskwork().asserted().concept(C)
-        .parents(s1.message.id)
+        .parents(s1.header.message.id)
         .payload(SIEPPayload(
             utterance=SIEPUtterance(evidence=[C]),
             belief=SIEPBelief(prior=0.65, posterior=0.65, revision_cause=RevisionCause.semantic_memory),
         ))
         .build(),
     )
+    engine.process(s3)
 
     s4 = emit(
         "4 · exchange  GOOD ✓",
         builder("agent-alpha").exchange().grounding().asserted().concept(C)
-        .uncertainty(0.28).parents(s3.message.id)
+        .uncertainty(0.28).parents(s3.header.message.id)
         .payload(SIEPPayload(
             utterance=SIEPUtterance(evidence=[C, SUB], addresses_evidence=[C]),
             belief=SIEPBelief(prior=0.72, posterior=0.72),
@@ -91,7 +93,7 @@ def run_demo() -> None:
     s6 = emit(
         "6 · exchange  BAD ✗",
         builder("agent-alpha").exchange().grounding().asserted().concept(C)
-        .uncertainty(0.28).parents(s4.message.id)
+        .uncertainty(0.28).parents(s4.header.message.id)
         .payload(SIEPPayload(
             utterance=SIEPUtterance(
                 evidence=["concept:timeline", "concept:resource_availability"],
@@ -107,7 +109,7 @@ def run_demo() -> None:
     s8 = emit(
         "8 · exchange  REPAIR",
         builder("agent-alpha").exchange().grounding().asserted().concept(C)
-        .uncertainty(0.28).parents(contingency_msg.message.id)
+        .uncertainty(0.28).parents(contingency_msg.header.message.id)
         .payload(SIEPPayload(
             utterance=SIEPUtterance(evidence=[C, SUB], addresses_evidence=[C, SUB], turn_depth=1),
             belief=SIEPBelief(
@@ -131,6 +133,19 @@ def run_demo() -> None:
     store.write_json(_SCRIPTS / "siep_run.json")
 
 
+def _sender_id(msg: L9) -> str:
+    return msg.header.actors.actors[0].id
+
+
+def _siep_payload(msg: L9) -> SIEPMessagePayload:
+    return SIEPMessagePayload.model_validate(msg.payload.data)
+
+
+def _utterance_text(msg: L9) -> str | None:
+    attributes = msg.header.attributes or {}
+    return attributes.get("utterance_text")
+
+
 def _hr(char: str = "─") -> None:
     print(char * _W)
 
@@ -147,43 +162,45 @@ def _print_verbose(log: EpisodeLog) -> None:
     _hr("═")
 
 
-def _print_message(msg: L9Message) -> None:
-    kind_str = msg.kind.value + (f":{msg.subkind.value}" if msg.subkind else "")
-    print(f"  protocol     : {msg.protocol} v{msg.version}")
+def _print_message(msg: L9) -> None:
+    header = msg.header
+    context = header.context
+    epistemic = context.epistemic if context else None
+    kind_str = header.kind + (f":{header.subkind}" if header.subkind else "")
+    print(f"  protocol     : {header.protocol} v{header.version}")
     print(f"  kind         : {kind_str}")
-    print(f"  subprotocol  : {msg.subprotocol}")
-    print(f"  actor        : {msg.actor.id}")
-    print(f"  message.id   : {msg.message.id[:8]}…")
-    print(f"  parents      : {[p[:8] + '…' for p in msg.message.parents] or '[]'}")
-    print(f"  episode      : {msg.message.episode}")
-    print(f"  epistemic ({msg.epistemic.epistemic_kind}):")
-    print(f"    state        = {msg.epistemic.state.value if msg.epistemic.state else '—'}")
-    print(f"    message_act  = {msg.epistemic.message_act.value if msg.epistemic.message_act else '—'}")
-    print(f"    uncertainty  = {msg.epistemic.uncertainty}")
-    print(f"    belief_status= {msg.epistemic.belief_status.value if msg.epistemic.belief_status else '—'}")
-    print(f"    concept_id   = {msg.epistemic.concept_id or '—'}")
-    siep_payload = msg.siep_payload()
-    if siep_payload:
-        print("  siep.utterance :")
-        print(f"    evidence          = {siep_payload.utterance.evidence}")
-        print(f"    addresses_evidence= {siep_payload.utterance.addresses_evidence}")
-        print(f"    turn_depth        = {siep_payload.utterance.turn_depth}")
-        print("  siep.grounding :")
-        print(f"    contingency_verified = {siep_payload.grounding.contingency_verified}")
-        print(f"    contingency_score    = {siep_payload.grounding.contingency_score}")
-        if siep_payload.grounding.repair_reason:
-            print(f"    repair_reason        = {siep_payload.grounding.repair_reason.value}")
-        if siep_payload.grounding.challenges:
-            print(f"    challenges           = {siep_payload.grounding.challenges}")
-        print("  siep.belief    :")
-        print(f"    prior             = {siep_payload.belief.prior}")
-        print(f"    posterior         = {siep_payload.belief.posterior}")
-        if siep_payload.belief.revision_cause:
-            print(f"    revision_cause    = {siep_payload.belief.revision_cause.value}")
-    for part in msg.payload:
-        if part.type == "utterance" and part.content:
-            wrapped = textwrap.fill(str(part.content), width=_W - 18, subsequent_indent=" " * 18)
-            print(f"  utterance    : {wrapped}")
+    print(f"  subprotocol  : {header.subprotocol}")
+    print(f"  actor        : {_sender_id(msg)}")
+    print(f"  message.id   : {header.message.id[:8]}…")
+    print(f"  parents      : {[p[:8] + '…' for p in header.message.parents] or '[]'}")
+    print(f"  episode      : {header.message.episode}")
+    print(f"  epistemic ({epistemic.epistemic_kind if epistemic else '—'}):")
+    print(f"    state        = {epistemic.state if epistemic and epistemic.state else '—'}")
+    print(f"    message_act  = {epistemic.message_act if epistemic and epistemic.message_act else '—'}")
+    print(f"    uncertainty  = {epistemic.uncertainty if epistemic else '—'}")
+    print(f"    belief_status= {epistemic.belief_status if epistemic and epistemic.belief_status else '—'}")
+    print(f"    concept_id   = {epistemic.concept_id if epistemic and epistemic.concept_id else '—'}")
+    siep_payload = _siep_payload(msg)
+    print("  siep.utterance :")
+    print(f"    evidence          = {siep_payload.utterance.evidence}")
+    print(f"    addresses_evidence= {siep_payload.utterance.addresses_evidence}")
+    print(f"    turn_depth        = {siep_payload.utterance.turn_depth}")
+    print("  siep.grounding :")
+    print(f"    contingency_verified = {siep_payload.grounding.contingency_verified}")
+    print(f"    contingency_score    = {siep_payload.grounding.contingency_score}")
+    if siep_payload.grounding.repair_reason:
+        print(f"    repair_reason        = {siep_payload.grounding.repair_reason}")
+    if siep_payload.grounding.challenges:
+        print(f"    challenges           = {siep_payload.grounding.challenges}")
+    print("  siep.belief    :")
+    print(f"    prior             = {siep_payload.belief.prior}")
+    print(f"    posterior         = {siep_payload.belief.posterior}")
+    if siep_payload.belief.revision_cause:
+        print(f"    revision_cause    = {siep_payload.belief.revision_cause}")
+    utterance_text = _utterance_text(msg)
+    if utterance_text:
+        wrapped = textwrap.fill(str(utterance_text), width=_W - 18, subsequent_indent=" " * 18)
+        print(f"  utterance    : {wrapped}")
 
 
 def _print_summary(log: EpisodeLog) -> None:
@@ -195,12 +212,12 @@ def _print_summary(log: EpisodeLog) -> None:
     print(header)
     _hr()
     for label, msg in log:
-        siep_payload = msg.siep_payload()
-        score = siep_payload.grounding.contingency_score if siep_payload else None
-        verified = siep_payload.grounding.contingency_verified if siep_payload else None
+        siep_payload = _siep_payload(msg)
+        score = siep_payload.grounding.contingency_score
+        verified = siep_payload.grounding.contingency_verified
         score_str = f"{score:.3f}" if score is not None else "  —  "
         verified_str = ("✓" if verified else "✗") if verified is not None else "—"
-        print(f"  {label:<34}  {msg.actor.id:<14}  {score_str:>7}  {verified_str:<10}")
+        print(f"  {label:<34}  {_sender_id(msg):<14}  {score_str:>7}  {verified_str:<10}")
     _hr("═")
 
 

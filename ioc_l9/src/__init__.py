@@ -20,18 +20,20 @@ Kind values and their meaning:
 """
 
 from typing import Optional
+
 from pydantic import BaseModel
 
-from ioc_l9.src.primitives import Actors, PolicyLabel, Message, Context
+from ioc_l9.src.primitives import Actors, Context, Message, PolicyLabel
+
 
 class L9Payload(BaseModel):
     """
     The actual content being carried by an L9 message.
     The `type` field describes the payload format; `data` holds the content.
     """
+
     type: str   # payload content type, e.g. "text", "json-schema", "task"
     data: dict  # free-form payload data — structure is defined by `type`
-
 
 
 class L9Header(BaseModel):
@@ -40,22 +42,24 @@ class L9Header(BaseModel):
     The CFN layer reads the header — especially `kind` and `sub_kind` —
     to decide which Cognitive Engine (CE) should handle the message.
     """
-    protocol: str                        # protocol name, e.g. "SSTP"
-    subprotocol: str                      # subprotocol name, e.g. "CIP"
-    version: str                         # protocol version string, e.g. "1.0"
-    kind: str                            # message kind — drives CFN routing (see module docstring)
-    subkind: str                        # finer-grained classification within the kind
-    actors: Actors                 # all participants: sender(s), receiver(s), observers
-    message: Optional[Message] = None 
-    policy: Optional[PolicyLabel] = None      # optional data governance labels
+
+    protocol: str  # protocol name, e.g. "SSTP"
+    subprotocol: str  # subprotocol name, e.g. "CIP"
+    version: str  # protocol version string, e.g. "1.0"
+    kind: str  # message kind — drives CFN routing (see module docstring)
+    subkind: Optional[str] = None  # finer-grained classification within the kind
+    actors: Actors  # all participants: sender(s), receiver(s), observers
+    message: Optional[Message] = None
+    policy: Optional[PolicyLabel] = None  # optional data governance labels
     attributes: Optional[dict] = None
-    context: Optional[Context] = None               # optional context 
-    
+    context: Optional[Context] = None  # optional context
+
 
 class L9(BaseModel):
     """
     A complete L9 message: header (routing/metadata) + payload (content).
     This is the top-level structure passed between agents and through the CFN.
     """
+
     header: L9Header
     payload: L9Payload

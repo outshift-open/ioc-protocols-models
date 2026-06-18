@@ -10,6 +10,7 @@ from .demo import run_demo
 from .engine import *
 from .epistemic import *
 from .negotiate import *
+from .siep_payload import *
 from .tomcore import *
 from SSTP.l9_base import (
     L9_PROTOCOL,

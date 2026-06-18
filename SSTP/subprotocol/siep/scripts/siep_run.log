@@ -8,15 +8,25 @@
   kind         : intent
   subprotocol  : SIEP
   actor        : coordinator
-  message.id   : 46b13afa…
+  message.id   : 9bdf1171…
   parents      : []
-  episode      : urn:ioc:episode:badb873b-8000-497a-be2d-c9e35c9d935c
+  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
   epistemic (siep):
     state        = team_process
     message_act  = —
     uncertainty  = 0.0
     belief_status= —
     concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = []
+    addresses_evidence= []
+    turn_depth        = 0
+  siep.grounding :
+    contingency_verified = None
+    contingency_score    = None
+  siep.belief    :
+    prior             = 0.5
+    posterior         = 0.5
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   2 · prior (agent-alpha)
 ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -24,9 +34,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 81940d67…
-  parents      : ['46b13afa…']
-  episode      : urn:ioc:episode:badb873b-8000-497a-be2d-c9e35c9d935c
+  message.id   : 75aca8a4…
+  parents      : ['9bdf1171…']
+  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
   epistemic (siep):
     state        = taskwork
     message_act  = assertion
@@ -51,9 +61,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : 49ffab28…
-  parents      : ['46b13afa…']
-  episode      : urn:ioc:episode:badb873b-8000-497a-be2d-c9e35c9d935c
+  message.id   : c638a08a…
+  parents      : ['9bdf1171…']
+  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
   epistemic (siep):
     state        = taskwork
     message_act  = assertion
@@ -78,9 +88,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 2e0406bf…
-  parents      : ['49ffab28…']
-  episode      : urn:ioc:episode:badb873b-8000-497a-be2d-c9e35c9d935c
+  message.id   : 36903f71…
+  parents      : ['c638a08a…']
+  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -105,9 +115,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : eb1d2aae…
-  parents      : ['2e0406bf…']
-  episode      : urn:ioc:episode:badb873b-8000-497a-be2d-c9e35c9d935c
+  message.id   : eba40ac3…
+  parents      : ['36903f71…']
+  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -122,8 +132,8 @@
     contingency_verified = True
     contingency_score    = 1.0
   siep.belief    :
-    prior             = 0.5
-    posterior         = 0.5
+    prior             = 0.65
+    posterior         = 0.65
     revision_cause    = grounded_argument
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   6 · exchange  BAD ✗
@@ -132,9 +142,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 900cb7dc…
-  parents      : ['2e0406bf…']
-  episode      : urn:ioc:episode:badb873b-8000-497a-be2d-c9e35c9d935c
+  message.id   : e92bb733…
+  parents      : ['36903f71…']
+  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -159,9 +169,9 @@
   kind         : contingency
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : f8e859c2…
-  parents      : ['900cb7dc…']
-  episode      : urn:ioc:episode:badb873b-8000-497a-be2d-c9e35c9d935c
+  message.id   : d1c111e8…
+  parents      : ['e92bb733…']
+  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
   epistemic (siep):
     state        = grounding
     message_act  = challenge
@@ -180,7 +190,7 @@
   siep.belief    :
     prior             = 0.5
     posterior         = 0.5
-  utterance    : repair_required:reason=scope_mismatch:target=900cb7dc-9b73-4c03-a53e-e1d4ec7e8829
+  utterance    : repair_required:reason=scope_mismatch:target=e92bb733-2777-46d1-9a98-b6a08329f89c
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   8 · exchange  REPAIR
 ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -188,9 +198,9 @@
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 16ee6012…
-  parents      : ['f8e859c2…']
-  episode      : urn:ioc:episode:badb873b-8000-497a-be2d-c9e35c9d935c
+  message.id   : 27e71d53…
+  parents      : ['d1c111e8…']
+  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -216,9 +226,9 @@
   kind         : commit:converged
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : 381cee77…
-  parents      : ['16ee6012…']
-  episode      : urn:ioc:episode:badb873b-8000-497a-be2d-c9e35c9d935c
+  message.id   : 7b0d2eab…
+  parents      : ['27e71d53…']
+  episode      : urn:ioc:episode:65412dd9-a674-4115-9808-aef4cc398eb9
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -255,7 +265,7 @@
 ════════════════════════════════════════════════════════════════════════════════════════════════════
 
 ====================================================================================================
-  L9 MESSAGE SEQUENCE  —  run=ba2ec9bf…
+  L9 MESSAGE SEQUENCE  —  run=ee58f2c4…
 ====================================================================================================
   seq  step / label                      kind          actor           state            score  ✓
 ----------------------------------------------------------------------------------------------------
