@@ -29,12 +29,6 @@ jobs:
     name: checkout & unit test
     runs-on:
       group: arc-runner-set
-    container:
-      image:  ${{ vars.DEFAULT_CONTAINER_RUNNER }}
-      options: --user root
-      credentials:
-        username: x-access-token
-        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout repository
