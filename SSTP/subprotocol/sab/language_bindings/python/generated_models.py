@@ -14,9 +14,9 @@ from pydantic import BaseModel, Field, RootModel
 
 
 class Actor(BaseModel):
-    id: str = Field(..., title='Id')
-    role: str = Field(..., title='Role')
-    attestation: str | None = Field(None, title='Attestation')
+    id: str = Field(..., title="Id")
+    role: str = Field(..., title="Role")
+    attestation: str | None = Field(None, title="Attestation")
 
 
 class Epistemic(BaseModel):
@@ -24,29 +24,28 @@ class Epistemic(BaseModel):
 
 
 class Message(BaseModel):
-    id: str = Field(..., title='Id')
-    parents: str = Field(..., title='Parents')
-    episode: str = Field(..., title='Episode')
+    id: str = Field(..., title="Id")
+    parents: str = Field(..., title="Parents")
+    episode: str = Field(..., title="Episode")
 
 
 class Encoding(Enum):
-    json = 'json'
-    structured_text = 'structured_text'
-    hybrid = 'hybrid'
+    json = "json"
+    structured_text = "structured_text"
+    hybrid = "hybrid"
 
 
 class Outcome(Enum):
-    agreement = 'agreement'
-    disagreement = 'disagreement'
-    broken = 'broken'
-    error = 'error'
+    agreement = "agreement"
+    disagreement = "disagreement"
+    broken = "broken"
+    error = "error"
 
 
 class NegotiateCommitSemanticContext(BaseModel):
-    schema_id: str = Field('urn:ioc:schema:negotiate:commit:v1', title='Schema Id')
-    schema_version: str = Field('1.0', title='Schema Version')
-    encoding: Encoding = Field('json', title='Encoding')
-    session_id: str = Field(..., title='Session Id')
+    schema_version: str = Field("1.0", title="Schema Version")
+    encoding: Encoding = Field("json", title="Encoding")
+    session_id: str = Field(..., title="Session Id")
     outcome: Outcome = Field(
         ...,
         description=(
@@ -55,36 +54,36 @@ class NegotiateCommitSemanticContext(BaseModel):
             " 'broken' — a participant dropped out or returned an invalid offer;"
             " 'error' — pipeline exception during execution."
         ),
-        title='Outcome',
+        title="Outcome",
     )
     error_message: str | None = Field(
         None,
         description=(
             "Populated only when outcome='error'. Human-readable exception summary."
         ),
-        title='Error Message',
+        title="Error Message",
     )
     content_text: str | None = Field(
         None,
         description=(
-            'Original natural-language mission description passed to /initiate.'
+            "Original natural-language mission description passed to /initiate."
         ),
-        title='Content Text',
+        title="Content Text",
     )
     agents_negotiating: list[str] | None = Field(
         None,
-        description='List of agent IDs that participated in this negotiation.',
-        title='Agents Negotiating',
+        description="List of agent IDs that participated in this negotiation.",
+        title="Agents Negotiating",
     )
     issues: list[str] | None = Field(
         None,
-        description='Negotiable issues discovered from content_text.',
-        title='Issues',
+        description="Negotiable issues discovered from content_text.",
+        title="Issues",
     )
     options_per_issue: dict[str, list[str]] | None = Field(
         None,
-        description='Candidate options generated per issue.',
-        title='Options Per Issue',
+        description="Candidate options generated per issue.",
+        title="Options Per Issue",
     )
     final_agreement: list[dict[str, Any]] | None = Field(
         None,
@@ -92,14 +91,14 @@ class NegotiateCommitSemanticContext(BaseModel):
             "Agreed option per issue. Each entry is {'issue_id': str, 'chosen_option':"
             " str}. None when negotiation ended without agreement."
         ),
-        title='Final Agreement',
+        title="Final Agreement",
     )
 
 
 class PolicyLabel(BaseModel):
-    sensitivity: str = Field(..., title='Sensitivity')
-    propagation: str = Field(..., title='Propagation')
-    retention_policy: str = Field(..., title='Retention Policy')
+    sensitivity: str = Field(..., title="Sensitivity")
+    propagation: str = Field(..., title="Propagation")
+    retention_policy: str = Field(..., title="Retention Policy")
 
 
 class Provenance(BaseModel):
@@ -116,72 +115,72 @@ class ResponseType(IntEnum):
 
 
 class SABActors(BaseModel):
-    actors: list[Actor] = Field(..., title='Actors')
-    groups: dict[str, Any] | None = Field(None, title='Groups')
+    actors: list[Actor] = Field(..., title="Actors")
+    groups: dict[str, Any] | None = Field(None, title="Groups")
 
 
 class SABAttributes(BaseModel):
     msg_created_at: str = Field(
         ...,
-        description='dt_created from the wrapped SSTP message (ISO 8601).',
-        title='Msg Created At',
+        description="dt_created from the wrapped SSTP message (ISO 8601).",
+        title="Msg Created At",
     )
 
 
-class Protocol(RootModel[Literal['SSTP']]):
-    root: Literal['SSTP'] = Field(..., title='Protocol')
+class Protocol(RootModel[Literal["SSTP"]]):
+    root: Literal["SSTP"] = Field(..., title="Protocol")
 
 
-class Subprotocol(RootModel[Literal['SAB']]):
-    root: Literal['SAB'] = Field(..., title='Subprotocol')
+class Subprotocol(RootModel[Literal["SAB"]]):
+    root: Literal["SAB"] = Field(..., title="Subprotocol")
 
 
 class Kind(Enum):
-    contingency = 'contingency'
-    commit = 'commit'
+    contingency = "contingency"
+    commit = "commit"
 
 
 class Subkind(Enum):
-    negotiate = 'negotiate'
-    converged = 'converged'
-    disagreement = 'disagreement'
-    timeout = 'timeout'
+    negotiate = "negotiate"
+    converged = "converged"
+    disagreement = "disagreement"
+    timeout = "timeout"
 
 
-class Type(RootModel[Literal['json-schema']]):
-    root: Literal['json-schema'] = Field(..., title='Type')
+class Type(RootModel[Literal["json-schema"]]):
+    root: Literal["json-schema"] = Field(..., title="Type")
 
 
 class SABOrigin(BaseModel):
-    actor_id: str = Field(..., title='Actor Id')
-    attestation: str | None = Field(None, title='Attestation')
+    actor_id: str = Field(..., title="Actor Id")
+    attestation: str | None = Field(None, title="Attestation")
 
 
 class SAONMI(BaseModel):
-    id: str = Field('', title='Id')
-    n_outcomes: int | float = Field(0, title='N Outcomes')
-    shared_time_limit: float = Field(float('inf'), title='Shared Time Limit')
-    shared_n_steps: int | None = Field(None, title='Shared N Steps')
-    private_time_limit: float = Field(float('inf'), title='Private Time Limit')
-    private_n_steps: int | None = Field(None, title='Private N Steps')
-    pend: float = Field(0.0, title='Pend')
-    pend_per_second: float = Field(0.0, title='Pend Per Second')
-    step_time_limit: float = Field(float('inf'), title='Step Time Limit')
-    negotiator_time_limit: float = Field(float('inf'), title='Negotiator Time Limit')
-    dynamic_entry: bool = Field(False, title='Dynamic Entry')
-    max_n_negotiators: int | None = Field(None, title='Max N Negotiators')
-    annotation: dict[str, Any] | None = Field(None, title='Annotation')
-    end_on_no_response: bool = Field(True, title='End On No Response')
-    one_offer_per_step: bool = Field(False, title='One Offer Per Step')
-    offering_is_accepting: bool = Field(True, title='Offering Is Accepting')
-    allow_none_with_data: bool = Field(True, title='Allow None With Data')
-    allow_negotiators_to_leave: bool = Field(True, title='Allow Negotiators To Leave')
+    id: str = Field("", title="Id")
+    n_outcomes: int | float = Field(0, title="N Outcomes")
+    shared_time_limit: float = Field(float("inf"), title="Shared Time Limit")
+    shared_n_steps: int | None = Field(None, title="Shared N Steps")
+    private_time_limit: float = Field(float("inf"), title="Private Time Limit")
+    private_n_steps: int | None = Field(None, title="Private N Steps")
+    pend: float = Field(0.0, title="Pend")
+    pend_per_second: float = Field(0.0, title="Pend Per Second")
+    step_time_limit: float = Field(float("inf"), title="Step Time Limit")
+    negotiator_time_limit: float = Field(float("inf"), title="Negotiator Time Limit")
+    dynamic_entry: bool = Field(False, title="Dynamic Entry")
+    max_n_negotiators: int | None = Field(None, title="Max N Negotiators")
+    annotation: dict[str, Any] | None = Field(None, title="Annotation")
+    end_on_no_response: bool = Field(True, title="End On No Response")
+    one_offer_per_step: bool = Field(False, title="One Offer Per Step")
+    offering_is_accepting: bool = Field(True, title="Offering Is Accepting")
+    allow_none_with_data: bool = Field(True, title="Allow None With Data")
+    allow_negotiators_to_leave: bool = Field(True, title="Allow Negotiators To Leave")
 
 
 class SAOResponse(BaseModel):
     response: ResponseType = 3
-    outcome: dict[str, Any] | list[Any] | None = Field(None, title='Outcome')
-    data: dict[str, Any] | None = Field(None, title='Data')
+    outcome: dict[str, Any] | list[Any] | None = Field(None, title="Outcome")
+    data: dict[str, Any] | None = Field(None, title="Data")
 
 
 class NewOffer(RootModel[tuple[str, dict[str, Any] | list[Any] | None]]):
@@ -195,57 +194,56 @@ class NewDatum(RootModel[tuple[str, dict[str, Any] | None]]):
 
 
 class Semantic(BaseModel):
-    schema_id: str = Field(..., title='Schema Id')
-    ontology_ref: str = Field(..., title='Ontology Ref')
+    schema_id: str = Field(..., title="Schema Id")
+    ontology_ref: str = Field(..., title="Ontology Ref")
     provenance: Provenance | None = None
 
 
 class SemanticContext(BaseModel):
-    schema_id: str = Field(..., title='Schema Id')
-    schema_version: str = Field(..., title='Schema Version')
-    encoding: Encoding = Field('json', title='Encoding')
+    schema_version: str = Field(..., title="Schema Version")
+    encoding: Encoding = Field("json", title="Encoding")
 
 
 class ThreadState(BaseModel):
-    new_offer: dict[str, Any] | list[Any] | None = Field(None, title='New Offer')
-    new_data: dict[str, Any] | None = Field(None, title='New Data')
-    new_responses: dict[str, ResponseType] | None = Field(None, title='New Responses')
+    new_offer: dict[str, Any] | list[Any] | None = Field(None, title="New Offer")
+    new_data: dict[str, Any] | None = Field(None, title="New Data")
+    new_responses: dict[str, ResponseType] | None = Field(None, title="New Responses")
     accepted_offers: list[dict[str, Any] | list[Any] | None] | None = Field(
-        None, title='Accepted Offers'
+        None, title="Accepted Offers"
     )
 
 
 class Context(BaseModel):
-    topic: str = Field(..., title='Topic')
+    topic: str = Field(..., title="Topic")
     epistemic: Epistemic | None = None
     semantic: Semantic | None = None
 
 
 class SABCommitPayloadData(BaseModel):
-    message_id: str = Field(..., title='Message Id')
-    version: str = Field('0', description='SSTP protocol version.', title='Version')
+    message_id: str = Field(..., title="Message Id")
+    version: str = Field("0", description="SSTP protocol version.", title="Version")
     dt_created: str = Field(
-        ..., description='ISO 8601 creation timestamp.', title='Dt Created'
+        ..., description="ISO 8601 creation timestamp.", title="Dt Created"
     )
     origin: SABOrigin
     payload_hash: str = Field(
         ...,
-        description='SHA-256 hex digest of the original payload.',
-        title='Payload Hash',
+        description="SHA-256 hex digest of the original payload.",
+        title="Payload Hash",
     )
     semantic_context: NegotiateCommitSemanticContext
 
 
 class SABHeader(BaseModel):
-    protocol: Literal['SSTP'] = Field(..., title='Protocol')
-    subprotocol: Literal['SAB'] = Field(..., title='Subprotocol')
+    protocol: Literal["SSTP"] = Field(..., title="Protocol")
+    subprotocol: Literal["SAB"] = Field(..., title="Subprotocol")
     version: str = Field(
         ...,
-        description='SSTP version string copied from the wrapped message.',
-        title='Version',
+        description="SSTP version string copied from the wrapped message.",
+        title="Version",
     )
-    kind: Kind = Field(..., title='Kind')
-    subkind: Subkind = Field(..., title='Subkind')
+    kind: Kind = Field(..., title="Kind")
+    subkind: Subkind = Field(..., title="Subkind")
     actors: SABActors
     message: Message | None = None
     policy: PolicyLabel | None = None
@@ -253,94 +251,96 @@ class SABHeader(BaseModel):
     context: Context | None = Field(
         None,
         description=(
-            'Present when a mission topic is supplied; context.topic = mission name.'
+            "Present when a topic, issues, or options_per_issue are available."
+            " context.topic encodes: '<mission> | issues: [...] | options_per_issue:"
+            " {...}'. context.semantic.schema_id = 'urn:ioc:schema:sab-l9:v1'"
+            " identifies this envelope."
         ),
     )
 
 
 class SABIntentPayloadData(BaseModel):
-    message_id: str = Field(..., title='Message Id')
-    version: str = Field('0', description='SSTP protocol version.', title='Version')
+    message_id: str = Field(..., title="Message Id")
+    version: str = Field("0", description="SSTP protocol version.", title="Version")
     dt_created: str = Field(
-        ..., description='ISO 8601 creation timestamp.', title='Dt Created'
+        ..., description="ISO 8601 creation timestamp.", title="Dt Created"
     )
     origin: SABOrigin
     payload_hash: str = Field(
         ...,
-        description='SHA-256 hex digest of the original payload.',
-        title='Payload Hash',
+        description="SHA-256 hex digest of the original payload.",
+        title="Payload Hash",
     )
     semantic_context: SemanticContext
 
 
 class SAOState(BaseModel):
-    running: bool = Field(False, title='Running')
-    waiting: bool = Field(False, title='Waiting')
-    started: bool = Field(False, title='Started')
-    step: int = Field(0, title='Step')
-    time: float = Field(0.0, title='Time')
-    relative_time: float = Field(0.0, title='Relative Time')
-    broken: bool = Field(False, title='Broken')
-    timedout: bool = Field(False, title='Timedout')
-    agreement: dict[str, Any] | list[Any] | None = Field(None, title='Agreement')
-    results: Any = Field(None, title='Results')
-    n_negotiators: int = Field(0, title='N Negotiators')
-    has_error: bool = Field(False, title='Has Error')
-    error_details: str = Field('', title='Error Details')
-    erred_negotiator: str = Field('', title='Erred Negotiator')
-    erred_agent: str = Field('', title='Erred Agent')
-    threads: dict[str, ThreadState] | None = Field(None, title='Threads')
-    last_thread: str = Field('', title='Last Thread')
-    left_negotiators: list[str] | None = Field(None, title='Left Negotiators')
+    running: bool = Field(False, title="Running")
+    waiting: bool = Field(False, title="Waiting")
+    started: bool = Field(False, title="Started")
+    step: int = Field(0, title="Step")
+    time: float = Field(0.0, title="Time")
+    relative_time: float = Field(0.0, title="Relative Time")
+    broken: bool = Field(False, title="Broken")
+    timedout: bool = Field(False, title="Timedout")
+    agreement: dict[str, Any] | list[Any] | None = Field(None, title="Agreement")
+    results: Any = Field(None, title="Results")
+    n_negotiators: int = Field(0, title="N Negotiators")
+    has_error: bool = Field(False, title="Has Error")
+    error_details: str = Field("", title="Error Details")
+    erred_negotiator: str = Field("", title="Erred Negotiator")
+    erred_agent: str = Field("", title="Erred Agent")
+    threads: dict[str, ThreadState] | None = Field(None, title="Threads")
+    last_thread: str = Field("", title="Last Thread")
+    left_negotiators: list[str] | None = Field(None, title="Left Negotiators")
     current_offer: dict[str, Any] | list[Any] | None = Field(
-        None, title='Current Offer'
+        None, title="Current Offer"
     )
-    current_proposer: str | None = Field(None, title='Current Proposer')
-    current_proposer_agent: str | None = Field(None, title='Current Proposer Agent')
-    n_acceptances: int = Field(0, title='N Acceptances')
-    new_offers: list[NewOffer] | None = Field(None, title='New Offers')
+    current_proposer: str | None = Field(None, title="Current Proposer")
+    current_proposer_agent: str | None = Field(None, title="Current Proposer Agent")
+    n_acceptances: int = Field(0, title="N Acceptances")
+    new_offers: list[NewOffer] | None = Field(None, title="New Offers")
     new_offerer_agents: list[str | None] | None = Field(
-        None, title='New Offerer Agents'
+        None, title="New Offerer Agents"
     )
-    last_negotiator: str | None = Field(None, title='Last Negotiator')
-    current_data: dict[str, Any] | None = Field(None, title='Current Data')
-    new_data: list[NewDatum] | None = Field(None, title='New Data')
+    last_negotiator: str | None = Field(None, title="Last Negotiator")
+    current_data: dict[str, Any] | None = Field(None, title="Current Data")
+    new_data: list[NewDatum] | None = Field(None, title="New Data")
 
 
 class NegotiateSemanticContext(BaseModel):
-    schema_id: str = Field('urn:ioc:schema:negotiate:negmas-sao:v1', title='Schema Id')
-    schema_version: str = Field('1.0', title='Schema Version')
-    encoding: Encoding = Field('json', title='Encoding')
-    session_id: str = Field(..., title='Session Id')
-    issues: list[str] | None = Field(None, title='Issues')
+    schema_version: str = Field("1.0", title="Schema Version")
+    encoding: Encoding = Field("json", title="Encoding")
+    session_id: str = Field(..., title="Session Id")
+    issues: list[str] | None = Field(None, title="Issues")
     options_per_issue: dict[str, list[str]] | None = Field(
-        None, title='Options Per Issue'
+        None, title="Options Per Issue"
     )
     sao_state: SAOState | None = None
     sao_response: SAOResponse | None = None
     nmi: SAONMI | None = None
     offer_validation_failure: dict[str, Any] | None = Field(
-        None, title='Offer Validation Failure'
+        None, title="Offer Validation Failure"
     )
 
 
 class SABNegotiatePayloadData(BaseModel):
-    message_id: str = Field(..., title='Message Id')
-    version: str = Field('0', description='SSTP protocol version.', title='Version')
+    message_id: str = Field(..., title="Message Id")
+    version: str = Field("0", description="SSTP protocol version.", title="Version")
     dt_created: str = Field(
-        ..., description='ISO 8601 creation timestamp.', title='Dt Created'
+        ..., description="ISO 8601 creation timestamp.", title="Dt Created"
     )
     origin: SABOrigin
     payload_hash: str = Field(
         ...,
-        description='SHA-256 hex digest of the original payload.',
-        title='Payload Hash',
+        description="SHA-256 hex digest of the original payload.",
+        title="Payload Hash",
     )
     semantic_context: NegotiateSemanticContext
 
 
 class SABL9Payload(BaseModel):
-    type: Literal['json-schema'] = Field(..., title='Type')
+    type: Literal["json-schema"] = Field(..., title="Type")
     data: SABIntentPayloadData | SABNegotiatePayloadData | SABCommitPayloadData = Field(
         ...,
         description=(
@@ -349,7 +349,7 @@ class SABL9Payload(BaseModel):
             " 'urn:ioc:schema:negotiate:negmas-sao:v1' → negotiate,"
             " 'urn:ioc:schema:negotiate:commit:v1' → commit."
         ),
-        title='Data',
+        title="Data",
     )
 
 
