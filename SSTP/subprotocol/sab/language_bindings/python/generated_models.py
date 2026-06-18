@@ -25,14 +25,7 @@ class Epistemic(BaseModel):
 
 class Message(BaseModel):
     id: str = Field(..., title="Id")
-    parents: list[str] = Field(
-        ...,
-        description=(
-            "Ordered list of parent message IDs (causal ancestry). Empty list for root"
-            " messages."
-        ),
-        title="Parents",
-    )
+    parents: list[str] = Field(..., title="Parents")
     episode: str = Field(..., title="Episode")
 
 
@@ -81,16 +74,6 @@ class NegotiateCommitSemanticContext(BaseModel):
         None,
         description="List of agent IDs that participated in this negotiation.",
         title="Agents Negotiating",
-    )
-    issues: list[str] | None = Field(
-        None,
-        description="Negotiable issues discovered from content_text.",
-        title="Issues",
-    )
-    options_per_issue: dict[str, list[str]] | None = Field(
-        None,
-        description="Candidate options generated per issue.",
-        title="Options Per Issue",
     )
     final_agreement: list[dict[str, Any]] | None = Field(
         None,
@@ -319,10 +302,6 @@ class NegotiateSemanticContext(BaseModel):
     schema_version: str = Field("1.0", title="Schema Version")
     encoding: Encoding = Field("json", title="Encoding")
     session_id: str = Field(..., title="Session Id")
-    issues: list[str] | None = Field(None, title="Issues")
-    options_per_issue: dict[str, list[str]] | None = Field(
-        None, title="Options Per Issue"
-    )
     sao_state: SAOState | None = None
     sao_response: SAOResponse | None = None
     nmi: SAONMI | None = None

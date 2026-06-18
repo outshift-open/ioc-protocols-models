@@ -80,7 +80,6 @@
           "type": "string"
         },
         "parents": {
-          "description": "Ordered list of parent message IDs (causal ancestry). Empty list for root messages.",
           "items": {
             "type": "string"
           },
@@ -175,41 +174,6 @@
           "description": "List of agent IDs that participated in this negotiation.",
           "title": "Agents Negotiating"
         },
-        "issues": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Negotiable issues discovered from content_text.",
-          "title": "Issues"
-        },
-        "options_per_issue": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Candidate options generated per issue.",
-          "title": "Options Per Issue"
-        },
         "final_agreement": {
           "anyOf": [
             {
@@ -256,23 +220,6 @@
         "session_id": {
           "title": "Session Id",
           "type": "string"
-        },
-        "issues": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Issues",
-          "type": "array"
-        },
-        "options_per_issue": {
-          "additionalProperties": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "title": "Options Per Issue",
-          "type": "object"
         },
         "sao_state": {
           "anyOf": [
@@ -717,7 +664,7 @@
           "title": "N Outcomes"
         },
         "shared_time_limit": {
-          "default": Infinity,
+          "default": 1.7976931348623157e+308,
           "title": "Shared Time Limit",
           "type": "number"
         },
@@ -734,7 +681,7 @@
           "title": "Shared N Steps"
         },
         "private_time_limit": {
-          "default": Infinity,
+          "default": 1.7976931348623157e+308,
           "title": "Private Time Limit",
           "type": "number"
         },
@@ -761,12 +708,12 @@
           "type": "number"
         },
         "step_time_limit": {
-          "default": Infinity,
+          "default": 1.7976931348623157e+308,
           "title": "Step Time Limit",
           "type": "number"
         },
         "negotiator_time_limit": {
-          "default": Infinity,
+          "default": 1.7976931348623157e+308,
           "title": "Negotiator Time Limit",
           "type": "number"
         },
