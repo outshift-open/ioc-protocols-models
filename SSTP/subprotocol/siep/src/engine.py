@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from ioc_l9.src import L9
 from SSTP.subprotocol.siep.src.builder import (
@@ -23,6 +23,17 @@ from SSTP.subprotocol.siep.src.builder import (
     contingency_score,
 )
 from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
+from SSTP.subprotocol.siep.src.tomcore.cognition import TheoryOfMindEngine
+from SSTP.subprotocol.siep.src.tomcore.interaction import InteractionEngine
+from SSTP.subprotocol.siep.src.tomcore.llm import LiteLLMClient, NoOpLLMClient
+
+
+def _make_llm_client():
+    """Use LiteLLMClient if LLM env vars are set, otherwise fall back to NoOp."""
+    import os
+    if os.environ.get("LLM_API_KEY") or os.environ.get("LLM_BASE_URL"):
+        return LiteLLMClient()
+    return NoOpLLMClient()
 
 THETA_C = 0.40
 D_MAX = 3
@@ -60,6 +71,9 @@ class SIEPEngine:
         self._priors: Dict[Tuple[str, str], SIEPBelief] = {}
         self._last_exchange: Dict[str, L9] = {}
         self._repairs: Dict[str, RepairBranch] = {}
+        self._tom = TheoryOfMindEngine(_make_llm_client())
+        self._ie = InteractionEngine()
+        self._seeded_peers: Set[str] = set()
 
     def process(self, msg: L9) -> List[L9]:
         if msg.header.kind == Kind.intent.value:
@@ -71,9 +85,17 @@ class SIEPEngine:
     def _on_exchange(self, msg: L9) -> List[L9]:
         sender = _sender_id(msg)
         siep_payload = _siep_payload(msg)
+        concept = _concept(msg) or ""
+        utterance_text = siep_payload.utterance.text if siep_payload.utterance else ""
+
+        # Seed TOM peer model on first contact
+        if sender not in self._seeded_peers:
+            self._tom.agent(self.agent_id).seed_peer(sender, sender, {"task_goal": concept})
+            self._seeded_peers.add(sender)
+
         epistemic = msg.header.context.epistemic if msg.header.context else None
         if epistemic and epistemic.state == EpistemicState.taskwork.value:
-            key = (sender, _concept(msg) or "")
+            key = (sender, concept)
             if key not in self._priors:
                 self._priors[key] = SIEPBelief(
                     prior=siep_payload.belief.prior,
@@ -94,7 +116,27 @@ class SIEPEngine:
         prior_evidence = prior_payload.utterance.evidence if prior_payload else []
         score = contingency_score(siep_payload.utterance.evidence, prior_evidence)
         self._last_exchange[sender] = msg
-        if score >= THETA_C:
+
+        # Process turn via InteractionEngine (infers intent, detects obvious repair need)
+        turn = self._ie.process_turn(sender, utterance_text or " ")
+
+        # Update TOM peer EMA with observed alignment score
+        self._tom.agent(self.agent_id).update_peer(
+            sender, utterance_text or "", concept, alignment_score=score
+        )
+        drift = self._tom.agent(self.agent_id).drift_signals()
+
+        # Use adaptive_contingency to decide: TOM drift can escalate a borderline pass to a repair
+        contingency_action = self._ie.adaptive_contingency(
+            alignment_score=score,
+            anchor_gap=drift.get("anchor_gap", 0.0),
+            ema_alignment=drift.get("ema_alignment", 1.0),
+        )
+        force_repair = contingency_action in (
+            "repair_hard_stop", "repair_anchor", "repair_alignment", "request_clarification"
+        )
+
+        if score >= THETA_C and not force_repair:
             return [self._grounding_ok(msg, score)]
         return [self._request_repair(msg, score, prior_evidence)]
 

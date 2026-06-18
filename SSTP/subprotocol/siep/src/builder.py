@@ -87,6 +87,7 @@ class PayloadPart:
 
 @dataclass
 class SIEPUtterance:
+    text: Optional[str] = None
     evidence: List[str] = field(default_factory=list)
     addresses_evidence: List[str] = field(default_factory=list)
     turn_depth: int = 0
@@ -134,7 +135,7 @@ class L9Message:
     epistemic: SIEPEpistemic
     payload: List[PayloadPart] = field(default_factory=list)
     protocol: str = "SSTP"
-    version: str = "1.0.0"
+    version: str = "0.0.3"
     subprotocol: str = "SIEP"
     subkind: Optional[SubKind] = None
 
@@ -250,7 +251,7 @@ class SIEPMessageBuilder:
             header=L9Header(
                 protocol="SSTP",
                 subprotocol="SIEP",
-                version="1.0.0",
+                version="0.0.3",
                 kind=self._kind.value,
                 subkind=self._subkind.value if self._subkind else None,
                 actors=Actors(actors=[Actor(id=self._sender, role="sender")]),
@@ -282,6 +283,7 @@ class SIEPMessageBuilder:
         internal = self._siep_payload or SIEPPayload()
         return SIEPMessagePayload(
             utterance=SIEPUtteranceBlock(
+                text=self._text or internal.utterance.text,
                 evidence=list(internal.utterance.evidence),
                 addresses_evidence=list(internal.utterance.addresses_evidence),
                 turn_depth=internal.utterance.turn_depth,

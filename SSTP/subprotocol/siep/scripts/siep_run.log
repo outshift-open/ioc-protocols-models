@@ -1,16 +1,19 @@
+/Users/melidris/workspace/projects/ioc/ioc-cfn-protocols-models/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/logging_worker.py:76: RuntimeWarning: coroutine 'Logging.async_success_handler' was never awaited
+  self._queue = None
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
 ════════════════════════════════════════════════════════════════════════════════════════════════════
   SIEP EPISODE  —  kind=contingency repair cycle
 ════════════════════════════════════════════════════════════════════════════════════════════════════
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   1 · intent
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-  protocol     : SSTP v1.0.0
+  protocol     : SSTP v0.0.3
   kind         : intent
   subprotocol  : SIEP
   actor        : coordinator
-  message.id   : 641418ae…
+  message.id   : fd21879a…
   parents      : []
-  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
   epistemic (siep):
     state        = team_process
     message_act  = —
@@ -30,13 +33,13 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   2 · prior (agent-alpha)
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-  protocol     : SSTP v1.0.0
+  protocol     : SSTP v0.0.3
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 2bffc977…
-  parents      : ['641418ae…']
-  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
+  message.id   : 60357516…
+  parents      : ['fd21879a…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
   epistemic (siep):
     state        = taskwork
     message_act  = assertion
@@ -57,13 +60,13 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   3 · prior (agent-beta)
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-  protocol     : SSTP v1.0.0
+  protocol     : SSTP v0.0.3
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : 2166e120…
-  parents      : ['641418ae…']
-  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
+  message.id   : a3540a4a…
+  parents      : ['fd21879a…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
   epistemic (siep):
     state        = taskwork
     message_act  = assertion
@@ -84,13 +87,13 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   4 · exchange  GOOD ✓
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-  protocol     : SSTP v1.0.0
+  protocol     : SSTP v0.0.3
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 458f9f5e…
-  parents      : ['2166e120…']
-  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
+  message.id   : fb59edb1…
+  parents      : ['a3540a4a…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -111,13 +114,13 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   5 · exchange  grounding_ok ✓
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-  protocol     : SSTP v1.0.0
+  protocol     : SSTP v0.0.3
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : d3dbe789…
-  parents      : ['458f9f5e…']
-  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
+  message.id   : 66f40a17…
+  parents      : ['fb59edb1…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -138,13 +141,13 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   6 · exchange  BAD ✗
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-  protocol     : SSTP v1.0.0
+  protocol     : SSTP v0.0.3
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : 9ff95a57…
-  parents      : ['458f9f5e…']
-  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
+  message.id   : de06006f…
+  parents      : ['fb59edb1…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -165,13 +168,13 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   7 · contingency  repair_required
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-  protocol     : SSTP v1.0.0
+  protocol     : SSTP v0.0.3
   kind         : contingency
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : c8ac200f…
-  parents      : ['9ff95a57…']
-  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
+  message.id   : aa8b8df5…
+  parents      : ['de06006f…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
   epistemic (siep):
     state        = grounding
     message_act  = challenge
@@ -190,17 +193,17 @@
   siep.belief    :
     prior             = 0.5
     posterior         = 0.5
-  utterance    : repair_required:reason=scope_mismatch:target=9ff95a57-787a-4138-b033-331827f88618
+  utterance    : repair_required:reason=scope_mismatch:target=de06006f-8759-4861-9c75-69df5b7293d6
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   8 · exchange  REPAIR
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-  protocol     : SSTP v1.0.0
+  protocol     : SSTP v0.0.3
   kind         : exchange
   subprotocol  : SIEP
   actor        : agent-alpha
-  message.id   : d7748bd9…
-  parents      : ['c8ac200f…']
-  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
+  message.id   : 2f340b1a…
+  parents      : ['aa8b8df5…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -222,13 +225,13 @@
 ────────────────────────────────────────────────────────────────────────────────────────────────────
   9 · commit:converged  repair_verified ✓
 ────────────────────────────────────────────────────────────────────────────────────────────────────
-  protocol     : SSTP v1.0.0
+  protocol     : SSTP v0.0.3
   kind         : commit:converged
   subprotocol  : SIEP
   actor        : agent-beta
-  message.id   : 3c146d20…
-  parents      : ['d7748bd9…']
-  episode      : urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56
+  message.id   : 37dd28c4…
+  parents      : ['2f340b1a…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
   epistemic (siep):
     state        = grounding
     message_act  = assertion
@@ -265,7 +268,7 @@
 ════════════════════════════════════════════════════════════════════════════════════════════════════
 
 ====================================================================================================
-  L9 MESSAGE SEQUENCE  —  run=63b16529…
+  L9 MESSAGE SEQUENCE  —  run=24353ee4…
 ====================================================================================================
   seq  step / label                      kind          actor           state            score  ✓
 ----------------------------------------------------------------------------------------------------

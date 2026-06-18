@@ -3,7 +3,7 @@
     "header": {
       "protocol": "SSTP",
       "subprotocol": "SIEP",
-      "version": "1.0.0",
+      "version": "0.0.3",
       "kind": "intent",
       "subkind": null,
       "actors": {
@@ -17,9 +17,9 @@
         "groups": null
       },
       "message": {
-        "id": "641418ae-c74c-47f1-902a-66cbfb4befe9",
+        "id": "fcb9ffb1-4b1b-4d08-ae44-9d5975a8d3e1",
         "parents": [],
-        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+        "episode": "urn:ioc:episode:ddad5927-6133-4f9d-8e8f-18684c808568"
       },
       "policy": null,
       "attributes": null,
@@ -44,6 +44,7 @@
       "type": "siep",
       "data": {
         "utterance": {
+          "text": null,
           "evidence": [],
           "addresses_evidence": [],
           "turn_depth": 0
@@ -66,7 +67,7 @@
     "header": {
       "protocol": "SSTP",
       "subprotocol": "SIEP",
-      "version": "1.0.0",
+      "version": "0.0.3",
       "kind": "exchange",
       "subkind": null,
       "actors": {
@@ -80,11 +81,11 @@
         "groups": null
       },
       "message": {
-        "id": "2bffc977-dd78-477c-a04a-c4a78491e826",
+        "id": "2f02b8a1-898c-4b56-ad6e-b5e50739a549",
         "parents": [
-          "641418ae-c74c-47f1-902a-66cbfb4befe9"
+          "fcb9ffb1-4b1b-4d08-ae44-9d5975a8d3e1"
         ],
-        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+        "episode": "urn:ioc:episode:ddad5927-6133-4f9d-8e8f-18684c808568"
       },
       "policy": null,
       "attributes": null,
@@ -109,6 +110,7 @@
       "type": "siep",
       "data": {
         "utterance": {
+          "text": null,
           "evidence": [
             "concept:task_objective"
           ],
@@ -133,7 +135,7 @@
     "header": {
       "protocol": "SSTP",
       "subprotocol": "SIEP",
-      "version": "1.0.0",
+      "version": "0.0.3",
       "kind": "exchange",
       "subkind": null,
       "actors": {
@@ -147,11 +149,11 @@
         "groups": null
       },
       "message": {
-        "id": "2166e120-1b23-477f-ba4e-98df859139fd",
+        "id": "ed494004-8e43-43cf-ac89-6bdf40dfc760",
         "parents": [
-          "641418ae-c74c-47f1-902a-66cbfb4befe9"
+          "fcb9ffb1-4b1b-4d08-ae44-9d5975a8d3e1"
         ],
-        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+        "episode": "urn:ioc:episode:ddad5927-6133-4f9d-8e8f-18684c808568"
       },
       "policy": null,
       "attributes": null,
@@ -176,6 +178,7 @@
       "type": "siep",
       "data": {
         "utterance": {
+          "text": null,
           "evidence": [
             "concept:task_objective"
           ],
@@ -200,7 +203,7 @@
     "header": {
       "protocol": "SSTP",
       "subprotocol": "SIEP",
-      "version": "1.0.0",
+      "version": "0.0.3",
       "kind": "exchange",
       "subkind": null,
       "actors": {
@@ -214,11 +217,11 @@
         "groups": null
       },
       "message": {
-        "id": "458f9f5e-3c45-4d81-8af2-301fd13ad143",
+        "id": "34afdcaa-d2da-419c-a591-b3c21b2dfe2a",
         "parents": [
-          "2166e120-1b23-477f-ba4e-98df859139fd"
+          "ed494004-8e43-43cf-ac89-6bdf40dfc760"
         ],
-        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+        "episode": "urn:ioc:episode:ddad5927-6133-4f9d-8e8f-18684c808568"
       },
       "policy": null,
       "attributes": {
@@ -245,6 +248,7 @@
       "type": "siep",
       "data": {
         "utterance": {
+          "text": "agent-beta, bound to task_objective:deliverable_spec pathway only",
           "evidence": [
             "concept:task_objective",
             "urn:concept:task_objective:deliverable_spec"
@@ -272,7 +276,7 @@
     "header": {
       "protocol": "SSTP",
       "subprotocol": "SIEP",
-      "version": "1.0.0",
+      "version": "0.0.3",
       "kind": "exchange",
       "subkind": null,
       "actors": {
@@ -286,11 +290,11 @@
         "groups": null
       },
       "message": {
-        "id": "d3dbe789-a51a-4834-81dd-b724b2add91e",
+        "id": "b40e1707-133d-455d-bc69-ab85ce60be71",
         "parents": [
-          "458f9f5e-3c45-4d81-8af2-301fd13ad143"
+          "34afdcaa-d2da-419c-a591-b3c21b2dfe2a"
         ],
-        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+        "episode": "urn:ioc:episode:ddad5927-6133-4f9d-8e8f-18684c808568"
       },
       "policy": null,
       "attributes": null,
@@ -315,6 +319,7 @@
       "type": "siep",
       "data": {
         "utterance": {
+          "text": null,
           "evidence": [
             "concept:task_objective",
             "urn:concept:task_objective:deliverable_spec"
@@ -343,7 +348,7 @@
     "header": {
       "protocol": "SSTP",
       "subprotocol": "SIEP",
-      "version": "1.0.0",
+      "version": "0.0.3",
       "kind": "exchange",
       "subkind": null,
       "actors": {
@@ -357,11 +362,11 @@
         "groups": null
       },
       "message": {
-        "id": "9ff95a57-787a-4138-b033-331827f88618",
+        "id": "8d696532-6f48-49c8-9b2c-3615c9fb3c8d",
         "parents": [
-          "458f9f5e-3c45-4d81-8af2-301fd13ad143"
+          "34afdcaa-d2da-419c-a591-b3c21b2dfe2a"
         ],
-        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+        "episode": "urn:ioc:episode:ddad5927-6133-4f9d-8e8f-18684c808568"
       },
       "policy": null,
       "attributes": {
@@ -388,6 +393,7 @@
       "type": "siep",
       "data": {
         "utterance": {
+          "text": "What does the timeline look like for next sprint?",
           "evidence": [
             "concept:timeline",
             "concept:resource_availability"
@@ -413,7 +419,7 @@
     "header": {
       "protocol": "SSTP",
       "subprotocol": "SIEP",
-      "version": "1.0.0",
+      "version": "0.0.3",
       "kind": "contingency",
       "subkind": null,
       "actors": {
@@ -427,15 +433,15 @@
         "groups": null
       },
       "message": {
-        "id": "c8ac200f-7a77-4f9f-baad-61cca535a051",
+        "id": "a17903a9-36fd-4cab-b2c6-494e20318132",
         "parents": [
-          "9ff95a57-787a-4138-b033-331827f88618"
+          "8d696532-6f48-49c8-9b2c-3615c9fb3c8d"
         ],
-        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+        "episode": "urn:ioc:episode:ddad5927-6133-4f9d-8e8f-18684c808568"
       },
       "policy": null,
       "attributes": {
-        "utterance_text": "repair_required:reason=scope_mismatch:target=9ff95a57-787a-4138-b033-331827f88618"
+        "utterance_text": "repair_required:reason=scope_mismatch:target=8d696532-6f48-49c8-9b2c-3615c9fb3c8d"
       },
       "context": {
         "topic": "concept:task_objective",
@@ -458,6 +464,7 @@
       "type": "siep",
       "data": {
         "utterance": {
+          "text": "repair_required:reason=scope_mismatch:target=8d696532-6f48-49c8-9b2c-3615c9fb3c8d",
           "evidence": [],
           "addresses_evidence": [],
           "turn_depth": 0
@@ -483,7 +490,7 @@
     "header": {
       "protocol": "SSTP",
       "subprotocol": "SIEP",
-      "version": "1.0.0",
+      "version": "0.0.3",
       "kind": "exchange",
       "subkind": null,
       "actors": {
@@ -497,11 +504,11 @@
         "groups": null
       },
       "message": {
-        "id": "d7748bd9-5e9a-4413-8204-0a68cbe65a89",
+        "id": "e35d7f56-d505-4413-9521-082d804e15ff",
         "parents": [
-          "c8ac200f-7a77-4f9f-baad-61cca535a051"
+          "a17903a9-36fd-4cab-b2c6-494e20318132"
         ],
-        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+        "episode": "urn:ioc:episode:ddad5927-6133-4f9d-8e8f-18684c808568"
       },
       "policy": null,
       "attributes": {
@@ -528,6 +535,7 @@
       "type": "siep",
       "data": {
         "utterance": {
+          "text": "agent-alpha, re-anchored to task_objective:deliverable_spec pathway",
           "evidence": [
             "concept:task_objective",
             "urn:concept:task_objective:deliverable_spec"
@@ -556,7 +564,7 @@
     "header": {
       "protocol": "SSTP",
       "subprotocol": "SIEP",
-      "version": "1.0.0",
+      "version": "0.0.3",
       "kind": "commit",
       "subkind": "converged",
       "actors": {
@@ -570,11 +578,11 @@
         "groups": null
       },
       "message": {
-        "id": "3c146d20-0804-42a6-a6b1-3c5807f57bf4",
+        "id": "0179677a-5373-4004-ac89-388d9d64859b",
         "parents": [
-          "d7748bd9-5e9a-4413-8204-0a68cbe65a89"
+          "e35d7f56-d505-4413-9521-082d804e15ff"
         ],
-        "episode": "urn:ioc:episode:0b8185f2-950d-4672-b4bc-b7938d42ed56"
+        "episode": "urn:ioc:episode:ddad5927-6133-4f9d-8e8f-18684c808568"
       },
       "policy": null,
       "attributes": {
@@ -601,6 +609,7 @@
       "type": "siep",
       "data": {
         "utterance": {
+          "text": "repair_verified:agent-alpha re-anchored",
           "evidence": [],
           "addresses_evidence": [],
           "turn_depth": 0

@@ -58,7 +58,7 @@ class BaseSSTPMessage(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     kind: str
-    version: str = "1.0.0"
+    version: str = "0.0.3"
     message_id: str
     dt_created: str = ""
     origin: Origin
