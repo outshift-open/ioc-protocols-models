@@ -507,7 +507,8 @@ type Message struct {
 	ID string `json:"id" yaml:"id" mapstructure:"id"`
 
 	// Parents corresponds to the JSON schema field "parents".
-	Parents string `json:"parents" yaml:"parents" mapstructure:"parents"`
+	// Ordered list of parent message IDs (causal ancestry). Empty list for root messages.
+	Parents []string `json:"parents" yaml:"parents" mapstructure:"parents"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
