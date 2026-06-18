@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Generate Go types for the SAB_l9 JSON Schema.
 # Uses go-jsonschema to produce typed Go structs from the SAB_l9 schema.
 #

@@ -364,7 +364,7 @@
       "type": "object"
     },
     "ResponseType": {
-      "description": "Possible responses to offers during a NegMAS negotiation round.\n\nNegMAS source: negmas.gb.common.ResponseType",
+      "description": "Possible responses to offers during a NegMAS SAO negotiation round. Mirrors negmas.gb.common.ResponseType.",
       "enum": [
         0,
         1,
@@ -374,7 +374,15 @@
         5
       ],
       "title": "ResponseType",
-      "type": "integer"
+      "type": "integer",
+      "x-enum-varnames": [
+        "ACCEPT_OFFER",
+        "REJECT_OFFER",
+        "END_NEGOTIATION",
+        "NO_RESPONSE",
+        "WAIT",
+        "LEAVE"
+      ]
     },
     "SABActors": {
       "description": "Actors block for SAB messages. groups is always null (no MAS/workspace IDs).",

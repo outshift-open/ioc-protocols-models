@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Generate Python Pydantic models from SAB_l9 JSON Schema.
 # Uses datamodel-codegen to convert the SAB_l9 JSON schema
 # to equivalent Pydantic v2 models with built-in validations.
@@ -11,7 +15,6 @@
 # PREREQUISITES:
 #   1. Install dependencies: poetry install
 #   2. Ensure schema exists at: SSTP/subprotocol/sab/spec/SAB_l9.json
-#      (run SSTP/subprotocol/sab/spec/generate_sab_schema.py first if missing)
 #
 # OUTPUT:
 #   SSTP/subprotocol/sab/language_bindings/python/generated_models.py
@@ -30,7 +33,6 @@ echo "Output file: $OUTPUT_FILE"
 
 if [ ! -f "$SCHEMA_FILE" ]; then
     echo "Error: Schema file not found at $SCHEMA_FILE"
-    echo "Run: python3 SSTP/subprotocol/sab/spec/generate_sab_schema.py"
     exit 1
 fi
 
