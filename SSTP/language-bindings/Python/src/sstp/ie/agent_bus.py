@@ -111,6 +111,8 @@ class AgentBus:
         epistemic: Optional[Dict[str, Any]] = None,
         topic: "str | None" = None,
         ie_payload: "Any | None" = None,
+        rationale: str = "",
+        thought_summary: str = "",
         **_: Any,
     ) -> Dict[str, Any]:
         """Emit a peer_turn with explicit epistemic annotation.
@@ -118,6 +120,8 @@ class AgentBus:
         ``epistemic`` overrides the auto-derived epistemic block.
         ``ie_payload`` is an IEPayload instance; when provided its dict is
         added as payload[type=ie] alongside the utterance part.
+        ``rationale`` and ``thought_summary`` are optional reasoning fields
+        added to the base payload[type=utterance] part when provided.
 
         Raises :exc:`ProtocolViolation` if ``kind_override`` is a lifecycle
         kind (``intent`` or ``commit:*``) and the call originates outside the
@@ -134,9 +138,12 @@ class AgentBus:
             speech_act=speech_act,
             epistemic_state=epistemic_state,
         )
-        _payload_parts: List[Dict[str, Any]] = [
-            {"type": "utterance", "location": "inline", "content": utterance},
-        ]
+        _utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": utterance}
+        if rationale:
+            _utt_part["rationale"] = rationale
+        if thought_summary:
+            _utt_part["thought_summary"] = thought_summary
+        _payload_parts: List[Dict[str, Any]] = [_utt_part]
         if ie_payload is not None:
             _payload_parts.append(
                 {"type": "ie", "location": "inline", "content": ie_payload.to_dict()}
@@ -815,6 +822,8 @@ class AgentBus:
         turn_depth: int = 0,
         parent_id: str | None = None,
         episode_id: str | None = None,
+        rationale: str = "",
+        thought_summary: str = "",
     ) -> Dict[str, Any]:
         """Agent asserts a position in a pairwise IE grounding exchange.
 
@@ -853,6 +862,8 @@ class AgentBus:
             topic=concept_id,
             epistemic=epistemic,
             ie_payload=ie_payload,
+            rationale=rationale,
+            thought_summary=thought_summary,
         )
 
 

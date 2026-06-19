@@ -22,7 +22,10 @@ from typing import List, Optional
 
 @dataclass
 class IEUtteranceBlock:
-    """The sender's assertion in this turn.
+    """Grounding metadata for this turn — concept URIs and contingency inputs.
+
+    Content (what was said, why, what shaped the response) is in
+    payload[type=utterance]: content / rationale / thought_summary.
 
     ``evidence`` carries supporting evidence concept URIs for the argument.
     The primary concept being asserted is in the L9 header topic field.
@@ -47,7 +50,7 @@ class IEGroundingBlock:
     """
     contingency_verified: Optional[bool]  = None
     contingency_score:    Optional[float] = None
-    repair_reason:        Optional[str]   = None  # grounding_failure | scope_mismatch | ungroundable_novelty
+    repair_reason:        Optional[str]   = None  # initial_prior | grounding_failure | scope_mismatch | ungroundable_novelty
     challenges:           List[str]       = field(default_factory=list)
 
 

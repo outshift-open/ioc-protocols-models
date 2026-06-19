@@ -337,6 +337,9 @@ class PanelBus:
             utterance, task_goal, speaker=sender, listener=listener,
             listener_prior_utterance=listener_prior_utterance or None,
             confidence_before=confidence_before,
+            belief_store=self.belief_store,
+            concept_id=cid,
+            use_case=self.use_case,
         )
 
         alignment_score: float = float(result.get("alignment_score", 0.82))
@@ -841,15 +844,7 @@ class StarNegotiation:
     def _position_utterance(agent_id: str, verb: str, pos: Any) -> str:
         key = StarNegotiation._position_key(pos)
         conf = StarNegotiation._confidence(pos)
-        base = f"{agent_id} {verb} {key} confidence={conf:.2f}"
-        if isinstance(pos, dict):
-            rationale = str(pos.get("rationale") or pos.get("reasoning") or "").strip()
-            thought = str(pos.get("thought_summary") or pos.get("summary") or "").strip()
-            if rationale:
-                base += f" | {rationale}"
-            if thought:
-                base += f" | {thought}"
-        return base
+        return f"{agent_id} {verb} {key} confidence={conf:.2f}"
 
     @staticmethod
     def _leading_position(positions: Dict[str, Any]) -> Any:
@@ -899,6 +894,13 @@ class StarNegotiation:
             against_evidence=pos_dict.get("against_evidence"),
             reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
         )
+        _ctrl_rationale = str(pos_dict.get("rationale") or pos_dict.get("reasoning_summary") or "").strip()
+        _ctrl_thought = str(pos_dict.get("thought_summary") or "").strip()
+        _ctrl_utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": utterance}
+        if _ctrl_rationale:
+            _ctrl_utt_part["rationale"] = _ctrl_rationale
+        if _ctrl_thought:
+            _ctrl_utt_part["thought_summary"] = _ctrl_thought
         snp_header = build_snp_l9_header(
             operation=NegotiationOperation.PROPOSE,
             use_case=self.panel_bus.use_case,
@@ -911,7 +913,7 @@ class StarNegotiation:
             topic=key if key else None,
             epistemic=epistemic_block,
             payload_parts=[
-                {"type": "utterance", "location": "inline", "content": utterance},
+                _ctrl_utt_part,
                 {"type": "snp", "location": "inline", "content": _snp_payload},
             ],
         )
@@ -998,6 +1000,13 @@ class StarNegotiation:
         )
         # All specialist responses during debate are exchanges — only the final
         # decision commit closes the negotiation branch.
+        _spec_rationale = str(pos_dict.get("rationale") or pos_dict.get("reasoning_summary") or "").strip()
+        _spec_thought = str(pos_dict.get("thought_summary") or "").strip()
+        _spec_utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": utterance}
+        if _spec_rationale:
+            _spec_utt_part["rationale"] = _spec_rationale
+        if _spec_thought:
+            _spec_utt_part["thought_summary"] = _spec_thought
         snp_header = build_snp_l9_header(
             operation=operation,
             use_case=self.panel_bus.use_case,
@@ -1011,7 +1020,7 @@ class StarNegotiation:
             epistemic=epistemic_block,
             kind_override="exchange",
             payload_parts=[
-                {"type": "utterance", "location": "inline", "content": utterance},
+                _spec_utt_part,
                 {"type": "snp", "location": "inline", "content": _snp_payload},
             ],
         )
@@ -1587,15 +1596,7 @@ class RingNegotiation:
     def _position_utterance(agent_id: str, verb: str, pos: Any) -> str:
         key = RingNegotiation._position_key(pos)
         conf = RingNegotiation._confidence(pos)
-        base = f"{agent_id} {verb} {key} confidence={conf:.2f}"
-        if isinstance(pos, dict):
-            rationale = str(pos.get("rationale") or pos.get("reasoning") or "").strip()
-            thought = str(pos.get("thought_summary") or pos.get("summary") or "").strip()
-            if rationale:
-                base += f" | {rationale}"
-            if thought:
-                base += f" | {thought}"
-        return base
+        return f"{agent_id} {verb} {key} confidence={conf:.2f}"
 
     @staticmethod
     def _utterance(member_id: str, pos: Any, operation: str) -> str:

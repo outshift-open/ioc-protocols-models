@@ -159,65 +159,58 @@ class AgentTOM:
                     "judge_confidence": 1.0,
                     "critique": "structural_grounding_check:topic_mismatch",
                 }
-            if listener_prior_utterance is not None:
-                # Topic aligned — run LLM judge to check argument engagement
-                payload: Dict[str, Any] = {
-                    "utterance": utterance,
-                    "task_goal": task_goal,
-                    "speaker": speaker,
-                    "listener": _listener_id,
-                    "speaker_belief": self._peer_beliefs.get(speaker, {}),
-                    "history": (history or [])[-4:],
-                    "listener_prior_utterance": listener_prior_utterance,
-                    "listener_belief": _build_listener_belief(
-                        belief_store, _listener_id, concept_id, use_case
-                    ),
-                }
-                if confidence_before is not None:
-                    payload["confidence_before"] = confidence_before
-                result = self._llm.complete_json("ie_utterance_judge", payload)
-                llm_contingency = max(0.0, min(1.0, float(result.get("contingency_score", 1.0))))
-                contingency_score = round(min(score, llm_contingency), 4)
-                derailed = bool(result.get("derailed", False))
-                ambiguous = bool(result.get("ambiguous", False))
-                alignment_score = max(0.0, min(1.0, float(
-                    result.get("alignment_score", 0.25 if derailed else 0.82))))
-                aligned = bool(result.get("aligned", not derailed and alignment_score >= 0.55))
-                grounding_failure = bool(result.get("grounding_failure", False))
-                verdict: Dict[str, Any] = {
-                    "derailed": derailed,
-                    "derailment_cause": result.get("derailment_cause") or None,
-                    "grounding_failure": grounding_failure,
-                    "contingency_score": contingency_score,
-                    "ambiguous": ambiguous,
-                    "ambiguity_score": round(max(0.0, min(1.0, float(
-                        result.get("ambiguity_score", 0.0)))), 4),
-                    "alignment_score": round(alignment_score, 4),
-                    "aligned": aligned,
-                    "judge_confidence": round(max(0.0, min(1.0, float(
-                        result.get("judge_confidence", 0.85)))), 4),
-                    "critique": f"structural+llm:{result.get('critique', '')}",
-                    "disagreement_score": round(max(0.0, min(1.0, 1.0 - alignment_score)), 4),
-                }
-                if "posterior_confidence" in result:
-                    verdict["posterior_confidence"] = round(max(0.0, min(1.0, float(
-                        result["posterior_confidence"]))), 4)
-                return verdict
-            # Topic aligned but no prior utterance — return structural result
-            repair = diagnose_repair_reason(listener_prior_epistemic, speaker_epistemic)
-            return {
-                "aligned": verified,
-                "alignment_score": score,
-                "disagreement_score": round(1.0 - score, 4),
-                "derailed": not verified,
-                "derailment_cause": repair.value if repair is not None else None,
-                "grounding_failure": not verified,
-                "contingency_score": score,
-                "ambiguous": False,
-                "ambiguity_score": 0.0,
-                "judge_confidence": 1.0,
-                "critique": "structural_grounding_check",
+            # Topic aligned — run LLM judge to check argument engagement.
+            # listener_prior_utterance is included when present; when absent (initial_prior
+            # turn) the judge prompt sets contingency_score=1.0 and grounding_failure=false.
+            payload: Dict[str, Any] = {
+                "utterance": utterance,
+                "task_goal": task_goal,
+                "speaker": speaker,
+                "listener": _listener_id,
+                "speaker_belief": self._peer_beliefs.get(speaker, {}),
+                "history": (history or [])[-4:],
+                "listener_belief": _build_listener_belief(
+                    belief_store, _listener_id, concept_id, use_case
+                ),
             }
+            if listener_prior_utterance is not None:
+                payload["listener_prior_utterance"] = listener_prior_utterance
+            if confidence_before is not None:
+                payload["confidence_before"] = confidence_before
+            result = self._llm.complete_json("ie_utterance_judge", payload)
+            llm_contingency = max(0.0, min(1.0, float(result.get("contingency_score", 1.0))))
+            contingency_score = round(min(score, llm_contingency), 4)
+            derailed = bool(result.get("derailed", False))
+            ambiguous = bool(result.get("ambiguous", False))
+            alignment_score = max(0.0, min(1.0, float(
+                result.get("alignment_score", 0.25 if derailed else 0.82))))
+            aligned = bool(result.get("aligned", not derailed and alignment_score >= 0.55))
+            grounding_failure = bool(result.get("grounding_failure", False))
+            critique_tag = (
+                "structural+llm:initial_prior"
+                if listener_prior_utterance is None
+                else f"structural+llm:{result.get('critique', '')}"
+            )
+            verdict: Dict[str, Any] = {
+                "derailed": derailed,
+                "derailment_cause": result.get("derailment_cause") or None,
+                "grounding_failure": grounding_failure,
+                "contingency_score": contingency_score,
+                "ambiguous": ambiguous,
+                "ambiguity_score": round(max(0.0, min(1.0, float(
+                    result.get("ambiguity_score", 0.0)))), 4),
+                "alignment_score": round(alignment_score, 4),
+                "aligned": aligned,
+                "judge_confidence": round(max(0.0, min(1.0, float(
+                    result.get("judge_confidence", 0.85)))), 4),
+                "critique": critique_tag,
+                "disagreement_score": round(max(0.0, min(1.0, 1.0 - alignment_score)), 4),
+                "initial_prior": listener_prior_utterance is None,
+            }
+            if "posterior_confidence" in result:
+                verdict["posterior_confidence"] = round(max(0.0, min(1.0, float(
+                    result["posterior_confidence"]))), 4)
+            return verdict
         # No concept IDs — LLM judge only
         payload = {
             "utterance": utterance,
@@ -595,13 +588,18 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
         listener_prior_utterance: Optional[str] = None,
         speaker_epistemic: Optional[Dict[str, Any]] = None,
         listener_prior_epistemic: Optional[Dict[str, Any]] = None,
+        belief_store: Optional[Any] = None,
+        concept_id: str = "",
+        use_case: str = "",
     ) -> Dict[str, Any]:
-        """Structural grounding check replacing the LLM utterance judge."""
         return self.agent(listener).assess_utterance(
             utterance=utterance, task_goal=task_goal, speaker=speaker, listener=listener,
             history=history, listener_prior_utterance=listener_prior_utterance,
             speaker_epistemic=speaker_epistemic,
             listener_prior_epistemic=listener_prior_epistemic,
+            belief_store=belief_store,
+            concept_id=concept_id,
+            use_case=use_case,
         )
 
     def belief_models(self) -> Dict[str, Dict[str, Any]]:

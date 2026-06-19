@@ -100,6 +100,8 @@ class TaskSession:
         belief_status: str = "asserted",
         parent_id: Optional[str] = None,
         receiver: Optional[str] = None,
+        rationale: str = "",
+        thought_summary: str = "",
     ) -> Optional[str]:
         """TW-1: emit a taskwork IE belief assertion turn.
 
@@ -165,6 +167,8 @@ class TaskSession:
             parent_id=parent_id,
             topic=concept_id,
             epistemic=epistemic,
+            rationale=rationale,
+            thought_summary=thought_summary,
         )
 
         msg_id: Optional[str] = None
