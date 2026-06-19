@@ -4,14 +4,16 @@
 
 from .cognition import AgentTOM, TheoryOfMindEngine
 from .interaction import InteractionEngine
-from .llm import LLMClient
 from .orchestration import Orchestrator
 from .types import Turn
+from SSTP.utils.llm import LLMClient, LiteLLMClient, NoOpLLMClient
 from SSTP.subprotocol.cip.src.adapter import InteractionProtocolAdapter
 from SSTP.subprotocol.cip.src.assertion import AgentIdentity, AssertionVerificationError, UtteranceAssertion
 
 __all__ = [
     "LLMClient",
+    "LiteLLMClient",
+    "NoOpLLMClient",
     "AgentTOM",
     "TheoryOfMindEngine",
     "InteractionEngine",

@@ -18,7 +18,7 @@ import logging
 import time
 from typing import Any, Callable, Dict, List, Optional
 
-from SSTP.subprotocol.siep.src.tomcore.llm import LLMClient
+from SSTP.utils.llm import LLMClient
 from SSTP.subprotocol.cip.src.tom import TheoryOfMindEngineBase
 from SSTP.subprotocol.siep.src.epistemic.stores import AgentEpistemicStore
 

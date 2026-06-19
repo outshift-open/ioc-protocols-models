@@ -25,7 +25,7 @@ from SSTP.subprotocol.siep.src.builder import (
 from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
 from SSTP.subprotocol.siep.src.tomcore.cognition import TheoryOfMindEngine
 from SSTP.subprotocol.siep.src.tomcore.interaction import InteractionEngine
-from SSTP.subprotocol.siep.src.tomcore.llm import LiteLLMClient, NoOpLLMClient
+from SSTP.utils.llm import LiteLLMClient, NoOpLLMClient
 
 
 def _make_llm_client():
