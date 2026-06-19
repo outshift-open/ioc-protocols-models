@@ -49,9 +49,9 @@ SNP_ONTOLOGY_REFERENCE: str = "protocol/ontology/snp_ontology.ttl"
 
 # ── SNP operation vocabulary ──────────────────────────────────────────────────
 
-# Default (SpeechAct, TaskPhase) per SNP operation — used when caller passes epistemic=None.
-# ACCEPT defaults to ACTION/genuine; callers with confidence context should pass an
-# explicit block via infer_snp_epistemic() to get DELIBERATION_PASS/INTERPERSONAL if forced.
+# Default (SpeechAct, EpistemicState) per SNP operation — used when caller passes epistemic=None.
+# ACCEPT defaults to TEAM_PROCESS/genuine; callers with confidence context should pass an
+# explicit block via infer_snp_epistemic() to get COMPLIANCE/TEAM_PROCESS if forced.
 _SNP_DEFAULT_EPISTEMIC: Dict[str, tuple] = {}  # populated after NegotiationOperation is defined
 
 
@@ -238,7 +238,6 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         receiver: str | None,
         timestamp_ms: int,
         proposal_id: str,
-        turn_depth: int | None = None,
         utterance: str = "",
         parent_ids: Iterable[str] | None = None,
         episode_id: str | None = None,
@@ -246,7 +245,7 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         message_id: str | None = None,
         subprotocol: str | None = "SNP",
         epistemic: Dict[str, Any] | None = None,
-        state_sequence: Dict[str, Any] | None = None,
+        topic: "str | None" = None,
         kind_override: str | None = None,
         sequence_number: int | None = None,
         payload_parts: "List[Dict[str, Any]] | None" = None,
@@ -270,7 +269,6 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
             sender=sender,
             receiver=receiver,
             timestamp_ms=timestamp_ms,
-            turn_depth=turn_depth,
             utterance=utterance,
             parent_ids=parent_ids,
             episode_id=episode_id,
@@ -279,7 +277,7 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
             message_id=message_id,
             subprotocol=subprotocol,
             epistemic=epistemic,
-            state_sequence=state_sequence,
+            topic=topic,
             kind_override=kind_override,
             sequence_number=sequence_number,
             payload_parts=payload_parts,
@@ -299,7 +297,6 @@ def build_snp_l9_header(
     receiver: str | None,
     timestamp_ms: int,
     proposal_id: str,
-    turn_depth: int | None = None,
     utterance: str = "",
     parent_ids: Iterable[str] | None = None,
     episode_id: str | None = None,
@@ -307,7 +304,7 @@ def build_snp_l9_header(
     message_id: str | None = None,
     subprotocol: str | None = "SNP",
     epistemic: Dict[str, Any] | None = None,
-    state_sequence: Dict[str, Any] | None = None,
+    topic: "str | None" = None,
     kind_override: str | None = None,
     sequence_number: int | None = None,
     payload_parts: "List[Dict[str, Any]] | None" = None,
@@ -325,7 +322,6 @@ def build_snp_l9_header(
         receiver=receiver,
         timestamp_ms=timestamp_ms,
         proposal_id=proposal_id,
-        turn_depth=turn_depth,
         utterance=utterance,
         parent_ids=parent_ids,
         episode_id=episode_id,
@@ -333,7 +329,7 @@ def build_snp_l9_header(
         message_id=message_id,
         subprotocol=subprotocol,
         epistemic=epistemic,
-        state_sequence=state_sequence,
+        topic=topic,
         kind_override=kind_override,
         sequence_number=sequence_number,
         payload_parts=payload_parts,

@@ -257,19 +257,11 @@ class L9HeaderBuilder:
         ontology_ref: str | None = None,
         subprotocol: str | None = None,
         epistemic: Dict[str, Any] | None = None,
+        topic: str | None = None,
         kind_override: str | None = None,
         subkind: str | None = None,
         sequence_number: int | None = None,
         payload_parts: "List[Dict[str, Any]] | None" = None,
-        # Deprecated params — accepted but ignored for backwards compat
-        turn_depth: int | None = None,
-        payload_refs: "Any | None" = None,
-        state_sequence: "Any | None" = None,
-        conversation_id: str | None = None,
-        cognition_protocol: str | None = None,
-        provenance_transforms: "Any | None" = None,
-        group: "Any | None" = None,
-        sub_protocol: str | None = None,  # deprecated alias for subprotocol
     ) -> Dict[str, Any]:
         """Assemble the L9 envelope dict per the current wire format.
 
@@ -280,7 +272,8 @@ class L9HeaderBuilder:
           semantic  — {schema_id, ontology_ref}
           policy    — {sensitivity, propagation, retention_policy}
           attributes — {msg_sources, msg_transforms, msg_created, msg_expiry}
-          epistemic — {speech_act, state, belief_status, concept_id, uncertainty}
+          epistemic — {message_act, state, belief_status, uncertainty}
+          topic     — concept URI this message is about (replaces epistemic.concept_id)
           payload   — list of PayloadPart: [{type, location, content|ref}]
 
         Group membership is a transport concern (pub-sub topic subscription).
@@ -306,8 +299,7 @@ class L9HeaderBuilder:
 
         trust_level = schema_trust_level_for_kind(kind)
 
-        # backwards compat: sub_protocol and cognition_protocol fall back to subprotocol
-        effective_subprotocol = subprotocol or sub_protocol or cognition_protocol
+        effective_subprotocol = subprotocol
 
         derived_message_id = message_id or str(
             uuid5(
@@ -334,6 +326,7 @@ class L9HeaderBuilder:
             "kind":        kind,
             "subprotocol": effective_subprotocol,
             "subkind":     subkind,
+            "topic":       topic or None,
             "actors":   [{"id": str(sender or "unknown"), "attestation": "self_attested_local"}],
             "message": {
                 "id":      derived_message_id,

@@ -163,7 +163,6 @@ class Orchestrator:
                     sender=speaker,
                     receiver=listener,
                     timestamp_ms=peer_turn.timestamp_ms,
-                    turn_depth=turn_depth,
                     utterance=utterance,
                 )
                 peer_interactions.append(
@@ -212,8 +211,7 @@ class Orchestrator:
                         sender=speaker,
                         receiver=listener,
                         timestamp_ms=peer_turn.timestamp_ms,
-                        turn_depth=turn_depth,
-                        utterance=utterance,
+                            utterance=utterance,
                         parent_ids=[peer_l9_header["message"]["id"]],
                     )
                     peer_interactions.append(
@@ -277,8 +275,7 @@ class Orchestrator:
                                 sender=listener,
                                 receiver=speaker,
                                 timestamp_ms=repair_turn.timestamp_ms,
-                                turn_depth=turn_depth,
-                                utterance=repair,
+                                            utterance=repair,
                                 parent_ids=[repair_required_l9_header["message"]["id"]],
                             ),
                         }

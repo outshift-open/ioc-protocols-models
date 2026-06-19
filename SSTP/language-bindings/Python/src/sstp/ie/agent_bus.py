@@ -18,12 +18,37 @@ epistemic_state=grounding.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from contextlib import contextmanager
+from typing import Any, Dict, Generator, List, Optional
 
 from sstp.epistemic import SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block
 from sstp.epistemic.vocabulary import RepairReason
 from sstp.ie.grounding import diagnose_repair_reason
 from sstp.ie.l9 import build_l9_header
+
+
+class ProtocolViolation(RuntimeError):
+    """Raised when application code attempts to emit a lifecycle kind directly.
+
+    ``intent`` and ``commit:*`` messages may only be emitted by the
+    subprotocol layer (IE Episode API, SNP panel bus, TaskSession).
+    Use the appropriate high-level method instead of passing
+    ``kind_override`` to ``emit_peer_turn``.
+    """
+
+
+def get_ie_repair(header: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return the ie-repair payload content from an L9 header, or None."""
+    for part in header.get("payload") or []:
+        if part.get("type") == "ie-repair":
+            return part.get("content")
+    return None
+
+
+def _is_lifecycle_kind(kind_override: str) -> bool:
+    """Return True if *kind_override* is a protected lifecycle kind."""
+    base = kind_override.split(":")[0]
+    return base in ("intent", "commit")
 
 
 class AgentBus:
@@ -47,14 +72,29 @@ class AgentBus:
         self.use_case = use_case
         self.sensitivity = sensitivity
         self.messages: List[Dict[str, Any]] = []
-        self._seq_counters: Dict[str, int] = {}
         self._current_phase: str = "taskwork"   # taskwork | grounding | team_process
         self._taskwork_store: Optional[Any] = None   # TaskworkStore; injected by app
+        self._protocol_context: bool = False  # True only inside _lifecycle_emit()
 
-    def _next_sequence(self, actor_id: str) -> Dict[str, Any]:
-        n = self._seq_counters.get(actor_id, 0)
-        self._seq_counters[actor_id] = n + 1
-        return {"counter": n, "actor_id": actor_id}
+    @contextmanager
+    def _lifecycle_emit(self) -> Generator[None, None, None]:
+        """Context manager that permits lifecycle kind_overrides (intent, commit).
+
+        Only internal subprotocol methods should use this.  Application code
+        must never acquire this context directly — use the named public methods
+        (open_session, close_session, emit_repair_resolved, Episode.close(), etc.).
+        """
+        prev = self._protocol_context
+        self._protocol_context = True
+        try:
+            yield
+        finally:
+            self._protocol_context = prev
+
+    @property
+    def snp_trace(self) -> List[Dict[str, Any]]:
+        """Filtered view of messages containing only SNP messages."""
+        return [m for m in self.messages if m.get("subprotocol") == "SNP"]
 
     def emit_peer_turn(
         self,
@@ -66,10 +106,10 @@ class AgentBus:
         epistemic_state: EpistemicState,
         parent_id: str | None = None,
         episode_id: str | None = None,
-        turn_depth: int | None = None,
         kind_override: str | None = None,
         error: Optional[Dict[str, Any]] = None,
         epistemic: Optional[Dict[str, Any]] = None,
+        topic: "str | None" = None,
         ie_payload: "Any | None" = None,
         **_: Any,
     ) -> Dict[str, Any]:
@@ -78,7 +118,18 @@ class AgentBus:
         ``epistemic`` overrides the auto-derived epistemic block.
         ``ie_payload`` is an IEPayload instance; when provided its dict is
         added as payload[type=ie] alongside the utterance part.
+
+        Raises :exc:`ProtocolViolation` if ``kind_override`` is a lifecycle
+        kind (``intent`` or ``commit:*``) and the call originates outside the
+        subprotocol layer.  Use the named methods (``Episode.close()``,
+        ``emit_repair_resolved()``, ``_emit_episode_open()``, etc.) instead.
         """
+        if kind_override and _is_lifecycle_kind(kind_override) and not self._protocol_context:
+            raise ProtocolViolation(
+                f"kind_override={kind_override!r} is a lifecycle kind and may only be "
+                f"set by the subprotocol layer. Use Episode.close(), emit_repair_resolved(), "
+                f"or the TaskSession open/close methods instead."
+            )
         _epistemic = epistemic or make_epistemic_block(
             speech_act=speech_act,
             epistemic_state=epistemic_state,
@@ -100,10 +151,9 @@ class AgentBus:
             utterance=utterance,
             parent_ids=[parent_id] if parent_id else None,
             episode_id=episode_id,
-            turn_depth=turn_depth,
             kind_override=kind_override,
             epistemic=_epistemic,
-            state_sequence=self._next_sequence(sender),
+            topic=topic,
             payload_parts=_payload_parts,
         )
         if error is not None:
@@ -112,19 +162,18 @@ class AgentBus:
         return header
 
     def emit_request(self, *, sender: str, receiver: str, utterance: str,
-                     episode_id: str | None = None, turn_depth: int | None = None,
+                     episode_id: str | None = None,
                      epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
                                    speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
-                                   episode_id=episode_id, turn_depth=turn_depth)
+                                   episode_id=episode_id)
 
     def emit_response(self, *, sender: str, receiver: str, utterance: str,
                       parent_id: str | None = None, episode_id: str | None = None,
-                      turn_depth: int | None = None,
                       epistemic: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         return self.emit_peer_turn(sender=sender, receiver=receiver, utterance=utterance,
                                    speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
-                                   parent_id=parent_id, episode_id=episode_id, turn_depth=turn_depth)
+                                   parent_id=parent_id, episode_id=episode_id)
 
     def emit_error(self, *, sender: str, receiver: str, error_type: str, error_message: str,
                    traceback: str | None = None, parent_id: str | None = None,
@@ -143,13 +192,14 @@ class AgentBus:
         sender: str,
         receiver: str,
         target_message_id: str,
-        repair_reason: RepairReason,
+        repair_reason: "RepairReason | str",
         target_epistemic: Optional[Dict[str, Any]] = None,
         episode_id: str | None = None,
-        turn_depth: int | None = None,
     ) -> Dict[str, Any]:
-        repair_concept_id = (target_epistemic or {}).get("concept_id")
-        _utterance = f"repair_required:reason={repair_reason.value}:target={target_message_id}"
+        from sstp.ie.l9 import get_topic
+        _repair_topic = get_topic({"topic": None, "epistemic": target_epistemic}) if target_epistemic else None
+        _reason_str = repair_reason.value if isinstance(repair_reason, RepairReason) else str(repair_reason)
+        _utterance = f"repair_required:reason={_reason_str}:target={target_message_id}"
         header = build_l9_header(
             use_case=self.use_case,
             event_type="repair_required",
@@ -160,22 +210,25 @@ class AgentBus:
             utterance=_utterance,
             parent_ids=[target_message_id],
             episode_id=episode_id,
-            turn_depth=turn_depth,
+            topic=_repair_topic,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.GROUNDING,
                 belief_status=BeliefStatus.CHALLENGED,
-                concept_id=repair_concept_id,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
             ],
         )
-        header["repair"] = {
-            "target_message_id": target_message_id,
-            "repair_reason": repair_reason.value,
-        }
+        header["payload"].append({
+            "type": "ie-repair",
+            "location": "inline",
+            "content": {
+                "target_message_id": target_message_id,
+                "repair_reason": _reason_str,
+            },
+        })
         self.messages.append(header)
         return header
 
@@ -218,7 +271,7 @@ class AgentBus:
             sensitivity=self.sensitivity,
             utterance=_utterance,
             parent_ids=[target_message_id],
-            state_sequence=self._next_sequence(sender),
+
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.GROUNDING,
@@ -295,12 +348,12 @@ class AgentBus:
             sensitivity=self.sensitivity,
             utterance=_utterance,
             episode_id=episode_id,
+            topic=concept_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TASKWORK,
-                concept_id=concept_id,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
                 {"type": "ie", "location": "inline", "content": payload.to_dict()},
@@ -345,7 +398,7 @@ class AgentBus:
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": content},
                 {"type": "process", "location": "inline", "content": payload.to_dict()},
@@ -378,7 +431,7 @@ class AgentBus:
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
             ],
@@ -411,7 +464,7 @@ class AgentBus:
                 speech_act=SpeechAct.CHALLENGE,
                 epistemic_state=EpistemicState.TEAM_PROCESS,
             ),
-            state_sequence=self._next_sequence(sender),
+
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
             ],
@@ -491,8 +544,8 @@ class AgentBus:
             replica.apply(header, payload=ie_content)
 
         if verified:
-            # concept_id is in the L9 header epistemic block (not in belief)
-            ep_concept_id = (header.get("epistemic") or {}).get("concept_id", "")
+            from sstp.ie.l9 import get_topic
+            ep_concept_id = get_topic(header) or ""
             # Update BeliefState
             if belief_store is not None and ep_concept_id:
                 from sstp.epistemic.stores import BeliefRevision
@@ -537,7 +590,7 @@ class AgentBus:
                     holder_confidence=float(belief.get("prior", 0.5)),
                     confirmer_confidence=float(belief.get("posterior", 0.5)),
                     contingency_verified=True,
-                    speech_acts=[ep.get("speech_act", "")],
+                    speech_acts=[ep.get("message_act", "")],
                     grounding_message_ids=[prior_turn_mid or "", header["message"]["id"]],
                     formed_at_ms=int(time.time() * 1000),
                 )
@@ -610,7 +663,6 @@ class AgentBus:
             speech_act=SpeechAct.ASSERTION,
             epistemic_state=EpistemicState.TASKWORK,
             belief_status=BeliefStatus.ASSERTED,
-            concept_id=concept_id,
             uncertainty=_uncertainty,
         )
         return self.emit_peer_turn(
@@ -622,9 +674,10 @@ class AgentBus:
             parent_id=parent_id,
             episode_id=episode_id,
             epistemic=epistemic,
+            topic=concept_id,
         )
 
-    def emit_episode_open(
+    def _emit_episode_open(
         self,
         *,
         coordinator: str,
@@ -634,19 +687,21 @@ class AgentBus:
         """Open a coordination session with an intent message.
 
         kind=intent, subprotocol=IE, state=team_process.
+        Internal — call via TaskSession.open_session() or Episode.open().
         """
         _utterance = f"session:open subject={subject}"
-        return self.emit_peer_turn(
-            sender=coordinator,
-            receiver=coordinator,
-            utterance=_utterance,
-            speech_act=SpeechAct.ASSERTION,
-            epistemic_state=EpistemicState.TEAM_PROCESS,
-            kind_override="intent",
-            episode_id=episode_id,
-        )
+        with self._lifecycle_emit():
+            return self.emit_peer_turn(
+                sender=coordinator,
+                receiver=coordinator,
+                utterance=_utterance,
+                speech_act=SpeechAct.ASSERTION,
+                epistemic_state=EpistemicState.TEAM_PROCESS,
+                kind_override="intent",
+                episode_id=episode_id,
+            )
 
-    def emit_episode_close(
+    def _emit_episode_close(
         self,
         *,
         coordinator: str,
@@ -657,18 +712,47 @@ class AgentBus:
         """Close a coordination session.
 
         kind=commit, subkind=converged (accepted=True) or rejected (accepted=False).
+        Internal — call via TaskSession.close_session() or Episode.close().
         """
         _outcome = "commit:converged" if accepted else "commit:rejected"
         _utterance = f"session:close subject={subject} accepted={accepted}"
-        return self.emit_peer_turn(
-            sender=coordinator,
-            receiver=coordinator,
-            utterance=_utterance,
-            speech_act=SpeechAct.ASSERTION,
-            epistemic_state=EpistemicState.TEAM_PROCESS,
-            kind_override=_outcome,
-            episode_id=episode_id,
-        )
+        with self._lifecycle_emit():
+            return self.emit_peer_turn(
+                sender=coordinator,
+                receiver=coordinator,
+                utterance=_utterance,
+                speech_act=SpeechAct.ASSERTION,
+                epistemic_state=EpistemicState.TEAM_PROCESS,
+                kind_override=_outcome,
+                episode_id=episode_id,
+            )
+
+    def emit_repair_resolved(
+        self,
+        *,
+        sender: str,
+        receiver: str,
+        utterance: str,
+        parent_id: str | None = None,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Emit a commit:resolved closing a contingency branch after repair.
+
+        The sender is the agent that verified the repair (the listener in the
+        original exchange).  This is the only public path to emit commit:resolved
+        from outside the Episode API.
+        """
+        with self._lifecycle_emit():
+            return self.emit_peer_turn(
+                sender=sender,
+                receiver=receiver,
+                utterance=utterance,
+                speech_act=SpeechAct.ASSERTION,
+                epistemic_state=EpistemicState.GROUNDING,
+                parent_id=parent_id,
+                episode_id=episode_id,
+                kind_override="commit:resolved",
+            )
 
     def emit_knowledge_rule(
         self,
@@ -703,11 +787,11 @@ class AgentBus:
             sensitivity=self.sensitivity,
             utterance=_utterance,
             episode_id=episode_id,
+            topic=concept_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
                 epistemic_state=EpistemicState.TASKWORK,
                 belief_status=BeliefStatus.ASSERTED,
-                concept_id=concept_id,
             ),
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
@@ -756,7 +840,6 @@ class AgentBus:
             speech_act=SpeechAct.ASSERTION,
             epistemic_state=EpistemicState.GROUNDING,
             belief_status=BeliefStatus.ASSERTED,
-            concept_id=concept_id,
             uncertainty=round(1.0 - posterior, 4),
         )
         return self.emit_peer_turn(
@@ -767,9 +850,174 @@ class AgentBus:
             epistemic_state=EpistemicState.GROUNDING,
             parent_id=parent_id,
             episode_id=episode_id,
+            topic=concept_id,
             epistemic=epistemic,
             ie_payload=ie_payload,
         )
+
+
+    # ── L9 Episode private protocol emitters ─────────────────────────────────
+    # Called by sstp.l9.episode — not part of the public AgentBus API.
+
+    def _emit_intent(
+        self,
+        *,
+        sender: str,
+        receiver: "str | None",
+        subject: str,
+        episode_id: str | None = None,
+        team_prior: "Dict[str, Any] | None" = None,
+    ) -> Dict[str, Any]:
+        """kind=intent — open a coordination episode (L9 episode API)."""
+        _utterance = f"episode:open subject={subject}"
+        payload_parts: List[Dict[str, Any]] = [
+            {"type": "utterance", "location": "inline", "content": _utterance},
+        ]
+        if team_prior:
+            payload_parts.append({"type": "team_prior", "location": "inline", "content": team_prior})
+        from sstp.ie.l9 import build_l9_header as _build
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        with self._lifecycle_emit():
+            header = _build(
+                use_case=self.use_case,
+                event_type="peer_turn",
+                sender=sender,
+                receiver=receiver or sender,
+                timestamp_ms=int(time.time() * 1000),
+                sensitivity=self.sensitivity,
+                utterance=_utterance,
+                episode_id=episode_id,
+                kind_override="intent",
+                epistemic=make_epistemic_block(
+                    speech_act=SpeechAct.ASSERTION,
+                    epistemic_state=EpistemicState.TEAM_PROCESS,
+                    belief_status=BeliefStatus.ASSERTED,
+                ),
+                payload_parts=payload_parts,
+            )
+        self.messages.append(header)
+        return header
+
+    def _emit_exchange_ready(
+        self,
+        *,
+        speaker: str,
+        listener: "str | None",
+        utterance: str,
+        posterior: float,
+        concept_id: str | None = None,
+        evidence: "List[str] | None" = None,
+        addresses_evidence: "List[str] | None" = None,
+        parent_id: str | None = None,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """kind=exchange with subkind=ready — final argument + done signal."""
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        epistemic = make_epistemic_block(
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.GROUNDING,
+            belief_status=BeliefStatus.ASSERTED,
+            uncertainty=round(1.0 - posterior, 4),
+        )
+        return self.emit_peer_turn(
+            sender=speaker,
+            receiver=listener or speaker,
+            utterance=utterance,
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.GROUNDING,
+            parent_id=parent_id,
+            episode_id=episode_id,
+            kind_override="exchange:ready",
+            topic=concept_id,
+            epistemic=epistemic,
+        )
+
+    def _emit_ready(
+        self,
+        *,
+        sender: str,
+        receiver: "str | None",
+        posterior: float,
+        concept_id: str | None = None,
+        parent_id: str | None = None,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """kind=commit, subkind=ready — standalone done signal, no further content."""
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        _utterance = f"ready posterior={posterior:.4f}"
+        epistemic = make_epistemic_block(
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.GROUNDING,
+            belief_status=BeliefStatus.ASSERTED,
+            uncertainty=round(1.0 - posterior, 4),
+        )
+        with self._lifecycle_emit():
+            return self.emit_peer_turn(
+                sender=sender,
+                receiver=receiver or sender,
+                utterance=_utterance,
+                speech_act=SpeechAct.ASSERTION,
+                epistemic_state=EpistemicState.GROUNDING,
+                parent_id=parent_id,
+                episode_id=episode_id,
+                kind_override="commit:ready",
+                topic=concept_id,
+                epistemic=epistemic,
+            )
+
+    def _emit_knowledge_announcement(
+        self,
+        *,
+        sender: str,
+        concept_id: str,
+        posterior: float,
+        gar: float,
+        scr: float,
+        provenance_weight: float,
+        parent_id: str | None = None,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """kind=knowledge — announce a convergence result (L9 episode API)."""
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        from sstp.ie.l9 import build_l9_header as _build
+        _utterance = (
+            f"knowledge:{concept_id}"
+            f":posterior={posterior:.4f}"
+            f":gar={gar:.4f}"
+            f":scr={scr:.4f}"
+            f":provenance_weight={provenance_weight:.4f}"
+        )
+        header = _build(
+            use_case=self.use_case,
+            event_type="peer_turn",
+            sender=sender,
+            receiver=sender,
+            timestamp_ms=int(time.time() * 1000),
+            sensitivity=self.sensitivity,
+            utterance=_utterance,
+            parent_ids=[parent_id] if parent_id else None,
+            episode_id=episode_id,
+            kind_override="knowledge",
+            topic=concept_id,
+            epistemic=make_epistemic_block(
+                speech_act=SpeechAct.ASSERTION,
+                epistemic_state=EpistemicState.TASKWORK,
+                belief_status=BeliefStatus.ASSERTED,
+                uncertainty=round(1.0 - posterior, 4),
+            ),
+            payload_parts=[
+                {"type": "utterance", "location": "inline", "content": _utterance},
+                {"type": "knowledge", "location": "inline", "content": {
+                    "concept_id": concept_id,
+                    "posterior": posterior,
+                    "gar": gar,
+                    "scr": scr,
+                    "provenance_weight": provenance_weight,
+                }},
+            ],
+        )
+        self.messages.append(header)
+        return header
 
 
 __all__ = ["AgentBus"]

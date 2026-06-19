@@ -27,6 +27,8 @@ and maps IE event types to SSTP kinds (5-value session-flow vocabulary):
     initial_prior         → exchange
     outcome_reported        → exchange
 
+Standalone done signals use kind_override="commit:ready" → kind=commit, subkind=ready.
+
 The module-level :func:`build_l9_header` is the backwards-compatible
 convenience function used by IE orchestrators.
 """
@@ -219,6 +221,15 @@ class IEL9HeaderBuilder(L9HeaderBuilder):
 _DEFAULT_BUILDER = IEL9HeaderBuilder()
 
 
+def get_topic(header: Dict[str, Any]) -> "str | None":
+    """Return the topic concept_id from an L9 header.
+
+    Reads header["topic"] first (new format), falls back to
+    header["epistemic"]["concept_id"] (old format) for backward compat.
+    """
+    return header.get("topic") or (header.get("epistemic") or {}).get("concept_id")
+
+
 def build_l9_header(
     *,
     use_case: str,
@@ -228,20 +239,17 @@ def build_l9_header(
     timestamp_ms: int,
     sensitivity: str = "internal",
     propagation: str = "restricted",
-    turn_depth: int | None = None,
     utterance: str = "",
     parent_ids: Iterable[str] | None = None,
     episode_id: str | None = None,
     provenance_sources: Iterable[str] | None = None,
-    payload_refs: List[Dict[str, str]] | None = None,
     payload_parts: "List[Dict[str, Any]] | None" = None,
     message_id: str | None = None,
     ontology_ref: str | None = None,
     subprotocol: str | None = "IE",
     epistemic: Dict[str, Any] | None = None,
-    state_sequence: Dict[str, Any] | None = None,
+    topic: "str | None" = None,
     kind_override: str | None = None,
-    conversation_id: str | None = None,
     sequence_number: int | None = None,
 ) -> Dict[str, Any]:
     """Build an Interaction Engine SSTP L9 header dict.
@@ -281,20 +289,17 @@ def build_l9_header(
         timestamp_ms=timestamp_ms,
         sensitivity=sensitivity,
         propagation=propagation,
-        turn_depth=turn_depth,
         utterance=utterance,
         parent_ids=parent_ids,
         episode_id=episode_id,
         provenance_sources=provenance_sources,
-        payload_refs=payload_refs,
         payload_parts=payload_parts,
         message_id=message_id,
         ontology_ref=ontology_ref,
         subprotocol=subprotocol,
         epistemic=epistemic,
-        state_sequence=state_sequence,
+        topic=topic,
         kind_override=kind_override,
-        conversation_id=conversation_id,
         sequence_number=sequence_number,
     )
 
@@ -307,4 +312,5 @@ __all__ = [
     "schema_id_for",
     "IEL9HeaderBuilder",
     "build_l9_header",
+    "get_topic",
 ]

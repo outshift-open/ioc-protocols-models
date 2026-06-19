@@ -7,7 +7,7 @@ snp — Semantic Negotiation Protocol: all SSTP/SNP protocol assets.
 ================================================================================
 Single home for every protocol asset: L9 header primitives, Pydantic v2
 envelope models, SNP operation vocabulary and mapping, SAO negotiation state
-types, and the bridge that converts between them.
+types.
 
 The ``kind`` field is the discriminator. All kinds share a common envelope
 (origin, semantic_context, policy_labels, provenance) plus a
@@ -17,9 +17,6 @@ optional fields to **required**.
 Kind taxonomy
 -------------
 Current spec kinds: ``intent | exchange | contingency | commit | knowledge``
-
-Legacy kinds (retained for ``l9_bridge.py`` backward compatibility only):
-``delegation | query | memory_delta | evidence_bundle``
 
 NegMAS SAO extension (evaluation infrastructure only): ``negotiate``
 See ``negmas_sao.py`` — not part of the SSTP spec vocabulary.
@@ -107,23 +104,12 @@ from ._base import (
 from .commit import NegotiateCommitSemanticContext, SSTPCommitMessage
 from .contingency import ContingencyMessage
 from .convergence import ConvergenceMessage
-from .delegation import DelegationMessage
 from .evidence_bundle import EvidenceBundleMessage
 from .exchange import ExchangeMessage
 from .intent import IntentMessage
 from .knowledge import KnowledgeMessage
-from .memory_delta import MemoryDeltaMessage
 from .negotiate import SSTPNegotiateMessage, NegotiateSemanticContext
 from .query import QueryMessage
-
-# ── L9 ↔ Pydantic bridge ─────────────────────────────────────────────────────
-from .l9_bridge import (
-    l9_header_to_pydantic,
-    pydantic_to_l9_header,
-    build_negotiate_envelope,
-    build_repair_required,
-    build_repair_applied,
-)
 
 # ── Panel negotiation bus ─────────────────────────────────────────────────────
 from .panel_bus import (
@@ -131,28 +117,20 @@ from .panel_bus import (
     PanelBus,
     StarNegotiation,
     RingNegotiation,
-    PanelNegotiationBus,
-    PanelNegotiationStar,
-    PanelNegotiationRing,
 )
 
 # ── Discriminated union ───────────────────────────────────────────────────────
 
 STPMessage = Annotated[
     Union[
-        # New 5-value session-flow vocabulary (preferred)
         IntentMessage,
         ExchangeMessage,
         ContingencyMessage,
         SSTPCommitMessage,
         ConvergenceMessage,
-        # Legacy kinds (backward compat during transition)
-        DelegationMessage,
         KnowledgeMessage,
         QueryMessage,
-        MemoryDeltaMessage,
         EvidenceBundleMessage,
-        # NegMAS SAO extension
         SSTPNegotiateMessage,
     ],
     Field(discriminator="kind"),
@@ -208,35 +186,23 @@ __all__ = [
     "PayloadRef",
     # Base envelope
     "_STBaseMessage",
-    # Kind message classes — new session-flow vocabulary
+    # Kind message classes
     "IntentMessage",
     "ExchangeMessage",
     "ContingencyMessage",
     "SSTPCommitMessage",
     "ConvergenceMessage",
-    # Kind message classes — legacy (backward compat)
-    "DelegationMessage",
     "KnowledgeMessage",
     "QueryMessage",
     "NegotiateCommitSemanticContext",
-    "MemoryDeltaMessage",
     "EvidenceBundleMessage",
     "NegotiateSemanticContext",
     "SSTPNegotiateMessage",
     # Union
     "STPMessage",
-    # L9 ↔ Pydantic bridge
-    "l9_header_to_pydantic",
-    "pydantic_to_l9_header",
-    "build_negotiate_envelope",
-    "build_repair_required",
-    "build_repair_applied",
     # Panel negotiation bus
     "IERepairExhausted",
     "PanelBus",
     "StarNegotiation",
     "RingNegotiation",
-    "PanelNegotiationBus",
-    "PanelNegotiationStar",
-    "PanelNegotiationRing",
 ]

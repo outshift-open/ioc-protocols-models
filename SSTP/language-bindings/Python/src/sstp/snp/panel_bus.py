@@ -3,16 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-sstp/snp/panel_bus.py — Domain-agnostic SNP + IE dual-protocol panel negotiation bus.
+sstp/snp/panel_bus.py — Domain-agnostic SNP panel negotiation bus.
 
 Three classes:
   PanelBus          — shared message bus; use_case is a constructor param
   StarNegotiation   — hub-and-spoke: controller proposes → N members respond → commit
   RingNegotiation   — ring: each member proposes to the next → rotate until convergence
 
-Every pairwise exchange emits simultaneously:
-  1. An SNP L9 header (build_snp_l9_header) → snp_trace
-  2. An IE L9 envelope (AgentBus.emit_request / emit_response) → agent message stream
+Every SNP message (build_snp_l9_header) is appended directly to ie_bus.messages so
+that SNP and IE messages share a single ordered stream.  snp_trace is a read-only
+property that returns the filtered subset (subprotocol=="SNP").
 
 Ported from app/healthcare_ie_snp/panel_negotiation_bus.py; only use_case hardcode
 and the episode_id format have been parameterised.
@@ -116,15 +116,18 @@ class PanelBus:
         self.negotiation_store = NegotiationStore()
         self.negotiation_index = NegotiationIndex()
         self.round_store = RoundStore()
-        self.snp_trace: List[Dict[str, Any]] = []
         self._negotiation_id: str = str(uuid.uuid4())
         self._common_ground_ids: List[str] = []
         self._pending_arg_outcomes: Dict[tuple, List[ArgumentOutcome]] = {}
         if persistence_path:
             self._load_cross_episode_state(persistence_path)
 
+    @property
+    def snp_trace(self) -> List[Dict[str, Any]]:
+        """Filtered view of ie_bus.messages containing only SNP messages."""
+        return [m for m in self.ie_bus.messages if m.get("subprotocol") == "SNP"]
+
     def reset(self, negotiation_id: str | None = None) -> None:
-        self.snp_trace = []
         self._common_ground_ids = []
         self._negotiation_id = negotiation_id or str(uuid.uuid4())
         self._pending_arg_outcomes = {}
@@ -472,7 +475,6 @@ class PanelBus:
             sensitivity="confidential",
             utterance=utterance,
             parent_ids=[snp_message_id],
-            turn_depth=ie_depth,
             episode_id=child_state_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
@@ -516,7 +518,6 @@ class PanelBus:
             sensitivity="confidential",
             utterance=repaired,
             parent_ids=[repair_required_header["message"]["id"]],
-            turn_depth=ie_depth,
             episode_id=child_state_id,
             epistemic=make_epistemic_block(
                 speech_act=SpeechAct.ASSERTION,
@@ -605,9 +606,29 @@ class PanelBus:
             _lst_ids = _get_concept_ids(listener_epistemic)
             if _spk_ids and _lst_ids:
                 _contingent, _ratio = _contingency_check(speaker_epistemic, listener_epistemic)
-                contingency_score = _ratio
-                is_deliberation_pass = not _contingent
-                result = {"contingency_score": contingency_score, "posterior_confidence": None}
+                if not _contingent:
+                    # Topic mismatch — no need to call LLM judge
+                    contingency_score = _ratio
+                    is_deliberation_pass = True
+                    result = {"contingency_score": contingency_score, "posterior_confidence": None}
+                else:
+                    # Topic aligned — run LLM judge to check argument engagement
+                    result = self.tom_engine.agent(listener).assess_utterance(
+                        response_b, task_goal,
+                        speaker=listener,
+                        listener=speaker,
+                        listener_prior_utterance=utterance_a,
+                        confidence_before=confidence_before,
+                        speaker_epistemic=listener_epistemic,
+                        listener_prior_epistemic=speaker_epistemic,
+                        belief_store=self.belief_store,
+                        concept_id=cid,
+                        use_case=self.use_case,
+                    )
+                    llm_contingency = float(result.get("contingency_score", 1.0))
+                    contingency_score = round(min(_ratio, llm_contingency), 4)
+                    result["contingency_score"] = contingency_score
+                    is_deliberation_pass = contingency_score < 0.4
             else:
                 # Ask listener's model: does my response engage with what speaker said?
                 result = self.tom_engine.agent(listener).assess_utterance(
@@ -616,6 +637,9 @@ class PanelBus:
                     listener=speaker,
                     listener_prior_utterance=utterance_a,
                     confidence_before=confidence_before,
+                    belief_store=self.belief_store,
+                    concept_id=cid,
+                    use_case=self.use_case,
                 )
                 contingency_score = float(result.get("contingency_score", 1.0))
                 is_deliberation_pass = contingency_score < 0.4
@@ -722,22 +746,13 @@ class PanelBus:
             receiver=receiver,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             parent_ids=[parent_snp_id] if parent_snp_id else None,
             episode_id=self._episode_id(),
             epistemic=epistemic_block,
         )
-        self.snp_trace.append(snp_header)
-        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS, 
-            sender=sender,
-            receiver=receiver,
-            utterance=utterance,
-            episode_id=f"{self._episode_id()}:ie:{proposal_id}",
-            turn_depth=turn + 1,
-            epistemic=epistemic_block,
-        )
-        return snp_header, ie_header
+        self.ie_bus.messages.append(snp_header)
+        return snp_header
 
     def emit_decision(
         self,
@@ -771,7 +786,6 @@ class PanelBus:
             epistemic_state=epistemic_state,
             belief_status=belief_status,
             uncertainty=round(1.0 - confidence, 4),
-            concept_id=ctrl_position_key if ctrl_position_key else None,
         )
         snp_header = build_snp_l9_header(
             operation=operation,
@@ -780,23 +794,28 @@ class PanelBus:
             receiver=receiver,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             parent_ids=[parent_snp_id] if parent_snp_id else None,
             episode_id=self._episode_id(),
+            topic=ctrl_position_key if ctrl_position_key else None,
             epistemic=epistemic_block,
         )
-        self.snp_trace.append(snp_header)
-        ie_header = self.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
-            sender=sender,
-            receiver=receiver,
-            utterance=utterance,
-            parent_id=ie_request_message_id,
-            episode_id=f"{self._episode_id()}:ie:{proposal_id}",
-            turn_depth=turn + 1,
-            epistemic=epistemic_block,
-        )
-        return snp_header, ie_header
+        self.ie_bus.messages.append(snp_header)
+        return snp_header
+
+
+def get_snp_convergence_metrics(header: Dict[str, Any]) -> Dict[str, Any]:
+    """Return convergence metrics from a commit:converged L9 header.
+
+    Reads from payload[type=snp-convergence].content.  Returns an empty dict
+    if the header carries no convergence payload (not a convergence message).
+
+    Keys: mpc, gar, scr, participant_ids, episode_id.
+    """
+    for part in header.get("payload") or []:
+        if part.get("type") == "snp-convergence":
+            return dict(part.get("content") or {})
+    return {}
 
 
 class StarNegotiation:
@@ -817,6 +836,20 @@ class StarNegotiation:
         if isinstance(pos, dict):
             return float(pos.get("confidence") or pos.get("roi_score") or 0.5)
         return 0.5
+
+    @staticmethod
+    def _position_utterance(agent_id: str, verb: str, pos: Any) -> str:
+        key = StarNegotiation._position_key(pos)
+        conf = StarNegotiation._confidence(pos)
+        base = f"{agent_id} {verb} {key} confidence={conf:.2f}"
+        if isinstance(pos, dict):
+            rationale = str(pos.get("rationale") or pos.get("reasoning") or "").strip()
+            thought = str(pos.get("thought_summary") or pos.get("summary") or "").strip()
+            if rationale:
+                base += f" | {rationale}"
+            if thought:
+                base += f" | {thought}"
+        return base
 
     @staticmethod
     def _leading_position(positions: Dict[str, Any]) -> Any:
@@ -854,8 +887,6 @@ class StarNegotiation:
             epistemic_state=_epistemic_state,
             belief_status=BeliefStatus.ASSERTED,
             uncertainty=round(1.0 - conf, 4),
-            concept_id=key if key else None,
-
         )
         _snp_payload = build_snp_payload(
             operation=NegotiationOperation.PROPOSE,
@@ -875,9 +906,9 @@ class StarNegotiation:
             receiver=specialist,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
+            topic=key if key else None,
             epistemic=epistemic_block,
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": utterance},
@@ -894,16 +925,8 @@ class StarNegotiation:
                 payload=pos_dict,
                 timestamp_ms=ts,
             ))
-        self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS, 
-            sender=controller,
-            receiver=specialist,
-            utterance=utterance,
-            episode_id=f"{self.panel_bus._episode_id()}:ie:{proposal_id}",
-            turn_depth=turn + 1,
-            epistemic=epistemic_block,
-        )
-        return snp_header, ie_header
+        self.panel_bus.ie_bus.messages.append(snp_header)
+        return snp_header
 
     def _emit_specialist_response(
         self,
@@ -959,11 +982,7 @@ class StarNegotiation:
             epistemic_state=epistemic_state,
             belief_status=belief_status,
             uncertainty=round(1.0 - conf, 4),
-            concept_id=ctrl_position_key if ctrl_position_key else None,
         )
-        if _is_delib_pass:
-            from sstp.epistemic.vocabulary import make_snp_epistemic_extension
-            epistemic_block = make_snp_epistemic_extension(epistemic_block, deferred_to=controller)
         _snp_payload = build_snp_payload(
             operation=operation,
             proposal_id=proposal_id,
@@ -986,9 +1005,9 @@ class StarNegotiation:
             receiver=controller,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
+            topic=ctrl_position_key if ctrl_position_key else None,
             epistemic=epistemic_block,
             kind_override="exchange",
             payload_parts=[
@@ -996,17 +1015,8 @@ class StarNegotiation:
                 {"type": "snp", "location": "inline", "content": _snp_payload},
             ],
         )
-        self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
-            sender=specialist,
-            receiver=controller,
-            utterance=utterance,
-            parent_id=ie_request_message_id,
-            episode_id=f"{self.panel_bus._episode_id()}:ie:{proposal_id}",
-            turn_depth=turn + 1,
-            epistemic=epistemic_block,
-        )
-        return snp_header, ie_header
+        self.panel_bus.ie_bus.messages.append(snp_header)
+        return snp_header
 
     def _emit_final_decision(
         self,
@@ -1045,23 +1055,13 @@ class StarNegotiation:
             receiver=specialist,
             timestamp_ms=ts,
             proposal_id=proposal_id,
-            turn_depth=turn,
             utterance=utterance,
             episode_id=self.panel_bus._episode_id(),
             epistemic=epistemic_block,
             kind_override="commit",
         )
-        self.panel_bus.snp_trace.append(snp_header)
-        ie_header = self.panel_bus.ie_bus.emit_peer_turn(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK, 
-            sender=controller,
-            receiver=specialist,
-            utterance=utterance,
-            parent_id=ie_request_message_id,
-            episode_id=f"{self.panel_bus._episode_id()}:ie:{proposal_id}",
-            turn_depth=turn + 1,
-            epistemic=epistemic_block,
-        )
-        return snp_header, ie_header
+        self.panel_bus.ie_bus.messages.append(snp_header)
+        return snp_header
 
     def run(
         self,
@@ -1098,8 +1098,9 @@ class StarNegotiation:
             utterance=_intent_utterance,
             episode_id=_panel_episode_id,
             kind_override="intent",
+            payload_parts=[{"type": "utterance", "location": "inline", "content": _intent_utterance}],
         )
-        self.panel_bus.snp_trace.append(_intent_header)
+        self.panel_bus.ie_bus.messages.append(_intent_header)
 
         # Step 3: inject priors before the round opens
         if self.panel_bus.belief_store is not None:
@@ -1153,10 +1154,7 @@ class StarNegotiation:
             )
             self.panel_bus.round_store.record(_neg_round)
 
-            prop_utt = (
-                f"{controller_id} proposes {self._position_key(ctrl_pos)}"
-                f" confidence={self._confidence(ctrl_pos):.2f}"
-            )
+            prop_utt = self._position_utterance(controller_id, "proposes", ctrl_pos)
             tom_predictions: Dict[str, Dict] = {}
             if self.panel_bus.tom_engine is not None:
                 ctrl_agent = self.panel_bus.tom_engine.agent(controller_id)
@@ -1192,7 +1190,7 @@ class StarNegotiation:
             countering: List[str] = []
 
             for member_id in member_ids:
-                snp_hdr, ie_hdr = self._emit_propose(controller_id, member_id, ctrl_pos, round_idx)
+                snp_hdr = self._emit_propose(controller_id, member_id, ctrl_pos, round_idx)
                 _prop_id = _get_part(snp_hdr, "snp").get("proposal_id") or snp_hdr["message"]["id"]
                 _prop_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
@@ -1250,13 +1248,13 @@ class StarNegotiation:
                     operation = NegotiationOperation.COUNTER_PROPOSAL
                     countering.append(member_id)
 
-                resp_snp, _resp_ie = self._emit_specialist_response(
+                resp_snp = self._emit_specialist_response(
                     specialist=member_id,
                     controller=controller_id,
                     position=specialist_positions[member_id],
                     operation=operation,
                     turn=round_idx,
-                    ie_request_message_id=ie_hdr["message"]["id"],
+                    ie_request_message_id=snp_hdr["message"]["id"],
                     ctrl_position_key=ctrl_key,
                     ctrl_conf=ctrl_conf,
                     accept_threshold=accept_threshold,
@@ -1278,10 +1276,8 @@ class StarNegotiation:
 
                 # Post-response bilateral grounding verification using B's actual response
                 verb = "accepts" if operation == NegotiationOperation.ACCEPT else "counter-proposes"
-                response_utt = (
-                    f"{member_id} {verb} "
-                    f"{self._position_key(specialist_positions[member_id])} "
-                    f"confidence={self._confidence(specialist_positions[member_id]):.2f}"
+                response_utt = self._position_utterance(
+                    member_id, verb, specialist_positions[member_id]
                 )
                 self.panel_bus._verify_grounding_bilateral(
                     utterance_a=prop_utt,
@@ -1430,6 +1426,15 @@ class StarNegotiation:
                 f" gar={truth.genuine_agreement_ratio:.4f}"
                 f" scr={truth.social_compliance_ratio:.4f}"
             )
+            _snp_convergence = {
+                "profile": "semantic_negotiation",
+                "operation": NegotiationOperation.ACCEPT,
+                "participant_ids": list(truth.participant_ids),
+                "mpc": truth.consensus_posterior,
+                "gar": truth.genuine_agreement_ratio,
+                "scr": truth.social_compliance_ratio,
+                "episode_id": truth.episode_id,
+            }
             convergence_header = build_snp_l9_header(
                 operation=NegotiationOperation.ACCEPT,
                 use_case=self.panel_bus.use_case,
@@ -1442,13 +1447,10 @@ class StarNegotiation:
                 kind_override="commit:converged",
                 payload_parts=[
                     {"type": "utterance", "location": "inline", "content": _conv_utterance},
+                    {"type": "snp-convergence", "location": "inline", "content": _snp_convergence},
                 ],
             )
-            convergence_header["participant_ids"] = truth.participant_ids
-            convergence_header["consensus_posterior"] = truth.consensus_posterior
-            convergence_header["genuine_agreement_ratio"] = truth.genuine_agreement_ratio
-            convergence_header["social_compliance_ratio"] = truth.social_compliance_ratio
-            self.panel_bus.snp_trace.append(convergence_header)
+            self.panel_bus.ie_bus.messages.append(convergence_header)
 
             # C10: push consensus_posterior into each participant's AgentTOM and BeliefState.
             # Use URN concept_id (matching inject_prior's lookup key) not bare win_key.
@@ -1517,16 +1519,16 @@ class StarNegotiation:
                     utterance=_rule_utterance,
                     episode_id=truth.episode_id,
                     kind_override="knowledge",
+                    topic=_conv_concept_id,
                     epistemic=make_epistemic_block(
                         speech_act=SpeechAct.ASSERTION,
                         epistemic_state=EpistemicState.TASKWORK,
-                        concept_id=_conv_concept_id,
                     ),
                     payload_parts=[
                         {"type": "utterance", "location": "inline", "content": _rule_utterance},
                     ],
                 )
-                self.panel_bus.snp_trace.append(_rule_header)
+                self.panel_bus.ie_bus.messages.append(_rule_header)
 
         # Fix 4: batch-promote accumulated ArgumentOutcomes and write-back to AgentEpistemicStore
         if self.panel_bus.peer_interaction_store is not None:
@@ -1582,11 +1584,23 @@ class RingNegotiation:
         return 0.5
 
     @staticmethod
-    def _utterance(member_id: str, pos: Any, operation: str) -> str:
+    def _position_utterance(agent_id: str, verb: str, pos: Any) -> str:
         key = RingNegotiation._position_key(pos)
         conf = RingNegotiation._confidence(pos)
+        base = f"{agent_id} {verb} {key} confidence={conf:.2f}"
+        if isinstance(pos, dict):
+            rationale = str(pos.get("rationale") or pos.get("reasoning") or "").strip()
+            thought = str(pos.get("thought_summary") or pos.get("summary") or "").strip()
+            if rationale:
+                base += f" | {rationale}"
+            if thought:
+                base += f" | {thought}"
+        return base
+
+    @staticmethod
+    def _utterance(member_id: str, pos: Any, operation: str) -> str:
         verb = {"negotiate": "proposes", "accept": "accepts", "reject": "rejects"}[operation]
-        return f"{member_id} {verb} {key} confidence={conf:.2f}"
+        return RingNegotiation._position_utterance(member_id, verb, pos)
 
     @staticmethod
     def _check_termination(positions: Dict[str, Any], n: int, accept_threshold: float = 0.6) -> str | None:
@@ -1654,8 +1668,9 @@ class RingNegotiation:
             utterance=_ring_intent_utterance,
             episode_id=_ring_episode_id,
             kind_override="intent",
+            payload_parts=[{"type": "utterance", "location": "inline", "content": _ring_intent_utterance}],
         )
-        self.panel_bus.snp_trace.append(_ring_intent_header)
+        self.panel_bus.ie_bus.messages.append(_ring_intent_header)
 
         # Inject priors from SemanticRuleStore (or positional confidence) before loop
         for mid in member_ids:
@@ -1711,7 +1726,7 @@ class RingNegotiation:
                 receiver_key = self._position_key(receiver_pos)
 
                 neg_utt = self._utterance(sender_id, sender_pos, "negotiate")
-                snp_neg, ie_neg = self.panel_bus.emit_negotiate(
+                snp_neg = self.panel_bus.emit_negotiate(
                     sender=sender_id,
                     receiver=receiver_id,
                     utterance=neg_utt,
@@ -1770,14 +1785,14 @@ class RingNegotiation:
                     operation = NegotiationOperation.REJECT
                     decision_utt = self._utterance(receiver_id, receiver_pos, "reject")
 
-                snp_dec, _ = self.panel_bus.emit_decision(
+                snp_dec = self.panel_bus.emit_decision(
                     sender=receiver_id,
                     receiver=sender_id,
                     utterance=decision_utt,
                     operation=operation,
                     turn=round_idx,
                     confidence=self._confidence(positions[receiver_id]),
-                    ie_request_message_id=ie_neg["message"]["id"],
+                    ie_request_message_id=snp_neg["message"]["id"],
                     parent_snp_id=last_snp_id,
                     ctrl_position_key=sender_key,
                     ctrl_conf=sender_conf,
@@ -1905,6 +1920,15 @@ class RingNegotiation:
                 f" gar={truth.genuine_agreement_ratio:.4f}"
                 f" scr={truth.social_compliance_ratio:.4f}"
             )
+            _ring_snp_convergence = {
+                "profile": "semantic_negotiation",
+                "operation": NegotiationOperation.ACCEPT,
+                "participant_ids": list(truth.participant_ids),
+                "mpc": truth.consensus_posterior,
+                "gar": truth.genuine_agreement_ratio,
+                "scr": truth.social_compliance_ratio,
+                "episode_id": truth.episode_id,
+            }
             convergence_header = build_snp_l9_header(
                 operation=NegotiationOperation.ACCEPT,
                 use_case=self.panel_bus.use_case,
@@ -1917,13 +1941,10 @@ class RingNegotiation:
                 kind_override="commit:converged",
                 payload_parts=[
                     {"type": "utterance", "location": "inline", "content": _ring_conv_utterance},
+                    {"type": "snp-convergence", "location": "inline", "content": _ring_snp_convergence},
                 ],
             )
-            convergence_header["participant_ids"] = truth.participant_ids
-            convergence_header["consensus_posterior"] = truth.consensus_posterior
-            convergence_header["genuine_agreement_ratio"] = truth.genuine_agreement_ratio
-            convergence_header["social_compliance_ratio"] = truth.social_compliance_ratio
-            self.panel_bus.snp_trace.append(convergence_header)
+            self.panel_bus.ie_bus.messages.append(convergence_header)
 
             # C10: push consensus_posterior into each participant's AgentTOM and BeliefState.
             # Use URN concept_id (matching inject_prior's lookup key) not bare win_key.
@@ -1990,16 +2011,16 @@ class RingNegotiation:
                     utterance=_rule_utterance_r,
                     episode_id=truth.episode_id,
                     kind_override="knowledge",
+                    topic=f"urn:concept:{self.panel_bus.use_case}:{win_key}",
                     epistemic=make_epistemic_block(
                         speech_act=SpeechAct.ASSERTION,
                         epistemic_state=EpistemicState.TASKWORK,
-                        concept_id=f"urn:concept:{self.panel_bus.use_case}:{win_key}",
                     ),
                     payload_parts=[
                         {"type": "utterance", "location": "inline", "content": _rule_utterance_r},
                     ],
                 )
-                self.panel_bus.snp_trace.append(_rule_header_r)
+                self.panel_bus.ie_bus.messages.append(_rule_header_r)
 
         # Fix 4: batch-promote accumulated ArgumentOutcomes and write-back to AgentEpistemicStore
         if self.panel_bus.peer_interaction_store is not None:
@@ -2035,19 +2056,9 @@ class RingNegotiation:
         return winning_position, resolution_label, list(self.panel_bus.snp_trace)
 
 
-# Aliases for backward compatibility with existing app code
-PanelNegotiationBus = PanelBus
-PanelNegotiationStar = StarNegotiation
-PanelNegotiationRing = RingNegotiation
-
-
 __all__ = [
     "IERepairExhausted",
     "PanelBus",
     "StarNegotiation",
     "RingNegotiation",
-    # backward-compat aliases
-    "PanelNegotiationBus",
-    "PanelNegotiationStar",
-    "PanelNegotiationRing",
 ]
