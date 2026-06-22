@@ -29,7 +29,6 @@ class ParticipantSet(BaseModel):
 class PolicyLabel(BaseModel):
     """
     Data governance and access-control labels applied to the message.
-    ## TODO Nandu, Peter please review
     """
     sensitivity: str        # data sensitivity level e.g. "public" | "confidential" | "restricted"
     propagation: str        # how far this label propagates to downstream messages
@@ -41,7 +40,6 @@ class Provenance(BaseModel):
     Tracks the origin and lineage of a message — who created it, from what source,
     and through which transformations. Fields TBD.
     """
-    # TODO: add fields — e.g. source_agent_id, created_at, derived_from
 
 
 
