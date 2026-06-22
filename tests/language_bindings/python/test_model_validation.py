@@ -17,7 +17,7 @@ from pydantic import ValidationError
 
 # Import generated models using relative import
 try:
-    from ioc_l9.language_bindings.python import generated_models as gen
+    from SSTP.language_bindings.python import generated_models as gen
 except ImportError:
     pytest.skip("Generated models not found. Run generate.sh first.", allow_module_level=True)
 

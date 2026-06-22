@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # generate.sh — Generate Go types for the IOC L9 schema.
 #
-# Uses go-jsonschema to produce typed Go structs from the 
+# Uses go-jsonschema to produce typed Go structs from the
 # canonical IOC L9 JSON schema.
 #
 # Usage:
-#   From project root: ./ioc_l9/language_bindings/golang/generate.sh
+#   From project root: ./SSTP/language_bindings/golang/generate.sh
 #   From this directory: ./generate.sh
 #
 # Requirements:
@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Define paths
-SCHEMA_FILE="$PROJECT_ROOT/ioc_l9/spec/json_schema/l9.json"
+SCHEMA_FILE="$PROJECT_ROOT/SSTP/spec/l9_schema.json"
 OUT_DIR="$SCRIPT_DIR"
 PACKAGE="l9"
 

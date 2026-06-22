@@ -7,7 +7,7 @@ name = "ioc-l9"
 version = "0.1.0"
 description = "IOC L9 Protocol Package"
 authors = []
-packages = [{include = "ioc_l9"}]
+packages = [{include = "SSTP"}]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
@@ -20,4 +20,3 @@ pytest = ">=7.0.0"
 openai = "^2.41.0"
 python-dotenv = "<1.0"
 json-schema-for-humans = ">=0.47.0"
-
