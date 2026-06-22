@@ -1,7 +1,7 @@
 {
   "$defs": {
     "Actor": {
-      "description": "A participant in a protocol exchange \u2014 can be a human, an AI agent, or a system.\nMultiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).",
+      "description": "A participant in a protocol exchange - can be a human, an AI agent, or a system.\nMultiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).",
       "properties": {
         "id": {
           "title": "Id",
@@ -91,13 +91,13 @@
       "type": "object"
     },
     "Epistemic": {
-      "description": "Agent epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
+      "description": "Agent epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder - fields will be added as the model is defined.",
       "properties": {},
       "title": "Epistemic",
       "type": "object"
     },
     "L9Header": {
-      "description": "Routing and metadata envelope for every L9 message.\nThe CFN layer reads the header \u2014 especially `kind` and `sub_kind` \u2014\nto decide which Cognitive Engine (CE) should handle the message.",
+      "description": "Routing and metadata envelope for every L9 message.\nThe CFN layer reads the header - especially `kind` and `sub_kind` -\nto decide which Cognitive Engine (CE) should handle the message.",
       "properties": {
         "protocol": {
           "title": "Protocol",
@@ -251,7 +251,7 @@
       "type": "object"
     },
     "Provenance": {
-      "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
+      "description": "Tracks the origin and lineage of a message - who created it, from what source,\nand through which transformations. Fields TBD.",
       "properties": {},
       "title": "Provenance",
       "type": "object"

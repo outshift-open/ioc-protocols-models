@@ -1,7 +1,7 @@
 {
   "$defs": {
     "Actor": {
-      "description": "A participant in a protocol exchange \u2014 can be a human, an AI agent, or a system.\nMultiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).",
+      "description": "A participant in a protocol exchange - can be a human, an AI agent, or a system.\nMultiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).",
       "properties": {
         "id": {
           "title": "Id",
@@ -67,7 +67,7 @@
       "type": "object"
     },
     "Epistemic": {
-      "description": "Agent epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
+      "description": "Agent epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder - fields will be added as the model is defined.",
       "properties": {},
       "title": "Epistemic",
       "type": "object"
@@ -123,7 +123,7 @@
           "type": "string"
         },
         "outcome": {
-          "description": "High-level outcome of the negotiation. 'agreement' \u2014 all agents reached consensus; 'disagreement' \u2014 step budget exhausted without agreement; 'broken' \u2014 a participant dropped out or returned an invalid offer; 'error' \u2014 pipeline exception during execution.",
+          "description": "High-level outcome of the negotiation. 'agreement' - all agents reached consensus; 'disagreement' - step budget exhausted without agreement; 'broken' - a participant dropped out or returned an invalid offer; 'error' - pipeline exception during execution.",
           "enum": [
             "agreement",
             "disagreement",
@@ -201,7 +201,7 @@
       "type": "object"
     },
     "NegotiateSemanticContext": {
-      "description": "SAO-specific semantic context for ``kind='negotiate'`` messages.\n\nCarries a full NegMAS SAO negotiation snapshot so that receivers have\ncomplete mechanism state, the latest response, and optionally the NMI\nconfiguration \u2014 all in one well-typed envelope.",
+      "description": "SAO-specific semantic context for ``kind='negotiate'`` messages.\n\nCarries a full NegMAS SAO negotiation snapshot so that receivers have\ncomplete mechanism state, the latest response, and optionally the NMI\nconfiguration - all in one well-typed envelope.",
       "properties": {
         "schema_version": {
           "default": "1.0",
@@ -300,7 +300,7 @@
       "type": "object"
     },
     "Provenance": {
-      "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
+      "description": "Tracks the origin and lineage of a message - who created it, from what source,\nand through which transformations. Fields TBD.",
       "properties": {},
       "title": "Provenance",
       "type": "object"
