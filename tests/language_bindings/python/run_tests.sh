@@ -15,17 +15,19 @@ echo "Project root: $PROJECT_ROOT"
 # Change to project root
 cd "$PROJECT_ROOT"
 
-# Check if generated models exist
-GENERATED_MODELS="$PROJECT_ROOT/SSTP/language_bindings/python/generated_models.py"
-if [ ! -f "$GENERATED_MODELS" ]; then
-    echo "Error: Generated Python models not found at: $GENERATED_MODELS"
-    echo "Please generate the models first (make generate_bindings LANGUAGE=python)"
+# Check if wheel exists
+WHEEL=$(ls "$PROJECT_ROOT/SSTP/language_bindings/python"/ai_outshift_data_model-*.whl 2>/dev/null | head -1)
+if [ -z "$WHEEL" ]; then
+    echo "Error: Wheel not found in SSTP/language_bindings/python/"
+    echo "Please build the wheel first (make build_wheel)"
     exit 1
 fi
 
-# Install dependencies if needed
+# Install dependencies and wheel
 echo "Ensuring dependencies are installed..."
 poetry install --with dev
+echo "Installing wheel: $WHEEL"
+poetry run pip install "$WHEEL" --force-reinstall --quiet
 
 # Run the Python binding tests
 echo "Running Python binding tests..."

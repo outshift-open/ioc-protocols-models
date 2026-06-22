@@ -13,7 +13,7 @@
 #   2. Ensure JSON schema exists at: SSTP/spec/l9_schema.json
 #
 # OUTPUT:
-#   Generated models will be written to: generated_models.py
+#   Generated models will be written to: ai/outshift/data_model.py
 
 set -e
 
@@ -23,7 +23,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Define paths
 SCHEMA_FILE="$PROJECT_ROOT/SSTP/spec/l9_schema.json"
-OUTPUT_FILE="$SCRIPT_DIR/generated_models.py"
+OUTPUT_FILE="$SCRIPT_DIR/ai/outshift/data_model.py"
+
+mkdir -p "$(dirname "$OUTPUT_FILE")"
 
 echo "Generating Python bindings from JSON Schema..."
 echo "Schema file: $SCHEMA_FILE"
@@ -59,13 +61,10 @@ LICENSE_HEADER="# Copyright 2026 Cisco Systems, Inc. and its affiliates
 "
 echo "${LICENSE_HEADER}$(cat "$OUTPUT_FILE")" > "$OUTPUT_FILE"
 
-echo "Generated Python bindings successfully!"
-echo "Output written to: $OUTPUT_FILE"
-
 # Optional: Format the generated code
 if command -v black &> /dev/null; then
     echo "Formatting generated code with black..."
     poetry run black "$OUTPUT_FILE" || echo "Warning: Failed to format with black"
 fi
 
-echo "Generation complete!"
+echo "Python bindings generated: $OUTPUT_FILE"

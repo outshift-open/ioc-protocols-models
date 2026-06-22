@@ -19,7 +19,7 @@ cd "$PROJECT_ROOT"
 cd "$SCRIPT_DIR"
 
 # Check if generated Go models exist
-GENERATED_MODELS="$PROJECT_ROOT/SSTP/language_bindings/golang/generated_models.go"
+GENERATED_MODELS="$PROJECT_ROOT/SSTP/language_bindings/golang/data_model.go"
 if [ ! -f "$GENERATED_MODELS" ]; then
     echo "Error: Generated Golang models not found at: $GENERATED_MODELS"
     echo "Please generate the models first (make generate_bindings LANGUAGE=golang)"
