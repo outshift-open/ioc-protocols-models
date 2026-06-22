@@ -1,4 +1,4 @@
-name: ioc-cfn-protocols-models CI workflow
+name: ioc-protocols-models CI workflow
 
 on:
   # we want pull requests so we can build(test) but not push to image registry

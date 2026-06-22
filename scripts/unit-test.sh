@@ -1,4 +1,4 @@
 #!/bin/bash -e
 
-# Place holder for unit test
-echo "UNIT-TEST DONE"
+echo "Running language binding tests..."
+make test_bindings
