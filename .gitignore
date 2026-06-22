@@ -141,5 +141,3 @@ dmypy.json
 #*_generated*
 #generated_*
 
-# Wheel package build artifacts
-*.whl
