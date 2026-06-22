@@ -104,13 +104,12 @@ class SubprotocolBase(ABC):
     # Abstract interface
     # ------------------------------------------------------------------
 
-    @abstractmethod
     def handle(self, msg: L9) -> List[L9]:
         """
-        Process an accepted message and return zero or more response messages.
-        The message has already been validated against the current phase.
+        Default dispatcher — overridden by generated subclass handle().
+        Subclasses with no handlers return empty list.
         """
-        ...
+        return []
 
     # ------------------------------------------------------------------
     # Helpers

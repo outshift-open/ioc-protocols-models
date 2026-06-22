@@ -27,8 +27,13 @@ from pathlib import Path
 from typing import Any, List, Tuple
 
 from SSTP.compiler.ast_nodes import (
-    GateNode, PhaseNode, SequentialNode, ParallelNode, PipelineNode, ProtocolNode,
+    HandlerNode, GateNode, PhaseNode, SequentialNode, ParallelNode, PipelineNode, ProtocolNode,
 )
+
+
+def _snake(name: str) -> str:
+    """Convert kebab-case to snake_case."""
+    return name.replace("-", "_").replace("?", "")
 
 # ---------------------------------------------------------------------------
 # Tokeniser
@@ -123,6 +128,45 @@ def _parse_gate(form: list) -> GateNode:
     return GateNode(predicate=form[0])
 
 
+def _parse_handler(form: list) -> HandlerNode:
+    """(handler :kind :fn name :reads [...] :returns [...] :pre (...) :post (...) ...)"""
+    if form[0] != "handler":
+        raise SyntaxError(f"Expected 'handler', got {form[0]!r}")
+    kind_kw = form[1]
+    if not kind_kw.startswith(":"):
+        raise SyntaxError(f"handler kind must be a keyword, got {kind_kw!r}")
+    kind = kind_kw[1:]
+
+    kvs, _ = _kv_pairs(form, 2)
+
+    def _strip_kw(lst):
+        return [k[1:] if isinstance(k, str) and k.startswith(":") else k for k in (lst or [])]
+
+    def _pred(val):
+        if val is None:
+            return None
+        if isinstance(val, list):
+            return val[0] if val else None
+        return str(val)
+
+    fn_raw = kvs.get("fn", f"on_{kind}")
+    fn = _snake(fn_raw) if isinstance(fn_raw, str) else fn_raw
+
+    return HandlerNode(
+        kind=kind,
+        fn=fn,
+        reads=_strip_kw(kvs.get("reads", [])),
+        returns=_strip_kw(kvs.get("returns", [])),
+        pre=_pred(kvs.get("pre")),
+        post=_pred(kvs.get("post")),
+        mutates=_strip_kw(kvs.get("mutates", [])),
+        raises=_strip_kw(kvs.get("raises", [])),
+        idempotent=kvs.get("idempotent", False),
+        max_retries=int(kvs.get("max-retries", 0)),
+        doc=kvs.get("doc", ""),
+    )
+
+
 def _parse_phase(form: list) -> PhaseNode:
     """(phase :name :kinds [...] :subkinds [...] :concurrent bool :gate (...))"""
     _expect(form, 0, "phase")
@@ -142,12 +186,16 @@ def _parse_phase(form: list) -> PhaseNode:
         raise SyntaxError(f"phase {name!r} is missing :gate")
     gate = _parse_gate(gate_form if isinstance(gate_form, list) else [gate_form])
 
+    raw_handlers = kvs.get("handlers", [])
+    handlers = [_parse_handler(h) for h in raw_handlers if isinstance(h, list)]
+
     return PhaseNode(
         name=name,
         kinds=kinds,
         subkinds=subkinds,
         concurrent=concurrent,
         gate=gate,
+        handlers=handlers,
     )
 
 
