@@ -2,7 +2,7 @@
 
 ## Overview
 
-TFP is an L9 sub-protocol for **assembling a team of agents around a task**. An
+TFP is an L9 subprotocol for **assembling a team of agents around a task**. An
 *initiator* agent holds a task that requires a set of skills it cannot satisfy
 alone. Instead of statically wiring up collaborators, the initiator **polls** a
 group of candidate agents, collects their advertised skills, selects a subset
@@ -127,9 +127,14 @@ Full per-turn mapping:
 ## Payload Schema
 
 The TFP payload (`payload[type=json-schema].data`) is defined by `TFPPayload`. The
-JSON Schema in `spec/tfp_schema.json` is the source of truth; the Pydantic models
-in `language_bindings/python/generated_models.py` are generated from it via
-`language_bindings/python/generate.sh`.
+source of truth is the Pydantic models in `src/tfp_models.py`. The JSON Schema in
+`spec/tfp_schema.json` is generated from them via `scripts/generate_spec.sh`, and
+the Pydantic bindings in `language_bindings/python/generated_models.py` are in turn
+generated from the schema via `language_bindings/python/generate.sh`:
+
+```
+src/tfp_models.py → spec/tfp_schema.json → language_bindings/python/generated_models.py
+```
 
 | Field | Type | Set on | Description |
 |---|---|---|---|
@@ -174,8 +179,9 @@ optional metadata on an offer and does not affect this reference selection.
 
 ## Schema Reference
 
-- Schema (source of truth): [`../spec/tfp_schema.json`](../spec/tfp_schema.json)
-- Generated models: [`../language_bindings/python/generated_models.py`](../language_bindings/python/generated_models.py)
+- Source models (source of truth): [`../src/tfp_models.py`](../src/tfp_models.py)
+- Schema (generated from source models): [`../spec/tfp_schema.json`](../spec/tfp_schema.json)
+- Generated bindings (generated from schema): [`../language_bindings/python/generated_models.py`](../language_bindings/python/generated_models.py)
 - Runnable example: [`../examples/team_formation_example.py`](../examples/team_formation_example.py)
 - Tests: [`../language_bindings/python/test_tfp.py`](../language_bindings/python/test_tfp.py)
 - L9 envelope: [`../../../documentation/L9.md`](../../../documentation/L9.md)

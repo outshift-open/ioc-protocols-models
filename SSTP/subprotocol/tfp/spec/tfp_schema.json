@@ -16,8 +16,8 @@
             "number",
             "null"
           ],
-          "minimum": 0.0,
           "maximum": 1.0,
+          "minimum": 0.0,
           "default": null,
           "title": "Availability"
         },
@@ -26,8 +26,8 @@
             "number",
             "null"
           ],
-          "minimum": 0.0,
           "maximum": 1.0,
+          "minimum": 0.0,
           "default": null,
           "title": "Fit Score"
         },
@@ -222,8 +222,8 @@
             "number",
             "null"
           ],
-          "minimum": 0.0,
           "maximum": 1.0,
+          "minimum": 0.0,
           "default": null,
           "title": "Aggregate Fit"
         }

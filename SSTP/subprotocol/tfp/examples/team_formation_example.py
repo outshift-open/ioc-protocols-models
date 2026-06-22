@@ -68,6 +68,12 @@ VERSION = "0"
 class TFPBus:
     def __init__(self, episode: str) -> None:
         self.episode = episode
+        self.task_description = ""   # L9 header topic; learned from the poll's TaskSpec
+        # Cumulative, insertion-ordered roster of every actor id seen in the
+        # episode (senders + receivers). The header.actors list is rebuilt from
+        # this on each turn, so it keeps growing as new agents participate and
+        # eventually holds everyone who took part in the episode.
+        self.participants: List[str] = []
         self.messages: List[L9] = []
 
     def emit(
@@ -80,13 +86,44 @@ class TFPBus:
         subkind: str = "",
         parent_id: Optional[str] = None,
     ) -> L9:
+        # Broadcast channels (``topic:…``) are not actors; only agents appear in
+        # the header. The channel is dropped from the envelope entirely.
+        agent_receivers = [r for r in receivers if not r.startswith("topic:")]
+
+        # Accumulate only agents (sender + agent receivers) into the episode roster.
+        for aid in [sender, *agent_receivers]:
+            if aid not in self.participants:
+                self.participants.append(aid)
+
+        # Rebuild the header roster: the current sender first (so actors[0] is the
+        # author of this turn), then this turn's agent receivers, then every other
+        # agent that has participated so far. The list keeps growing across the
+        # episode until it holds every agent that took part. Roles tag this turn's
+        # sender/receivers; previously-seen agents are `participant`.
+        ordered_ids: List[str] = []
+        for aid in [sender, *agent_receivers, *self.participants]:
+            if aid not in ordered_ids:
+                ordered_ids.append(aid)
         actors = Actors(
-            actors=(
-                [Actor(id=sender, role="sender")]
-                + [Actor(id=r, role="receiver") for r in receivers]
-            ),
+            actors=[
+                Actor(
+                    id=aid,
+                    role=(
+                        "sender" if aid == sender
+                        else "receiver" if aid in agent_receivers
+                        else "participant"
+                    ),
+                )
+                for aid in ordered_ids
+            ],
             groups=None,
         )
+        # The header topic carries the human-readable task description so every
+        # turn in the episode is identifiable by what the team is forming around.
+        # The poll (poll_open) is the only turn that carries the TaskSpec, so we
+        # latch its description and reuse it for the rest of the episode.
+        if payload.task and payload.task.description:
+            self.task_description = payload.task.description
         header = L9Header(
             protocol=PROTOCOL,
             subprotocol=SUBPROTOCOL,
@@ -99,7 +136,9 @@ class TFPBus:
                 parents=parent_id or "",
                 episode=self.episode,
             ),
-            context=Context(topic=f"tfp:{payload.operation.value}"),
+            context=Context(
+                topic=f"Forming a team to {self.task_description}" if self.task_description else "",
+            ),
         )
         msg = L9(
             header=header,
@@ -130,7 +169,7 @@ def _print_trace(bus: TFPBus) -> None:
     for m in bus.messages:
         h, p = m.header, m.payload.data
         sender = h.actors.actors[0].id
-        receivers = ",".join(a.id for a in h.actors.actors[1:]) or "(group)"
+        receivers = ",".join(a.id for a in h.actors.actors if a.role == "receiver") or "(broadcast)"
         kind = h.kind + (f":{h.subkind}" if h.subkind else "")
         print(f"{kind:<12}{p.get('operation',''):<11}{sender:<14}{receivers:<26}{_describe(p)}")
 

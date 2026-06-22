@@ -8,9 +8,20 @@ Pydantic models for the **Team Formation via Polling** subprotocol payload.
   via [`generate.sh`](generate.sh). Defines `TFPPayload` and its sub-structures
   (`SkillRequirement`, `SkillClaim`, `CandidateOffer`, `TeamSelection`,
   `RoleAssignment`, `TaskSpec`), plus the `TFPOperation` and `TFPSubkind` enums.
-  Do not edit by hand — change the schema and re-run `generate.sh`.
+  Do not edit by hand.
 - `generate.sh` — regenerates `generated_models.py` from the JSON Schema.
 - `test_tfp.py` — model + end-to-end episode tests.
+
+The JSON Schema itself is **generated** from the source-of-truth Pydantic models
+in [`../../src/`](../../src/) via [`../../scripts/generate_spec.sh`](../../scripts/generate_spec.sh).
+The full pipeline is:
+
+```
+src/tfp_models.py  →  spec/tfp_schema.json  →  language_bindings/python/generated_models.py
+```
+
+To change the models, edit `src/tfp_models.py`, then re-run `scripts/generate_spec.sh`
+followed by `generate.sh`.
 
 These models describe the TFP-specific `payload` only. They are carried inside an
 L9 envelope (`ioc_l9.src.L9`) with `header.subprotocol == "TFP"` and

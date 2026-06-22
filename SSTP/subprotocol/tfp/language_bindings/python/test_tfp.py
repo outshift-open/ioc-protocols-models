@@ -306,10 +306,13 @@ class TestTFPEpisode:
         bus = ex.run()
         senders = {m.header.actors.actors[0].id for m in bus.messages}
 
-        # the poll is broadcast to a topic, not addressed to a known roster
+        # the poll is broadcast: no agent receivers and no channel recorded in
+        # the envelope at all
         poll_open = next(m for m in bus.messages if m.payload.data.get("operation") == "poll_open")
-        receivers = [a.id for a in poll_open.header.actors.actors[1:]]
-        assert receivers == ["topic:tfp/polls/secops"]
+        assert poll_open.header.actors.groups is None
+        # no broadcast channel ever leaks into the actors list
+        for m in bus.messages:
+            assert all(not a.id.startswith("topic:") for a in m.header.actors.actors)
 
         # a silent subscriber is never heard from
         assert "ghost-agent" not in senders
