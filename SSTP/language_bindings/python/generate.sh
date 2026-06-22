@@ -51,6 +51,14 @@ poetry run datamodel-codegen \
     --strict-nullable \
     --disable-timestamp
 
+# Prepend license header
+LICENSE_HEADER="# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"
+echo "${LICENSE_HEADER}$(cat "$OUTPUT_FILE")" > "$OUTPUT_FILE"
+
 echo "Generated Python bindings successfully!"
 echo "Output written to: $OUTPUT_FILE"
 
