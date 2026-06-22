@@ -1,0 +1,52 @@
+; SIEP — Semantic Interaction Exchange Protocol
+; DSL spec file: parsed by SSTP/compiler to generate language bindings.
+;
+; Syntax:
+;   (defprotocol NAME :key val ... (pipeline ...))
+;   (pipeline (sequential|parallel (phase :name ...) ...))
+;   (phase :name :kinds [...] :concurrent bool :gate (predicate-name?))
+;
+; Kinds are fixed: intent | exchange | commit | contingency | knowledge
+; Subkinds are open: subprotocol developers may define freely.
+
+(defprotocol SIEP
+  :version "0.0.3"
+  :description "Grounding-based semantic interaction exchange with belief tracking and repair cycles."
+
+  (pipeline
+    (sequential
+
+      ; Phase 1: establish shared ontology / schema context before planning.
+      (phase :shared-knowledge
+        :kinds [:knowledge]
+        :subkinds [:query]
+        :gate (knowledge-established?))
+
+      ; Phase 2: intent signals planning intent and goal framing.
+      (phase :planning
+        :kinds [:intent]
+        :gate (intent-received?))
+
+      ; Phase 3: team formation — a team-form subkind intent closes this phase.
+      (phase :team-formed
+        :kinds [:intent]
+        :subkinds [:team-form]
+        :gate (team-complete?))
+
+      ; Phase 4: goal alignment — intent messages align all participants on goal.
+      (phase :goal-alignment
+        :kinds [:intent]
+        :gate (alignment-reached?))
+
+      ; Phase 5: execution — grounding cycle with contingency repair.
+      ; exchange carries grounded utterances; contingency triggers repair.
+      (phase :execution
+        :kinds [:exchange :contingency]
+        :concurrent true
+        :gate (repairs-resolved?))
+
+      ; Phase 6: commit closes the episode; knowledge-store persists outcomes.
+      (phase :state-management
+        :kinds [:commit :knowledge]
+        :subkinds [:store]
+        :gate (committed?)))))

@@ -1,0 +1,39 @@
+{
+  "$defs": {
+    "Provenance": {
+      "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
+      "properties": {},
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nImplementations use this to select the appropriate handler for the message.",
+  "properties": {
+    "schema_id": {
+      "title": "Schema Id",
+      "type": "string"
+    },
+    "ontology_ref": {
+      "title": "Ontology Ref",
+      "type": "string"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "schema_id",
+    "ontology_ref"
+  ],
+  "title": "Semantic",
+  "type": "object",
+  "version": "0.0.3"
+}

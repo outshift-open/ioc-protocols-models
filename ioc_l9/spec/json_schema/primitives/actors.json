@@ -1,0 +1,58 @@
+{
+  "$defs": {
+    "Actor": {
+      "description": "A participant in a protocol exchange \u2014 can be a human, an AI agent, or a system.\nMultiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "attestation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attestation"
+        }
+      },
+      "required": [
+        "id",
+        "role"
+      ],
+      "title": "Actor",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "actors": {
+      "items": {
+        "$ref": "#/$defs/Actor"
+      },
+      "title": "Actors",
+      "type": "array"
+    },
+    "groups": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Groups",
+      "type": "array"
+    }
+  },
+  "required": [
+    "actors",
+    "groups"
+  ],
+  "title": "Actors",
+  "type": "object",
+  "version": "1.0.0"
+}

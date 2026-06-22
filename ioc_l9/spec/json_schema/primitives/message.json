@@ -1,0 +1,25 @@
+{
+  "description": "Represents a message in the protocol.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "parents": {
+      "title": "Parents",
+      "type": "string"
+    },
+    "episode": {
+      "title": "Episode",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "parents",
+    "episode"
+  ],
+  "title": "Message",
+  "type": "object",
+  "version": "0.0.3"
+}

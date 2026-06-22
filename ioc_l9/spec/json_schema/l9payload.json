@@ -1,0 +1,20 @@
+{
+  "description": "The actual content being carried by an L9 message.\nThe `type` field describes the payload format; `data` holds the content.",
+  "properties": {
+    "type": {
+      "title": "Type",
+      "type": "string"
+    },
+    "data": {
+      "title": "Data",
+      "type": "object"
+    }
+  },
+  "required": [
+    "type",
+    "data"
+  ],
+  "title": "L9Payload",
+  "type": "object",
+  "version": "0.0.3"
+}

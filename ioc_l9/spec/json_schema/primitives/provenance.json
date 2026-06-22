@@ -1,0 +1,7 @@
+{
+  "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
+  "properties": {},
+  "title": "Provenance",
+  "type": "object",
+  "version": "0.0.3"
+}

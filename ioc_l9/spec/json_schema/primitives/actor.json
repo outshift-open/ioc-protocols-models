@@ -1,0 +1,32 @@
+{
+  "description": "A participant in a protocol exchange \u2014 can be a human, a system, or any\nother entity. Multiple actors are listed in ParticipantSet to identify\nsender(s), receiver(s), and observers.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "role": {
+      "title": "Role",
+      "type": "string"
+    },
+    "attestation": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Attestation"
+    }
+  },
+  "required": [
+    "id",
+    "role"
+  ],
+  "title": "Actor",
+  "type": "object",
+  "version": "0.0.3"
+}
