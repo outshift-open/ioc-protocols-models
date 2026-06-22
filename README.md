@@ -143,22 +143,13 @@ After this, two tags exist on the remote:
 
 ## Go Module Usage (Consumers)
 
-### For private repo access, configure git + Go:
-
-```bash
-# In ~/.gitconfig — rewrite HTTPS to SSH for private repos
-[url "git@github.com:"]
-    insteadOf = https://github.com/
-
-# In your shell profile — tell Go this is private
-export GOPRIVATE=github.com/cisco-eti/*
-```
-
 ### Install the module:
 
 ```bash
 go get github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang@v0.0.2
 ```
+
+> **Note:** If this is still a private repo, you'll need `GOPRIVATE=github.com/cisco-eti/*` and SSH git access configured.
 
 ### Use in your code:
 
