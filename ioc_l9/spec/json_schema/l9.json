@@ -1,7 +1,7 @@
 {
   "$defs": {
     "Actor": {
-      "description": "A participant in a protocol exchange \u2014 can be a human, an AI agent, or a system.\nMultiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).",
+      "description": "A participant in a protocol exchange \u2014 can be a human, a system, or any\nother entity. Multiple actors are listed in ParticipantSet to identify\nsender(s), receiver(s), and observers.",
       "properties": {
         "id": {
           "title": "Id",
@@ -67,7 +67,7 @@
       "type": "object"
     },
     "Epistemic": {
-      "description": "Agent epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
+      "description": "Participant epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
       "properties": {},
       "title": "Epistemic",
       "type": "object"
@@ -84,7 +84,7 @@
       "type": "string"
     },
     "L9Header": {
-      "description": "Routing and metadata envelope for every L9 message.\nThe CFN layer reads the header \u2014 especially `kind` and `subkind` \u2014\nto decide which Cognitive Engine (CE) should handle the message.",
+      "description": "Routing and metadata envelope for every L9 message.\nThe routing layer reads the header \u2014 especially `kind` and `subkind` \u2014\nto decide which handler should process the message.",
       "properties": {
         "protocol": {
           "title": "Protocol",
@@ -244,7 +244,7 @@
       "type": "object"
     },
     "PolicyLabel": {
-      "description": "Data governance and access-control labels applied to the message.\n## TODO Nandu, Peter please review",
+      "description": "Data governance and access-control labels applied to the message.",
       "properties": {
         "sensitivity": {
           "title": "Sensitivity",
@@ -274,7 +274,7 @@
       "type": "object"
     },
     "Semantic": {
-      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nThe CFN routing layer uses this to select appropriate cognitive engines (CEs).",
+      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nImplementations use this to select the appropriate handler for the message.",
       "properties": {
         "schema_id": {
           "title": "Schema Id",
@@ -304,7 +304,7 @@
       "type": "object"
     }
   },
-  "description": "A complete L9 message: header (routing/metadata) + payload (content).\nThis is the top-level structure passed between agents and through the CFN.",
+  "description": "A complete L9 message: header (routing/metadata) + payload (content).\nThis is the top-level structure passed between participants in the IoC protocol.",
   "properties": {
     "header": {
       "$ref": "#/$defs/L9Header"
