@@ -56,14 +56,8 @@ get_schema_version() {
 verify_docs_exist() {
     log_step "Verifying Documentation Exists"
 
-    if [ ! -d "$DOCS_DIR/generated" ]; then
-        log_error "Generated documentation not found: $DOCS_DIR/generated"
-        log_error "Please run 'make generate_docs' first"
-        exit 1
-    fi
-
-    if [ ! -f "$DOCS_DIR/generated/protocol_reference.html" ]; then
-        log_error "Protocol reference not found: $DOCS_DIR/generated/protocol_reference.html"
+    if [ ! -f "$DOCS_DIR/protocol_reference.html" ]; then
+        log_error "Protocol reference not found: $DOCS_DIR/protocol_reference.html"
         log_error "Please run 'make generate_docs' first"
         exit 1
     fi
@@ -113,7 +107,7 @@ finalize_docs() {
     <h2>Documentation Artifacts</h2>
 
     <div class="artifact">
-        <h3><a href="generated/protocol_reference.html">Protocol Reference Documentation</a></h3>
+        <h3><a href="protocol_reference.html">Protocol Reference Documentation</a></h3>
         <p>Interactive HTML documentation generated from the JSON schema.</p>
     </div>
 

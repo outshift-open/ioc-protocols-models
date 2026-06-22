@@ -199,7 +199,7 @@ generate_docs() {
         exit 1
     fi
 
-    local docs_file="SSTP/documentation/generated/protocol_reference.html"
+    local docs_file="SSTP/documentation/protocol_reference.html"
     if [ ! -f "$docs_file" ]; then
         log_error "Documentation not generated: $docs_file"
         exit 1

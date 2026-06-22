@@ -348,7 +348,7 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 	}
 
 	// Test valid complete L9 message using generated structs
-	validL9 := l9.L9Json{
+	validL9 := l9.L9SchemaJson{
 		Header: l9.L9Header{
 			Protocol:    "L9",
 			Subprotocol: "SSTP",
@@ -374,7 +374,7 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 	}
 
 	// Test JSON unmarshaling back to struct
-	var unmarshaledL9 l9.L9Json
+	var unmarshaledL9 l9.L9SchemaJson
 	err = json.Unmarshal(jsonBytes, &unmarshaledL9)
 	if err != nil {
 		t.Errorf("Failed to unmarshal L9 JSON: %v", err)
@@ -461,7 +461,7 @@ func TestGeneratedModelsStructure(t *testing.T) {
 		"type Context struct",
 		"type L9Header struct",
 		"type L9Payload struct",
-		"type L9Json struct",
+		"type L9SchemaJson struct",
 		"type PolicyLabel struct",
 		"type Message struct",
 	}

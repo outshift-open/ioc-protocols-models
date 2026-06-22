@@ -71,13 +71,12 @@ generate_docs:
 	@echo "Generating documentation from JSON schema..."
 	@echo "Installing dependencies..."
 	@cd "$(PROJECT_ROOT)" && poetry install --with dev
-	@mkdir -p "$(ARTIFACT_PUBLISH_FOLDER)/generated"
 	@cd "$(PROJECT_ROOT)" && poetry run python -m json_schema_for_humans.cli \
 		--config-file SSTP/documentation/config.json \
 		SSTP/spec/l9_schema.json \
-		SSTP/documentation/generated/protocol_reference.html
+		SSTP/documentation/protocol_reference.html
 	@echo "Documentation generated successfully!"
-	@echo "Output: SSTP/documentation/generated/protocol_reference.html"
+	@echo "Output: SSTP/documentation/protocol_reference.html"
 
 publish_docs:
 	@echo "Publishing documentation artifacts..."
@@ -139,7 +138,9 @@ clean_bindings:
 
 clean_docs:
 	@echo "Cleaning generated documentation files..."
-	@rm -rf "$(PROJECT_ROOT)/SSTP/documentation/generated/"
+	@rm -f "$(PROJECT_ROOT)/SSTP/documentation/protocol_reference.html"
+	@rm -f "$(PROJECT_ROOT)/SSTP/documentation/schema_doc.css"
+	@rm -f "$(PROJECT_ROOT)/SSTP/documentation/schema_doc.min.js"
 	@echo "Documentation files cleaned!"
 
 clean_pycache:
@@ -153,7 +154,9 @@ clean:
 	@echo "Cleaning generated files..."
 	@rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/python/generated_models.py"
 	@rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/golang/generated_models.go"
-	@rm -rf "$(PROJECT_ROOT)/SSTP/documentation/generated/"
+	@rm -f "$(PROJECT_ROOT)/SSTP/documentation/protocol_reference.html"
+	@rm -f "$(PROJECT_ROOT)/SSTP/documentation/schema_doc.css"
+	@rm -f "$(PROJECT_ROOT)/SSTP/documentation/schema_doc.min.js"
 	@echo "Clean complete!"
 
 print-version:
