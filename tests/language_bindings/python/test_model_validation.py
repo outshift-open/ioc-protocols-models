@@ -15,9 +15,9 @@ import json
 import pytest
 from pydantic import ValidationError
 
-# Import generated models using relative import
+# Import generated models from wheel package
 try:
-    from SSTP.language_bindings.python import generated_models as gen
+    from ai.outshift import data_model
 except ImportError:
     pytest.skip("Generated models not found. Run generate.sh first.", allow_module_level=True)
 
@@ -28,7 +28,7 @@ class TestGeneratedModelValidation:
     def test_actor_required_fields(self):
         """Test that Actor model validates required fields."""
         # Valid data
-        valid_actor = gen.Actor(
+        valid_actor = data_model.Actor(
             id="actor_001",
             role="analyst"
         )
@@ -38,19 +38,19 @@ class TestGeneratedModelValidation:
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            gen.Actor(id="test")  # Missing role
+            data_model.Actor(id="test")  # Missing role
 
     def test_actor_type_validation(self):
         """Test that Actor model validates field types."""
         with pytest.raises(ValidationError):
-            gen.Actor(
+            data_model.Actor(
                 id=123,  # Should be string
                 role="analyst"
             )
 
     def test_actor_optional_attestation(self):
         """Test Actor with optional attestation field."""
-        actor_with_attestation = gen.Actor(
+        actor_with_attestation = data_model.Actor(
             id="actor_001",
             role="analyst",
             attestation="signed_token_xyz"
@@ -60,8 +60,8 @@ class TestGeneratedModelValidation:
     def test_actors_required_fields(self):
         """Test Actors model required field validation."""
         # Valid data
-        valid_actors = gen.Actors(
-            actors=[gen.Actor(id="actor_001", role="analyst")],
+        valid_actors = data_model.Actors(
+            actors=[data_model.Actor(id="actor_001", role="analyst")],
             groups=["security_team"]
         )
         assert len(valid_actors.actors) == 1
@@ -69,12 +69,12 @@ class TestGeneratedModelValidation:
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            gen.Actors(actors=[])  # Missing groups
+            data_model.Actors(actors=[])  # Missing groups
 
     def test_semantic_required_fields(self):
         """Test Semantic required field validation."""
         # Valid data
-        valid_semantic = gen.Semantic(
+        valid_semantic = data_model.Semantic(
             schema_id="ioc_l9_v1.0",
             ontology_ref="https://example.com/ontology"
         )
@@ -83,12 +83,12 @@ class TestGeneratedModelValidation:
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            gen.Semantic(schema_id="test")  # Missing ontology_ref
+            data_model.Semantic(schema_id="test")  # Missing ontology_ref
 
     def test_policy_label_validation(self):
         """Test PolicyLabel model validation."""
         # Valid data
-        valid_policy = gen.PolicyLabel(
+        valid_policy = data_model.PolicyLabel(
             sensitivity="confidential",
             propagation="restricted",
             retention_policy="30_days"
@@ -97,12 +97,12 @@ class TestGeneratedModelValidation:
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            gen.PolicyLabel(sensitivity="confidential")  # Missing propagation, retention_policy
+            data_model.PolicyLabel(sensitivity="confidential")  # Missing propagation, retention_policy
 
     def test_message_validation(self):
         """Test Message model validation."""
         # Valid data
-        valid_message = gen.Message(
+        valid_message = data_model.Message(
             id="msg_001",
             parents="msg_000",
             episode="ep_001"
@@ -111,12 +111,12 @@ class TestGeneratedModelValidation:
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            gen.Message(id="msg_001")  # Missing parents, episode
+            data_model.Message(id="msg_001")  # Missing parents, episode
 
     def test_context_validation(self):
         """Test Context model validation."""
         # Valid data with only required field
-        valid_context = gen.Context(
+        valid_context = data_model.Context(
             topic="threat_analysis"
         )
         assert valid_context.topic == "threat_analysis"
@@ -124,9 +124,9 @@ class TestGeneratedModelValidation:
         assert valid_context.semantic is None
 
         # Valid data with optional semantic
-        context_with_semantic = gen.Context(
+        context_with_semantic = data_model.Context(
             topic="threat_analysis",
-            semantic=gen.Semantic(
+            semantic=data_model.Semantic(
                 schema_id="ioc_l9_v1.0",
                 ontology_ref="https://example.com/ontology"
             )
@@ -135,12 +135,12 @@ class TestGeneratedModelValidation:
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            gen.Context()  # Missing topic
+            data_model.Context()  # Missing topic
 
     def test_l9_header_validation(self):
         """Test L9Header validates fields correctly."""
         # Valid header
-        valid_header = gen.L9Header(
+        valid_header = data_model.L9Header(
             protocol="IOC_L9",
             subprotocol="SSTP",
             version="1.0.0",
@@ -157,7 +157,7 @@ class TestGeneratedModelValidation:
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            gen.L9Header(
+            data_model.L9Header(
                 protocol="IOC_L9",
                 version="1.0.0",
                 kind="threat_intel"
@@ -166,29 +166,29 @@ class TestGeneratedModelValidation:
 
     def test_l9_header_with_optional_fields(self):
         """Test L9Header with optional context, message, policy."""
-        valid_header = gen.L9Header(
+        valid_header = data_model.L9Header(
             protocol="IOC_L9",
             subprotocol="SSTP",
             version="1.0.0",
             kind="threat_intel",
             subkind="indicator",
-            actors=gen.Actors(
-                actors=[gen.Actor(id="actor_001", role="analyst")],
+            actors=data_model.Actors(
+                actors=[data_model.Actor(id="actor_001", role="analyst")],
                 groups=["security_team"]
             ),
-            context=gen.Context(
+            context=data_model.Context(
                 topic="threat_analysis",
-                semantic=gen.Semantic(
+                semantic=data_model.Semantic(
                     schema_id="ioc_l9_v1.0",
                     ontology_ref="https://example.com/ontology"
                 )
             ),
-            message=gen.Message(
+            message=data_model.Message(
                 id="msg_001",
                 parents="msg_000",
                 episode="ep_001"
             ),
-            policy=gen.PolicyLabel(
+            policy=data_model.PolicyLabel(
                 sensitivity="confidential",
                 propagation="restricted",
                 retention_policy="30_days"
@@ -201,7 +201,7 @@ class TestGeneratedModelValidation:
     def test_l9_payload_validation(self):
         """Test L9Payload validation."""
         # Valid data
-        valid_payload = gen.L9Payload(
+        valid_payload = data_model.L9Payload(
             type="indicator",
             data={
                 "indicator_type": "ip",
@@ -213,12 +213,12 @@ class TestGeneratedModelValidation:
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            gen.L9Payload(type="indicator")  # Missing data
+            data_model.L9Payload(type="indicator")  # Missing data
 
     def test_complete_l9_validation(self):
         """Test complete L9 message validation."""
         # Valid complete message
-        valid_l9 = gen.L9(
+        valid_l9 = data_model.L9(
             header={
                 "protocol": "IOC_L9",
                 "subprotocol": "SSTP",
@@ -242,31 +242,31 @@ class TestGeneratedModelValidation:
 
         # Missing required components
         with pytest.raises(ValidationError):
-            gen.L9(header={})  # Missing payload and invalid header
+            data_model.L9(header={})  # Missing payload and invalid header
 
     def test_state_management_validation(self):
         """Test complex model validation with nested structures."""
         # Valid L9 message with header and payload
-        valid_l9 = gen.L9(
-            header=gen.L9Header(
+        valid_l9 = data_model.L9(
+            header=data_model.L9Header(
                 protocol="L9",
                 subprotocol="SSTP",
                 version="1.0",
                 kind="message",
                 subkind="chat",
-                actors=gen.Actors(
-                    actors=[gen.Actor(id="user1", role="analyst")],
+                actors=data_model.Actors(
+                    actors=[data_model.Actor(id="user1", role="analyst")],
                     groups=["team_alpha"]
                 ),
-                context=gen.Context(
+                context=data_model.Context(
                     topic="security_analysis",
-                    semantic=gen.Semantic(
+                    semantic=data_model.Semantic(
                         schema_id="l9_v1",
                         ontology_ref="standard"
                     )
                 )
             ),
-            payload=gen.L9Payload(
+            payload=data_model.L9Payload(
                 type="text",
                 data={"content": "Hello, world!"}
             )
@@ -277,18 +277,18 @@ class TestGeneratedModelValidation:
     def test_empty_required_fields(self):
         """Test validation with missing required fields."""
         with pytest.raises(ValidationError):
-            gen.Actor()  # Missing all required fields
+            data_model.Actor()  # Missing all required fields
 
         with pytest.raises(ValidationError):
-            gen.Actors()  # Missing all required fields
+            data_model.Actors()  # Missing all required fields
 
         with pytest.raises(ValidationError):
-            gen.Actor(id="test")  # Missing role
+            data_model.Actor(id="test")  # Missing role
 
     def test_none_values_validation(self):
         """Test validation with None values for required fields."""
         with pytest.raises(ValidationError):
-            gen.Actor(id=None, role="analyst")
+            data_model.Actor(id=None, role="analyst")
 
 
 class TestJSONSchemaValidation:
@@ -327,7 +327,7 @@ class TestJSONSchemaValidation:
         }
 
         # Create model from data
-        l9_model = gen.L9(**l9_data)
+        l9_model = data_model.L9(**l9_data)
 
         # Serialize to JSON
         json_str = l9_model.model_dump_json()
@@ -336,7 +336,7 @@ class TestJSONSchemaValidation:
         json_data = json.loads(json_str)
 
         # Deserialize from JSON and validate
-        l9_model_restored = gen.L9(**json_data)
+        l9_model_restored = data_model.L9(**json_data)
 
         # Verify they're identical
         assert l9_model.model_dump() == l9_model_restored.model_dump()
@@ -352,7 +352,7 @@ class TestJSONSchemaValidation:
         }
 
         with pytest.raises(ValidationError):
-            gen.L9(**invalid_data)
+            data_model.L9(**invalid_data)
 
     def test_partial_json_data(self):
         """Test validation with partial/incomplete JSON data."""
@@ -365,7 +365,7 @@ class TestJSONSchemaValidation:
         }
 
         with pytest.raises(ValidationError):
-            gen.L9(**partial_data)
+            data_model.L9(**partial_data)
 
 
 if __name__ == "__main__":

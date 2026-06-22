@@ -175,8 +175,8 @@ generate_bindings() {
         exit 1
     fi
 
-    local python_bindings="SSTP/language_bindings/python/generated_models.py"
-    local golang_bindings="SSTP/language_bindings/golang/generated_models.go"
+    local python_bindings="SSTP/language_bindings/python/ai/outshift/data_model.py"
+    local golang_bindings="SSTP/language_bindings/golang/data_model.go"
 
     if [ ! -f "$python_bindings" ]; then
         log_error "Python bindings not generated: $python_bindings"

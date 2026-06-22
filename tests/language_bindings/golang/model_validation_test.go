@@ -443,7 +443,7 @@ func TestJSONSerializationRoundTrip(t *testing.T) {
 
 // TestGeneratedModelsStructure tests the structure of generated Go models
 func TestGeneratedModelsStructure(t *testing.T) {
-	generatedModelsPath := filepath.Join("..", "..", "..", "SSTP", "language_bindings", "golang", "generated_models.go")
+	generatedModelsPath := filepath.Join("..", "..", "..", "SSTP", "language_bindings", "golang", "data_model.go")
 
 	data, err := os.ReadFile(generatedModelsPath)
 	if err != nil {
@@ -487,7 +487,7 @@ func TestGeneratedModelsStructure(t *testing.T) {
 
 // Helper function to check if generated models exist
 func generatedModelsExist(t *testing.T) bool {
-	generatedModelsPath := filepath.Join("..", "..", "..", "SSTP", "language_bindings", "golang", "generated_models.go")
+	generatedModelsPath := filepath.Join("..", "..", "..", "SSTP", "language_bindings", "golang", "data_model.go")
 
 	if _, err := os.Stat(generatedModelsPath); os.IsNotExist(err) {
 		t.Skip("Generated models file does not exist. Run 'make generate_bindings LANGUAGE=golang' first.")

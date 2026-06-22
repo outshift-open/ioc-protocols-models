@@ -44,9 +44,12 @@ You edit the schema, then run the tooling to regenerate everything else.
 ├── SSTP/
 │   ├── spec/l9_schema.json              # THE schema (single source of truth)
 │   ├── language_bindings/
-│   │   ├── python/generated_models.py   # Generated Pydantic v2 models
+│   │   ├── python/
+│   │   │   ├── generate.sh              # Generates models from schema
+│   │   │   ├── pyproject.toml           # Wheel package definition
+│   │   │   └── ai/outshift/data_model.py  # Generated models (from ai.outshift import data_model)
 │   │   ├── golang/
-│   │   │   ├── generated_models.go      # Generated Go structs
+│   │   │   ├── data_model.go            # Generated Go structs
 │   │   │   └── go.mod                   # Go module definition
 │   │   └── publish_bindings.sh          # Go module publisher (--tag to push)
 │   ├── documentation/
@@ -122,13 +125,16 @@ VERSION=$(make -s print-version)
 # Step 1: Generate + validate everything (bindings, docs, tests)
 ./scripts/generate_artifacts.sh
 
-# Step 2: Publish artifacts (finalize docs, validate bindings)
+# Step 2: Build the Python wheel (version stamped from schema)
+make build_wheel
+
+# Step 3: Publish artifacts (finalize docs, validate bindings)
 ./scripts/publish_artifacts.sh "$VERSION"
 
-# Step 3: Create the repository git tag (e.g. 0.0.2)
+# Step 4: Create the repository git tag (e.g. 0.0.2)
 ./scripts/release_artifacts.sh "$VERSION"
 
-# Step 4: Create the Go module tag and push it
+# Step 5: Create the Go module tag and push it
 ./SSTP/language_bindings/publish_bindings.sh golang --tag
 ```
 
@@ -138,6 +144,49 @@ After this, two tags exist on the remote:
 |-----|---------|---------|
 | `{version}` | `0.0.2` | Repository release tag |
 | `SSTP/language_bindings/golang/v{version}` | `SSTP/language_bindings/golang/v0.0.2` | Go module tag (enables `go get`) |
+
+---
+
+## Python Wheel Usage (Consumers)
+
+### Install the wheel:
+
+```bash
+pip install SSTP/language_bindings/python/ai_outshift_data_model-0.0.2-py3-none-any.whl
+```
+
+### Use in your code:
+
+```python
+from ai.outshift import data_model
+
+msg = data_model.L9(
+    header=data_model.L9Header(
+        protocol="L9",
+        subprotocol="SSTP",
+        version="1.0",
+        kind="message",
+        subkind="chat",
+        actors=data_model.Actors(
+            actors=[data_model.Actor(id="actor-1", role="analyst")],
+            groups=["team_alpha"],
+        ),
+    ),
+    payload=data_model.L9Payload(
+        type="text",
+        data={"content": "Hello from L9!"},
+    ),
+)
+```
+
+### Rebuild the wheel after schema changes:
+
+```bash
+make generate_bindings LANGUAGE=python   # regenerate models
+make build_wheel                         # build wheel (version from schema)
+```
+
+The wheel is output to `SSTP/language_bindings/python/` with the version from `make print-version`.
 
 ---
 

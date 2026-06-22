@@ -5,7 +5,7 @@ PROJECT_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCHEMA_FILE := $(PROJECT_ROOT)/SSTP/spec/l9_schema.json
 ARTIFACT_PUBLISH_FOLDER := $(PROJECT_ROOT)/SSTP/documentation
 
-.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder
+.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder build_wheel
 
 help:
 	@echo "Available targets:"
@@ -18,6 +18,7 @@ help:
 	@echo "  clean_bindings [LANGUAGE=<language>]    - Clean language bindings (python|golang|all)"
 	@echo "  clean_docs                - Clean generated documentation files"
 	@echo "  clean_pycache             - Clean all __pycache__ directories and .pyc files"
+	@echo "  build_wheel               - Build Python wheel (ai-outshift-data-model)"
 	@echo "  clean                     - Clean all generated files"
 	@echo "  print-version             - Print schema version"
 	@echo "  print-artifact-folder     - Print artifact publish folder path"
@@ -119,17 +120,17 @@ clean_bindings:
 	if [ "$$LANG_TO_USE" = "all" ]; then \
 		echo "Cleaning bindings for all languages..."; \
 		echo "Cleaning Python language bindings..."; \
-		rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/python/generated_models.py"; \
+		rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/python/ai/outshift/data_model.py"; \
 		echo "Cleaning Golang language bindings..."; \
-		rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/golang/generated_models.go"; \
+		rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/golang/data_model.go"; \
 		echo "All language bindings cleaned!"; \
 	elif [ "$$LANG_TO_USE" = "python" ]; then \
 		echo "Cleaning Python language bindings..."; \
-		rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/python/generated_models.py"; \
+		rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/python/ai/outshift/data_model.py"; \
 		echo "Python bindings cleaned!"; \
 	elif [ "$$LANG_TO_USE" = "golang" ]; then \
 		echo "Cleaning Golang language bindings..."; \
-		rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/golang/generated_models.go"; \
+		rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/golang/data_model.go"; \
 		echo "Golang bindings cleaned!"; \
 	else \
 		echo "Error: Unsupported language '$$LANG_TO_USE'. Supported: python, golang, all"; \
@@ -152,8 +153,8 @@ clean_pycache:
 
 clean:
 	@echo "Cleaning generated files..."
-	@rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/python/generated_models.py"
-	@rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/golang/generated_models.go"
+	@rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/python/ai/outshift/data_model.py"
+	@rm -f "$(PROJECT_ROOT)/SSTP/language_bindings/golang/data_model.go"
 	@rm -f "$(PROJECT_ROOT)/SSTP/documentation/protocol_reference.html"
 	@rm -f "$(PROJECT_ROOT)/SSTP/documentation/schema_doc.css"
 	@rm -f "$(PROJECT_ROOT)/SSTP/documentation/schema_doc.min.js"
@@ -161,6 +162,18 @@ clean:
 
 print-version:
 	@python3 -c "import json; f=open('$(SCHEMA_FILE)'); print(json.load(f)['version']); f.close()"
+
+build_wheel:
+	@echo "Building Python wheel..."
+	@VERSION=$$(cd "$(PROJECT_ROOT)" && make -s print-version); \
+	WHEEL_DIR="$(PROJECT_ROOT)/SSTP/language_bindings/python"; \
+	sed "s/^version = .*/version = \"$$VERSION\"/" "$$WHEEL_DIR/pyproject.toml" > "$$WHEEL_DIR/pyproject.toml.tmp" && mv "$$WHEEL_DIR/pyproject.toml.tmp" "$$WHEEL_DIR/pyproject.toml"; \
+	rm -f "$$WHEEL_DIR"/ai_outshift_data_model-*.whl; \
+	cd "$$WHEEL_DIR" && poetry build -f wheel; \
+	mv "$$WHEEL_DIR/dist/"*.whl "$$WHEEL_DIR/"; \
+	rm -rf "$$WHEEL_DIR/dist"; \
+	echo "Wheel built: SSTP/language_bindings/python/ai_outshift_data_model-$$VERSION-py3-none-any.whl"
+
 
 print-artifact-folder:
 	@echo "$(ARTIFACT_PUBLISH_FOLDER)"

@@ -81,8 +81,8 @@ verify_golang_bindings() {
 
     log_info "Checking for existing Go bindings..."
 
-    if [ ! -f "$PROJECT_ROOT/SSTP/language_bindings/golang/generated_models.go" ]; then
-        log_error "Go bindings not found: SSTP/language_bindings/golang/generated_models.go"
+    if [ ! -f "$PROJECT_ROOT/SSTP/language_bindings/golang/data_model.go" ]; then
+        log_error "Go bindings not found: SSTP/language_bindings/golang/data_model.go"
         log_error "Please run 'make generate_bindings LANGUAGE=golang' first to generate bindings"
         exit 1
     fi

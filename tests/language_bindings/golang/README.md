@@ -51,7 +51,7 @@ go test -v -run "TestL9HeaderValidation"
 ### Automatic Generation
 If generated models are missing, the test runner will automatically:
 1. Run the generation script
-2. Create the `generated_models.go` file
+2. Create the `data_model.go` file
 3. Proceed with testing
 
 ### Model Validation
@@ -89,7 +89,7 @@ make generate_bindings LANGUAGE=golang
 
 ### Test Failures
 Check that:
-1. The JSON schema file exists at `spec/json_schema/l9.json`
+1. The JSON schema file exists at `SSTP/spec/l9_schema.json`
 2. The schema contains valid JSON
 3. The generated Go file has proper syntax
 
