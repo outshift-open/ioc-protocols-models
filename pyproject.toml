@@ -12,7 +12,6 @@ packages = [{include = "SSTP"}]
 [tool.poetry.dependencies]
 python = ">=3.9,<4.0"
 pydantic = ">=2.0"
-json-schema-for-humans = ">=0.47.0"
 
 [tool.poetry.group.dev.dependencies]
 datamodel-code-generator = ">=0.25.0"

@@ -55,7 +55,7 @@ poetry run pytest -k "test_l9_header_validation" -v
 ### Automatic Generation
 If generated models are missing, the test runner will automatically:
 1. Run the generation script
-2. Create the `generated_models.py` file
+2. Create the `data_model.py` file
 3. Proceed with testing
 
 ### Model Validation
@@ -104,7 +104,7 @@ poetry install --with dev
 
 ### Test Failures
 Check that:
-1. The JSON schema file exists at `spec/json_schema/l9.json`
+1. The JSON schema file exists at `SSTP/spec/l9_schema.json`
 2. The schema contains valid JSON
 3. The generated Python file has proper syntax
 4. All required dependencies are installed
