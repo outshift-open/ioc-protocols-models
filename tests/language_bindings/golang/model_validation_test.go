@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	// Import generated models
-	l9 "github.com/cisco-eti/ioc-cfn-protocols-models/ioc_l9/language_bindings/golang"
+	l9 "github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang"
 )
 
 // TestActorRequiredFields tests Actor required field validation
@@ -348,7 +348,7 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 	}
 
 	// Test valid complete L9 message using generated structs
-	validL9 := l9.L9Json{
+	validL9 := l9.L9SchemaJson{
 		Header: l9.L9Header{
 			Protocol:    "L9",
 			Subprotocol: "SSTP",
@@ -374,7 +374,7 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 	}
 
 	// Test JSON unmarshaling back to struct
-	var unmarshaledL9 l9.L9Json
+	var unmarshaledL9 l9.L9SchemaJson
 	err = json.Unmarshal(jsonBytes, &unmarshaledL9)
 	if err != nil {
 		t.Errorf("Failed to unmarshal L9 JSON: %v", err)
@@ -443,7 +443,7 @@ func TestJSONSerializationRoundTrip(t *testing.T) {
 
 // TestGeneratedModelsStructure tests the structure of generated Go models
 func TestGeneratedModelsStructure(t *testing.T) {
-	generatedModelsPath := filepath.Join("..", "..", "..", "language_bindings", "golang", "generated_models.go")
+	generatedModelsPath := filepath.Join("..", "..", "..", "SSTP", "language_bindings", "golang", "data_model.go")
 
 	data, err := os.ReadFile(generatedModelsPath)
 	if err != nil {
@@ -461,7 +461,7 @@ func TestGeneratedModelsStructure(t *testing.T) {
 		"type Context struct",
 		"type L9Header struct",
 		"type L9Payload struct",
-		"type L9Json struct",
+		"type L9SchemaJson struct",
 		"type PolicyLabel struct",
 		"type Message struct",
 	}
@@ -487,7 +487,7 @@ func TestGeneratedModelsStructure(t *testing.T) {
 
 // Helper function to check if generated models exist
 func generatedModelsExist(t *testing.T) bool {
-	generatedModelsPath := filepath.Join("..", "..", "..", "language_bindings", "golang", "generated_models.go")
+	generatedModelsPath := filepath.Join("..", "..", "..", "SSTP", "language_bindings", "golang", "data_model.go")
 
 	if _, err := os.Stat(generatedModelsPath); os.IsNotExist(err) {
 		t.Skip("Generated models file does not exist. Run 'make generate_bindings LANGUAGE=golang' first.")
