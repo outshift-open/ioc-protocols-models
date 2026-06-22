@@ -22,9 +22,9 @@
         "groups": null
       },
       "message": {
-        "id": "f1a2b3c4-d5e6-f780-9abc-def012345678",
+        "id": "a0b1c2d3-e4f5-6789-abcd-ef0123456789",
         "parents": [],
-        "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
+        "episode": "urn:ioc:episode:supply-order-urgent-2026-002"
       },
       "policy": null,
       "attributes": {
@@ -43,14 +43,14 @@
     "payload": {
       "type": "json-schema",
       "data": {
-        "message_id": "f1a2b3c4-d5e6-f780-9abc-def012345678",
+        "message_id": "a0b1c2d3-e4f5-6789-abcd-ef0123456789",
         "version": "0",
-        "dt_created": "2026-06-22T10:00:00Z",
+        "dt_created": "2026-06-22T11:00:00Z",
         "origin": {
           "actor_id": "agent-buyer",
           "attestation": null
         },
-        "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+        "payload_hash": "b4f9e3c2d1a0f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3",
         "semantic_context": {
           "schema_version": "1.0",
           "encoding": "json"
@@ -81,11 +81,11 @@
         "groups": null
       },
       "message": {
-        "id": "b2c3d4e5-f6a7-8901-bcde-f01234567890",
+        "id": "b1c2d3e4-f5a6-7890-bcde-f01234567890",
         "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
+          "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
         ],
-        "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
+        "episode": "urn:ioc:episode:supply-order-urgent-2026-002"
       },
       "policy": null,
       "attributes": {
@@ -104,25 +104,25 @@
     "payload": {
       "type": "json-schema",
       "data": {
-        "message_id": "b2c3d4e5-f6a7-8901-bcde-f01234567890",
+        "message_id": "b1c2d3e4-f5a6-7890-bcde-f01234567890",
         "version": "0",
-        "dt_created": "2026-06-22T10:00:02Z",
+        "dt_created": "2026-06-22T11:00:02Z",
         "origin": {
           "actor_id": "agent-buyer",
           "attestation": null
         },
-        "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+        "payload_hash": "b4f9e3c2d1a0f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3",
         "semantic_context": {
           "schema_version": "1.0",
           "encoding": "json",
-          "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
+          "session_id": "urn:ioc:sab:session:qd-2026-06-22-002",
           "sao_state": {
             "running": true,
             "waiting": false,
             "started": true,
             "step": 0,
-            "time": 2.1,
-            "relative_time": 0.035,
+            "time": 2.0,
+            "relative_time": 0.033,
             "broken": false,
             "timedout": false,
             "agreement": null,
@@ -136,7 +136,7 @@
             "last_thread": "",
             "left_negotiators": null,
             "current_offer": {
-              "price": "high",
+              "price": "low",
               "delivery_speed": "express"
             },
             "current_proposer": "agent-buyer",
@@ -151,16 +151,16 @@
           "sao_response": {
             "response": 3,
             "outcome": {
-              "price": "high",
+              "price": "low",
               "delivery_speed": "express"
             },
             "data": null
           },
           "nmi": {
-            "id": "urn:ioc:sab:session:qd-2026-06-22-001",
+            "id": "urn:ioc:sab:session:qd-2026-06-22-002",
             "n_outcomes": 9,
             "shared_time_limit": 60.0,
-            "shared_n_steps": 40,
+            "shared_n_steps": 6,
             "private_time_limit": 30.0,
             "private_n_steps": null,
             "pend": 0.0,
@@ -204,11 +204,11 @@
         "groups": null
       },
       "message": {
-        "id": "c3d4e5f6-a7b8-9012-cdef-012345678901",
+        "id": "c2d3e4f5-a6b7-8901-cdef-012345678901",
         "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
+          "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
         ],
-        "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
+        "episode": "urn:ioc:episode:supply-order-urgent-2026-002"
       },
       "policy": null,
       "attributes": {
@@ -227,25 +227,25 @@
     "payload": {
       "type": "json-schema",
       "data": {
-        "message_id": "c3d4e5f6-a7b8-9012-cdef-012345678901",
+        "message_id": "c2d3e4f5-a6b7-8901-cdef-012345678901",
         "version": "0",
-        "dt_created": "2026-06-22T10:00:08Z",
+        "dt_created": "2026-06-22T11:00:08Z",
         "origin": {
           "actor_id": "agent-seller",
           "attestation": null
         },
-        "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+        "payload_hash": "b4f9e3c2d1a0f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3",
         "semantic_context": {
           "schema_version": "1.0",
           "encoding": "json",
-          "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
+          "session_id": "urn:ioc:sab:session:qd-2026-06-22-002",
           "sao_state": {
             "running": true,
             "waiting": false,
             "started": true,
             "step": 1,
-            "time": 8.4,
-            "relative_time": 0.14,
+            "time": 8.1,
+            "relative_time": 0.135,
             "broken": false,
             "timedout": false,
             "agreement": null,
@@ -259,7 +259,7 @@
             "last_thread": "",
             "left_negotiators": null,
             "current_offer": {
-              "price": "low",
+              "price": "high",
               "delivery_speed": "deferred"
             },
             "current_proposer": "agent-seller",
@@ -274,7 +274,7 @@
           "sao_response": {
             "response": 1,
             "outcome": {
-              "price": "low",
+              "price": "high",
               "delivery_speed": "deferred"
             },
             "data": null
@@ -308,11 +308,11 @@
         "groups": null
       },
       "message": {
-        "id": "d4e5f6a7-b8c9-0123-def0-123456789012",
+        "id": "d3e4f5a6-b7c8-9012-def0-123456789012",
         "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
+          "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
         ],
-        "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
+        "episode": "urn:ioc:episode:supply-order-urgent-2026-002"
       },
       "policy": null,
       "attributes": {
@@ -331,25 +331,25 @@
     "payload": {
       "type": "json-schema",
       "data": {
-        "message_id": "d4e5f6a7-b8c9-0123-def0-123456789012",
+        "message_id": "d3e4f5a6-b7c8-9012-def0-123456789012",
         "version": "0",
-        "dt_created": "2026-06-22T10:00:14Z",
+        "dt_created": "2026-06-22T11:00:14Z",
         "origin": {
           "actor_id": "agent-buyer",
           "attestation": null
         },
-        "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+        "payload_hash": "b4f9e3c2d1a0f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3",
         "semantic_context": {
           "schema_version": "1.0",
           "encoding": "json",
-          "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
+          "session_id": "urn:ioc:sab:session:qd-2026-06-22-002",
           "sao_state": {
             "running": true,
             "waiting": false,
             "started": true,
             "step": 2,
-            "time": 14.7,
-            "relative_time": 0.245,
+            "time": 14.3,
+            "relative_time": 0.238,
             "broken": false,
             "timedout": false,
             "agreement": null,
@@ -363,7 +363,7 @@
             "last_thread": "",
             "left_negotiators": null,
             "current_offer": {
-              "price": "medium",
+              "price": "low",
               "delivery_speed": "standard"
             },
             "current_proposer": "agent-buyer",
@@ -378,7 +378,7 @@
           "sao_response": {
             "response": 1,
             "outcome": {
-              "price": "medium",
+              "price": "low",
               "delivery_speed": "standard"
             },
             "data": null
@@ -412,11 +412,11 @@
         "groups": null
       },
       "message": {
-        "id": "e5f6a7b8-c9d0-1234-ef01-234567890123",
+        "id": "e4f5a6b7-c8d9-0123-ef01-234567890123",
         "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
+          "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
         ],
-        "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
+        "episode": "urn:ioc:episode:supply-order-urgent-2026-002"
       },
       "policy": null,
       "attributes": {
@@ -435,31 +435,132 @@
     "payload": {
       "type": "json-schema",
       "data": {
-        "message_id": "e5f6a7b8-c9d0-1234-ef01-234567890123",
+        "message_id": "e4f5a6b7-c8d9-0123-ef01-234567890123",
         "version": "0",
-        "dt_created": "2026-06-22T10:00:20Z",
+        "dt_created": "2026-06-22T11:00:20Z",
         "origin": {
           "actor_id": "agent-seller",
           "attestation": null
         },
-        "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+        "payload_hash": "b4f9e3c2d1a0f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3",
         "semantic_context": {
           "schema_version": "1.0",
           "encoding": "json",
-          "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
+          "session_id": "urn:ioc:sab:session:qd-2026-06-22-002",
           "sao_state": {
-            "running": false,
+            "running": true,
             "waiting": false,
             "started": true,
             "step": 3,
-            "time": 20.3,
-            "relative_time": 0.338,
+            "time": 20.5,
+            "relative_time": 0.342,
             "broken": false,
             "timedout": false,
-            "agreement": {
-              "price": "medium",
+            "agreement": null,
+            "results": null,
+            "n_negotiators": 2,
+            "has_error": false,
+            "error_details": "",
+            "erred_negotiator": "",
+            "erred_agent": "",
+            "threads": null,
+            "last_thread": "",
+            "left_negotiators": null,
+            "current_offer": {
+              "price": "high",
               "delivery_speed": "standard"
             },
+            "current_proposer": "agent-seller",
+            "current_proposer_agent": "agent-seller",
+            "n_acceptances": 0,
+            "new_offers": null,
+            "new_offerer_agents": null,
+            "last_negotiator": "agent-buyer",
+            "current_data": null,
+            "new_data": null
+          },
+          "sao_response": {
+            "response": 1,
+            "outcome": {
+              "price": "high",
+              "delivery_speed": "standard"
+            },
+            "data": null
+          },
+          "nmi": null,
+          "offer_validation_failure": null
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SAB",
+      "version": "0",
+      "kind": "contingency",
+      "subkind": "negotiate",
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-buyer",
+            "role": "sender",
+            "attestation": null
+          },
+          {
+            "id": "agent-seller",
+            "role": "receiver",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "f5a6b7c8-d9e0-1234-f012-345678901234",
+        "parents": [
+          "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
+        ],
+        "episode": "urn:ioc:episode:supply-order-urgent-2026-002"
+      },
+      "policy": null,
+      "attributes": {
+        "msg_created_at": "2026-06-22T09:58:00Z"
+      },
+      "context": {
+        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
+        "epistemic": null,
+        "semantic": {
+          "schema_id": "urn:ioc:schema:sab-l9:v1",
+          "ontology_ref": "urn:ioc:ontology:sab:v1",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "json-schema",
+      "data": {
+        "message_id": "f5a6b7c8-d9e0-1234-f012-345678901234",
+        "version": "0",
+        "dt_created": "2026-06-22T11:00:26Z",
+        "origin": {
+          "actor_id": "agent-buyer",
+          "attestation": null
+        },
+        "payload_hash": "b4f9e3c2d1a0f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3",
+        "semantic_context": {
+          "schema_version": "1.0",
+          "encoding": "json",
+          "session_id": "urn:ioc:sab:session:qd-2026-06-22-002",
+          "sao_state": {
+            "running": true,
+            "waiting": false,
+            "started": true,
+            "step": 4,
+            "time": 26.8,
+            "relative_time": 0.447,
+            "broken": false,
+            "timedout": false,
+            "agreement": null,
             "results": null,
             "n_negotiators": 2,
             "has_error": false,
@@ -471,11 +572,115 @@
             "left_negotiators": null,
             "current_offer": {
               "price": "medium",
-              "delivery_speed": "standard"
+              "delivery_speed": "express"
             },
             "current_proposer": "agent-buyer",
             "current_proposer_agent": "agent-buyer",
-            "n_acceptances": 1,
+            "n_acceptances": 0,
+            "new_offers": null,
+            "new_offerer_agents": null,
+            "last_negotiator": "agent-seller",
+            "current_data": null,
+            "new_data": null
+          },
+          "sao_response": {
+            "response": 1,
+            "outcome": {
+              "price": "medium",
+              "delivery_speed": "express"
+            },
+            "data": null
+          },
+          "nmi": null,
+          "offer_validation_failure": null
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "SAB",
+      "version": "0",
+      "kind": "contingency",
+      "subkind": "negotiate",
+      "actors": {
+        "actors": [
+          {
+            "id": "agent-seller",
+            "role": "sender",
+            "attestation": null
+          },
+          {
+            "id": "agent-buyer",
+            "role": "receiver",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "a6b7c8d9-e0f1-2345-0123-456789012345",
+        "parents": [
+          "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
+        ],
+        "episode": "urn:ioc:episode:supply-order-urgent-2026-002"
+      },
+      "policy": null,
+      "attributes": {
+        "msg_created_at": "2026-06-22T09:58:00Z"
+      },
+      "context": {
+        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
+        "epistemic": null,
+        "semantic": {
+          "schema_id": "urn:ioc:schema:sab-l9:v1",
+          "ontology_ref": "urn:ioc:ontology:sab:v1",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "json-schema",
+      "data": {
+        "message_id": "a6b7c8d9-e0f1-2345-0123-456789012345",
+        "version": "0",
+        "dt_created": "2026-06-22T11:00:32Z",
+        "origin": {
+          "actor_id": "agent-seller",
+          "attestation": null
+        },
+        "payload_hash": "b4f9e3c2d1a0f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3",
+        "semantic_context": {
+          "schema_version": "1.0",
+          "encoding": "json",
+          "session_id": "urn:ioc:sab:session:qd-2026-06-22-002",
+          "sao_state": {
+            "running": false,
+            "waiting": false,
+            "started": true,
+            "step": 5,
+            "time": 32.4,
+            "relative_time": 0.54,
+            "broken": false,
+            "timedout": true,
+            "agreement": null,
+            "results": null,
+            "n_negotiators": 2,
+            "has_error": false,
+            "error_details": "",
+            "erred_negotiator": "",
+            "erred_agent": "",
+            "threads": null,
+            "last_thread": "",
+            "left_negotiators": null,
+            "current_offer": {
+              "price": "high",
+              "delivery_speed": "deferred"
+            },
+            "current_proposer": "agent-seller",
+            "current_proposer_agent": "agent-seller",
+            "n_acceptances": 0,
             "new_offers": null,
             "new_offerer_agents": null,
             "last_negotiator": "agent-buyer",
@@ -483,10 +688,10 @@
             "new_data": null
           },
           "sao_response": {
-            "response": 0,
+            "response": 1,
             "outcome": {
-              "price": "medium",
-              "delivery_speed": "standard"
+              "price": "high",
+              "delivery_speed": "deferred"
             },
             "data": null
           },
@@ -502,7 +707,7 @@
       "subprotocol": "SAB",
       "version": "0",
       "kind": "commit",
-      "subkind": "converged",
+      "subkind": "disagreement",
       "actors": {
         "actors": [
           {
@@ -519,11 +724,11 @@
         "groups": null
       },
       "message": {
-        "id": "f6a7b8c9-d0e1-2345-f012-345678901234",
+        "id": "b7c8d9e0-f1a2-3456-1234-567890123456",
         "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
+          "a0b1c2d3-e4f5-6789-abcd-ef0123456789"
         ],
-        "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
+        "episode": "urn:ioc:episode:supply-order-urgent-2026-002"
       },
       "policy": null,
       "attributes": {
@@ -542,9 +747,9 @@
     "payload": {
       "type": "json-schema",
       "data": {
-        "message_id": "f6a7b8c9-d0e1-2345-f012-345678901234",
+        "message_id": "b7c8d9e0-f1a2-3456-1234-567890123456",
         "version": "0",
-        "dt_created": "2026-06-22T10:00:25Z",
+        "dt_created": "2026-06-22T11:00:35Z",
         "origin": {
           "actor_id": "agent-buyer",
           "attestation": null
@@ -553,24 +758,15 @@
         "semantic_context": {
           "schema_version": "1.0",
           "encoding": "json",
-          "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
-          "outcome": "agreement",
+          "session_id": "urn:ioc:sab:session:qd-2026-06-22-002",
+          "outcome": "disagreement",
           "error_message": null,
           "content_text": "Two parties need to agree on price and delivery speed for an urgent supply order.",
           "agents_negotiating": [
             "agent-buyer",
             "agent-seller"
           ],
-          "final_agreement": [
-            {
-              "issue_id": "price",
-              "chosen_option": "medium"
-            },
-            {
-              "issue_id": "delivery_speed",
-              "chosen_option": "standard"
-            }
-          ]
+          "final_agreement": null
         }
       }
     }
