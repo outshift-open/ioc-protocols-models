@@ -15,8 +15,9 @@ class Message(BaseModel):
 
 class Actor(BaseModel):
     """
-    A participant in a protocol exchange — can be a human, an AI agent, or a system.
-    Multiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).
+    A participant in a protocol exchange — can be a human, a system, or any
+    other entity. Multiple actors are listed in ParticipantSet to identify
+    sender(s), receiver(s), and observers.
     """
     id: str    # unique identifier for this actor
     role: str  # role in this exchange: "sender" | "receiver" | "observer" etc.
@@ -48,7 +49,7 @@ class Provenance(BaseModel):
 class Semantic(BaseModel):
     """
     Describes the semantic/ontological framework needed to correctly interpret the payload.
-    The CFN routing layer uses this to select appropriate cognitive engines (CEs).
+    Implementations use this to select the appropriate handler for the message.
     """
     schema_id: str            # identifies the payload schema/format
     ontology_ref: str         # URI or ID of the ontology governing the domain vocabulary
