@@ -15,7 +15,7 @@ for path in (REPO_ROOT, SSTP_PYTHON_SRC):
     if path_str not in sys.path:
         sys.path.insert(0, path_str)
 
-from SSTP.subprotocol.siep.src.demo import run_demo
+from SSTP.subprotocol.siep.language_bindings.python.demo import run_demo
 
 
 if __name__ == "__main__":
