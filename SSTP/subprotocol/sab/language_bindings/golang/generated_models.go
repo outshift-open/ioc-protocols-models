@@ -11,7 +11,7 @@ import "errors"
 import "fmt"
 import "reflect"
 
-// A participant in a protocol exchange — can be a human, an AI agent, or a system.
+// A participant in a protocol exchange - can be a human, an AI agent, or a system.
 // Multiple actors are listed in L9Header.actors to identify sender(s) and
 // receiver(s).
 type Actor struct {
@@ -60,7 +60,7 @@ type Context struct {
 }
 
 // Agent epistemic (belief/knowledge) state at the time the message was sent.
-// Currently a placeholder — fields will be added as the model is defined.
+// Currently a placeholder - fields will be added as the model is defined.
 type ContextEpistemic map[string]interface{}
 
 // Describes the semantic/ontological framework needed to correctly interpret the
@@ -77,7 +77,7 @@ type ContextSemantic struct {
 	SchemaID string `json:"schema_id" yaml:"schema_id" mapstructure:"schema_id"`
 }
 
-// Tracks the origin and lineage of a message — who created it, from what source,
+// Tracks the origin and lineage of a message - who created it, from what source,
 // and through which transformations. Fields TBD.
 type ContextSemanticProvenance map[string]interface{}
 
@@ -123,7 +123,7 @@ func (j *Context) UnmarshalJSON(value []byte) error {
 }
 
 // Agent epistemic (belief/knowledge) state at the time the message was sent.
-// Currently a placeholder — fields will be added as the model is defined.
+// Currently a placeholder - fields will be added as the model is defined.
 type Epistemic map[string]interface{}
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -146,7 +146,7 @@ type Message struct {
 	ID string `json:"id" yaml:"id" mapstructure:"id"`
 
 	// Parents corresponds to the JSON schema field "parents".
-	// Ordered list of parent message IDs (causal ancestry). Empty list for root messages.
+	// Ordered list of parent message IDs. Empty list for root messages.
 	Parents []string `json:"parents" yaml:"parents" mapstructure:"parents"`
 }
 
@@ -196,9 +196,9 @@ type NegotiateCommitSemanticContext struct {
 	// None when negotiation ended without agreement.
 	FinalAgreement *NegotiateCommitSemanticContextFinalAgreement `json:"final_agreement,omitempty,omitzero" yaml:"final_agreement,omitempty" mapstructure:"final_agreement,omitempty"`
 
-	// High-level outcome of the negotiation. 'agreement' — all agents reached
-	// consensus; 'disagreement' — step budget exhausted without agreement; 'broken' —
-	// a participant dropped out or returned an invalid offer; 'error' — pipeline
+	// High-level outcome of the negotiation. 'agreement' - all agents reached
+	// consensus; 'disagreement' - step budget exhausted without agreement; 'broken' -
+	// a participant dropped out or returned an invalid offer; 'error' - pipeline
 	// exception during execution.
 	Outcome NegotiateCommitSemanticContextOutcome `json:"outcome" yaml:"outcome" mapstructure:"outcome"`
 
@@ -321,7 +321,7 @@ func (j *NegotiateCommitSemanticContext) UnmarshalJSON(value []byte) error {
 //
 // Carries a full NegMAS SAO negotiation snapshot so that receivers have
 // complete mechanism state, the latest response, and optionally the NMI
-// configuration — all in one well-typed envelope.
+// configuration - all in one well-typed envelope.
 type NegotiateSemanticContext struct {
 	// Encoding corresponds to the JSON schema field "encoding".
 	Encoding NegotiateSemanticContextEncoding `json:"encoding,omitempty,omitzero" yaml:"encoding,omitempty" mapstructure:"encoding,omitempty"`
@@ -708,7 +708,7 @@ func (j *PolicyLabel) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// Tracks the origin and lineage of a message — who created it, from what source,
+// Tracks the origin and lineage of a message - who created it, from what source,
 // and through which transformations. Fields TBD.
 type Provenance map[string]interface{}
 
@@ -955,7 +955,7 @@ type SABHeaderContext struct {
 }
 
 // Agent epistemic (belief/knowledge) state at the time the message was sent.
-// Currently a placeholder — fields will be added as the model is defined.
+// Currently a placeholder - fields will be added as the model is defined.
 type SABHeaderContextEpistemic map[string]interface{}
 
 // Describes the semantic/ontological framework needed to correctly interpret the
@@ -972,7 +972,7 @@ type SABHeaderContextSemantic struct {
 	SchemaID string `json:"schema_id" yaml:"schema_id" mapstructure:"schema_id"`
 }
 
-// Tracks the origin and lineage of a message — who created it, from what source,
+// Tracks the origin and lineage of a message - who created it, from what source,
 // and through which transformations. Fields TBD.
 type SABHeaderContextSemanticProvenance map[string]interface{}
 
@@ -1061,7 +1061,7 @@ type SABHeaderMessage struct {
 	ID string `json:"id" yaml:"id" mapstructure:"id"`
 
 	// Parents corresponds to the JSON schema field "parents".
-	// Ordered list of parent message IDs (causal ancestry). Empty list for root messages.
+	// Ordered list of parent message IDs. Empty list for root messages.
 	Parents []string `json:"parents" yaml:"parents" mapstructure:"parents"`
 }
 
@@ -1952,7 +1952,7 @@ func (j *SemanticContext) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// Tracks the origin and lineage of a message — who created it, from what source,
+// Tracks the origin and lineage of a message - who created it, from what source,
 // and through which transformations. Fields TBD.
 type SemanticProvenance map[string]interface{}
 

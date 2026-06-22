@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Generate Python Pydantic models from SAB_l9 JSON Schema.
+# Generate Python Pydantic models from SAB JSON Schema.
 # Uses datamodel-codegen to convert the SAB_l9 JSON schema
 # to equivalent Pydantic v2 models with built-in validations.
 #
@@ -14,7 +14,7 @@
 #
 # PREREQUISITES:
 #   1. Install dependencies: poetry install
-#   2. Ensure schema exists at: SSTP/subprotocol/sab/spec/SAB_l9.json
+#   2. Ensure schema exists at: SSTP/subprotocol/sab/spec/sab_schema.json
 #
 # OUTPUT:
 #   SSTP/subprotocol/sab/language_bindings/python/generated_models.py
@@ -24,7 +24,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
-SCHEMA_FILE="$PROJECT_ROOT/SSTP/subprotocol/sab/spec/SAB_l9.json"
+SCHEMA_FILE="$PROJECT_ROOT/SSTP/subprotocol/sab/spec/sab_schema.json"
 OUTPUT_FILE="$SCRIPT_DIR/generated_models.py"
 
 echo "Generating Python bindings from SAB JSON Schema..."

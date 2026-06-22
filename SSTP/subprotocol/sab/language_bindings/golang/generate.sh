@@ -4,8 +4,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Generate Go types for the SAB_l9 JSON Schema.
-# Uses go-jsonschema to produce typed Go structs from the SAB_l9 schema.
+# Generate Go types for the SAB JSON Schema.
+# Uses go-jsonschema to produce typed Go structs from the SAB schema.
 #
 # USAGE:
 #   From project root: ./SSTP/subprotocol/sab/language_bindings/golang/generate.sh
@@ -13,7 +13,7 @@
 #
 # PREREQUISITES:
 #   go install github.com/atombender/go-jsonschema@latest
-#   Ensure schema exists at: SSTP/subprotocol/sab/spec/SAB_l9.json
+#   Ensure schema exists at: SSTP/subprotocol/sab/spec/sab_schema.json
 #      (run SSTP/subprotocol/sab/spec/generate_sab_schema.py first if missing)
 #
 # OUTPUT:
@@ -24,7 +24,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
-SCHEMA_FILE="$PROJECT_ROOT/SSTP/subprotocol/sab/spec/SAB_l9.json"
+SCHEMA_FILE="$PROJECT_ROOT/SSTP/subprotocol/sab/spec/sab_schema.json"
 OUT_DIR="$SCRIPT_DIR"
 PACKAGE="sab"
 
