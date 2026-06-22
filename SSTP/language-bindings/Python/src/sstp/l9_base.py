@@ -251,6 +251,7 @@ class L9HeaderBuilder:
         utterance: str = "",
         parent_ids: Iterable[str] | None = None,
         episode_id: str | None = None,
+        parent_episode: str | None = None,
         provenance_sources: Iterable[str] | None = None,
         provenance_expiry: str | None = None,
         message_id: str | None = None,
@@ -329,9 +330,10 @@ class L9HeaderBuilder:
             "topic":       topic or None,
             "actors":   [{"id": str(sender or "unknown"), "attestation": "self_attested_local"}],
             "message": {
-                "id":      derived_message_id,
-                "parents": parent_id_list,
-                "episode": episode_id or f"urn:ioc:{normalized_use_case}:state:shared_dialogue",
+                "id":             derived_message_id,
+                "parents":        parent_id_list,
+                "episode":        episode_id or f"urn:ioc:{normalized_use_case}:state:shared_dialogue",
+                "parent_episode": parent_episode or None,
             },
             "semantic": {
                 "schema_id":    self.schema_id_for(

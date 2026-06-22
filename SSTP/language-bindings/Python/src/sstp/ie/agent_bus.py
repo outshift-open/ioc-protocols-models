@@ -690,23 +690,48 @@ class AgentBus:
         coordinator: str,
         subject: str,
         episode_id: str | None = None,
+        rationale: str = "",
+        thought_summary: str = "",
+        team_process: "Dict[str, Any] | None" = None,
     ) -> Dict[str, Any]:
         """Open a coordination session with an intent message.
 
         kind=intent, subprotocol=IE, state=team_process.
         Internal — call via TaskSession.open_session() or Episode.open().
+        ``rationale`` and ``thought_summary`` explain why the session is opened.
+        ``team_process`` is attached as payload[type=team_process] when provided.
         """
         _utterance = f"session:open subject={subject}"
+        _utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": _utterance}
+        if rationale:
+            _utt_part["rationale"] = rationale
+        if thought_summary:
+            _utt_part["thought_summary"] = thought_summary
+        _payload_parts: List[Dict[str, Any]] = [_utt_part]
+        if team_process:
+            _payload_parts.append({"type": "team_process", "location": "inline", "content": team_process})
+        from sstp.ie.l9 import build_l9_header as _build
+        from sstp.epistemic.vocabulary import make_epistemic_block
+        _epistemic = make_epistemic_block(
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.TEAM_PROCESS,
+        )
         with self._lifecycle_emit():
-            return self.emit_peer_turn(
+            header = _build(
+                use_case=self.use_case,
+                event_type="peer_turn",
                 sender=coordinator,
                 receiver=coordinator,
+                timestamp_ms=int(time.time() * 1000),
+                sensitivity=self.sensitivity,
                 utterance=_utterance,
-                speech_act=SpeechAct.ASSERTION,
-                epistemic_state=EpistemicState.TEAM_PROCESS,
-                kind_override="intent",
                 episode_id=episode_id,
+                kind_override="intent",
+                epistemic=_epistemic,
+                payload_parts=_payload_parts,
             )
+        self.messages.append(header)
+        return header
 
     def _emit_episode_close(
         self,
@@ -715,24 +740,188 @@ class AgentBus:
         subject: str,
         accepted: bool,
         episode_id: str | None = None,
+        rationale: str = "",
+        thought_summary: str = "",
+        summary: "Dict[str, Any] | None" = None,
     ) -> Dict[str, Any]:
         """Close a coordination session.
 
         kind=commit, subkind=converged (accepted=True) or rejected (accepted=False).
         Internal — call via TaskSession.close_session() or Episode.close().
+        ``rationale`` and ``thought_summary`` carry the coordinator's synthesis reasoning.
+        ``summary`` is appended as payload[type=team_process] when provided.
         """
         _outcome = "commit:converged" if accepted else "commit:rejected"
         _utterance = f"session:close subject={subject} accepted={accepted}"
+        payload_parts: List[Dict[str, Any]] = [
+            {"type": "utterance", "location": "inline", "content": _utterance},
+        ]
+        if rationale:
+            payload_parts[0]["rationale"] = rationale
+        if thought_summary:
+            payload_parts[0]["thought_summary"] = thought_summary
+        if summary:
+            payload_parts.append({"type": "team_process", "location": "inline", "content": summary})
+        from sstp.ie.l9 import build_l9_header as _build
+        from sstp.epistemic.vocabulary import make_epistemic_block
+        _epistemic = make_epistemic_block(
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.TEAM_PROCESS,
+        )
         with self._lifecycle_emit():
-            return self.emit_peer_turn(
+            header = _build(
+                use_case=self.use_case,
+                event_type="peer_turn",
                 sender=coordinator,
                 receiver=coordinator,
+                timestamp_ms=int(time.time() * 1000),
+                sensitivity=self.sensitivity,
+                utterance=_utterance,
+                episode_id=episode_id,
+                kind_override=_outcome,
+                epistemic=_epistemic,
+                payload_parts=payload_parts,
+            )
+        self.messages.append(header)
+        return header
+
+    def emit_grounding_phase_ready(
+        self,
+        *,
+        sender: str,
+        episode_id: str | None = None,
+    ) -> Dict[str, Any]:
+        """Emit a commit:ready signal from a peer agent at the end of the grounding phase.
+
+        Called by the application layer (e.g. _node_peer_conversation) when each
+        participating agent signals it is ready to move to taskwork.  The coordinator
+        collects these and then calls emit_grounding_phase_converged() to close the phase.
+
+        kind=commit, subkind=ready, state=grounding.
+        """
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        _utterance = f"grounding:ready sender={sender}"
+        epistemic = make_epistemic_block(
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.GROUNDING,
+            belief_status=BeliefStatus.ASSERTED,
+            uncertainty=0.0,
+        )
+        with self._lifecycle_emit():
+            return self.emit_peer_turn(
+                sender=sender,
+                receiver=sender,
                 utterance=_utterance,
                 speech_act=SpeechAct.ASSERTION,
-                epistemic_state=EpistemicState.TEAM_PROCESS,
-                kind_override=_outcome,
+                epistemic_state=EpistemicState.GROUNDING,
+                kind_override="commit:ready",
                 episode_id=episode_id,
+                epistemic=epistemic,
             )
+
+    def emit_grounding_phase_converged(
+        self,
+        *,
+        coordinator: str,
+        episode_id: str | None = None,
+        coordination_summary: "Dict[str, Any] | None" = None,
+    ) -> Dict[str, Any]:
+        """Emit commit:converged closing the peer grounding phase.
+
+        Called by the application coordinator after all peer agents have emitted
+        emit_grounding_phase_ready().  Carries the coordination_summary (SCR,
+        alignment outcome, safety flags) as payload[type=team_process].
+
+        kind=commit, subkind=converged, state=grounding.
+        """
+        from sstp.ie.l9 import build_l9_header as _build
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        _status = (coordination_summary or {}).get("coordination_status", "aligned")
+        _utterance = f"grounding:converged status={_status}"
+        payload_parts: List[Dict[str, Any]] = [
+            {"type": "utterance", "location": "inline", "content": _utterance},
+        ]
+        if coordination_summary:
+            payload_parts.append(
+                {"type": "team_process", "location": "inline", "content": coordination_summary}
+            )
+        _epistemic = make_epistemic_block(
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.GROUNDING,
+            belief_status=BeliefStatus.ASSERTED,
+            uncertainty=0.0,
+        )
+        with self._lifecycle_emit():
+            header = _build(
+                use_case=self.use_case,
+                event_type="peer_turn",
+                sender=coordinator,
+                receiver=coordinator,
+                timestamp_ms=int(time.time() * 1000),
+                sensitivity=self.sensitivity,
+                utterance=_utterance,
+                episode_id=episode_id,
+                kind_override="commit:converged",
+                epistemic=_epistemic,
+                payload_parts=payload_parts,
+            )
+        self.messages.append(header)
+        return header
+
+    def emit_taskwork_phase_intent(
+        self,
+        *,
+        coordinator: str,
+        subject: str,
+        episode_id: str | None = None,
+        parent_episode: str | None = None,
+        coordination_summary: "Dict[str, Any] | None" = None,
+    ) -> Dict[str, Any]:
+        """Open the taskwork phase with a kind=intent on the shared dialogue episode.
+
+        Called before the first emit_task_assignment().  Declares that the team has
+        completed grounding and is opening a coordinated taskwork phase.  The
+        coordination_summary from the peer grounding phase is attached as
+        payload[type=team_process] so taskwork agents have the alignment outcome.
+
+        ``parent_episode`` identifies the enclosing session episode URI so the
+        nesting is explicit on the wire (message.parent_episode).
+
+        kind=intent, state=team_process.
+        """
+        _utterance = f"taskwork:open subject={subject}"
+        payload_parts: List[Dict[str, Any]] = [
+            {"type": "utterance", "location": "inline", "content": _utterance},
+        ]
+        if coordination_summary:
+            payload_parts.append(
+                {"type": "team_process", "location": "inline", "content": coordination_summary}
+            )
+        from sstp.ie.l9 import build_l9_header as _build
+        from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        _epistemic = make_epistemic_block(
+            speech_act=SpeechAct.ASSERTION,
+            epistemic_state=EpistemicState.TEAM_PROCESS,
+            belief_status=BeliefStatus.ASSERTED,
+            uncertainty=0.0,
+        )
+        with self._lifecycle_emit():
+            header = _build(
+                use_case=self.use_case,
+                event_type="peer_turn",
+                sender=coordinator,
+                receiver=coordinator,
+                timestamp_ms=int(time.time() * 1000),
+                sensitivity=self.sensitivity,
+                utterance=_utterance,
+                episode_id=episode_id,
+                parent_episode=parent_episode,
+                kind_override="intent",
+                epistemic=_epistemic,
+                payload_parts=payload_parts,
+            )
+        self.messages.append(header)
+        return header
 
     def emit_repair_resolved(
         self,
@@ -877,15 +1066,24 @@ class AgentBus:
         receiver: "str | None",
         subject: str,
         episode_id: str | None = None,
+        parent_episode: str | None = None,
         team_prior: "Dict[str, Any] | None" = None,
+        team_process: "Dict[str, Any] | None" = None,
+        rationale: str = "",
+        thought_summary: str = "",
     ) -> Dict[str, Any]:
         """kind=intent — open a coordination episode (L9 episode API)."""
         _utterance = f"episode:open subject={subject}"
-        payload_parts: List[Dict[str, Any]] = [
-            {"type": "utterance", "location": "inline", "content": _utterance},
-        ]
+        _utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": _utterance}
+        if rationale:
+            _utt_part["rationale"] = rationale
+        if thought_summary:
+            _utt_part["thought_summary"] = thought_summary
+        payload_parts: List[Dict[str, Any]] = [_utt_part]
         if team_prior:
             payload_parts.append({"type": "team_prior", "location": "inline", "content": team_prior})
+        if team_process:
+            payload_parts.append({"type": "team_process", "location": "inline", "content": team_process})
         from sstp.ie.l9 import build_l9_header as _build
         from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
         with self._lifecycle_emit():
@@ -898,6 +1096,7 @@ class AgentBus:
                 sensitivity=self.sensitivity,
                 utterance=_utterance,
                 episode_id=episode_id,
+                parent_episode=parent_episode,
                 kind_override="intent",
                 epistemic=make_epistemic_block(
                     speech_act=SpeechAct.ASSERTION,
@@ -921,6 +1120,8 @@ class AgentBus:
         addresses_evidence: "List[str] | None" = None,
         parent_id: str | None = None,
         episode_id: str | None = None,
+        rationale: str = "",
+        thought_summary: str = "",
     ) -> Dict[str, Any]:
         """kind=exchange with subkind=ready — final argument + done signal."""
         from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
@@ -941,6 +1142,8 @@ class AgentBus:
             kind_override="exchange:ready",
             topic=concept_id,
             epistemic=epistemic,
+            rationale=rationale,
+            thought_summary=thought_summary,
         )
 
     def _emit_ready(

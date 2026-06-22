@@ -40,7 +40,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Protocol, runtime_checkable
 
 from sstp.process.gate import PhaseGate
 from sstp.process.store import (
@@ -145,10 +145,20 @@ class TeamCoordinator:
 
         eid = self._episode_id("role_assignment")
         group_ids = [a.agent_id for a in available_agents]
+        _agents_str = ", ".join(group_ids)
         episode = self._l9.open(
             concept_id=CONCEPT_ROLE_ASSIGNMENT,
             group=group_ids,
             episode_id=eid,
+            rationale=(
+                f"Team formation required for task: {task_description!r}. "
+                f"Agents [{_agents_str}] must declare capabilities and resolve ownership "
+                f"of domain concepts before coordinated taskwork can begin."
+            ),
+            thought_summary=(
+                f"Opening role_assignment episode to assign domain ownership across "
+                f"{len(group_ids)} agents for: {task_description}"
+            ),
         )
         # Capture the intent envelope so participants can join
         intent_envelope = self._l9._bus.messages[-1]
@@ -230,6 +240,9 @@ class TeamCoordinator:
     def align_mental_model(
         self,
         agent_priors: Dict[str, Dict[str, float]],
+        *,
+        utterance_fn: Optional[Callable[[str, str, float, Dict[str, Any]], Dict[str, Any]]] = None,
+        commit_fn: Optional[Callable[[Dict[str, str], Dict[str, Dict[str, float]], float], Dict[str, Any]]] = None,
     ) -> TeamProcessState:
         """TP-2: verify priors loaded, converge on concept:shared_mental_model.
 
@@ -242,6 +255,19 @@ class TeamCoordinator:
         agent_priors:
             Mapping agent_id → {concept_id → prior_value}.  Typically derived
             from SemanticRuleStore.activate_rules() + AgentBeliefStore.set_prior().
+        utterance_fn:
+            Optional callable(agent_id, concept_id, prior_val, context) → dict.
+            When provided, called per agent to produce a reasoned prior declaration.
+            Expected keys in returned dict: ``utterance`` (str), ``rationale`` (str),
+            ``thought_summary`` (str).  Falls back to mechanical string when absent.
+            ``context`` carries ``team_goal``, ``prior_source``, and any extra keys
+            passed by the caller.
+        commit_fn:
+            Optional callable(role_assignments, agent_priors, scr) → dict.
+            When provided, called after the SNP round to produce the coordinator's
+            synthesis for the commit message (msg 12).
+            Expected keys: ``utterance`` (str), ``rationale`` (str),
+            ``thought_summary`` (str), ``summary`` (dict | None).
 
         Returns the updated TeamProcessState with phase=ACTION, gate_open=True.
         Raises MentalModelError if convergence fails.
@@ -250,14 +276,39 @@ class TeamCoordinator:
         if current is None:
             raise MentalModelError("form_team() must be called before align_mental_model()")
 
-        LOGGER.info("coordinator.align_mental_model agents=%d", len(agent_priors))
+        LOGGER.info("coordinator.align_mental_model agents=%d utterance_fn=%s commit_fn=%s",
+                    len(agent_priors), utterance_fn is not None, commit_fn is not None)
 
         eid = self._episode_id("shared_mental_model")
         group = list(agent_priors.keys())
+
+        # Build domain_concepts list from role_assignments for the intent envelope.
+        domain_concepts = sorted(set(
+            cid for cid in current.role_assignments.values()
+            if cid and cid != "concept:unknown"
+        ))
+        _team_process_intent = {
+            "subject": CONCEPT_SHARED_MENTAL_MODEL,
+            "domain_concepts": domain_concepts,
+            "team_goal": current.team_goal,
+        }
+
+        _concepts_str = ", ".join(domain_concepts) if domain_concepts else "none"
         episode = self._l9.open(
             concept_id=CONCEPT_SHARED_MENTAL_MODEL,
             group=group,
             episode_id=eid,
+            team_process=_team_process_intent,
+            rationale=(
+                f"Before taskwork begins, each agent must declare its starting prior "
+                f"for its assigned concept ({_concepts_str}) so the team shares a "
+                f"calibrated epistemic baseline. Team goal: {current.team_goal!r}."
+            ),
+            thought_summary=(
+                f"Opening shared_mental_model episode: aligning {len(group)} agents "
+                f"on priors for [{_concepts_str}] to establish common ground before "
+                f"independent clinical assessment."
+            ),
         )
         intent_envelope = self._l9._bus.messages[-1]
 
@@ -265,6 +316,7 @@ class TeamCoordinator:
         for agent_id, priors in agent_priors.items():
             concept_id = current.role_assignments.get(agent_id, "concept:unknown")
             prior_val = priors.get(concept_id, 0.5)
+            prior_source = "semantic_rules" if concept_id in priors else "default"
             self._store.record_agent_belief(AgentTeamBelief(
                 agent_id=agent_id,
                 believed_phase=Phase.TRANSITION.value,
@@ -273,7 +325,22 @@ class TeamCoordinator:
                 confidence=prior_val,
                 episode_id=eid,
             ))
-            utterance = f"prior_confirmed agent={agent_id} concept={concept_id} prior={prior_val:.3f}"
+
+            if utterance_fn is not None:
+                _ctx: Dict[str, Any] = {
+                    "team_goal": current.team_goal,
+                    "prior_source": prior_source,
+                    "all_role_assignments": current.role_assignments,
+                }
+                _utt_result = utterance_fn(agent_id, concept_id, prior_val, _ctx)
+                utterance      = _utt_result.get("utterance", f"prior_confirmed agent={agent_id} concept={concept_id} prior={prior_val:.3f}")
+                rationale      = _utt_result.get("rationale", "")
+                thought_summary = _utt_result.get("thought_summary", "")
+            else:
+                utterance      = f"prior_confirmed agent={agent_id} concept={concept_id} prior={prior_val:.3f} source={prior_source}"
+                rationale      = ""
+                thought_summary = ""
+
             participant_l9 = self._participant_l9s.get(agent_id)
             if participant_l9 is not None:
                 member_ep = participant_l9.join(intent_envelope)
@@ -282,6 +349,8 @@ class TeamCoordinator:
                     posterior=prior_val,
                     evidence=[CONCEPT_SHARED_MENTAL_MODEL, concept_id],
                     final=True,
+                    rationale=rationale,
+                    thought_summary=thought_summary,
                 )
                 episode._record_done(agent_id, prior_val)
             else:
@@ -290,6 +359,8 @@ class TeamCoordinator:
                     utterance=utterance,
                     posterior=prior_val,
                     evidence=[CONCEPT_SHARED_MENTAL_MODEL, concept_id],
+                    rationale=rationale,
+                    thought_summary=thought_summary,
                 )
                 episode._record_done(agent_id, prior_val)
 
@@ -299,7 +370,33 @@ class TeamCoordinator:
         scr = self._run_alignment_snp(panel_bus, current.role_assignments, agent_priors)
 
         episode.done(posterior=0.9)
-        episode.close()
+
+        # Coordinator synthesis for the commit message.
+        if commit_fn is not None:
+            _commit_result = commit_fn(current.role_assignments, agent_priors, scr)
+            _commit_rationale      = _commit_result.get("rationale", "")
+            _commit_thought        = _commit_result.get("thought_summary", "")
+            _commit_summary        = _commit_result.get("summary")
+        else:
+            _commit_rationale      = ""
+            _commit_thought        = ""
+            _commit_summary        = {
+                "agreed_priors": {
+                    agent_id: {
+                        current.role_assignments.get(agent_id, "concept:unknown"):
+                            list(priors.values())[0] if priors else 0.5
+                    }
+                    for agent_id, priors in agent_priors.items()
+                },
+                "scr": round(scr, 4),
+                "domain_concepts": domain_concepts,
+            }
+
+        episode.close(
+            rationale=_commit_rationale,
+            thought_summary=_commit_thought,
+            summary=_commit_summary,
+        )
 
         state = TeamProcessState(
             current_phase=Phase.ACTION,
@@ -367,6 +464,13 @@ class TeamCoordinator:
                 concept_id=concept_id,
                 group=group,
                 episode_id=eid,
+                rationale=(
+                    f"Re-entry triggered by {trigger.value!r} on {concept_id}. "
+                    f"Team must re-converge on this concept before taskwork can resume."
+                ),
+                thought_summary=(
+                    f"Reentry episode for {concept_id}: trigger={trigger.value}"
+                ),
             )
             episode.say(
                 utterance=f"reentry trigger={trigger.value} concept={concept_id}",

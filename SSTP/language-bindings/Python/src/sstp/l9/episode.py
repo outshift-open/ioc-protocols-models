@@ -161,11 +161,14 @@ class Episode:
         evidence: Optional[List[str]] = None,
         addresses_evidence: Optional[List[str]] = None,
         parent_id: Optional[str] = None,
+        rationale: str = "",
+        thought_summary: str = "",
     ) -> str:
         """Emit a substantive contribution.
 
         ``final=False`` → kind=exchange
         ``final=True``  → kind=exchange, subkind=ready (final argument + done signal)
+        ``rationale`` and ``thought_summary`` land in payload[type=utterance] when provided.
         """
         if final:
             h = self._bus._emit_exchange_ready(
@@ -178,6 +181,8 @@ class Episode:
                 addresses_evidence=addresses_evidence,
                 parent_id=parent_id or self._last_message_id,
                 episode_id=self._episode_id,
+                rationale=rationale,
+                thought_summary=thought_summary,
             )
             self._done_agents[self._agent_id] = posterior
         else:
@@ -191,6 +196,8 @@ class Episode:
                 addresses_evidence=addresses_evidence,
                 parent_id=parent_id or self._last_message_id,
                 episode_id=self._episode_id,
+                rationale=rationale,
+                thought_summary=thought_summary,
             )
         self._last_message_id = h["message"]["id"]
         return self._last_message_id
@@ -251,7 +258,13 @@ class Episode:
         self._last_message_id = h["message"]["id"]
         return self._last_message_id
 
-    def close(self) -> str:
+    def close(
+        self,
+        *,
+        rationale: str = "",
+        thought_summary: str = "",
+        summary: Optional[Dict[str, Any]] = None,
+    ) -> str:
         """Initiator closes the episode.
 
         Emits kind=commit, subkind=accepted or subkind=rejected depending
@@ -259,6 +272,8 @@ class Episode:
         - open contingencies exist
         - not all group members have signalled done
 
+        ``rationale`` and ``thought_summary`` carry the coordinator's synthesis of what
+        was agreed; ``summary`` is a structured dict added as payload[type=team_process].
         After close(), :attr:`mpc`, :attr:`gar`, :attr:`scr` are available.
         """
         if not self._initiator:
@@ -286,6 +301,9 @@ class Episode:
             subject=self._concept_id,
             accepted=accepted,
             episode_id=self._episode_id,
+            rationale=rationale,
+            thought_summary=thought_summary,
+            summary=summary,
         )
         self._commit_message_id = h["message"]["id"]
         self._last_message_id = self._commit_message_id
@@ -356,14 +374,22 @@ class L9:
         concept_id: str,
         group: List[str],
         episode_id: Optional[str] = None,
+        team_process: Optional[Dict[str, Any]] = None,
+        rationale: str = "",
+        thought_summary: str = "",
     ) -> Episode:
         """Open a new coordination episode as initiator.
 
         1. Looks up team prior from TeamEpistemicMemory.
         2. Reads agent prior from belief_store.
         3. Blends prior.
-        4. Emits kind=intent with team_prior in payload.
+        4. Emits kind=intent with team_prior (and optional team_process) in payload.
         5. Returns Episode with .prior set.
+
+        ``team_process`` is forwarded as payload[type=team_process] on the intent,
+        allowing callers to enumerate domain concepts and team goal on the wire.
+        ``rationale`` and ``thought_summary`` explain why this episode is being opened
+        and are forwarded into payload[type=utterance] on the intent message.
         """
         team_prior_obj = self._get_team_prior(concept_id)
         agent_prior_obj = self._get_agent_prior(concept_id)
@@ -386,6 +412,9 @@ class L9:
             subject=concept_id,
             episode_id=eid,
             team_prior=team_prior_payload,
+            team_process=team_process,
+            rationale=rationale,
+            thought_summary=thought_summary,
         )
 
         return Episode(

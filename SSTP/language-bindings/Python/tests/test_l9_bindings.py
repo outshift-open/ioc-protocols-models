@@ -92,3 +92,53 @@ def test_snp_build_l9_header_structure():
 def test_snp_operations_are_strings():
     for op in NegotiationOperation.ALL:
         assert isinstance(op, str)
+
+
+# ── parent_episode field ──────────────────────────────────────────────────────
+
+def test_ie_parent_episode_absent_by_default():
+    """message.parent_episode is None when not supplied."""
+    header = build_l9_header(
+        use_case="healthcare",
+        event_type="peer_turn",
+        sender="coordinator",
+        receiver="coordinator",
+        timestamp_ms=int(time.time() * 1000),
+        episode_id="urn:ioc:healthcare:session:p1:test-uuid",
+    )
+    assert header["message"]["parent_episode"] is None
+
+
+def test_ie_parent_episode_carried_on_sub_episode_intent():
+    """message.parent_episode echoes the supplied URN for sub-episode intents."""
+    session_urn = "urn:ioc:healthcare:session:p1:test-session"
+    peer_ring_urn = "urn:ioc:healthcare:dialogue:p1:test-ring"
+    header = build_l9_header(
+        use_case="healthcare",
+        event_type="peer_turn",
+        sender="agent-a",
+        receiver="agent-b",
+        timestamp_ms=int(time.time() * 1000),
+        episode_id=peer_ring_urn,
+        parent_episode=session_urn,
+        kind_override="intent",
+    )
+    assert header["message"]["episode"] == peer_ring_urn
+    assert header["message"]["parent_episode"] == session_urn
+
+
+def test_ie_parent_episode_none_on_root():
+    """Explicitly passing parent_episode=None keeps it null (root session intent)."""
+    session_urn = "urn:ioc:healthcare:session:p1:test-session"
+    header = build_l9_header(
+        use_case="healthcare",
+        event_type="peer_turn",
+        sender="coordinator",
+        receiver="coordinator",
+        timestamp_ms=int(time.time() * 1000),
+        episode_id=session_urn,
+        parent_episode=None,
+        kind_override="intent",
+    )
+    assert header["message"]["episode"] == session_urn
+    assert header["message"]["parent_episode"] is None

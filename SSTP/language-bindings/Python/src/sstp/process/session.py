@@ -356,17 +356,26 @@ class TaskSession:
         subject: str,
         episode_id: Optional[str] = None,
         coordinator: str = "orchestrator",
+        rationale: str = "",
+        thought_summary: str = "",
+        team_process: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Emit kind=intent to open the outer session frame.
 
         This is the only legitimate caller of bus._emit_episode_open from
         outside the subprotocol layer.  Application code must call this
         method rather than touching the bus directly.
+        ``rationale`` and ``thought_summary`` explain why the session is being
+        opened and appear in payload[type=utterance] on the wire.
+        ``team_process`` is attached as payload[type=team_process] when provided.
         """
         return self._bus._emit_episode_open(
             coordinator=coordinator,
             subject=subject,
             episode_id=episode_id,
+            rationale=rationale,
+            thought_summary=thought_summary,
+            team_process=team_process,
         )
 
     def close_session(
