@@ -7,14 +7,15 @@
 """
 generate_schemas.py
 -------------------
-Generates JSON Schema files for every Pydantic model in the ioc_l9 package.
+Generates JSON Schema for every Pydantic model in the ioc_l9 package.
 
-Output: schemas/ioc_l9/<source_module>/<ModelName>.json
-        e.g. schemas/ioc_l9/primitives/Actor.json
-             schemas/ioc_l9/state_mgmt/Team.json
+Default output: SSTP/spec/l9_schema.json  (single combined file)
+Alt output:     ioc_l9/spec/json_schema/  (one file per model, --split)
 
 Usage:  python scripts/generate_schemas.py
+        python scripts/generate_schemas.py --split
         python scripts/generate_schemas.py --model L9
+        python scripts/generate_schemas.py --out path/to/output.json
 """
 
 # ── Schema version — increment manually on breaking/significant changes ───────
@@ -33,10 +34,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
 # ── import every module that contains models ──────────────────────────────────
-import ioc_l9.src.primitives as primitives_module
-import ioc_l9.src.epistemic  as epistemic_module
-import ioc_l9.src.state_mgmt as state_mgmt_module
-import ioc_l9.src             as src_module
+import src.primitives as primitives_module
+import src.epistemic  as epistemic_module
+import src.state_mgmt as state_mgmt_module
+import src             as src_module
 
 # Map each module to the subdirectory name it should produce
 MODULES = [
@@ -56,14 +57,40 @@ def collect_models(modules, filter_name: str | None = None):
                 issubclass(obj, BaseModel)
                 and obj is not BaseModel
                 and obj not in seen
-                and obj.__module__.startswith("ioc_l9")
+                and obj.__module__.startswith("src")
                 and (filter_name is None or name == filter_name)
             ):
                 seen.add(obj)
                 models.append((subdir, name, obj))
     return models
 
-# ── write schemas ─────────────────────────────────────────────────────────────
+# ── write schemas — combined single file ─────────────────────────────────────
+def generate_combined(out_path: Path, filter_name: str | None = None, version: str = SCHEMA_VERSION) -> None:
+    models = collect_models(MODULES, filter_name)
+    if not models:
+        print(f"No model named '{filter_name}' found.")
+        sys.exit(1)
+
+    combined = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "urn:ioc:l9:schema:v1",
+        "version": version,
+        "description": "Combined JSON Schema for all ioc_l9 Pydantic models.",
+        "$defs": {},
+    }
+    for _, name, model in sorted(models, key=lambda x: (x[0], x[1])):
+        schema = model.model_json_schema()
+        schema.pop("title", None)
+        combined["$defs"][name] = schema
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(combined, indent=2))
+    print(f"Schema version: {version}")
+    print(f"Found {len(models)} models — written to {out_path.relative_to(REPO_ROOT)}")
+    print(f"\nDone. {len(models)} model{'s' if len(models) != 1 else ''} combined.")
+
+
+# ── write schemas — one file per model ───────────────────────────────────────
 def generate(base_output_dir: Path, filter_name: str | None = None, version: str = SCHEMA_VERSION) -> None:
     models = collect_models(MODULES, filter_name)
     if not models:
@@ -88,9 +115,15 @@ def generate(base_output_dir: Path, filter_name: str | None = None, version: str
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate JSON schemas for ioc_l9 models.")
-    parser.add_argument("--model", metavar="NAME", help="Generate schema for a single model by class name (e.g. L9)")
+    parser.add_argument("--model",   metavar="NAME",    help="Generate schema for a single model by class name (e.g. L9)")
     parser.add_argument("--version", metavar="VERSION", default=SCHEMA_VERSION, help=f"Schema version to embed (default: {SCHEMA_VERSION})")
+    parser.add_argument("--split",   action="store_true", help="Write one file per model into ioc_l9/spec/json_schema/ instead of a single combined file")
+    parser.add_argument("--out",     metavar="PATH",    help="Output path (default: SSTP/spec/l9_schema.json for combined, ioc_l9/spec/json_schema/ for --split)")
     args = parser.parse_args()
 
-    base_output_dir = REPO_ROOT / "ioc_l9" / "spec" / "json_schema"
-    generate(base_output_dir, filter_name=args.model, version=args.version)
+    if args.split:
+        base_output_dir = Path(args.out) if args.out else REPO_ROOT / "ioc_l9" / "spec" / "json_schema"
+        generate(base_output_dir, filter_name=args.model, version=args.version)
+    else:
+        out_path = Path(args.out) if args.out else REPO_ROOT / "SSTP" / "spec" / "l9_schema.json"
+        generate_combined(out_path, filter_name=args.model, version=args.version)

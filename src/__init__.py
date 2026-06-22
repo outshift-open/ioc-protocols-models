@@ -23,7 +23,7 @@ from typing import Optional
 from enum import Enum
 from pydantic import BaseModel
 
-from ioc_l9.src.primitives import ParticipantSet, PolicyLabel, Message, Context
+from src.primitives import ParticipantSet, PolicyLabel, Message, Context
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
 class Kind(str, Enum):

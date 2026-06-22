@@ -4,7 +4,7 @@
 
 from pydantic import BaseModel
 from typing import Optional, Dict
-from ioc_l9.src.epistemic import Epistemic
+from src.epistemic import Epistemic
 class Message(BaseModel):
     """
     Represents a message in the protocol.

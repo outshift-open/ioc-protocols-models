@@ -1,0 +1,156 @@
+; SIEP — Semantic Interaction Exchange Protocol
+; DSL spec file: parsed by SSTP/compiler to generate language bindings.
+;
+; Syntax:
+;   (defprotocol NAME :key val ... (pipeline ...))
+;   (pipeline (sequential|parallel (phase :name ...) ...))
+;   (phase :name :kinds [...] :concurrent bool :gate (pred?)
+;     :handlers [(handler :kind
+;                  :fn fn-name
+;                  :reads  [field ...]        ; L9 fields consumed
+;                  :returns [kind ...]         ; L9 kinds emitted
+;                  :pre  (precondition?)       ; must be true before handler runs
+;                  :post (postcondition?)      ; guaranteed true after handler runs
+;                  :mutates [state-key ...]    ; internal state keys written
+;                  :raises  [error-name ...]   ; declared failure modes
+;                  :idempotent bool            ; safe to call multiple times?
+;                  :max-retries int            ; 0 = no retry
+;                  :doc "description")])
+;
+; Kinds are fixed: intent | exchange | commit | contingency | knowledge
+; Subkinds are open: subprotocol developers may define freely.
+
+(defprotocol SIEP
+  :version "0.0.3"
+  :description "Grounding-based semantic interaction exchange with belief tracking and repair cycles."
+
+  (pipeline
+    (sequential
+
+      ; Phase 1: establish shared ontology / schema context before planning.
+      (phase :shared-knowledge
+        :kinds [:knowledge]
+        :subkinds [:query]
+        :gate (knowledge-established?)
+        :handlers [
+          (handler :knowledge
+            :fn on-knowledge-query
+            :reads  [:payload.data :header.context.semantic.schema_id]
+            :returns [:knowledge]
+            :pre  (schema-registered?)
+            :post (knowledge-provided?)
+            :mutates []
+            :raises  [schema-not-found]
+            :idempotent true
+            :max-retries 0
+            :doc "Retrieve ontology or application schema from memory store and return as a knowledge response.")])
+
+      ; Phase 2: intent signals planning intent and goal framing.
+      (phase :planning
+        :kinds [:intent]
+        :gate (intent-received?)
+        :handlers [
+          (handler :intent
+            :fn on-intent
+            :reads  [:payload.data :header.context.epistemic]
+            :returns [:intent]
+            :pre  (true)
+            :post (intent-recorded?)
+            :mutates [:_intent_log]
+            :raises  []
+            :idempotent false
+            :max-retries 0
+            :doc "Receive and acknowledge planning intent; record goal framing for downstream phases.")])
+
+      ; Phase 3: team formation — a team-form subkind intent closes this phase.
+      (phase :team-formed
+        :kinds [:intent]
+        :subkinds [:team-form]
+        :gate (team-complete?)
+        :handlers [
+          (handler :intent
+            :fn on-team-form
+            :reads  [:payload.data :header.actors]
+            :returns [:intent]
+            :pre  (true)
+            :post (team-membership-recorded?)
+            :mutates [:_team_members]
+            :raises  []
+            :idempotent false
+            :max-retries 0
+            :doc "Register a participant into the team; advance when all expected members have joined.")])
+
+      ; Phase 4: goal alignment — intent messages align all participants on shared goal.
+      (phase :goal-alignment
+        :kinds [:intent]
+        :gate (alignment-reached?)
+        :handlers [
+          (handler :intent
+            :fn on-alignment-intent
+            :reads  [:payload.data :header.context.epistemic]
+            :returns [:intent]
+            :pre  (team-complete?)
+            :post (alignment-score-updated?)
+            :mutates [:_alignment_scores]
+            :raises  []
+            :idempotent false
+            :max-retries 0
+            :doc "Exchange alignment signals; update per-participant alignment score until consensus reached.")])
+
+      ; Phase 5: execution — grounding cycle with contingency repair.
+      (phase :execution
+        :kinds [:exchange :contingency]
+        :concurrent true
+        :gate (repairs-resolved?)
+        :handlers [
+          (handler :exchange
+            :fn on-exchange
+            :reads  [:payload.utterance :payload.belief :header.context.epistemic]
+            :returns [:exchange :contingency]
+            :pre  (true)
+            :post (belief-updated?)
+            :mutates [:_last_exchange :_priors :_repairs]
+            :raises  [grounding-failure scope-mismatch ungroundable-novelty]
+            :idempotent false
+            :max-retries 0
+            :doc "Verify grounding score against prior evidence; emit contingency repair request if below threshold.")
+          (handler :contingency
+            :fn on-contingency
+            :reads  [:payload.grounding :header.message.parents]
+            :returns [:exchange :commit]
+            :pre  (open-repair-branch?)
+            :post (repair-depth-incremented?)
+            :mutates [:_repairs]
+            :raises  [repair-exhausted]
+            :idempotent false
+            :max-retries 3
+            :doc "Process repair attempt; close branch on success or escalate until max-retries exhausted.")])
+
+      ; Phase 6: commit closes the episode; knowledge-store persists outcomes.
+      (phase :state-management
+        :kinds [:commit :knowledge]
+        :subkinds [:store]
+        :gate (committed?)
+        :handlers [
+          (handler :commit
+            :fn on-commit
+            :reads  [:payload.grounding :header.context.epistemic]
+            :returns []
+            :pre  (repairs-resolved?)
+            :post (episode-closed?)
+            :mutates [:_committed]
+            :raises  []
+            :idempotent true
+            :max-retries 0
+            :doc "Close the episode with a converged or rejected outcome; update final belief state.")
+          (handler :knowledge
+            :fn on-knowledge-store
+            :reads  [:payload.data]
+            :returns []
+            :pre  (episode-closed?)
+            :post (outcome-persisted?)
+            :mutates [:_knowledge_store]
+            :raises  [store-failure]
+            :idempotent true
+            :max-retries 3
+            :doc "Persist episode outcomes and belief updates to the shared memory store.")]))))
