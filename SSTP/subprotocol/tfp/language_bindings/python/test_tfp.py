@@ -1,7 +1,7 @@
 """
 Tests for the TFP (Team Formation via Polling) subprotocol.
 
-Validates the TFP payload models (``tfp_models.py``) and the end-to-end example
+Validates the TFP payload models (``generated_models.py``) and the end-to-end example
 episode:
 
     poll_open -> bid/decline -> select -> accept/reject -> [re_poll] -> commit
@@ -31,7 +31,7 @@ for _p in (str(_REPO_ROOT), str(_TFP_PY), str(_EXAMPLES)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from tfp_models import (  # noqa: E402
+from generated_models import (  # noqa: E402
     CandidateOffer,
     RoleAssignment,
     SkillClaim,
@@ -68,11 +68,9 @@ class TestTFPEnums:
 
     def test_subkind_values(self):
         assert {sk.value for sk in TFPSubkind} == {
-            "team_form_poll",
-            "team_form_response",
+            "team_form",
             "team_form_converged",
-            "team_form_failed",
-            "team_form_re_poll",
+            "team_form_failure",
         }
 
 
@@ -219,7 +217,7 @@ class TestTFPEpisode:
 
         # the closing message is a converged commit
         commit = next(m for m in bus.messages if m.header.kind == "commit")
-        assert commit.header.subkind == TFPSubkind.CONVERGED.value
+        assert commit.header.subkind == TFPSubkind.TEAM_FORM_CONVERGED.value
         assert commit.payload.data["operation"] == TFPOperation.FORM_CONVERGED.value
 
         sel = commit.payload.data["selection"]
@@ -296,10 +294,11 @@ class TestTFPEpisode:
         for m in bus.messages:
             by_kind.setdefault(m.header.kind, set()).add(m.header.subkind)
 
-        # happy path: a viable team forms, so no re_poll/contingency turn occurs
-        assert by_kind["intent"] == {TFPSubkind.POLL.value}
-        assert by_kind["exchange"] == {TFPSubkind.RESPONSE.value}
-        assert by_kind["commit"] == {TFPSubkind.CONVERGED.value}
+        # non-terminal turns (poll, bids, selects) all carry the generic team_form
+        # subkind; only the terminal commit is converged/failure.
+        assert by_kind["intent"] == {TFPSubkind.TEAM_FORM.value}
+        assert by_kind["exchange"] == {TFPSubkind.TEAM_FORM.value}
+        assert by_kind["commit"] == {TFPSubkind.TEAM_FORM_CONVERGED.value}
 
     def test_open_world_discovery_semantics(self):
         import team_formation_example as ex
@@ -373,19 +372,19 @@ class TestTFPFailureEpisode:
 
         bus = ex.run(force_failure=True)
 
-        # a re_poll turn is emitted: kind=exchange, subkind=team_form_re_poll
+        # a re_poll turn is emitted: kind=exchange, subkind=team_form (non-terminal)
         re_polls = [m for m in bus.messages if m.payload.data.get("operation") == "re_poll"]
         assert len(re_polls) == 1
         re_poll = re_polls[0]
         assert re_poll.header.kind == "exchange"
-        assert re_poll.header.subkind == TFPSubkind.RE_POLL.value
+        assert re_poll.header.subkind == TFPSubkind.TEAM_FORM.value
         # the re-poll names the uncovered mandatory skill
         re_poll_skills = [s["skill"] for s in re_poll.payload.data["required_skills"]]
         assert "skill:quantum_forensics" in re_poll_skills
 
         # the episode commits as failed
         commit = next(m for m in bus.messages if m.header.kind == "commit")
-        assert commit.header.subkind == TFPSubkind.FAILED.value
+        assert commit.header.subkind == TFPSubkind.TEAM_FORM_FAILURE.value
         assert commit.payload.data["operation"] == TFPOperation.FORM_FAILED.value
 
         # the failed selection still reports the uncovered mandatory skill

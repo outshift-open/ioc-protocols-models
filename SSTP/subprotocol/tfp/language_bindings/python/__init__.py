@@ -1,6 +1,6 @@
 """TFP (Team Formation via Polling) Python language binding."""
 
-from .tfp_models import (
+from .generated_models import (
     CandidateOffer,
     RoleAssignment,
     SkillClaim,

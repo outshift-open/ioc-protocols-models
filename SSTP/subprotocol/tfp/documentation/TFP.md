@@ -10,11 +10,10 @@ that covers the task's mandatory skills, and **forms** a team.
 
 TFP is the concrete realization of what `SSTP/documentation/L9.md` calls *team
 process convergence* — the teamwork dimension that "leads to the definition of
-groups that are carried in the L9 header." Where **SNP** converges on *what is
-true* (taskwork) and **IE** verifies *shared grounding*, **TFP** converges on
-*who is on the team* (team_process).
+groups that are carried in the L9 header." TFP converges on *who is on the team*
+(team_process).
 
-Like every L9 sub-protocol, TFP rides the standard L9 envelope: the header carries
+TFP rides the standard L9 envelope: the header carries
 `subprotocol="TFP"`, and the TFP-specific content travels in the `payload`
 (`type="json-schema"`). The header is the envelope; TFP is the content.
 
@@ -55,19 +54,15 @@ threat-intel bidder is dropped for answering after the window.
 
 ## Position in L9
 
-| Concern | Sub-protocol | `epistemic.state` |
-|---|---|---|
-| Who is on the team? | **TFP** | `team_process` |
-| Is the exchange genuinely grounded? | IE | `grounding` |
-| What does the team conclude? | SNP | `taskwork` / `team_process` |
-
-A typical conversation runs a TFP episode *first* to establish the group, then
-SNP/IE episodes execute the agreed task within that group.
+TFP addresses **team-process convergence** — *who is on the team* — and tags its
+turns with `epistemic.state = team_process`. A typical conversation runs a TFP
+episode *first* to establish the group; once the team is formed, the agreed task
+is executed within that group.
 
 ## Message Flow
 
 One TFP episode is a single L9 episode (`intent → exchange* → [contingency] → commit`)
-scoped by a shared `message.episode` URN.
+scoped by a shared `message.episode` UUID.
 
 ### `episode` vs. `poll_id`
 
@@ -76,7 +71,7 @@ interchangeable:
 
 | Key | Layer | Scope | Answers |
 |-----|-------|-------|---------|
-| `message.episode` | L9 **header** (envelope) | The whole interaction lifecycle (`intent … commit`). | "Which L9 conversation does this turn belong to?" — protocol-generic; identical mechanism for SNP, IE, TFP. |
+| `message.episode` | L9 **header** (envelope) | The whole interaction lifecycle (`intent … commit`). | "Which L9 conversation does this turn belong to?" — protocol-generic L9 envelope correlation. |
 | `poll_id` | TFP **payload** | One call-for-bids *round*. | "Which specific poll am I bidding on / responding to?" — TFP-domain; keeps the payload self-contained without reading the transport header. |
 
 In the simple case there is exactly **one poll per episode**, so the two are 1:1
@@ -107,32 +102,34 @@ repeating until every selected member has accepted or the pool is exhausted.
 
 Each turn carries three coordinated discriminators: the L9 `header.kind`
 (lifecycle phase), the L9 `header.subkind` (the TFP phase tag), and the payload
-`operation` (fine-grained semantics). The `subkind` is one of four canonical
+`operation` (fine-grained semantics). The `subkind` is one of three canonical
 values (`TFPSubkind`):
 
 | `subkind` | Used on | Meaning |
 |---|---|---|
-| `team_form_poll` | `intent` / `contingency` poll turns | A call-for-bids was opened — the initial broadcast or a re-poll. |
-| `team_form_response` | every `exchange` turn | Any reply during discovery & selection (bid, decline, clarify, select, accept, reject). |
+| `team_form` | every non-terminal turn (`intent` poll, all `exchange` turns, re-poll) | The episode is in progress — a poll, bid/decline/select/accept/reject, or re-poll. The payload `operation` disambiguates. |
 | `team_form_converged` | the closing `commit` | A team was formed (all mandatory skills covered). |
-| `team_form_failed` | the closing `commit` | Formation failed (mandatory skills uncovered after re-poll). |
+| `team_form_failure` | the closing `commit` | Formation failed (mandatory skills uncovered after re-poll). |
 
 Full per-turn mapping:
 
 | `kind` | `subkind` | `operation` | Meaning |
 |---|---|---|---|
-| `intent` | `team_form_poll` | `poll_open` | Opens the episode; broadcasts the task and required skills. |
-| `exchange` | `team_form_response` | `bid` | A candidate advertises its skills, availability, and self-assessed fit. |
-| `exchange` | `team_form_response` | `decline` | A candidate opts out of the poll (no relevant skills / unavailable), with a `reason`. |
-| `exchange` | `team_form_response` | `select` | The initiator selects a candidate and assigns a role (the "proposal to join"). |
-| `exchange` | `team_form_response` | `accept` | A selected candidate confirms membership, with a `reason`. |
-| `exchange` | `team_form_response` | `reject` | A selected candidate declines the proposal to join, with a `reason`; the recruiter re-selects a fallback. |
-| `commit` | `team_form_converged` / `team_form_failed` | `form` | Closes the episode: `team_form_converged` → team formed; `team_form_failed` → formation failed. |
+| `intent` | `team_form` | `poll_open` | Opens the episode; broadcasts the task and required skills. |
+| `exchange` | `team_form` | `bid` | A candidate advertises its skills, availability, and self-assessed fit. |
+| `exchange` | `team_form` | `decline` | A candidate opts out of the poll (no relevant skills / unavailable), with a `reason`. |
+| `exchange` | `team_form` | `select` | The initiator selects a candidate and assigns a role (the "proposal to join"). |
+| `exchange` | `team_form` | `accept` | A selected candidate confirms membership, with a `reason`. |
+| `exchange` | `team_form` | `reject` | A selected candidate declines the proposal to join, with a `reason`; the recruiter re-selects a fallback. |
+| `exchange` | `team_form` | `re_poll` | Re-poll for mandatory skills still uncovered after selection. |
+| `commit` | `team_form_converged` / `team_form_failure` | `form_converged` / `form_failed` | Closes the episode: `team_form_converged` → team formed; `team_form_failure` → formation failed. |
 
 ## Payload Schema
 
-The TFP payload (`payload[type=json-schema].data`) is defined by `TFPPayload` in
-`language_bindings/python/tfp_models.py`.
+The TFP payload (`payload[type=json-schema].data`) is defined by `TFPPayload`. The
+JSON Schema in `spec/tfp_schema.json` is the source of truth; the Pydantic models
+in `language_bindings/python/generated_models.py` are generated from it via
+`language_bindings/python/generate.sh`.
 
 | Field | Type | Set on | Description |
 |---|---|---|---|
@@ -177,7 +174,8 @@ optional metadata on an offer and does not affect this reference selection.
 
 ## Schema Reference
 
-- Models: [`../language_bindings/python/tfp_models.py`](../language_bindings/python/tfp_models.py)
+- Schema (source of truth): [`../spec/tfp_schema.json`](../spec/tfp_schema.json)
+- Generated models: [`../language_bindings/python/generated_models.py`](../language_bindings/python/generated_models.py)
 - Runnable example: [`../examples/team_formation_example.py`](../examples/team_formation_example.py)
 - Tests: [`../language_bindings/python/test_tfp.py`](../language_bindings/python/test_tfp.py)
 - L9 envelope: [`../../../documentation/L9.md`](../../../documentation/L9.md)
@@ -218,7 +216,7 @@ The file is a metadata wrapper around the message array:
 ```json
 {
   "schema": "ioc.tfp.message_dump.v1",
-  "episode": "urn:ioc:secops:episode:incident-4471-team-formation",
+  "episode": "2f9a6c1e-7b3d-4a8e-9c10-6d5e4f3a2b1c",
   "poll_id": "urn:ioc:tfp:poll:d81903ec",
   "message_count": 14,
   "generated_at": "2026-06-18T20:01:27+00:00",

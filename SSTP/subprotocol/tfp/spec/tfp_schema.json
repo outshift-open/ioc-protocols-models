@@ -1,0 +1,319 @@
+{
+  "$defs": {
+    "CandidateOffer": {
+      "description": "A candidate's response to a poll \u2014 its advertised capability for this task.",
+      "properties": {
+        "skills": {
+          "items": {
+            "$ref": "#/$defs/SkillClaim"
+          },
+          "title": "Skills",
+          "type": "array",
+          "default": []
+        },
+        "availability": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": null,
+          "title": "Availability"
+        },
+        "fit_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": null,
+          "title": "Fit Score"
+        },
+        "cost": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "title": "Cost"
+        },
+        "notes": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "title": "CandidateOffer",
+      "type": "object"
+    },
+    "RoleAssignment": {
+      "description": "Role given to a selected member within the formed team.",
+      "properties": {
+        "agent_id": {
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "responsible_for": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Responsible For",
+          "type": "array",
+          "default": []
+        }
+      },
+      "required": [
+        "agent_id",
+        "role"
+      ],
+      "title": "RoleAssignment",
+      "type": "object"
+    },
+    "SkillClaim": {
+      "description": "A skill a candidate claims to possess, declared on ``bid``.",
+      "properties": {
+        "skill": {
+          "title": "Skill",
+          "type": "string"
+        },
+        "proficiency": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Proficiency",
+          "type": "number"
+        }
+      },
+      "required": [
+        "skill",
+        "proficiency"
+      ],
+      "title": "SkillClaim",
+      "type": "object"
+    },
+    "SkillRequirement": {
+      "description": "A single skill the task needs, declared by the initiator on ``poll_open``.",
+      "properties": {
+        "skill": {
+          "title": "Skill",
+          "type": "string"
+        },
+        "min_proficiency": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Min Proficiency",
+          "type": "number"
+        },
+        "weight": {
+          "default": 1.0,
+          "minimum": 0.0,
+          "title": "Weight",
+          "type": "number"
+        },
+        "mandatory": {
+          "default": true,
+          "title": "Mandatory",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "skill"
+      ],
+      "title": "SkillRequirement",
+      "type": "object"
+    },
+    "TFPOperation": {
+      "description": "The TFP operation carried by a single turn (analogous to SNP ``operation``).",
+      "enum": [
+        "poll_open",
+        "bid",
+        "decline",
+        "clarify",
+        "select",
+        "accept",
+        "reject",
+        "form_failed",
+        "form_converged",
+        "re_poll"
+      ],
+      "title": "TFPOperation",
+      "type": "string"
+    },
+    "TaskSpec": {
+      "description": "What the team is being formed to accomplish.",
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "objective": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "title": "Objective"
+        },
+        "deadline": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "title": "Deadline"
+        }
+      },
+      "required": [
+        "task_id",
+        "description"
+      ],
+      "title": "TaskSpec",
+      "type": "object"
+    },
+    "TeamSelection": {
+      "description": "The initiator's selection decision, carried on ``select`` and ``form``.",
+      "properties": {
+        "members": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Members",
+          "type": "array",
+          "default": []
+        },
+        "roles": {
+          "items": {
+            "$ref": "#/$defs/RoleAssignment"
+          },
+          "title": "Roles",
+          "type": "array",
+          "default": []
+        },
+        "coverage": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Coverage",
+          "type": "number"
+        },
+        "unmet_skills": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unmet Skills",
+          "type": "array",
+          "default": []
+        },
+        "aggregate_fit": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": null,
+          "title": "Aggregate Fit"
+        }
+      },
+      "title": "TeamSelection",
+      "type": "object"
+    },
+    "TFPSubkind": {
+      "title": "TFPSubkind",
+      "description": "Canonical L9 header.subkind values for TFP turns. Non-terminal turns (poll, bid/decline/select/accept/reject, re-poll) are tagged team_form; the terminal commit is tagged team_form_converged or team_form_failure. The operation in the payload still carries the fine-grained semantics.",
+      "enum": [
+        "team_form",
+        "team_form_converged",
+        "team_form_failure"
+      ],
+      "type": "string"
+    }
+  },
+  "description": "The TFP subprotocol payload. Goes inside ``L9Payload.data`` when\n``L9Header.subprotocol == \"TFP\"`` and ``L9Payload.type == \"json-schema\"``.\n\nFields are populated according to ``operation``:\n  * ``poll_open`` sets ``task`` + ``required_skills``\n  * ``bid``       sets ``offer``\n  * ``select`` / ``form`` set ``selection``",
+  "properties": {
+    "operation": {
+      "$ref": "#/$defs/TFPOperation"
+    },
+    "poll_id": {
+      "title": "Poll Id",
+      "type": "string"
+    },
+    "task": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TaskSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "required_skills": {
+      "items": {
+        "$ref": "#/$defs/SkillRequirement"
+      },
+      "title": "Required Skills",
+      "type": "array",
+      "default": []
+    },
+    "offer": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CandidateOffer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "selection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TeamSelection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null,
+      "title": "Reason"
+    },
+    "reasoning_summary": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "default": null,
+      "title": "Reasoning Summary"
+    }
+  },
+  "required": [
+    "operation",
+    "poll_id"
+  ],
+  "title": "TFPPayload",
+  "type": "object",
+  "version": "0.0.1"
+}

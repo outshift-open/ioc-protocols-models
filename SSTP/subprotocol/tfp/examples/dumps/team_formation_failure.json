@@ -1,9 +1,9 @@
 {
   "schema": "ioc.tfp.message_dump.v1",
-  "episode": "urn:ioc:secops:episode:incident-4471-team-formation",
-  "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+  "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8",
+  "poll_id": "urn:ioc:tfp:poll:82221c1b",
   "message_count": 15,
-  "generated_at": "2026-06-18T23:27:16.832874+00:00",
+  "generated_at": "2026-06-22T21:42:54.634237+00:00",
   "messages": [
     {
       "header": {
@@ -11,7 +11,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "intent",
-        "subkind": "team_form_poll",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -28,9 +28,9 @@
           "groups": null
         },
         "message": {
-          "id": "538370d1-17fa-473b-a3fd-187b7669f510",
+          "id": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
           "parents": "",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -43,7 +43,7 @@
         "type": "json-schema",
         "data": {
           "operation": "poll_open",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "task": {
             "task_id": "incident-4471",
             "description": "Triage a suspicious-login security incident across SIEM + endpoint data",
@@ -85,7 +85,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -102,9 +102,9 @@
           "groups": null
         },
         "message": {
-          "id": "0066cb64-fa1c-45d8-ad7f-1450c4abeec0",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "7569eab7-8376-4649-b5d4-e1c4c0043761",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -117,7 +117,7 @@
         "type": "json-schema",
         "data": {
           "operation": "decline",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "reason": "None of my skills match the required skills for this poll."
         }
@@ -129,7 +129,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -146,9 +146,9 @@
           "groups": null
         },
         "message": {
-          "id": "2b95e70b-8f8c-42af-bc00-f4519f9a1413",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "93eded1a-0603-4d23-a04d-961c8ceab823",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -161,7 +161,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -186,7 +186,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -203,9 +203,9 @@
           "groups": null
         },
         "message": {
-          "id": "9beff960-4f61-4069-ba13-eb7059fd6df8",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "9093cb3b-1f2e-49bf-af88-d0d784ddec06",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -218,7 +218,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -243,7 +243,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -260,9 +260,9 @@
           "groups": null
         },
         "message": {
-          "id": "0b829f36-2310-4970-a45b-056403f19317",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "4a07a42b-064e-4e7d-ba84-d5e8e9e1d496",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -275,7 +275,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -300,7 +300,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -317,9 +317,9 @@
           "groups": null
         },
         "message": {
-          "id": "02ded0ed-e1c0-49a9-a92b-0716182fcbd5",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "fd08d531-7005-4ae0-a868-d634e6e0401f",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -332,7 +332,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -353,7 +353,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -370,9 +370,9 @@
           "groups": null
         },
         "message": {
-          "id": "fea1f9cf-ea63-41c3-89d7-e5e1a9bf3de5",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "ee8510f5-380f-4afb-a68e-3bdd07ac0cf5",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -385,7 +385,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -406,7 +406,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -423,9 +423,9 @@
           "groups": null
         },
         "message": {
-          "id": "1c4b0e60-26e1-4808-acf7-c41ccf18635f",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "362e6474-e684-4fa4-b51f-3dbb8e9d1471",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -438,7 +438,7 @@
         "type": "json-schema",
         "data": {
           "operation": "select",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "selection": {
             "members": [
@@ -476,7 +476,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -493,9 +493,9 @@
           "groups": null
         },
         "message": {
-          "id": "c380677a-248b-4ff2-992a-26fb5229dfa4",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "575e7690-4011-4ba1-812c-5fff5f38d438",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -508,7 +508,7 @@
         "type": "json-schema",
         "data": {
           "operation": "accept",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "reason": "Skills match the task and I have capacity this shift."
         }
@@ -520,7 +520,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -537,9 +537,9 @@
           "groups": null
         },
         "message": {
-          "id": "31a68503-aea2-48cb-a253-89b08241185c",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "91824f49-b434-4540-9df8-aac86d927f3a",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -552,7 +552,7 @@
         "type": "json-schema",
         "data": {
           "operation": "select",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "selection": {
             "members": [
@@ -590,7 +590,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -607,9 +607,9 @@
           "groups": null
         },
         "message": {
-          "id": "a0910300-f760-4bcc-a67a-67128ac51885",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "efa33e8e-fcc8-421a-a974-bdec421695e5",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -622,7 +622,7 @@
         "type": "json-schema",
         "data": {
           "operation": "reject",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "reason": "Already committed to incident-4470 this shift; at capacity."
         }
@@ -634,7 +634,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -651,9 +651,9 @@
           "groups": null
         },
         "message": {
-          "id": "c9c12aba-16fb-4e4a-b6bd-f8b901170af4",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "cc107dec-890d-457b-8b57-727a385bc3aa",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -666,7 +666,7 @@
         "type": "json-schema",
         "data": {
           "operation": "select",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "selection": {
             "members": [
@@ -704,7 +704,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_response",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -721,9 +721,9 @@
           "groups": null
         },
         "message": {
-          "id": "216b5a4b-9f73-40d7-a3d2-eac8758b9bbe",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "ae3e1f8b-bb34-49b4-87e0-f38bc933dec7",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -736,7 +736,7 @@
         "type": "json-schema",
         "data": {
           "operation": "accept",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "reason": "Skills match the task and I have capacity this shift."
         }
@@ -748,7 +748,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form_re_poll",
+        "subkind": "team_form",
         "actors": {
           "actors": [
             {
@@ -765,9 +765,9 @@
           "groups": null
         },
         "message": {
-          "id": "75ee30c7-f604-42e4-b4d5-cf37d2282457",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "b4e73d0e-e7dd-4f9a-87fd-ff4721902141",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -780,7 +780,7 @@
         "type": "json-schema",
         "data": {
           "operation": "re_poll",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [
             {
               "skill": "skill:quantum_forensics",
@@ -799,7 +799,7 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "commit",
-        "subkind": "team_form_failed",
+        "subkind": "team_form_failure",
         "actors": {
           "actors": [
             {
@@ -816,9 +816,9 @@
           "groups": null
         },
         "message": {
-          "id": "d83c7721-78cc-497b-ac69-ccefbae115c6",
-          "parents": "538370d1-17fa-473b-a3fd-187b7669f510",
-          "episode": "urn:ioc:secops:episode:incident-4471-team-formation"
+          "id": "3fd33300-d6a0-48d2-a18c-274e7f17e4fb",
+          "parents": "40e1b975-68e8-43ea-8e0a-63a02de0096e",
+          "episode": "19569fd6-2158-46e0-816d-4a5d1e4f55e8"
         },
         "policy": null,
         "context": {
@@ -831,7 +831,7 @@
         "type": "json-schema",
         "data": {
           "operation": "form_failed",
-          "poll_id": "urn:ioc:tfp:poll:d3ed64b9",
+          "poll_id": "urn:ioc:tfp:poll:82221c1b",
           "required_skills": [],
           "selection": {
             "members": [

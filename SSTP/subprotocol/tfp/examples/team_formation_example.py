@@ -44,7 +44,7 @@ for _p in (str(_REPO_ROOT), str(_TFP_PY)):
 
 from ioc_l9.src import L9, L9Header, L9Payload                      # noqa: E402
 from ioc_l9.src.primitives import Actor, Actors, Context, Message   # noqa: E402
-from tfp_models import (                                            # noqa: E402
+from generated_models import (                                     # noqa: E402
     CandidateOffer,
     RoleAssignment,
     SkillClaim,
@@ -348,10 +348,10 @@ def run(force_failure: bool = False) -> TFPBus:
 
     With ``force_failure=True`` an extra mandatory skill that no subscriber
     possesses is added to the requirements, so the team cannot converge — this
-    exercises the re-poll (``re_poll`` / ``team_form_re_poll``) and the
-    ``form_failed`` / ``team_form_failed`` commit path.
+    exercises the re-poll (``re_poll`` operation, ``team_form`` subkind) and the
+    ``form_failed`` operation / ``team_form_failure`` subkind commit path.
     """
-    episode = "urn:ioc:secops:episode:incident-4471-team-formation"
+    episode = str(uuid.uuid4())
     bus = TFPBus(episode=episode)
     recruiter = "recruiter"
     topic_name = "topic:tfp/polls/secops"
@@ -448,7 +448,7 @@ def run(force_failure: bool = False) -> TFPBus:
         sender=recruiter,
         receivers=[topic_name],
         kind="intent",
-        subkind=TFPSubkind.POLL.value,
+        subkind=TFPSubkind.TEAM_FORM.value,
         payload=poll,
     )
     parent = open_msg.header.message.id
@@ -463,7 +463,7 @@ def run(force_failure: bool = False) -> TFPBus:
             sender=agent_id,
             receivers=[recruiter],
             kind="exchange",
-            subkind=TFPSubkind.RESPONSE.value,
+            subkind=TFPSubkind.TEAM_FORM.value,
             parent_id=parent,
             payload=payload,
         )
@@ -490,7 +490,7 @@ def run(force_failure: bool = False) -> TFPBus:
                 sender=recruiter,
                 receivers=[member],
                 kind="exchange",
-                subkind=TFPSubkind.RESPONSE.value,
+                subkind=TFPSubkind.TEAM_FORM.value,
                 parent_id=parent,
                 payload=TFPPayload(
                     operation=TFPOperation.SELECT,
@@ -506,7 +506,7 @@ def run(force_failure: bool = False) -> TFPBus:
                 sender=member,
                 receivers=[recruiter],
                 kind="exchange",
-                subkind=TFPSubkind.RESPONSE.value,
+                subkind=TFPSubkind.TEAM_FORM.value,
                 parent_id=parent,
                 payload=response,
             )
@@ -527,7 +527,7 @@ def run(force_failure: bool = False) -> TFPBus:
             sender=recruiter,
             receivers=[topic_name],
             kind="exchange",
-            subkind=TFPSubkind.RE_POLL.value,
+            subkind=TFPSubkind.TEAM_FORM.value,
             parent_id=parent,
             payload=TFPPayload(
                 operation=TFPOperation.RE_POLL,
@@ -542,7 +542,7 @@ def run(force_failure: bool = False) -> TFPBus:
         sender=recruiter,
         receivers=[topic_name],
         kind="commit",
-        subkind=(TFPSubkind.CONVERGED if formation_ok else TFPSubkind.FAILED).value,
+        subkind=(TFPSubkind.TEAM_FORM_CONVERGED if formation_ok else TFPSubkind.TEAM_FORM_FAILURE).value,
         parent_id=parent,
         payload=TFPPayload(
             operation=(TFPOperation.FORM_CONVERGED if formation_ok else TFPOperation.FORM_FAILED),
