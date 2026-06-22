@@ -20,18 +20,9 @@ Kind values and their meaning:
 """
 
 from typing import Optional
-from enum import Enum
 from pydantic import BaseModel
 
-from ioc_l9.src.primitives import ParticipantSet, PolicyLabel, Message, Context
-
-# ── Enums ─────────────────────────────────────────────────────────────────────
-class Kind(str, Enum):
-    intent      = "intent"
-    contingency = "contingency"
-    exchange    = "exchange"
-    commit      = "commit"
-    knowledge   = "knowledge"
+from ioc_l9.src.primitives import Actors, PolicyLabel, Message, Context
 
 class L9Payload(BaseModel):
     """
@@ -46,20 +37,20 @@ class L9Payload(BaseModel):
 class L9Header(BaseModel):
     """
     Routing and metadata envelope for every L9 message.
-    The CFN layer reads the header — especially `kind` and `subkind` —
+    The CFN layer reads the header — especially `kind` and `sub_kind` —
     to decide which Cognitive Engine (CE) should handle the message.
     """
-    protocol: str                          # protocol name, e.g. "SSTP"
-    subprotocol: str                       # subprotocol name, e.g. "CIP"
-    version: str                           # protocol version string, e.g. "1.0"
-    kind: Kind                             # one of: intent | contingency | exchange | commit | knowledge
-    subkind: Optional[str] = None          # free-form classification within the kind
-    participants: ParticipantSet           # all participants: sender(s), receiver(s), observers
-    message: Optional[Message] = None
-    policy: Optional[PolicyLabel] = None   # optional data governance labels
+    protocol: str                        # protocol name, e.g. "SSTP"
+    subprotocol: str                      # subprotocol name, e.g. "CIP"
+    version: str                         # protocol version string, e.g. "1.0"
+    kind: str                            # message kind — drives CFN routing (see module docstring)
+    subkind: str                        # finer-grained classification within the kind
+    actors: Actors                 # all participants: sender(s), receiver(s), observers
+    message: Optional[Message] = None 
+    policy: Optional[PolicyLabel] = None      # optional data governance labels
     attributes: Optional[dict] = None
-    context: Optional[Context] = None      # optional context
-
+    context: Optional[Context] = None               # optional context 
+    
 
 class L9(BaseModel):
     """
