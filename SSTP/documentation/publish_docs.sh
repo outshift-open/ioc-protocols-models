@@ -124,7 +124,7 @@ finalize_docs() {
     <div class="bindings">
         <h2>Language Bindings</h2>
         <ul>
-            <li><strong>Go:</strong> <code>go get github.com/cisco-eti/ioc-cfn-protocols-models/SSTP/language_bindings/golang@v$version</code></li>
+            <li><strong>Go:</strong> <code>go get github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang@v$version</code></li>
         </ul>
     </div>
 
