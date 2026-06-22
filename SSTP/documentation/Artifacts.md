@@ -35,10 +35,10 @@ See the comprehensive test suite for working examples:
 #### Installation
 ```bash
 # Add to your project (specific version)
-go get github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang@v1.0.0
+go get github.com/cisco-eti/ioc-cfn-protocols-models/SSTP/language_bindings/golang@v1.0.0
 
 # Get latest version
-go get github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang@latest
+go get github.com/cisco-eti/ioc-cfn-protocols-models/SSTP/language_bindings/golang@latest
 
 # Update go.mod
 go mod tidy
@@ -66,10 +66,10 @@ pip show ioc-l9
 #### Go
 ```bash
 # List available versions
-go list -m -versions github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang
+go list -m -versions github.com/cisco-eti/ioc-cfn-protocols-models/SSTP/language_bindings/golang
 
 # Check current version in project
-go list -m github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang
+go list -m github.com/cisco-eti/ioc-cfn-protocols-models/SSTP/language_bindings/golang
 ```
 
 ### Dependency Management
@@ -98,7 +98,7 @@ module your-service
 go 1.21
 
 require (
-    github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang v1.0.0
+    github.com/cisco-eti/ioc-cfn-protocols-models/SSTP/language_bindings/golang v1.0.0
     github.com/gorilla/mux v1.8.0
 )
 ```
@@ -128,7 +128,7 @@ go clean -modcache
 go env GOPROXY
 
 # Use direct access if needed
-GOPROXY=direct go get github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang
+GOPROXY=direct go get github.com/cisco-eti/ioc-cfn-protocols-models/SSTP/language_bindings/golang
 ```
 
 #### Version Conflicts
@@ -184,4 +184,4 @@ Check the repository releases page for:
 
 **Repository**: https://github.com/cisco-eti/ioc-protocols-models/  
 **Python Package**: https://pypi.org/project/ioc-l9/  
-**Go Module**: github.com/cisco-eti/ioc-protocols-models/ioc_l9/language_bindings/golang
+**Go Module**: github.com/cisco-eti/ioc-cfn-protocols-models/SSTP/language_bindings/golang

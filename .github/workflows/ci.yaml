@@ -1,4 +1,4 @@
-name: ioc-cfn-protocols-models CI workflow
+name: ioc-protocols-models CI workflow
 
 on:
   # we want pull requests so we can build(test) but not push to image registry
@@ -49,14 +49,27 @@ jobs:
           # Default: false
           submodules: ''
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Install go-jsonschema
+        run: go install github.com/atombender/go-jsonschema@latest
+
   ################################## Unit Test ##################################
   ###############################################################################
 
       - name: Unit Tests
-        run: |
-          ls -l /usr/local/bin
-          #chmod +x scripts/unit-test.sh
-          bash scripts/unit-test.sh
+        run: bash scripts/unit-test.sh
 
   ################################## Send Status for PR Checks ###########################
   ########################################################################################
