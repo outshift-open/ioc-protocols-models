@@ -7,8 +7,8 @@ negotiating price and delivery speed for an urgent supply order.
 
 | File | Description |
 |------|-------------|
-| `quick_deal_agreement.json` | 6 messages — converged after 2 counter-offers (4 negotiate rounds) |
-| `quick_deal_disagreement.json` | 8 messages — step budget (6 rounds) exhausted, no agreement |
+| `demo_agreement.json` | 6 messages — converged after 2 counter-offers (4 negotiate rounds) |
+| `demo_disagreement.json` | 8 messages — step budget (6 rounds) exhausted, no agreement |
 
 Each file is a JSON array of SAB messages, where every message has a `header`
 and a `payload`.

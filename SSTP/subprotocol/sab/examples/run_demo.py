@@ -432,8 +432,8 @@ def _dump(messages: list[dict], out_path: Path, outcome: str) -> None:
 def run_demo() -> None:
     out_dir = Path(__file__).resolve().parent
 
-    _dump(build_agreement(),    out_dir / "quick_deal_agreement.json",    outcome="agreement")
-    _dump(build_disagreement(), out_dir / "quick_deal_disagreement.json", outcome="disagreement")
+    _dump(build_agreement(),    out_dir / "demo_agreement.json",    outcome="agreement")
+    _dump(build_disagreement(), out_dir / "demo_disagreement.json", outcome="disagreement")
 
 
 if __name__ == "__main__":
