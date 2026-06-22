@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # Generate Python Pydantic models from JSON Schema
-# This script uses datamodel-codegen to convert the IOC L9 JSON schema 
+# This script uses datamodel-codegen to convert the IOC L9 JSON schema
 # to equivalent Pydantic models with built-in validations
 #
 # USAGE:
-#   From project root: ./ioc_l9/language_bindings/python/generate.sh
+#   From project root: ./SSTP/language_bindings/python/generate.sh
 #   From this directory: ./generate.sh
 #
 # PREREQUISITES:
 #   1. Install dependencies: poetry install
-#   2. Ensure JSON schema exists at: ioc_l9/spec/json_schema/l9.json
+#   2. Ensure JSON schema exists at: SSTP/spec/l9_schema.json
 #
 # OUTPUT:
 #   Generated models will be written to: generated_models.py
@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Define paths
-SCHEMA_FILE="$PROJECT_ROOT/ioc_l9/spec/json_schema/l9.json"
+SCHEMA_FILE="$PROJECT_ROOT/SSTP/spec/l9_schema.json"
 OUTPUT_FILE="$SCRIPT_DIR/generated_models.py"
 
 echo "Generating Python bindings from JSON Schema..."
@@ -50,6 +50,14 @@ poetry run datamodel-codegen \
     --use-title-as-name \
     --strict-nullable \
     --disable-timestamp
+
+# Prepend license header
+LICENSE_HEADER="# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"
+echo "${LICENSE_HEADER}$(cat "$OUTPUT_FILE")" > "$OUTPUT_FILE"
 
 echo "Generated Python bindings successfully!"
 echo "Output written to: $OUTPUT_FILE"

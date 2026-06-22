@@ -7,7 +7,7 @@ set -e
 
 # Get the script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 echo "Running Golang Language Bindings Tests..."
 echo "Project root: $PROJECT_ROOT"
@@ -19,7 +19,7 @@ cd "$PROJECT_ROOT"
 cd "$SCRIPT_DIR"
 
 # Check if generated Go models exist
-GENERATED_MODELS="$PROJECT_ROOT/ioc_l9/language_bindings/golang/generated_models.go"
+GENERATED_MODELS="$PROJECT_ROOT/SSTP/language_bindings/golang/generated_models.go"
 if [ ! -f "$GENERATED_MODELS" ]; then
     echo "Error: Generated Golang models not found at: $GENERATED_MODELS"
     echo "Please generate the models first (make generate_bindings LANGUAGE=golang)"
@@ -43,12 +43,9 @@ if [ ! -f "go.sum" ]; then
 fi
 
 echo "Model Validation Tests..."
-go test -v ./model_validation_test.go
-
-# Check if tests passed
-if [ $? -ne 0 ]; then
+if go test -v .; then
+    echo "✅ Golang binding tests PASSED"
+else
     echo "❌ Golang binding tests FAILED"
     exit 1
 fi
-
-echo "✅ Golang binding tests PASSED"
