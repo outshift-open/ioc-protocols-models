@@ -874,7 +874,6 @@ class AgentBus:
         coordinator: str,
         subject: str,
         episode_id: str | None = None,
-        parent_episode: str | None = None,
         coordination_summary: "Dict[str, Any] | None" = None,
     ) -> Dict[str, Any]:
         """Open the taskwork phase with a kind=intent on the shared dialogue episode.
@@ -883,9 +882,6 @@ class AgentBus:
         completed grounding and is opening a coordinated taskwork phase.  The
         coordination_summary from the peer grounding phase is attached as
         payload[type=team_process] so taskwork agents have the alignment outcome.
-
-        ``parent_episode`` identifies the enclosing session episode URI so the
-        nesting is explicit on the wire (message.parent_episode).
 
         kind=intent, state=team_process.
         """
@@ -915,7 +911,6 @@ class AgentBus:
                 sensitivity=self.sensitivity,
                 utterance=_utterance,
                 episode_id=episode_id,
-                parent_episode=parent_episode,
                 kind_override="intent",
                 epistemic=_epistemic,
                 payload_parts=payload_parts,
@@ -1066,7 +1061,6 @@ class AgentBus:
         receiver: "str | None",
         subject: str,
         episode_id: str | None = None,
-        parent_episode: str | None = None,
         team_prior: "Dict[str, Any] | None" = None,
         team_process: "Dict[str, Any] | None" = None,
         rationale: str = "",
@@ -1096,7 +1090,6 @@ class AgentBus:
                 sensitivity=self.sensitivity,
                 utterance=_utterance,
                 episode_id=episode_id,
-                parent_episode=parent_episode,
                 kind_override="intent",
                 epistemic=make_epistemic_block(
                     speech_act=SpeechAct.ASSERTION,
