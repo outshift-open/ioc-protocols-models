@@ -149,7 +149,9 @@ After this, two tags exist on the remote:
 go get github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang@v0.0.2
 ```
 
-> **Note:** If this is still a private repo, you'll need `GOPRIVATE=github.com/cisco-eti/*` and SSH git access configured.
+> **Private repo:** You'll need `GOPRIVATE=github.com/cisco-eti/*` and SSH git access configured.
+>
+> **Public repo:** No extra config needed — `go get` works out of the box.
 
 ### Use in your code:
 
