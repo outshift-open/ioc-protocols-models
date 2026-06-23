@@ -99,38 +99,38 @@ repeating until every selected member has accepted or the pool is exhausted.
 
 Each turn carries three coordinated discriminators: the L9 `header.kind`
 (lifecycle phase), the L9 `header.subkind` (the TFP phase tag), and the payload
-`operation` (fine-grained semantics). The `subkind` is one of three canonical
-values (`TFPSubkind`):
+`operation` (fine-grained semantics). The `subkind` is a free-form string; TFP
+uses one of three canonical values:
 
 | `subkind` | Used on | Meaning |
 |---|---|---|
-| `team_form` | every non-terminal turn (`intent` poll, all `exchange` turns, re-poll) | The episode is in progress — a poll, bid/decline/select/accept/reject, or re-poll. The payload `operation` disambiguates. |
-| `team_form_converged` | the closing `commit` | A team was formed (all mandatory skills covered). |
-| `team_form_failure` | the closing `commit` | Formation failed (mandatory skills uncovered after re-poll). |
+| `team-formation` | every non-terminal turn (`intent` poll, all `exchange` turns, re-poll) | The episode is in progress — a poll, bid/decline/select/accept/reject, or re-poll. The payload `operation` disambiguates. |
+| `converged` | the closing `commit` | A team was formed (all mandatory skills covered). |
+| `abort` | the closing `commit` | Formation failed (mandatory skills uncovered after re-poll). |
 
 Full per-turn mapping:
 
 | `kind` | `subkind` | `operation` | Meaning |
 |---|---|---|---|
-| `intent` | `team_form` | `poll_open` | Opens the episode; broadcasts the task and required skills. |
-| `exchange` | `team_form` | `bid` | A candidate advertises its skills, availability, and self-assessed fit. |
-| `exchange` | `team_form` | `decline` | A candidate opts out of the poll (no relevant skills / unavailable), with a `reason`. |
-| `exchange` | `team_form` | `select` | The initiator selects a candidate and assigns a role (the "proposal to join"). |
-| `exchange` | `team_form` | `accept` | A selected candidate confirms membership, with a `reason`. |
-| `exchange` | `team_form` | `reject` | A selected candidate declines the proposal to join, with a `reason`; the recruiter re-selects a fallback. |
-| `exchange` | `team_form` | `re_poll` | Re-poll for mandatory skills still uncovered after selection. |
-| `commit` | `team_form_converged` / `team_form_failure` | `form_converged` / `form_failed` | Closes the episode: `team_form_converged` → team formed; `team_form_failure` → formation failed. |
+| `intent` | `team-formation` | `poll_open` | Opens the episode; broadcasts the task and required skills. |
+| `exchange` | `team-formation` | `bid` | A candidate advertises its skills, availability, and self-assessed fit. |
+| `exchange` | `team-formation` | `decline` | A candidate opts out of the poll (no relevant skills / unavailable), with a `reason`. |
+| `exchange` | `team-formation` | `select` | The initiator selects a candidate and assigns a role (the "proposal to join"). |
+| `exchange` | `team-formation` | `accept` | A selected candidate confirms membership, with a `reason`. |
+| `exchange` | `team-formation` | `reject` | A selected candidate declines the proposal to join, with a `reason`; the recruiter re-selects a fallback. |
+| `exchange` | `team-formation` | `re_poll` | Re-poll for mandatory skills still uncovered after selection. |
+| `commit` | `converged` / `abort` | `form_converged` / `form_failed` | Closes the episode: `converged` → team formed; `abort` → formation failed. |
 
 ## Payload Schema
 
 The TFP payload (`payload[type=json-schema].data`) is defined by `TFPPayload`. The
 source of truth is the Pydantic models in `src/tfp_models.py`. The JSON Schema in
 `spec/tfp_schema.json` is generated from them via `scripts/generate_spec.sh`, and
-the Pydantic bindings in `language_bindings/python/generated_models.py` are in turn
+the Pydantic bindings in `language_bindings/python/data_model.py` are in turn
 generated from the schema via `language_bindings/python/generate.sh`:
 
 ```
-src/tfp_models.py → spec/tfp_schema.json → language_bindings/python/generated_models.py
+src/tfp_models.py → spec/tfp_schema.json → language_bindings/python/data_model.py
 ```
 
 | Field | Type | Set on | Description |
@@ -178,7 +178,7 @@ optional metadata on an offer and does not affect this reference selection.
 
 - Source models (source of truth): [`../src/tfp_models.py`](../src/tfp_models.py)
 - Schema (generated from source models): [`../spec/tfp_schema.json`](../spec/tfp_schema.json)
-- Generated bindings (generated from schema): [`../language_bindings/python/generated_models.py`](../language_bindings/python/generated_models.py)
+- Generated bindings (generated from schema): [`../language_bindings/python/data_model.py`](../language_bindings/python/data_model.py)
 - Runnable example: [`../examples/team_formation_example.py`](../examples/team_formation_example.py)
 - Tests: [`../language_bindings/python/test_tfp.py`](../language_bindings/python/test_tfp.py)
 - L9 envelope: [`../../../documentation/L9.md`](../../../documentation/L9.md)

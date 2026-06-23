@@ -9,23 +9,23 @@ subprotocol payload. The pipeline is:
     spec/tfp_schema.json         (generated JSON Schema)
         │  language_bindings/python/generate.sh
         ▼
-    language_bindings/python/generated_models.py   (generated bindings)
+    language_bindings/python/data_model.py   (generated bindings)
 
-Do NOT hand-edit ``tfp_schema.json`` or ``generated_models.py``. Change these
+Do NOT hand-edit ``tfp_schema.json`` or ``data_model.py``. Change these
 models and re-run the generators.
 Message flow (one episode):
     *Kind*       *Subkind*            *Operation*         *Meaning*
 
-    intent      team_form        poll_open         initiator broadcasts task + required skills to a group
-    exchange    team_form        bid               each candidate advertises its skills / availability / fit
-    exchange    team_form        decline           a candidate opts out (optional)
-    exchange    team_form        select            initiator picks members and assigns roles
-    exchange    team_form        accept            a selected candidate confirms membership (with a reason)
-    exchange    team_form        reject            a selected candidate declines to join (with a reason);
+    intent      team-formation   poll_open         initiator broadcasts task + required skills to a group
+    exchange    team-formation   bid               each candidate advertises its skills / availability / fit
+    exchange    team-formation   decline           a candidate opts out (optional)
+    exchange    team-formation   select            initiator picks members and assigns roles
+    exchange    team-formation   accept            a selected candidate confirms membership (with a reason)
+    exchange    team-formation   reject            a selected candidate declines to join (with a reason);
                                                         the recruiter may re-select a fallback candidate
-    exchange    team_form        re_poll           re-poll for uncovered mandatory skills / if candidates reject the proposal to join
-    commit      team_form_converged   form_converged    team is formed successfully
-    commit      team_form_failed      form_failed       team formation failed (mandatory skills uncovered and no fallback candidate found)
+    exchange    team-formation   re_poll           re-poll for uncovered mandatory skills / if candidates reject the proposal to join
+    commit      converged             form_converged    team is formed successfully
+    commit      abort                 form_failed       team formation failed (mandatory skills uncovered and no fallback candidate found)
 """
 
 from __future__ import annotations
@@ -49,14 +49,6 @@ class TFPOperation(str, Enum):
     FORM_FAILED = "form_failed"
     FORM_CONVERGED = "form_converged"
     RE_POLL = "re_poll"
-
-
-class TFPSubkind(str, Enum):
-    """Canonical L9 header.subkind values for TFP turns. Non-terminal turns (poll, bid/decline/select/accept/reject, re-poll) are tagged team_form; the terminal commit is tagged team_form_converged or team_form_failure. The operation in the payload still carries the fine-grained semantics."""
-
-    TEAM_FORM = "team_form"
-    TEAM_FORM_CONVERGED = "team_form_converged"
-    TEAM_FORM_FAILURE = "team_form_failure"
 
 
 class SkillRequirement(BaseModel):

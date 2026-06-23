@@ -14,7 +14,7 @@
 #   2. Ensure JSON schema exists at: <tfp-root>/spec/tfp_schema.json
 #
 # OUTPUT:
-#   Generated models will be written to: generated_models.py
+#   Generated models will be written to: data_model.py
 
 set -e
 
@@ -25,7 +25,7 @@ TFP_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Define paths
 SCHEMA_FILE="$TFP_ROOT/spec/tfp_schema.json"
-OUTPUT_FILE="$SCRIPT_DIR/generated_models.py"
+OUTPUT_FILE="$SCRIPT_DIR/data_model.py"
 
 echo "Generating Python bindings from JSON Schema..."
 echo "Schema file: $SCHEMA_FILE"

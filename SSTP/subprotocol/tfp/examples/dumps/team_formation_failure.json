@@ -1,9 +1,9 @@
 {
   "schema": "ioc.tfp.message_dump.v1",
-  "episode": "19a3c735-fe97-403d-b303-f2dc1358927e",
-  "poll_id": "urn:ioc:tfp:poll:80763361",
+  "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400",
+  "poll_id": "urn:ioc:tfp:poll:f36952d2",
   "message_count": 15,
-  "generated_at": "2026-06-22T22:42:17.903323+00:00",
+  "generated_at": "2026-06-23T23:18:10.728533+00:00",
   "messages": [
     {
       "header": {
@@ -11,8 +11,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "intent",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "recruiter",
@@ -23,9 +23,9 @@
           "groups": null
         },
         "message": {
-          "id": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
+          "id": "4956cf72-60f3-4f6f-9215-82e9136768ef",
           "parents": "",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -38,7 +38,7 @@
         "type": "json-schema",
         "data": {
           "operation": "poll_open",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "task": {
             "task_id": "incident-4471",
             "description": "Triage a suspicious-login security incident across SIEM + endpoint data",
@@ -80,8 +80,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "comms-bot",
@@ -97,9 +97,9 @@
           "groups": null
         },
         "message": {
-          "id": "9f5789b4-6a25-41e7-a421-dc6f752ee63b",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "047c7227-199c-4831-a7dc-7960ec1615c5",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -112,7 +112,7 @@
         "type": "json-schema",
         "data": {
           "operation": "decline",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "reason": "None of my skills match the required skills for this poll."
         }
@@ -124,8 +124,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "log-analyst",
@@ -146,9 +146,9 @@
           "groups": null
         },
         "message": {
-          "id": "0a8fcdae-fc62-482a-a9d9-8378e29b382a",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "1b7e689a-0a95-44b1-9b36-e656f8f7bc76",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -161,7 +161,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -176,7 +176,7 @@
             ],
             "fit_score": 0.9
           },
-          "reasoning_summary": "fit\u22480.3345"
+          "reasoning_summary": "fit≈0.3345"
         }
       }
     },
@@ -186,8 +186,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "threat-intel",
@@ -213,9 +213,9 @@
           "groups": null
         },
         "message": {
-          "id": "8eb8e1c3-ffbd-49e0-8d09-b13c7458e2ab",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "683c2837-1cb9-4d14-a10a-f026a1f447c3",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -228,7 +228,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -243,7 +243,7 @@
             ],
             "fit_score": 0.82
           },
-          "reasoning_summary": "fit\u22480.24"
+          "reasoning_summary": "fit≈0.24"
         }
       }
     },
@@ -253,8 +253,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "forensics",
@@ -285,9 +285,9 @@
           "groups": null
         },
         "message": {
-          "id": "cd466fbb-1b34-464f-9ba6-23b8cbbeb90c",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "3007032d-640e-40f6-92d8-b1df0a582af1",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -300,7 +300,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -315,7 +315,7 @@
             ],
             "fit_score": 0.7
           },
-          "reasoning_summary": "fit\u22480.1636"
+          "reasoning_summary": "fit≈0.1636"
         }
       }
     },
@@ -325,8 +325,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "intel-2",
@@ -362,9 +362,9 @@
           "groups": null
         },
         "message": {
-          "id": "f0271199-fc17-4745-bf7a-4774c494d35e",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "30260073-af6f-43f8-ad2a-421e5d43bba1",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -377,7 +377,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -388,7 +388,7 @@
             ],
             "fit_score": 0.7
           },
-          "reasoning_summary": "fit\u22480.1964"
+          "reasoning_summary": "fit≈0.1964"
         }
       }
     },
@@ -398,8 +398,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "slow-intel",
@@ -440,9 +440,9 @@
           "groups": null
         },
         "message": {
-          "id": "d5f5f0ae-a1b2-433a-ab04-b13d2a59b76d",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "fcae5bcd-e8fa-4280-9c8e-b9f217f7fd10",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -455,7 +455,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -466,7 +466,7 @@
             ],
             "fit_score": 0.95
           },
-          "reasoning_summary": "fit\u22480.27"
+          "reasoning_summary": "fit≈0.27"
         }
       }
     },
@@ -476,8 +476,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "recruiter",
@@ -518,9 +518,9 @@
           "groups": null
         },
         "message": {
-          "id": "7f860ea5-fdf3-48af-8731-4155d31b96fb",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "9d2e0c77-d2b2-4bd2-b35c-7d04a5049dd0",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -533,7 +533,7 @@
         "type": "json-schema",
         "data": {
           "operation": "select",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "selection": {
             "members": [
@@ -571,8 +571,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "log-analyst",
@@ -613,9 +613,9 @@
           "groups": null
         },
         "message": {
-          "id": "20756914-3d1b-4c46-80a8-204f11628fb3",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "95e1dea8-4065-41fd-9eb1-691dbdb8bea0",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -628,7 +628,7 @@
         "type": "json-schema",
         "data": {
           "operation": "accept",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "reason": "Skills match the task and I have capacity this shift."
         }
@@ -640,8 +640,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "recruiter",
@@ -682,9 +682,9 @@
           "groups": null
         },
         "message": {
-          "id": "d6a26342-c165-4740-a7fe-328137cd3e94",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "46b2fe4d-8045-49d9-8ec0-20dbfa1c4dfd",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -697,7 +697,7 @@
         "type": "json-schema",
         "data": {
           "operation": "select",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "selection": {
             "members": [
@@ -735,8 +735,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "threat-intel",
@@ -777,9 +777,9 @@
           "groups": null
         },
         "message": {
-          "id": "68426d1e-7d5c-4f16-abc5-f38450d09eda",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "6fd1ad4d-baee-4f16-87a8-df4966510924",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -792,7 +792,7 @@
         "type": "json-schema",
         "data": {
           "operation": "reject",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "reason": "Already committed to incident-4470 this shift; at capacity."
         }
@@ -804,8 +804,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "recruiter",
@@ -846,9 +846,9 @@
           "groups": null
         },
         "message": {
-          "id": "9cf3d9dc-7f4b-491c-922d-b554f461ec6f",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "f74358b8-c2a1-4105-8870-07dfd696b0b0",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -861,7 +861,7 @@
         "type": "json-schema",
         "data": {
           "operation": "select",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "selection": {
             "members": [
@@ -899,8 +899,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "intel-2",
@@ -941,9 +941,9 @@
           "groups": null
         },
         "message": {
-          "id": "d05fbf57-a573-46ff-9342-85504ff568c3",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "e1d2cdc6-5dfc-4fac-bc53-d8d2927d1f31",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -956,7 +956,7 @@
         "type": "json-schema",
         "data": {
           "operation": "accept",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "reason": "Skills match the task and I have capacity this shift."
         }
@@ -968,8 +968,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "exchange",
-        "subkind": "team_form",
-        "actors": {
+        "subkind": "team-formation",
+        "participants": {
           "actors": [
             {
               "id": "recruiter",
@@ -1010,9 +1010,9 @@
           "groups": null
         },
         "message": {
-          "id": "0db5e341-8020-4a79-ba1c-5649d5a56cb1",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "3dfe885c-20f1-47cd-972e-1a2eec26a64f",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -1025,7 +1025,7 @@
         "type": "json-schema",
         "data": {
           "operation": "re_poll",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [
             {
               "skill": "skill:quantum_forensics",
@@ -1044,8 +1044,8 @@
         "subprotocol": "TFP",
         "version": "0",
         "kind": "commit",
-        "subkind": "team_form_failure",
-        "actors": {
+        "subkind": "abort",
+        "participants": {
           "actors": [
             {
               "id": "recruiter",
@@ -1086,9 +1086,9 @@
           "groups": null
         },
         "message": {
-          "id": "5183f7d9-acdf-427d-9de7-e28bd1628d63",
-          "parents": "d2d7ea85-2bed-4f0e-923b-b29f1ef22fbe",
-          "episode": "19a3c735-fe97-403d-b303-f2dc1358927e"
+          "id": "3ee916b1-2c0c-44a4-a5e6-ebec2d239e27",
+          "parents": "4956cf72-60f3-4f6f-9215-82e9136768ef",
+          "episode": "a4fb0ef4-a9cd-4fb3-8d46-57e0be988400"
         },
         "policy": null,
         "context": {
@@ -1101,7 +1101,7 @@
         "type": "json-schema",
         "data": {
           "operation": "form_failed",
-          "poll_id": "urn:ioc:tfp:poll:80763361",
+          "poll_id": "urn:ioc:tfp:poll:f36952d2",
           "required_skills": [],
           "selection": {
             "members": [

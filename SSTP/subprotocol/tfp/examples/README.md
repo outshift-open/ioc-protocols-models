@@ -2,7 +2,7 @@
 
 A single, self-contained script — [`team_formation_example.py`](team_formation_example.py)
 — that drives a full **Team Formation via Polling** episode end-to-end. Every
-message it emits is a real L9 envelope (`ioc_l9.src.L9`) carrying a typed
+message it emits is a real L9 envelope (`src.L9`) carrying a typed
 `TFPPayload`, so the run doubles as a living conformance fixture for the schema.
 
 ## Running it
@@ -77,7 +77,7 @@ never considered. That is the defining property of open-world discovery —
 The `--fail` flag adds a mandatory `skill:quantum_forensics` requirement that no
 subscriber can satisfy. Coverage stays incomplete, the recruiter emits a
 `re_poll`, and the episode commits as `form_failed` with the
-`team_form_failure` subkind — exercising the failure branch of the protocol.
+`abort` subkind — exercising the failure branch of the protocol.
 
 ## L9 message dump
 

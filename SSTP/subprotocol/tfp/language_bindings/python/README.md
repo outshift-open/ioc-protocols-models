@@ -4,12 +4,12 @@ Pydantic models for the **Team Formation via Polling** subprotocol payload.
 
 ## Contents
 
-- `generated_models.py` — **generated** from [`../../spec/tfp_schema.json`](../../spec/tfp_schema.json)
+- `data_model.py` — **generated** from [`../../spec/tfp_schema.json`](../../spec/tfp_schema.json)
   via [`generate.sh`](generate.sh). Defines `TFPPayload` and its sub-structures
   (`SkillRequirement`, `SkillClaim`, `CandidateOffer`, `TeamSelection`,
-  `RoleAssignment`, `TaskSpec`), plus the `TFPOperation` and `TFPSubkind` enums.
+  `RoleAssignment`, `TaskSpec`), plus the `TFPOperation` enum.
   Do not edit by hand.
-- `generate.sh` — regenerates `generated_models.py` from the JSON Schema.
+- `generate.sh` — regenerates `data_model.py` from the JSON Schema.
 - `test_tfp.py` — model + end-to-end episode tests.
 
 The JSON Schema itself is **generated** from the source-of-truth Pydantic models
@@ -17,14 +17,14 @@ in [`../../src/`](../../src/) via [`../../scripts/generate_spec.sh`](../../scrip
 The full pipeline is:
 
 ```
-src/tfp_models.py  →  spec/tfp_schema.json  →  language_bindings/python/generated_models.py
+src/tfp_models.py  →  spec/tfp_schema.json  →  language_bindings/python/data_model.py
 ```
 
 To change the models, edit `src/tfp_models.py`, then re-run `scripts/generate_spec.sh`
 followed by `generate.sh`.
 
 These models describe the TFP-specific `payload` only. They are carried inside an
-L9 envelope (`ioc_l9.src.L9`) with `header.subprotocol == "TFP"` and
+L9 envelope (`src.L9`) with `header.subprotocol == "TFP"` and
 `payload.type == "json-schema"`. See [`../../documentation/TFP.md`](../../documentation/TFP.md) for the
 protocol spec and [`../../examples/team_formation_example.py`](../../examples/team_formation_example.py)
 for a runnable walkthrough.
@@ -32,7 +32,7 @@ for a runnable walkthrough.
 ## Usage
 
 ```python
-from generated_models import TFPPayload, TFPOperation, SkillRequirement, TaskSpec
+from data_model import TFPPayload, TFPOperation, SkillRequirement, TaskSpec
 
 payload = TFPPayload(
     operation=TFPOperation.POLL_OPEN,

@@ -7,11 +7,10 @@
 #   * nullable scalars become {"type": ["<t>", "null"]} instead of anyOf
 #     wrappers (avoids RootModel generation in datamodel-codegen)
 #   * array fields get an explicit "default": []
-#   * the (otherwise unreferenced) TFPSubkind enum is added to $defs
 #
 # Pipeline:
 #   src/tfp_models.py  --(this script)-->  spec/tfp_schema.json
-#   spec/tfp_schema.json  --(language_bindings/python/generate.sh)-->  generated_models.py
+#   spec/tfp_schema.json  --(language_bindings/python/generate.sh)-->  data_model.py
 #
 # USAGE:
 #   From project root: ./SSTP/subprotocol/tfp/scripts/generate_spec.sh
@@ -85,18 +84,10 @@ normalize(schema)
 for definition in schema.get("$defs", {}).values():
     normalize(definition)
 
-# TFPSubkind is not referenced by the payload, so add it explicitly.
-schema.setdefault("$defs", {})["TFPSubkind"] = {
-    "title": "TFPSubkind",
-    "description": " ".join((m.TFPSubkind.__doc__ or "").split()),
-    "enum": [e.value for e in m.TFPSubkind],
-    "type": "string",
-}
-
 schema["version"] = SCHEMA_VERSION
 
 with open(OUTPUT_FILE, "w", encoding="utf-8") as fh:
-    json.dump(schema, fh, indent=2)
+    json.dump(schema, fh, indent=2, ensure_ascii=False)
     fh.write("\n")
 
 print(f"Wrote {OUTPUT_FILE}")

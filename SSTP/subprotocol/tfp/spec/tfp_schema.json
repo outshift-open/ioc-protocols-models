@@ -1,7 +1,7 @@
 {
   "$defs": {
     "CandidateOffer": {
-      "description": "A candidate's response to a poll \u2014 its advertised capability for this task.",
+      "description": "A candidate's response to a poll — its advertised capability for this task.",
       "properties": {
         "skills": {
           "items": {
@@ -132,7 +132,7 @@
       "type": "object"
     },
     "TFPOperation": {
-      "description": "The TFP operation carried by a single turn (analogous to SNP ``operation``).",
+      "description": "The TFP operation carried by a single turn .",
       "enum": [
         "poll_open",
         "bid",
@@ -230,16 +230,6 @@
       },
       "title": "TeamSelection",
       "type": "object"
-    },
-    "TFPSubkind": {
-      "title": "TFPSubkind",
-      "description": "Canonical L9 header.subkind values for TFP turns. Non-terminal turns (poll, bid/decline/select/accept/reject, re-poll) are tagged team_form; the terminal commit is tagged team_form_converged or team_form_failure. The operation in the payload still carries the fine-grained semantics.",
-      "enum": [
-        "team_form",
-        "team_form_converged",
-        "team_form_failure"
-      ],
-      "type": "string"
     }
   },
   "description": "The TFP subprotocol payload. Goes inside ``L9Payload.data`` when\n``L9Header.subprotocol == \"TFP\"`` and ``L9Payload.type == \"json-schema\"``.\n\nFields are populated according to ``operation``:\n  * ``poll_open`` sets ``task`` + ``required_skills``\n  * ``bid``       sets ``offer``\n  * ``select`` / ``form`` set ``selection``",

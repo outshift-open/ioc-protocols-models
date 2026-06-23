@@ -1,15 +1,15 @@
 """
 Tests for the TFP (Team Formation via Polling) subprotocol.
 
-Validates the TFP payload models (``generated_models.py``) and the end-to-end example
+Validates the TFP payload models (``data_model.py``) and the end-to-end example
 episode:
 
     poll_open -> bid/decline -> select -> accept/reject -> [re_poll] -> commit
 
 against the current model: operations are ``form_converged``/``form_failed``
 (no bare ``form``), the lifecycle phase is carried by ``header.subkind``
-(``team_form_*``) with no separate ``status`` field, and there is no ``profile``
-discriminator or ``SkillClaim.evidence``.
+(``team-formation`` / ``converged`` / ``abort``) with no separate ``status`` field,
+and there is no ``profile`` discriminator or ``SkillClaim.evidence``.
 
 Run from the repo root:
     poetry run pytest SSTP/subprotocol/tfp/language_bindings/python/test_tfp.py -v
@@ -31,7 +31,7 @@ for _p in (str(_REPO_ROOT), str(_TFP_PY), str(_EXAMPLES)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from generated_models import (  # noqa: E402
+from data_model import (  # noqa: E402
     CandidateOffer,
     RoleAssignment,
     SkillClaim,
@@ -40,8 +40,11 @@ from generated_models import (  # noqa: E402
     TeamSelection,
     TFPOperation,
     TFPPayload,
-    TFPSubkind,
 )
+
+# Canonical L9 header.subkind tags for TFP turns (the subkind is a free-form
+# string; these are the conventional values the example emits).
+SUBKINDS = {"team-formation", "converged", "abort"}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -65,14 +68,6 @@ class TestTFPEnums:
         assert not hasattr(TFPOperation, "FORM")
         assert TFPOperation.FORM_CONVERGED.value == "form_converged"
         assert TFPOperation.FORM_FAILED.value == "form_failed"
-
-    def test_subkind_values(self):
-        assert {sk.value for sk in TFPSubkind} == {
-            "team_form",
-            "team_form_converged",
-            "team_form_failure",
-        }
-
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Payload models — shape, defaults, and validation.
@@ -217,7 +212,7 @@ class TestTFPEpisode:
 
         # the closing message is a converged commit
         commit = next(m for m in bus.messages if m.header.kind == "commit")
-        assert commit.header.subkind == TFPSubkind.TEAM_FORM_CONVERGED.value
+        assert commit.header.subkind == "converged"
         assert commit.payload.data["operation"] == TFPOperation.FORM_CONVERGED.value
 
         sel = commit.payload.data["selection"]
@@ -230,7 +225,7 @@ class TestTFPEpisode:
             m for m in bus.messages
             if m.payload.data.get("operation") == TFPOperation.DECLINE.value
         ]
-        assert any(m.header.actors.actors[0].id == "comms-bot" for m in decline_ops)
+        assert any(m.header.participants.actors[0].id == "comms-bot" for m in decline_ops)
 
     def test_accept_and_reject_membership_responses_have_reasons(self):
         import team_formation_example as ex
@@ -244,7 +239,7 @@ class TestTFPEpisode:
         assert accepts and rejects
         assert all(m.payload.data.get("reason") for m in accepts)
         assert all(m.payload.data.get("reason") for m in rejects)
-        rejecter = rejects[0].header.actors.actors[0].id
+        rejecter = rejects[0].header.participants.actors[0].id
         assert rejecter == "threat-intel"
         # the decline (poll opt-out) also carries a reason
         declines = [m for m in bus.messages if m.payload.data.get("operation") == "decline"]
@@ -286,39 +281,38 @@ class TestTFPEpisode:
         bus = ex.run()
 
         # every turn carries one of the canonical TFP subkinds
-        valid = {s.value for s in TFPSubkind}
         for m in bus.messages:
-            assert m.header.subkind in valid
+            assert m.header.subkind in SUBKINDS
 
         by_kind: dict[str, set[str]] = {}
         for m in bus.messages:
             by_kind.setdefault(m.header.kind, set()).add(m.header.subkind)
 
-        # non-terminal turns (poll, bids, selects) all carry the generic team_form
-        # subkind; only the terminal commit is converged/failure.
-        assert by_kind["intent"] == {TFPSubkind.TEAM_FORM.value}
-        assert by_kind["exchange"] == {TFPSubkind.TEAM_FORM.value}
-        assert by_kind["commit"] == {TFPSubkind.TEAM_FORM_CONVERGED.value}
+        # non-terminal turns (poll, bids, selects) all carry the generic team-formation
+        # subkind; only the terminal commit is converged/abort.
+        assert by_kind["intent"] == {"team-formation"}
+        assert by_kind["exchange"] == {"team-formation"}
+        assert by_kind["commit"] == {"converged"}
 
     def test_open_world_discovery_semantics(self):
         import team_formation_example as ex
 
         bus = ex.run()
-        senders = {m.header.actors.actors[0].id for m in bus.messages}
+        senders = {m.header.participants.actors[0].id for m in bus.messages}
 
         # the poll is broadcast: no agent receivers and no channel recorded in
         # the envelope at all
         poll_open = next(m for m in bus.messages if m.payload.data.get("operation") == "poll_open")
-        assert poll_open.header.actors.groups is None
-        # no broadcast channel ever leaks into the actors list
+        assert poll_open.header.participants.groups is None
+        # no broadcast channel ever leaks into the participants list
         for m in bus.messages:
-            assert all(not a.id.startswith("topic:") for a in m.header.actors.actors)
+            assert all(not a.id.startswith("topic:") for a in m.header.participants.actors)
 
         # a silent subscriber is never heard from
         assert "ghost-agent" not in senders
 
         # a late responder bids but is excluded from the selected team
-        slow = [m for m in bus.messages if m.header.actors.actors[0].id == "slow-intel"]
+        slow = [m for m in bus.messages if m.header.participants.actors[0].id == "slow-intel"]
         assert slow and slow[0].payload.data.get("operation") == "bid"
         commit = next(m for m in bus.messages if m.header.kind == "commit")
         assert "slow-intel" not in commit.payload.data["selection"]["members"]
@@ -375,19 +369,19 @@ class TestTFPFailureEpisode:
 
         bus = ex.run(force_failure=True)
 
-        # a re_poll turn is emitted: kind=exchange, subkind=team_form (non-terminal)
+        # a re_poll turn is emitted: kind=exchange, subkind=team-formation (non-terminal)
         re_polls = [m for m in bus.messages if m.payload.data.get("operation") == "re_poll"]
         assert len(re_polls) == 1
         re_poll = re_polls[0]
         assert re_poll.header.kind == "exchange"
-        assert re_poll.header.subkind == TFPSubkind.TEAM_FORM.value
+        assert re_poll.header.subkind == "team-formation"
         # the re-poll names the uncovered mandatory skill
         re_poll_skills = [s["skill"] for s in re_poll.payload.data["required_skills"]]
         assert "skill:quantum_forensics" in re_poll_skills
 
         # the episode commits as failed
         commit = next(m for m in bus.messages if m.header.kind == "commit")
-        assert commit.header.subkind == TFPSubkind.TEAM_FORM_FAILURE.value
+        assert commit.header.subkind == "abort"
         assert commit.payload.data["operation"] == TFPOperation.FORM_FAILED.value
 
         # the failed selection still reports the uncovered mandatory skill
@@ -413,7 +407,7 @@ class TestTFPMessageDump:
         import json
 
         import team_formation_example as ex
-        from ioc_l9.src import L9
+        from src import L9
 
         bus = ex.run()
         out = tmp_path / "dump.json"
@@ -432,7 +426,7 @@ class TestTFPMessageDump:
         assert doc["message_count"] == len(bus.messages)
         assert "generated_at" in doc
 
-        # one full envelope per message, and each round-trips into ioc_l9.src.L9
+        # one full envelope per message, and each round-trips into src.L9
         assert len(doc["messages"]) == len(bus.messages)
         for raw in doc["messages"]:
             assert "header" in raw and "payload" in raw

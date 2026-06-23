@@ -14,7 +14,6 @@ from .tfp_models import (
     TeamSelection,
     TFPOperation,
     TFPPayload,
-    TFPSubkind,
 )
 
 __all__ = [
@@ -26,5 +25,4 @@ __all__ = [
     "TeamSelection",
     "TFPOperation",
     "TFPPayload",
-    "TFPSubkind",
 ]

@@ -14,7 +14,7 @@ This is the *open-world* discovery model: candidates self-select, late responder
 are dropped, and silent agents are simply never heard from. The recruiter can
 only ever claim "best team among agents that responded within the window."
 
-Every message is a real L9 envelope (``ioc_l9.src.L9``) carrying a typed
+Every message is a real L9 envelope (``src.L9``) carrying a typed
 ``TFPPayload`` in its payload. Run it directly:
 
     poetry run python SSTP/subprotocol/tfp/examples/team_formation_example.py
@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# ── make `ioc_l9` and the TFP binding importable when run as a script ─────────
+# ── make `src` (L9) and the TFP binding importable when run as a script ───────
 _HERE = Path(__file__).resolve()
 _REPO_ROOT = _HERE.parents[4]          # …/ioc-protocols-models
 _TFP_PY = _HERE.parents[1] / "language_bindings" / "python"
@@ -42,9 +42,9 @@ for _p in (str(_REPO_ROOT), str(_TFP_PY)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from ioc_l9.src import L9, L9Header, L9Payload                      # noqa: E402
-from ioc_l9.src.primitives import Actor, Actors, Context, Message   # noqa: E402
-from generated_models import (                                     # noqa: E402
+from src import L9, L9Header, L9Payload                                  # noqa: E402
+from src.primitives import Actor, ParticipantSet, Context, Message       # noqa: E402
+from data_model import (                                                 # noqa: E402
     CandidateOffer,
     RoleAssignment,
     SkillClaim,
@@ -53,8 +53,14 @@ from generated_models import (                                     # noqa: E402
     TeamSelection,
     TFPOperation,
     TFPPayload,
-    TFPSubkind,
 )
+
+# Canonical L9 header.subkind tags for TFP turns. The header subkind is a
+# free-form string: non-terminal turns are tagged "team-formation"; the terminal
+# commit is "converged" (team formed) or "abort" (formation failed).
+SUBKIND_TEAM_FORMATION = "team-formation"
+SUBKIND_CONVERGED = "converged"
+SUBKIND_ABORT = "abort"
 
 PROTOCOL = "SSTP"
 SUBPROTOCOL = "TFP"
@@ -70,9 +76,9 @@ class TFPBus:
         self.episode = episode
         self.task_description = ""   # L9 header topic; learned from the poll's TaskSpec
         # Cumulative, insertion-ordered roster of every actor id seen in the
-        # episode (senders + receivers). The header.actors list is rebuilt from
-        # this on each turn, so it keeps growing as new agents participate and
-        # eventually holds everyone who took part in the episode.
+        # episode (senders + receivers). The header.participants list is rebuilt
+        # from this on each turn, so it keeps growing as new agents participate
+        # and eventually holds everyone who took part in the episode.
         self.participants: List[str] = []
         self.messages: List[L9] = []
 
@@ -104,7 +110,7 @@ class TFPBus:
         for aid in [sender, *agent_receivers, *self.participants]:
             if aid not in ordered_ids:
                 ordered_ids.append(aid)
-        actors = Actors(
+        participants = ParticipantSet(
             actors=[
                 Actor(
                     id=aid,
@@ -130,7 +136,7 @@ class TFPBus:
             version=VERSION,
             kind=kind,
             subkind=subkind,
-            actors=actors,
+            participants=participants,
             message=Message(
                 id=str(uuid.uuid4()),
                 parents=parent_id or "",
@@ -168,8 +174,8 @@ def _print_trace(bus: TFPBus) -> None:
     print("-" * 100)
     for m in bus.messages:
         h, p = m.header, m.payload.data
-        sender = h.actors.actors[0].id
-        receivers = ",".join(a.id for a in h.actors.actors if a.role == "receiver") or "(broadcast)"
+        sender = h.participants.actors[0].id
+        receivers = ",".join(a.id for a in h.participants.actors if a.role == "receiver") or "(broadcast)"
         kind = h.kind + (f":{h.subkind}" if h.subkind else "")
         print(f"{kind:<12}{p.get('operation',''):<11}{sender:<14}{receivers:<26}{_describe(p)}")
 
@@ -228,7 +234,7 @@ def dump_messages(bus: "TFPBus", path: Optional[Path] = None) -> Path:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-    path.write_text(json.dumps(build_dump(bus), indent=2))
+    path.write_text(json.dumps(build_dump(bus), indent=2, ensure_ascii=False), encoding="utf-8")
     return path.resolve()
 
 
@@ -387,8 +393,8 @@ def run(force_failure: bool = False) -> TFPBus:
 
     With ``force_failure=True`` an extra mandatory skill that no subscriber
     possesses is added to the requirements, so the team cannot converge — this
-    exercises the re-poll (``re_poll`` operation, ``team_form`` subkind) and the
-    ``form_failed`` operation / ``team_form_failure`` subkind commit path.
+    exercises the re-poll (``re_poll`` operation, ``team-formation`` subkind) and the
+    ``form_failed`` operation / ``abort`` subkind commit path.
     """
     episode = str(uuid.uuid4())
     bus = TFPBus(episode=episode)
@@ -487,7 +493,7 @@ def run(force_failure: bool = False) -> TFPBus:
         sender=recruiter,
         receivers=[topic_name],
         kind="intent",
-        subkind=TFPSubkind.TEAM_FORM.value,
+        subkind=SUBKIND_TEAM_FORMATION,
         payload=poll,
     )
     parent = open_msg.header.message.id
@@ -502,7 +508,7 @@ def run(force_failure: bool = False) -> TFPBus:
             sender=agent_id,
             receivers=[recruiter],
             kind="exchange",
-            subkind=TFPSubkind.TEAM_FORM.value,
+            subkind=SUBKIND_TEAM_FORMATION,
             parent_id=parent,
             payload=payload,
         )
@@ -529,7 +535,7 @@ def run(force_failure: bool = False) -> TFPBus:
                 sender=recruiter,
                 receivers=[member],
                 kind="exchange",
-                subkind=TFPSubkind.TEAM_FORM.value,
+                subkind=SUBKIND_TEAM_FORMATION,
                 parent_id=parent,
                 payload=TFPPayload(
                     operation=TFPOperation.SELECT,
@@ -545,7 +551,7 @@ def run(force_failure: bool = False) -> TFPBus:
                 sender=member,
                 receivers=[recruiter],
                 kind="exchange",
-                subkind=TFPSubkind.TEAM_FORM.value,
+                subkind=SUBKIND_TEAM_FORMATION,
                 parent_id=parent,
                 payload=response,
             )
@@ -566,7 +572,7 @@ def run(force_failure: bool = False) -> TFPBus:
             sender=recruiter,
             receivers=[topic_name],
             kind="exchange",
-            subkind=TFPSubkind.TEAM_FORM.value,
+            subkind=SUBKIND_TEAM_FORMATION,
             parent_id=parent,
             payload=TFPPayload(
                 operation=TFPOperation.RE_POLL,
@@ -581,7 +587,7 @@ def run(force_failure: bool = False) -> TFPBus:
         sender=recruiter,
         receivers=[topic_name],
         kind="commit",
-        subkind=(TFPSubkind.TEAM_FORM_CONVERGED if formation_ok else TFPSubkind.TEAM_FORM_FAILURE).value,
+        subkind=(SUBKIND_CONVERGED if formation_ok else SUBKIND_ABORT),
         parent_id=parent,
         payload=TFPPayload(
             operation=(TFPOperation.FORM_CONVERGED if formation_ok else TFPOperation.FORM_FAILED),

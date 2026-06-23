@@ -1,6 +1,6 @@
 """TFP (Team Formation via Polling) Python language binding."""
 
-from .generated_models import (
+from .data_model import (
     CandidateOffer,
     RoleAssignment,
     SkillClaim,
@@ -9,7 +9,6 @@ from .generated_models import (
     TeamSelection,
     TFPOperation,
     TFPPayload,
-    TFPSubkind,
 )
 
 __all__ = [
@@ -21,5 +20,4 @@ __all__ = [
     "TeamSelection",
     "TFPOperation",
     "TFPPayload",
-    "TFPSubkind",
 ]

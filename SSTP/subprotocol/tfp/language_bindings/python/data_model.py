@@ -54,12 +54,6 @@ class TeamSelection(BaseModel):
     aggregate_fit: float | None = Field(None, ge=0.0, le=1.0, title='Aggregate Fit')
 
 
-class TFPSubkind(str, Enum):
-    TEAM_FORM = 'team_form'
-    TEAM_FORM_CONVERGED = 'team_form_converged'
-    TEAM_FORM_FAILURE = 'team_form_failure'
-
-
 class CandidateOffer(BaseModel):
     skills: list[SkillClaim] = Field(default_factory=list, title='Skills')
     availability: float | None = Field(None, ge=0.0, le=1.0, title='Availability')
