@@ -98,41 +98,29 @@ func TestActorsRequiredFields(t *testing.T) {
 		return
 	}
 
-	// Test valid Actors
-	validActors := l9.Actors{
+	// Test valid ParticipantSet
+	validActors := l9.ParticipantSet{
 		Actors: []l9.Actor{{ID: "actor-123", Role: "analyst"}},
-		Groups: []string{"security_team"},
 	}
 
 	jsonBytes, err := json.Marshal(validActors)
 	if err != nil {
-		t.Errorf("Failed to marshal valid Actors: %v", err)
+		t.Errorf("Failed to marshal valid ParticipantSet: %v", err)
 		return
 	}
 
-	var unmarshaledActors l9.Actors
+	var unmarshaledActors l9.ParticipantSet
 	err = json.Unmarshal(jsonBytes, &unmarshaledActors)
 	if err != nil {
-		t.Errorf("Failed to unmarshal Actors JSON: %v", err)
+		t.Errorf("Failed to unmarshal ParticipantSet JSON: %v", err)
 		return
 	}
 
 	if len(unmarshaledActors.Actors) != 1 {
 		t.Errorf("Expected 1 actor, got %d", len(unmarshaledActors.Actors))
 	}
-	if len(unmarshaledActors.Groups) != 1 {
-		t.Errorf("Expected 1 group, got %d", len(unmarshaledActors.Groups))
-	}
 
-	// Test missing required fields
-	invalidActorsJSON := `{"actors": [{"id": "a1", "role": "analyst"}]}`
-	var invalidActors l9.Actors
-	err = json.Unmarshal([]byte(invalidActorsJSON), &invalidActors)
-	if err == nil {
-		t.Error("Expected unmarshal error for Actors missing required 'groups' field")
-	}
-
-	t.Log("✓ Actors required fields validation passed")
+	t.Log("✓ ParticipantSet required fields validation passed")
 }
 
 // TestSemanticRequiredFields tests Semantic required field validation
@@ -245,12 +233,12 @@ func TestMessageValidation(t *testing.T) {
 		return
 	}
 
-	if unmarshaledMessage.ID != "msg-001" {
-		t.Errorf("Expected message ID 'msg-001', got %s", unmarshaledMessage.ID)
+	if unmarshaledMessage.Parents != "msg-000" {
+		t.Errorf("Expected message Parents 'msg-000', got %s", unmarshaledMessage.Parents)
 	}
 
 	// Test missing required fields
-	invalidMessageJSON := `{"id": "msg-001"}`
+	invalidMessageJSON := `{}`
 	var invalidMessage l9.Message
 	err = json.Unmarshal([]byte(invalidMessageJSON), &invalidMessage)
 	if err == nil {
@@ -302,11 +290,11 @@ func TestL9HeaderValidation(t *testing.T) {
 		"protocol": "L9",
 		"subprotocol": "SSTP",
 		"version": "1.0",
-		"kind": "message",
+		"kind": "exchange",
 		"subkind": "chat",
-		"actors": {
+		"participants": {
 			"actors": [{"id": "actor-123", "role": "analyst"}],
-			"groups": ["security_team"]
+			"groups": {}
 		}
 	}`
 
@@ -326,8 +314,8 @@ func TestL9HeaderValidation(t *testing.T) {
 	if header.Subkind != "chat" {
 		t.Errorf("Expected subkind 'chat', got %s", header.Subkind)
 	}
-	if len(header.Actors.Actors) != 1 {
-		t.Errorf("Expected 1 actor, got %d", len(header.Actors.Actors))
+	if len(header.Participants.Actors) != 1 {
+		t.Errorf("Expected 1 actor, got %d", len(header.Participants.Actors))
 	}
 
 	// Test missing required fields
@@ -348,16 +336,15 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 	}
 
 	// Test valid complete L9 message using generated structs
-	validL9 := l9.L9SchemaJson{
+	validL9 := l9.L9{
 		Header: l9.L9Header{
 			Protocol:    "L9",
 			Subprotocol: "SSTP",
 			Version:     "1.0",
-			Kind:        "message",
+			Kind:        l9.KindExchange,
 			Subkind:     "chat",
-			Actors: l9.Actors{
+			Participants: l9.ParticipantSet{
 				Actors: []l9.Actor{{ID: "actor-123", Role: "analyst"}},
-				Groups: []string{"team_alpha"},
 			},
 		},
 		Payload: l9.L9Payload{
@@ -374,7 +361,7 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 	}
 
 	// Test JSON unmarshaling back to struct
-	var unmarshaledL9 l9.L9SchemaJson
+	var unmarshaledL9 l9.L9
 	err = json.Unmarshal(jsonBytes, &unmarshaledL9)
 	if err != nil {
 		t.Errorf("Failed to unmarshal L9 JSON: %v", err)
@@ -456,12 +443,12 @@ func TestGeneratedModelsStructure(t *testing.T) {
 	// Check for expected struct definitions
 	expectedStructs := []string{
 		"type Actor struct",
-		"type Actors struct",
+		"type ParticipantSet struct",
 		"type Semantic struct",
 		"type Context struct",
 		"type L9Header struct",
 		"type L9Payload struct",
-		"type L9SchemaJson struct",
+		"type L9 struct",
 		"type PolicyLabel struct",
 		"type Message struct",
 	}

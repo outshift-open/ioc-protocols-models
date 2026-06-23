@@ -7,41 +7,28 @@
 
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
+
+
+class L9Schema(RootModel[Any]):
+    root: Any = Field(
+        ...,
+        description="Combined JSON Schema for all ioc_l9 Pydantic models.",
+        title="L9Schema",
+    )
 
 
 class Actor(BaseModel):
-    id: str = Field(..., title='Id')
-    role: str = Field(..., title='Role')
-    attestation: str | None = Field(None, title='Attestation')
-
-
-class Actors(BaseModel):
-    actors: list[Actor] = Field(..., title='Actors')
-    groups: list[str] = Field(..., title='Groups')
+    id: str = Field(..., title="Id")
+    role: str = Field(..., title="Role")
+    attestation: str | None = Field(None, title="Attestation")
 
 
 class Epistemic(BaseModel):
     pass
-
-
-class L9Payload(BaseModel):
-    type: str = Field(..., title='Type')
-    data: dict[str, Any] = Field(..., title='Data')
-
-
-class Message(BaseModel):
-    id: str = Field(..., title='Id')
-    parents: str = Field(..., title='Parents')
-    episode: str = Field(..., title='Episode')
-
-
-class PolicyLabel(BaseModel):
-    sensitivity: str = Field(..., title='Sensitivity')
-    propagation: str = Field(..., title='Propagation')
-    retention_policy: str = Field(..., title='Retention Policy')
 
 
 class Provenance(BaseModel):
@@ -49,28 +36,77 @@ class Provenance(BaseModel):
 
 
 class Semantic(BaseModel):
-    schema_id: str = Field(..., title='Schema Id')
-    ontology_ref: str = Field(..., title='Ontology Ref')
+    schema_id: str = Field(..., title="Schema Id")
+    ontology_ref: str = Field(..., title="Ontology Ref")
     provenance: Provenance | None = None
 
 
 class Context(BaseModel):
-    topic: str = Field(..., title='Topic')
+    topic: str = Field(..., title="Topic")
     epistemic: Epistemic | None = None
     semantic: Semantic | None = None
 
 
+class Message(BaseModel):
+    id: str = Field(..., title="Id")
+    parents: str = Field(..., title="Parents")
+    episode: str = Field(..., title="Episode")
+
+
+class Episode(BaseModel):
+    id: str = Field(..., title="Id")
+    messages: list[Message] = Field(..., title="Messages")
+
+
+class ParticipantSet(BaseModel):
+    actors: list[Actor] = Field(..., title="Actors")
+    groups: dict[str, Any] | None = Field(..., title="Groups")
+
+
+class PolicyLabel(BaseModel):
+    sensitivity: str = Field(..., title="Sensitivity")
+    propagation: str = Field(..., title="Propagation")
+    retention_policy: str = Field(..., title="Retention Policy")
+
+
+class TaskWork(BaseModel):
+    id: str = Field(..., title="Id")
+    assigned_to: str = Field(..., title="Assigned To")
+    task_description: str = Field(..., title="Task Description")
+    status: str = Field(..., title="Status")
+    episodes: list[Episode] = Field(..., title="Episodes")
+
+
+class Team(BaseModel):
+    id: str = Field(..., title="Id")
+    team_members: list[str] = Field(..., title="Team Members")
+    tasks: list[TaskWork] = Field(..., title="Tasks")
+
+
+class Kind(Enum):
+    intent = "intent"
+    contingency = "contingency"
+    exchange = "exchange"
+    commit = "commit"
+    knowledge = "knowledge"
+
+
 class L9Header(BaseModel):
-    protocol: str = Field(..., title='Protocol')
-    subprotocol: str = Field(..., title='Subprotocol')
-    version: str = Field(..., title='Version')
-    kind: str = Field(..., title='Kind')
-    subkind: str = Field(..., title='Subkind')
-    actors: Actors
+    protocol: str = Field(..., title="Protocol")
+    subprotocol: str = Field(..., title="Subprotocol")
+    version: str = Field(..., title="Version")
+    kind: Kind
+    subkind: str | None = Field(None, title="Subkind")
+    participants: ParticipantSet
     message: Message | None = None
     policy: PolicyLabel | None = None
-    attributes: dict[str, Any] | None = Field(None, title='Attributes')
+    attributes: dict[str, Any] | None = Field(None, title="Attributes")
     context: Context | None = None
+
+
+class L9Payload(BaseModel):
+    type: str = Field(..., title="Type")
+    data: dict[str, Any] = Field(..., title="Data")
 
 
 class L9(BaseModel):

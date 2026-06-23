@@ -6,7 +6,7 @@ build-backend = "poetry.core.masonry.api"
 name = "ai-outshift-data-model"
 # NOTE: version is auto-stamped by `make build_wheel` from SSTP/spec/l9_schema.json "version" field.
 # If building manually, bump this to match the schema version.
-version = "0.0.2"
+version = "0.0.4"
 description = "IOC L9 Protocol Data Models"
 authors = []
 packages = [{include = "ai"}]
