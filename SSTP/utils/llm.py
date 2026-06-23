@@ -72,7 +72,6 @@ class LiteLLMClient(LLMClient):
                 {"role": "user",   "content": user_msg},
             ],
             "temperature": self.temperature,
-            "response_format": {"type": "json_object"},
         }
         if self._api_key:
             kwargs["api_key"] = self._api_key
@@ -83,8 +82,14 @@ class LiteLLMClient(LLMClient):
         print(f"\n  [LLM] → task={task!r}  model={self.model}", flush=True)
         try:
             resp = litellm_completion_compat(**kwargs)
-            raw = resp.choices[0].message.content or "{}"
-            result = json.loads(raw)
+            raw = (resp.choices[0].message.content or "").strip()
+            # Strip markdown code fences if present
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+                raw = raw.strip()
+            result = json.loads(raw) if raw else {}
             print(f"  [LLM] ← {json.dumps(result)}", flush=True)
             return result
         except Exception as exc:
