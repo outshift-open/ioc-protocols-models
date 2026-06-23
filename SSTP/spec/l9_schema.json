@@ -131,6 +131,27 @@
       ],
       "type": "object"
     },
+    "Episode": {
+      "description": "A discrete conversation or interaction sequence tied to a task.\nAn episode groups the messages exchanged during one focused interaction\n(e.g. one round of clarification, one tool invocation cycle).",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/Message"
+          },
+          "title": "Messages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "messages"
+      ],
+      "type": "object"
+    },
     "ParticipantSet": {
       "properties": {
         "actors": {
@@ -179,6 +200,71 @@
         "sensitivity",
         "propagation",
         "retention_policy"
+      ],
+      "type": "object"
+    },
+    "TaskWork": {
+      "description": "A unit of work assigned to a team member, tracked through one or more episodes.\nStatus lifecycle example: \"pending\" \u2192 \"in_progress\" \u2192 \"completed\" | \"blocked\"",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "assigned_to": {
+          "title": "Assigned To",
+          "type": "string"
+        },
+        "task_description": {
+          "title": "Task Description",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "episodes": {
+          "items": {
+            "$ref": "#/$defs/Episode"
+          },
+          "title": "Episodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "assigned_to",
+        "task_description",
+        "status",
+        "episodes"
+      ],
+      "type": "object"
+    },
+    "Team": {
+      "description": "A group of agents and/or humans collaborating on a shared set of tasks.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "team_members": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Team Members",
+          "type": "array"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/$defs/TaskWork"
+          },
+          "title": "Tasks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "team_members",
+        "tasks"
       ],
       "type": "object"
     },

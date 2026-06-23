@@ -53,6 +53,11 @@ class Message(BaseModel):
     episode: str = Field(..., title="Episode")
 
 
+class Episode(BaseModel):
+    id: str = Field(..., title="Id")
+    messages: list[Message] = Field(..., title="Messages")
+
+
 class ParticipantSet(BaseModel):
     actors: list[Actor] = Field(..., title="Actors")
     groups: dict[str, Any] | None = Field(..., title="Groups")
@@ -62,6 +67,20 @@ class PolicyLabel(BaseModel):
     sensitivity: str = Field(..., title="Sensitivity")
     propagation: str = Field(..., title="Propagation")
     retention_policy: str = Field(..., title="Retention Policy")
+
+
+class TaskWork(BaseModel):
+    id: str = Field(..., title="Id")
+    assigned_to: str = Field(..., title="Assigned To")
+    task_description: str = Field(..., title="Task Description")
+    status: str = Field(..., title="Status")
+    episodes: list[Episode] = Field(..., title="Episodes")
+
+
+class Team(BaseModel):
+    id: str = Field(..., title="Id")
+    team_members: list[str] = Field(..., title="Team Members")
+    tasks: list[TaskWork] = Field(..., title="Tasks")
 
 
 class Kind(Enum):
