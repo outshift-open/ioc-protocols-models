@@ -51,11 +51,12 @@ class LiteLLMClient(LLMClient):
     def __init__(self, model: str | None = None, temperature: float = 0.2) -> None:
         self._base_url = os.environ.get("LLM_API_BASE") or None
         raw_model = model or os.environ.get("LLM_MODEL", _DEFAULT_MODEL)
-        # When routing through a proxy (base_url set), litellm must NOT use the
-        # native Bedrock SDK path. Strip the "bedrock/" prefix so litellm treats
-        # the call as an OpenAI-compatible request to the proxy endpoint.
-        if self._base_url and raw_model and raw_model.lower().startswith("bedrock/"):
-            raw_model = raw_model[len("bedrock/"):]
+        # When routing through a proxy (base_url set), force OpenAI-compatible routing
+        # by prefixing with "openai/". This prevents litellm from routing to the native
+        # AWS Bedrock SDK (which requires boto3). The "bedrock/" part is preserved so
+        # the proxy can identify the target model — litellm strips "openai/" before the call.
+        if self._base_url and not raw_model.startswith("openai/"):
+            raw_model = f"openai/{raw_model}"
         self.model = raw_model
         self.temperature = temperature
         self._api_key = os.environ.get("LLM_API_KEY") or None
