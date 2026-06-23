@@ -342,10 +342,16 @@ func (j *L9HeaderContext) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// A single message within a conversation episode.
+// Represents a message in the protocol.
 type L9HeaderMessage struct {
-	// Content corresponds to the JSON schema field "content".
-	Content string `json:"content" yaml:"content" mapstructure:"content"`
+	// Episode corresponds to the JSON schema field "episode".
+	Episode string `json:"episode" yaml:"episode" mapstructure:"episode"`
+
+	// ID corresponds to the JSON schema field "id".
+	ID string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// Parents corresponds to the JSON schema field "parents".
+	Parents string `json:"parents" yaml:"parents" mapstructure:"parents"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -492,10 +498,16 @@ func (j *L9) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// A single message within a conversation episode.
+// Represents a message in the protocol.
 type Message struct {
-	// Content corresponds to the JSON schema field "content".
-	Content string `json:"content" yaml:"content" mapstructure:"content"`
+	// Episode corresponds to the JSON schema field "episode".
+	Episode string `json:"episode" yaml:"episode" mapstructure:"episode"`
+
+	// ID corresponds to the JSON schema field "id".
+	ID string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// Parents corresponds to the JSON schema field "parents".
+	Parents string `json:"parents" yaml:"parents" mapstructure:"parents"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -504,8 +516,14 @@ func (j *Message) UnmarshalJSON(value []byte) error {
 	if err := json.Unmarshal(value, &raw); err != nil {
 		return err
 	}
-	if _, ok := raw["content"]; raw != nil && !ok {
-		return fmt.Errorf("field content in Message: required")
+	if _, ok := raw["episode"]; raw != nil && !ok {
+		return fmt.Errorf("field episode in Message: required")
+	}
+	if _, ok := raw["id"]; raw != nil && !ok {
+		return fmt.Errorf("field id in Message: required")
+	}
+	if _, ok := raw["parents"]; raw != nil && !ok {
+		return fmt.Errorf("field parents in Message: required")
 	}
 	type Plain Message
 	var plain Plain
