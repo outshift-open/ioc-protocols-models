@@ -32,8 +32,8 @@ from SSTP.subprotocol.siep.src.negotiate import (
     build_snp_l9_header,
     build_snp_payload,
 )
-from SSTP.subprotocol.cip.src.l9 import build_l9_header
-from SSTP.subprotocol.cip.src.message import get_part as _get_part
+from SSTP.subprotocol.siep.src.l9 import build_l9_header
+from SSTP.subprotocol.siep.src.message import get_part as _get_part
 from SSTP.subprotocol.siep.src.epistemic import (
     SpeechAct, EpistemicState, BeliefStatus,
     make_epistemic_block, infer_snp_epistemic,
@@ -57,8 +57,8 @@ from SSTP.subprotocol.siep.src.epistemic.stores import (
 )
 
 if TYPE_CHECKING:
-    from SSTP.subprotocol.cip.src.agent_bus import AgentBus
-    from SSTP.subprotocol.cip.src.tom import TheoryOfMindEngineBase
+    from SSTP.subprotocol.siep.src.agent_bus import AgentBus
+    from SSTP.subprotocol.siep.src.tom import TheoryOfMindEngineBase
     from SSTP.subprotocol.siep.src.epistemic.stores import PeerInteractionStore
 
 LOGGER = logging.getLogger(__name__)
@@ -600,7 +600,7 @@ class PanelBus:
         else:
             # Use structured concept_id overlap when both sides carry epistemic blocks (D1).
             # Fall through to LLM assess_utterance when concept IDs are absent.
-            from SSTP.subprotocol.cip.src.grounding import contingency_check as _contingency_check, _get_concept_ids
+            from SSTP.subprotocol.siep.src.grounding import contingency_check as _contingency_check, _get_concept_ids
             _spk_ids = _get_concept_ids(speaker_epistemic)
             _lst_ids = _get_concept_ids(listener_epistemic)
             if _spk_ids and _lst_ids:

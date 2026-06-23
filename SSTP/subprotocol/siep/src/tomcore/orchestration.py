@@ -11,8 +11,8 @@ from typing import Any, Dict, List
 from SSTP.subprotocol.siep.src.tomcore.types import Turn
 from SSTP.subprotocol.siep.src.tomcore.cognition import TheoryOfMindEngine
 from SSTP.subprotocol.siep.src.tomcore.interaction import InteractionEngine
-from SSTP.subprotocol.cip.src.l9 import build_l9_header
-from SSTP.subprotocol.cip.src.assertion import AgentIdentity
+from SSTP.subprotocol.siep.src.l9 import build_l9_header
+from SSTP.subprotocol.siep.src.assertion import AgentIdentity
 
 LOGGER = logging.getLogger("ioc")
 

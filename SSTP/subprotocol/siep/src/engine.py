@@ -9,7 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple
 
-from ioc_l9.src import L9
+from src import L9
+from SSTP.subprotocol.siep.src.siep_models import siep_parents, siep_epistemic
 from SSTP.subprotocol.siep.src.builder import (
     EpistemicState,
     Kind,
@@ -40,13 +41,12 @@ D_MAX = 3
 
 
 def _concept(msg: L9) -> Optional[str]:
-    context = msg.header.context
-    epistemic = context.epistemic if context else None
-    return epistemic.concept_id if epistemic else None
+    ep = siep_epistemic(msg)
+    return ep.concept_id if ep else None
 
 
 def _sender_id(msg: L9) -> str:
-    actors = msg.header.actors.actors
+    actors = msg.header.participants.actors
     if not actors:
         raise ValueError("SIEP L9 message is missing a sender actor.")
     return actors[0].id
@@ -93,7 +93,7 @@ class SIEPEngine:
             self._tom.agent(self.agent_id).seed_peer(sender, sender, {"task_goal": concept})
             self._seeded_peers.add(sender)
 
-        epistemic = msg.header.context.epistemic if msg.header.context else None
+        epistemic = siep_epistemic(msg)
         if epistemic and epistemic.state == EpistemicState.taskwork.value:
             key = (sender, concept)
             if key not in self._priors:
@@ -107,8 +107,9 @@ class SIEPEngine:
 
         message = msg.header.message
         if message and message.parents:
+            parents_list = siep_parents(msg)
             for branch in self._repairs.values():
-                if branch.contingency_msg_id in message.parents:
+                if branch.contingency_msg_id in parents_list:
                     return self._on_repair_attempt(msg, branch)
 
         prior = self._last_exchange.get(sender)

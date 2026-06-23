@@ -11,9 +11,9 @@ from enum import Enum
 from typing import Any, List, Optional
 import uuid
 
-from ioc_l9.src import L9, L9Header, L9Payload
-from ioc_l9.src.epistemic import Epistemic
-from ioc_l9.src.primitives import Actor, Actors, Context, Message, Semantic
+from src import L9, L9Header, L9Payload
+from src.primitives import Actor, Context, Semantic
+from SSTP.subprotocol.siep.src.siep_models import Actors, Message, SIEPEpistemic as Epistemic
 from SSTP.subprotocol.siep.src.siep_payload import (
     SIEPMessagePayload,
     SIEPBeliefBlock,
@@ -246,7 +246,17 @@ class SIEPMessageBuilder:
 
         msg_id = str(uuid.uuid4())
         payload = self._to_pydantic_payload()
-        attributes = {"utterance_text": self._text} if self._text else None
+        siep_ep = Epistemic(
+            message_act=self._msg_act.value if self._msg_act else None,
+            state=self._ep_state.value if self._ep_state else None,
+            belief_status=self._belief_status.value if self._belief_status else None,
+            concept_id=self._concept,
+            uncertainty=self._uncertainty,
+        )
+        attributes = {
+            "utterance_text": self._text,
+            "epistemic": siep_ep.model_dump(),
+        }
         l9 = L9(
             header=L9Header(
                 protocol="SSTP",
@@ -254,18 +264,11 @@ class SIEPMessageBuilder:
                 version="0.0.3",
                 kind=self._kind.value,
                 subkind=self._subkind.value if self._subkind else None,
-                actors=Actors(actors=[Actor(id=self._sender, role="sender")]),
-                message=Message(id=msg_id, parents=list(self._parents), episode=self._ep),
+                participants=Actors(actors=[Actor(id=self._sender, role="sender")]).model_dump(),
+                message=Message(id=msg_id, parents=list(self._parents), episode=self._ep).to_base_dict(),
                 attributes=attributes,
                 context=Context(
                     topic=self._concept or "",
-                    epistemic=Epistemic(
-                        message_act=self._msg_act.value if self._msg_act else None,
-                        state=self._ep_state.value if self._ep_state else None,
-                        belief_status=self._belief_status.value if self._belief_status else None,
-                        concept_id=self._concept,
-                        uncertainty=self._uncertainty,
-                    ),
                     semantic=Semantic(
                         schema_id=SIEP_SCHEMA_URN,
                         ontology_ref=SIEP_ONTOLOGY_REF,

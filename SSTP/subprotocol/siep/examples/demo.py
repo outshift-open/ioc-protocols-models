@@ -11,7 +11,8 @@ import uuid
 from pathlib import Path
 from typing import List, Tuple
 
-from ioc_l9.src import L9
+from src import L9
+from SSTP.subprotocol.siep.src.siep_models import siep_parents, siep_epistemic
 from SSTP.subprotocol.siep.src.builder import (
     RevisionCause,
     SIEPBelief,
@@ -23,8 +24,12 @@ from SSTP.subprotocol.siep.src.engine import SIEPEngine
 from SSTP.subprotocol.siep.src.message_store import MessageStore
 from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
 
-C = "concept:task_objective"
-SUB = "urn:concept:task_objective:deliverable_spec"
+C    = "concept:task_objective"
+SUB  = "urn:concept:task_objective:deliverable_spec"
+C2   = "concept:timeline"
+C3   = "concept:resource_allocation"
+C4   = "concept:acceptance_criteria"
+SCOPE = "concept:scope"
 EpisodeLog = List[Tuple[str, L9]]
 _W = 100
 
@@ -58,7 +63,7 @@ def run_demo() -> None:
         builder("agent-alpha").exchange().taskwork().asserted().concept(C)
         .parents(s1.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(evidence=[C]),
+            utterance=SIEPUtterance(evidence=[C, SUB, C4]),
             belief=SIEPBelief(prior=0.72, posterior=0.72, revision_cause=RevisionCause.semantic_memory),
         ))
         .build(),
@@ -70,55 +75,58 @@ def run_demo() -> None:
         builder("agent-beta").exchange().taskwork().asserted().concept(C)
         .parents(s1.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(evidence=[C]),
+            utterance=SIEPUtterance(evidence=[C, SUB, C4]),
             belief=SIEPBelief(prior=0.65, posterior=0.65, revision_cause=RevisionCause.semantic_memory),
         ))
         .build(),
     )
     engine.process(s3)
 
+    # GOOD: evidence overlaps 2 of 3 prior concepts → score ≈ 0.667 (passes THETA_C=0.40)
     s4 = emit(
         "4 · exchange  GOOD ✓",
         builder("agent-alpha").exchange().grounding().asserted().concept(C)
         .uncertainty(0.28).parents(s3.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(evidence=[C, SUB], addresses_evidence=[C]),
+            utterance=SIEPUtterance(evidence=[C, SUB, C2], addresses_evidence=[C, SUB]),
             belief=SIEPBelief(prior=0.72, posterior=0.72),
         ))
-        .text("agent-beta, bound to task_objective:deliverable_spec pathway only")
+        .text("agent-beta, addressing task_objective + deliverable_spec; introducing timeline constraint")
         .build(),
     )
     engine_responses(s4, "5 · exchange  grounding_ok ✓")
 
+    # BAD: drifts to new concepts — only 1 of 3 prior concepts covered → score ≈ 0.333 (fails THETA_C)
     s6 = emit(
         "6 · exchange  BAD ✗",
         builder("agent-alpha").exchange().grounding().asserted().concept(C)
         .uncertainty(0.28).parents(s4.header.message.id)
         .payload(SIEPPayload(
             utterance=SIEPUtterance(
-                evidence=["concept:timeline", "concept:resource_availability"],
+                evidence=[C, C4, C3],
                 addresses_evidence=[],
             ),
             belief=SIEPBelief(prior=0.72, posterior=0.72),
         ))
-        .text("What does the timeline look like for next sprint?")
+        .text("What about resource allocation and acceptance criteria? Timeline seems secondary.")
         .build(),
     )
     contingency_msg = engine_responses(s6, "7 · contingency  repair_required")[0]
 
+    # REPAIR: re-anchors to 2 of 3 challenged concepts → score ≈ 0.667 (passes, repair accepted)
     s8 = emit(
         "8 · exchange  REPAIR",
         builder("agent-alpha").exchange().grounding().asserted().concept(C)
         .uncertainty(0.28).parents(contingency_msg.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(evidence=[C, SUB], addresses_evidence=[C, SUB], turn_depth=1),
+            utterance=SIEPUtterance(evidence=[C, SUB, SCOPE], addresses_evidence=[C, SUB], turn_depth=1),
             belief=SIEPBelief(
                 prior=0.72,
                 posterior=0.72,
                 revision_cause=RevisionCause.repair_resolution,
             ),
         ))
-        .text("agent-alpha, re-anchored to task_objective:deliverable_spec pathway")
+        .text("Re-anchoring: task_objective + deliverable_spec are the primary scope; adding scope clarification")
         .build(),
     )
     engine_responses(s8, "9 · commit:converged  repair_verified ✓")
@@ -134,7 +142,7 @@ def run_demo() -> None:
 
 
 def _sender_id(msg: L9) -> str:
-    return msg.header.actors.actors[0].id
+    return msg.header.participants.actors[0].id
 
 
 def _siep_payload(msg: L9) -> SIEPMessagePayload:
@@ -164,15 +172,14 @@ def _print_verbose(log: EpisodeLog) -> None:
 
 def _print_message(msg: L9) -> None:
     header = msg.header
-    context = header.context
-    epistemic = context.epistemic if context else None
+    epistemic = siep_epistemic(msg)
     kind_str = header.kind + (f":{header.subkind}" if header.subkind else "")
     print(f"  protocol     : {header.protocol} v{header.version}")
     print(f"  kind         : {kind_str}")
     print(f"  subprotocol  : {header.subprotocol}")
     print(f"  actor        : {_sender_id(msg)}")
     print(f"  message.id   : {header.message.id[:8]}…")
-    print(f"  parents      : {[p[:8] + '…' for p in header.message.parents] or '[]'}")
+    print(f"  parents      : {[p[:8] + '…' for p in siep_parents(msg)] or '[]'}")
     print(f"  episode      : {header.message.episode}")
     print(f"  epistemic ({epistemic.epistemic_kind if epistemic else '—'}):")
     print(f"    state        = {epistemic.state if epistemic and epistemic.state else '—'}")

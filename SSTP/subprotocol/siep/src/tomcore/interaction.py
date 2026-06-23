@@ -10,7 +10,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from SSTP.subprotocol.siep.src.tomcore.types import Turn
-from SSTP.subprotocol.cip.src.assertion import AgentIdentity, UtteranceAssertion, AssertionVerificationError, build_assertion, verify_assertion
+from SSTP.subprotocol.siep.src.assertion import AgentIdentity, UtteranceAssertion, AssertionVerificationError, build_assertion, verify_assertion
 
 LOGGER = logging.getLogger("ioc")
 

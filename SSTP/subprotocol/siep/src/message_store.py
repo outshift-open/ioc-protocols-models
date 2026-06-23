@@ -34,7 +34,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from ioc_l9.src import L9
+from src import L9
+from SSTP.subprotocol.siep.src.siep_models import siep_epistemic
 from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
 
 _DEFAULT_DB = Path(__file__).resolve().parents[4] / "episodes.db"
@@ -72,7 +73,7 @@ VALUES
 
 
 def _sender_id(msg: L9) -> str:
-    return msg.header.actors.actors[0].id
+    return msg.header.participants.actors[0].id
 
 
 def _siep_payload(msg: L9) -> SIEPMessagePayload:
@@ -116,8 +117,7 @@ class MessageStore:
         rows = []
         for label, msg in self._buffer:
             self._seq += 1
-            context = msg.header.context
-            epistemic = context.epistemic if context else None
+            epistemic = siep_epistemic(msg)
             siep = _siep_payload(msg)
             score = siep.grounding.contingency_score
             verified = siep.grounding.contingency_verified

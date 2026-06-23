@@ -102,17 +102,17 @@ def roll_forward(
             high_water[entry.sender] = entry.sequence
 
         ep = entry.epistemic or {}
-        sa = ep.get("speech_act", "")
+        sa = ep.get("message_act", "")
         bs = ep.get("belief_status", "asserted")
         phase = ep.get("state", "")
 
         if sa:
-            acts = state.get("last_speech_acts", {})
+            acts = state.get("last_message_acts", {})
             acts[entry.sender] = sa
-            state["last_speech_acts"] = acts
-            sa_counts = dict(state.get("speech_act_counts", {}))
+            state["last_message_acts"] = acts
+            sa_counts = dict(state.get("message_act_counts", {}))
             sa_counts[sa] = sa_counts.get(sa, 0) + 1
-            state["speech_act_counts"] = sa_counts
+            state["message_act_counts"] = sa_counts
 
         belief_counts = dict(state.get("belief_counts", {}))
         belief_counts[bs] = belief_counts.get(bs, 0) + 1
@@ -165,7 +165,7 @@ def roll_forward(
     prev_genuine = int(round(state.get("epistemic_strength", 0.0) * prev_entries))
     new_genuine = sum(
         1 for e in new_entries
-        if (e.epistemic or {}).get("speech_act") in ("assertion", "belief_assertion")
+        if (e.epistemic or {}).get("message_act") in ("assertion", "belief_assertion")
         and (e.epistemic or {}).get("belief_status") == "asserted"
     )
     state["epistemic_strength"] = round(

@@ -7,8 +7,8 @@ from .interaction import InteractionEngine
 from .llm import LLMClient
 from .orchestration import Orchestrator
 from .types import Turn
-from SSTP.subprotocol.cip.src.adapter import InteractionProtocolAdapter
-from SSTP.subprotocol.cip.src.assertion import AgentIdentity, AssertionVerificationError, UtteranceAssertion
+from SSTP.subprotocol.siep.src.adapter import InteractionProtocolAdapter
+from SSTP.subprotocol.siep.src.assertion import AgentIdentity, AssertionVerificationError, UtteranceAssertion
 
 __all__ = [
     "LLMClient",
