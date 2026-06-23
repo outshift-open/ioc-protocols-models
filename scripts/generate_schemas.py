@@ -75,12 +75,18 @@ def generate_combined(out_path: Path, filter_name: str | None = None, version: s
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "urn:ioc:l9:schema:v1",
         "version": version,
+        "title": "L9",
         "description": "Combined JSON Schema for all ioc_l9 Pydantic models.",
         "$defs": {},
     }
     for _, name, model in sorted(models, key=lambda x: (x[0], x[1])):
         schema = model.model_json_schema()
         schema.pop("title", None)
+        # Promote nested $defs to top-level so that absolute $ref paths like
+        # "#/$defs/Kind" resolve correctly when tools (e.g. go-jsonschema)
+        # process the combined schema.
+        for def_name, def_schema in schema.pop("$defs", {}).items():
+            combined["$defs"].setdefault(def_name, def_schema)
         combined["$defs"][name] = schema
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
