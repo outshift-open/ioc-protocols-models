@@ -177,7 +177,7 @@ class TeamEpistemicMemoryAgent:
 
         episode_id = envelope.get("message", {}).get("episode")
         parent_id = envelope.get("message", {}).get("id")
-        sender = envelope.get("actors", [{}])[0].get("id", "unknown")
+        sender = ((envelope.get("participants") or {}).get("actors") or envelope.get("actors") or [{}])[0].get("id", "unknown")
 
         team_prior = self.get(concept_id or "", self.use_case)
         prior_payload = {

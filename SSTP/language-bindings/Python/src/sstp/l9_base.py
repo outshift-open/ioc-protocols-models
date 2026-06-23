@@ -262,12 +262,16 @@ class L9HeaderBuilder:
         subkind: str | None = None,
         sequence_number: int | None = None,
         payload_parts: "List[Dict[str, Any]] | None" = None,
+        role: "str | None" = None,
+        recipients: "List[str] | None" = None,
     ) -> Dict[str, Any]:
         """Assemble the L9 envelope dict per the current wire format.
 
         New wire shape (2026 revision):
           protocol, version, kind, subprotocol, subkind
-          actors    — list of {id, attestation} for senders
+          participants — {actors: [{id, role, attestation}], groups: null}
+            actors[0]  — the sender (who said this message)
+            actors[1+] — recipients (who should receive this message; excludes sender)
           message   — {id, parents, episode}
           semantic  — {schema_id, ontology_ref}
           policy    — {sensitivity, propagation, retention_policy}
@@ -279,6 +283,10 @@ class L9HeaderBuilder:
         Group membership is a transport concern (pub-sub topic subscription).
         It is not carried in the L9 header.
 
+        ``role`` is the sender's functional role in the protocol (e.g. "orchestrator",
+        "diagnostics specialist").  Defaults to the sender id when not provided.
+        ``recipients`` is a list of agent ids that should receive this message.
+        The delivery layer uses this to route the message; the sender is excluded.
         ``payload_parts`` declares the payload parts carried by this message.
         ``kind_override`` bypasses the event-type-to-kind mapping.  If it
         contains a colon (e.g. "commit:converged"), the part before the colon
@@ -320,6 +328,14 @@ class L9HeaderBuilder:
         parent_id_list = [str(i) for i in (parent_ids or []) if i]
         source_list = [str(i) for i in (provenance_sources or []) if i]
 
+        sender_id = str(sender or "unknown")
+        sender_role = role or sender_id
+        recipient_actors = [
+            {"id": r, "role": r, "attestation": None}
+            for r in (recipients or [])
+            if r != sender_id
+        ]
+
         header: Dict[str, Any] = {
             "protocol":    self.PROTOCOL,
             "version":     self.VERSION,
@@ -327,7 +343,13 @@ class L9HeaderBuilder:
             "subprotocol": effective_subprotocol,
             "subkind":     subkind,
             "topic":       topic or None,
-            "actors":   [{"id": str(sender or "unknown"), "attestation": "self_attested_local"}],
+            "participants": {
+                "actors": [
+                    {"id": sender_id, "role": sender_role, "attestation": "self_attested_local"},
+                    *recipient_actors,
+                ],
+                "groups": None,
+            },
             "message": {
                 "id":      derived_message_id,
                 "parents": parent_id_list,

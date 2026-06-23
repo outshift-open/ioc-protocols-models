@@ -251,6 +251,8 @@ def build_l9_header(
     topic: "str | None" = None,
     kind_override: str | None = None,
     sequence_number: int | None = None,
+    role: "str | None" = None,
+    recipients: "List[str] | None" = None,
 ) -> Dict[str, Any]:
     """Build an Interaction Engine SSTP L9 header dict.
 
@@ -301,6 +303,8 @@ def build_l9_header(
         topic=topic,
         kind_override=kind_override,
         sequence_number=sequence_number,
+        role=role,
+        recipients=recipients,
     )
 
 

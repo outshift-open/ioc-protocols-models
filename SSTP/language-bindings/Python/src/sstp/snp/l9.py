@@ -249,6 +249,8 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
         kind_override: str | None = None,
         sequence_number: int | None = None,
         payload_parts: "List[Dict[str, Any]] | None" = None,
+        role: "str | None" = None,
+        recipients: "List[str] | None" = None,
     ) -> Dict[str, Any]:
         """Build an SNP L9 header from an SNP *operation* (§3.1 mapping).
 
@@ -281,6 +283,8 @@ class SNPL9HeaderBuilder(L9HeaderBuilder):
             kind_override=kind_override,
             sequence_number=sequence_number,
             payload_parts=payload_parts,
+            role=role,
+            recipients=recipients,
         )
 
 
@@ -308,6 +312,8 @@ def build_snp_l9_header(
     kind_override: str | None = None,
     sequence_number: int | None = None,
     payload_parts: "List[Dict[str, Any]] | None" = None,
+    role: "str | None" = None,
+    recipients: "List[str] | None" = None,
 ) -> Dict[str, Any]:
     """Build an SSTP L9 header for a Semantic Negotiation sub-protocol message.
 
@@ -333,6 +339,8 @@ def build_snp_l9_header(
         kind_override=kind_override,
         sequence_number=sequence_number,
         payload_parts=payload_parts,
+        role=role,
+        recipients=recipients,
     )
 
 

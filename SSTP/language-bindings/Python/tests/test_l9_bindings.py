@@ -66,6 +66,42 @@ def test_ie_build_l9_header_structure():
     assert header["kind"] == "exchange"
     assert "message_id" in header
     assert header["semantic_context"]["cognition_protocol"] == "IE"
+    # participants structure (canonical schema alignment)
+    ps = header["participants"]
+    assert isinstance(ps["actors"], list)
+    assert ps["actors"][0]["id"] == "agent-1"
+    assert "role" in ps["actors"][0]
+    assert ps["groups"] is None
+
+
+def test_ie_build_l9_header_participants_with_role():
+    header = build_l9_header(
+        use_case="healthcare",
+        event_type="peer_turn",
+        sender="agent-1",
+        receiver="agent-2",
+        timestamp_ms=int(time.time() * 1000),
+        role="diagnostics specialist",
+        recipients=["agent-2"],
+    )
+    ps = header["participants"]
+    assert ps["actors"][0]["role"] == "diagnostics specialist"
+    # recipient appears as actors[1]
+    assert len(ps["actors"]) == 2
+    assert ps["actors"][1]["id"] == "agent-2"
+    # sender is not duplicated in recipient list
+    assert ps["actors"][1]["id"] != ps["actors"][0]["id"]
+
+
+def test_ie_build_l9_header_groups_null():
+    header = build_l9_header(
+        use_case="healthcare",
+        event_type="peer_turn",
+        sender="agent-1",
+        receiver="agent-2",
+        timestamp_ms=int(time.time() * 1000),
+    )
+    assert header["participants"]["groups"] is None
 
 
 def test_ie_alias_message_resolves():
@@ -87,6 +123,11 @@ def test_snp_build_l9_header_structure():
     assert "message_id" in header
     assert header["semantic_context"]["cognition_protocol"] == "SNP"
     assert header["kind"] == "exchange"
+    # participants structure
+    ps = header["participants"]
+    assert ps["actors"][0]["id"] == "panel-agent-1"
+    assert "role" in ps["actors"][0]
+    assert ps["groups"] is None
 
 
 def test_snp_operations_are_strings():

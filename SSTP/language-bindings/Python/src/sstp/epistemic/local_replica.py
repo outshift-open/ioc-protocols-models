@@ -78,7 +78,7 @@ class LocalStateReplica:
         mid = header["message"]["id"]
         if not mid or mid in self._seen_ids:
             return False
-        sender = (header.get("actors") or [{}])[0].get("id", "unknown")
+        sender = ((header.get("participants") or {}).get("actors") or header.get("actors") or [{}])[0].get("id", "unknown")
         seq = -1
 
         posterior: Optional[float] = None

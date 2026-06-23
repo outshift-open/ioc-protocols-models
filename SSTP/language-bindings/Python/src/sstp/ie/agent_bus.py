@@ -75,6 +75,7 @@ class AgentBus:
         self._current_phase: str = "taskwork"   # taskwork | grounding | team_process
         self._taskwork_store: Optional[Any] = None   # TaskworkStore; injected by app
         self._protocol_context: bool = False  # True only inside _lifecycle_emit()
+        self._handlers: Dict[str, Any] = {}   # agent_id → callable(header)
 
     @contextmanager
     def _lifecycle_emit(self) -> Generator[None, None, None]:
@@ -90,6 +91,31 @@ class AgentBus:
             yield
         finally:
             self._protocol_context = prev
+
+    def register_handler(self, agent_id: str, handler: Any) -> None:
+        """Register a callable invoked when a message is addressed to *agent_id*.
+
+        The callable receives the L9 header dict as its sole argument.
+        In the current in-process simulation this drives message delivery:
+        the bus calls every registered handler whose id appears in
+        ``participants.actors`` (excluding the sender) after appending the
+        message to ``self.messages``.
+        """
+        self._handlers[agent_id] = handler
+
+    def _deliver(self, header: Dict[str, Any]) -> None:
+        """Invoke registered handlers for all recipients listed in the header."""
+        ps = header.get("participants") or {}
+        actors = ps.get("actors") or []
+        if not actors:
+            return
+        sender_id = actors[0].get("id", "")
+        for actor in actors[1:]:
+            recipient_id = actor.get("id", "")
+            if recipient_id and recipient_id != sender_id:
+                handler = self._handlers.get(recipient_id)
+                if handler is not None:
+                    handler(header)
 
     @property
     def snp_trace(self) -> List[Dict[str, Any]]:
@@ -113,6 +139,8 @@ class AgentBus:
         ie_payload: "Any | None" = None,
         rationale: str = "",
         thought_summary: str = "",
+        role: "str | None" = None,
+        recipients: "List[str] | None" = None,
         **_: Any,
     ) -> Dict[str, Any]:
         """Emit a peer_turn with explicit epistemic annotation.
@@ -148,6 +176,9 @@ class AgentBus:
             _payload_parts.append(
                 {"type": "ie", "location": "inline", "content": ie_payload.to_dict()}
             )
+        _recipients = recipients if recipients is not None else (
+            [receiver] if receiver and receiver != sender else []
+        )
         header = build_l9_header(
             use_case=self.use_case,
             event_type="peer_turn",
@@ -162,10 +193,13 @@ class AgentBus:
             epistemic=_epistemic,
             topic=topic,
             payload_parts=_payload_parts,
+            role=role,
+            recipients=_recipients,
         )
         if error is not None:
             header["error"] = error
         self.messages.append(header)
+        self._deliver(header)
         return header
 
     def emit_request(self, *, sender: str, receiver: str, utterance: str,
@@ -556,7 +590,7 @@ class AgentBus:
             # Update BeliefState
             if belief_store is not None and ep_concept_id:
                 from sstp.epistemic.stores import BeliefRevision
-                sender = (header.get("actors") or [{}])[0].get("id", "unknown")
+                sender = ((header.get("participants") or {}).get("actors") or header.get("actors") or [{}])[0].get("id", "unknown")
                 ep_id = (header.get("message") or {}).get("episode", "")
                 revision = BeliefRevision(
                     cause=belief.get("revision_cause") or "grounded_argument",
@@ -579,7 +613,7 @@ class AgentBus:
             # Write CommonGround
             if common_ground_store is not None:
                 from sstp.epistemic.stores import CommonGround
-                sender = (header.get("actors") or [{}])[0].get("id", "unknown")
+                sender = ((header.get("participants") or {}).get("actors") or header.get("actors") or [{}])[0].get("id", "unknown")
                 ep = header.get("epistemic") or {}
                 prior_sender = ""
                 if prior_epistemic and prior_turn_mid and replica is not None:
@@ -612,7 +646,7 @@ class AgentBus:
             sender_id = self.run_id  # the receiving agent emits the repair
             return self.emit_semantic_repair(
                 sender=sender_id,
-                receiver=(header.get("actors") or [{}])[0].get("id", "unknown"),
+                receiver=((header.get("participants") or {}).get("actors") or header.get("actors") or [{}])[0].get("id", "unknown"),
                 target_message_id=header["message"]["id"],
                 repair_reason=repair_reason,
                 target_epistemic=current_epistemic,
@@ -875,6 +909,8 @@ class AgentBus:
         subject: str,
         episode_id: str | None = None,
         coordination_summary: "Dict[str, Any] | None" = None,
+        role: "str | None" = None,
+        recipients: "List[str] | None" = None,
     ) -> Dict[str, Any]:
         """Open the taskwork phase with a kind=intent on the shared dialogue episode.
 
@@ -901,6 +937,7 @@ class AgentBus:
             belief_status=BeliefStatus.ASSERTED,
             uncertainty=0.0,
         )
+        _recipients = recipients or []
         with self._lifecycle_emit():
             header = _build(
                 use_case=self.use_case,
@@ -914,8 +951,11 @@ class AgentBus:
                 kind_override="intent",
                 epistemic=_epistemic,
                 payload_parts=payload_parts,
+                role=role,
+                recipients=_recipients,
             )
         self.messages.append(header)
+        self._deliver(header)
         return header
 
     def emit_repair_resolved(
@@ -1008,6 +1048,8 @@ class AgentBus:
         episode_id: str | None = None,
         rationale: str = "",
         thought_summary: str = "",
+        role: "str | None" = None,
+        recipients: "List[str] | None" = None,
     ) -> Dict[str, Any]:
         """Agent asserts a position in a pairwise IE grounding exchange.
 
@@ -1048,6 +1090,8 @@ class AgentBus:
             ie_payload=ie_payload,
             rationale=rationale,
             thought_summary=thought_summary,
+            role=role,
+            recipients=recipients,
         )
 
 
@@ -1065,6 +1109,8 @@ class AgentBus:
         team_process: "Dict[str, Any] | None" = None,
         rationale: str = "",
         thought_summary: str = "",
+        role: "str | None" = None,
+        recipients: "List[str] | None" = None,
     ) -> Dict[str, Any]:
         """kind=intent — open a coordination episode (L9 episode API)."""
         _utterance = f"episode:open subject={subject}"
@@ -1080,12 +1126,16 @@ class AgentBus:
             payload_parts.append({"type": "team_process", "location": "inline", "content": team_process})
         from sstp.ie.l9 import build_l9_header as _build
         from sstp.epistemic.vocabulary import make_epistemic_block, BeliefStatus
+        _receiver = receiver or sender
+        _recipients = recipients if recipients is not None else (
+            [_receiver] if _receiver != sender else []
+        )
         with self._lifecycle_emit():
             header = _build(
                 use_case=self.use_case,
                 event_type="peer_turn",
                 sender=sender,
-                receiver=receiver or sender,
+                receiver=_receiver,
                 timestamp_ms=int(time.time() * 1000),
                 sensitivity=self.sensitivity,
                 utterance=_utterance,
@@ -1097,8 +1147,11 @@ class AgentBus:
                     belief_status=BeliefStatus.ASSERTED,
                 ),
                 payload_parts=payload_parts,
+                role=role,
+                recipients=_recipients,
             )
         self.messages.append(header)
+        self._deliver(header)
         return header
 
     def _emit_exchange_ready(
