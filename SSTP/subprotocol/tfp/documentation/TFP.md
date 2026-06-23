@@ -23,9 +23,6 @@ TFP rides the standard L9 envelope: the header carries
 - Let candidates self-advertise capability, availability, and fit.
 - Select a team that **covers the mandatory skills** while maximizing fit.
 
-Persisting the formed team (to memory or a database) is **out of scope** for TFP.
-The protocol concludes at `commit/form`; what the caller does with the result —
-including any storage — is its own concern.
 
 ## Discovery model: open-world vs. closed-world
 
