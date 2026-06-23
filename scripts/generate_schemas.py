@@ -19,7 +19,7 @@ Usage:  python scripts/generate_schemas.py
 """
 
 # ── Schema version — increment manually on breaking/significant changes ───────
-SCHEMA_VERSION = "0.0.3"
+SCHEMA_VERSION = "0.0.4"
 
 import argparse
 import inspect
@@ -36,14 +36,12 @@ sys.path.insert(0, str(REPO_ROOT))
 # ── import every module that contains models ──────────────────────────────────
 import src.primitives as primitives_module
 import src.epistemic  as epistemic_module
-import src.state_mgmt as state_mgmt_module
 import src             as src_module
 
 # Map each module to the subdirectory name it should produce
 MODULES = [
     (primitives_module, "primitives"),
     (epistemic_module,  "epistemic"),
-    (state_mgmt_module, "state_mgmt"),
     (src_module,        "src"),
 ]
 
@@ -64,6 +62,36 @@ def collect_models(modules, filter_name: str | None = None):
                 models.append((subdir, name, obj))
     return models
 
+# ── resolve name conflicts across modules ─────────────────────────────────────
+def _build_key_map(models: list) -> dict:
+    """Return {(subdir, name): schema_key}.
+
+    When two models share the same class name but come from different source
+    modules, a plain `name` key would cause the second to silently overwrite
+    the first in $defs.  Qualify those keys as `{subdir}__{name}` so every
+    model gets its own unique slot.
+    """
+    name_count: dict = {}
+    for subdir, name, _ in models:
+        name_count[name] = name_count.get(name, 0) + 1
+    return {
+        (subdir, name): (f"{subdir}__{name}" if name_count[name] > 1 else name)
+        for subdir, name, _ in models
+    }
+
+
+def _rename_refs(obj, old: str, new: str):
+    """Recursively replace every ``$ref`` value ``old`` with ``new``."""
+    if isinstance(obj, dict):
+        if obj.get("$ref") == old:
+            obj["$ref"] = new
+        for v in obj.values():
+            _rename_refs(v, old, new)
+    elif isinstance(obj, list):
+        for item in obj:
+            _rename_refs(item, old, new)
+
+
 # ── write schemas — combined single file ─────────────────────────────────────
 def generate_combined(out_path: Path, filter_name: str | None = None, version: str = SCHEMA_VERSION) -> None:
     models = collect_models(MODULES, filter_name)
@@ -71,26 +99,60 @@ def generate_combined(out_path: Path, filter_name: str | None = None, version: s
         print(f"No model named '{filter_name}' found.")
         sys.exit(1)
 
+    key_map = _build_key_map(models)
+    # Names that have more than one class → need qualification
+    conflicting: set = {name for (_, name), key in key_map.items() if "__" in key}
+
+    # Pre-compute schema fingerprints for conflicting names so we can identify
+    # which variant appears inside a parent model's nested $defs.
+    # Fingerprint = sorted JSON of the schema with its own nested $defs removed.
+    fingerprint_to_key: dict = {}
+    for subdir, name, model_cls in models:
+        if name in conflicting:
+            raw = model_cls.model_json_schema()
+            raw.pop("title", None)
+            raw.pop("$defs", None)
+            fp = json.dumps(raw, sort_keys=True)
+            fingerprint_to_key[(name, fp)] = key_map[(subdir, name)]
+
     combined = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "urn:ioc:l9:schema:v1",
         "version": version,
-        "title": "L9",
+        "title": "L9Schema",
         "description": "Combined JSON Schema for all ioc_l9 Pydantic models.",
         "$defs": {},
     }
-    for _, name, model in sorted(models, key=lambda x: (x[0], x[1])):
+
+    for subdir, name, model in sorted(models, key=lambda x: (x[0], x[1])):
+        top_key = key_map[(subdir, name)]
         schema = model.model_json_schema()
         schema.pop("title", None)
+
         # Promote nested $defs to top-level so that absolute $ref paths like
         # "#/$defs/Kind" resolve correctly when tools (e.g. go-jsonschema)
         # process the combined schema.
         for def_name, def_schema in schema.pop("$defs", {}).items():
-            combined["$defs"].setdefault(def_name, def_schema)
-        combined["$defs"][name] = schema
+            if def_name in conflicting:
+                # Identify which variant this nested schema belongs to.
+                probe = dict(def_schema)
+                probe.pop("title", None)
+                probe.pop("$defs", None)
+                fp = json.dumps(probe, sort_keys=True)
+                qualified = fingerprint_to_key.get((def_name, fp), def_name)
+                if qualified != def_name:
+                    # Rewrite $refs in the parent schema that point to the old name.
+                    _rename_refs(schema, f"#/$defs/{def_name}", f"#/$defs/{qualified}")
+                combined["$defs"].setdefault(qualified, def_schema)
+            else:
+                combined["$defs"].setdefault(def_name, def_schema)
+
+        combined["$defs"][top_key] = schema
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(combined, indent=2))
+    if conflicting:
+        print(f"Note: qualified conflicting model names: {sorted(conflicting)}")
     print(f"Schema version: {version}")
     print(f"Found {len(models)} models — written to {out_path.relative_to(REPO_ROOT)}")
     print(f"\nDone. {len(models)} model{'s' if len(models) != 1 else ''} combined.")

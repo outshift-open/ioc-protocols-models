@@ -13,11 +13,11 @@ from typing import Any
 from pydantic import BaseModel, Field, RootModel
 
 
-class L9(RootModel[Any]):
+class L9Schema(RootModel[Any]):
     root: Any = Field(
         ...,
         description="Combined JSON Schema for all ioc_l9 Pydantic models.",
-        title="L9",
+        title="L9Schema",
     )
 
 
@@ -48,7 +48,14 @@ class Context(BaseModel):
 
 
 class Message(BaseModel):
-    content: str = Field(..., title="Content")
+    id: str = Field(..., title="Id")
+    parents: str = Field(..., title="Parents")
+    episode: str = Field(..., title="Episode")
+
+
+class Episode(BaseModel):
+    id: str = Field(..., title="Id")
+    messages: list[Message] = Field(..., title="Messages")
 
 
 class ParticipantSet(BaseModel):
@@ -60,6 +67,20 @@ class PolicyLabel(BaseModel):
     sensitivity: str = Field(..., title="Sensitivity")
     propagation: str = Field(..., title="Propagation")
     retention_policy: str = Field(..., title="Retention Policy")
+
+
+class TaskWork(BaseModel):
+    id: str = Field(..., title="Id")
+    assigned_to: str = Field(..., title="Assigned To")
+    task_description: str = Field(..., title="Task Description")
+    status: str = Field(..., title="Status")
+    episodes: list[Episode] = Field(..., title="Episodes")
+
+
+class Team(BaseModel):
+    id: str = Field(..., title="Id")
+    team_members: list[str] = Field(..., title="Team Members")
+    tasks: list[TaskWork] = Field(..., title="Tasks")
 
 
 class Kind(Enum):
@@ -88,25 +109,6 @@ class L9Payload(BaseModel):
     data: dict[str, Any] = Field(..., title="Data")
 
 
-class L91(BaseModel):
+class L9(BaseModel):
     header: L9Header
     payload: L9Payload
-
-
-class Episode(BaseModel):
-    id: str = Field(..., title="Id")
-    messages: list[Message] = Field(..., title="Messages")
-
-
-class TaskWork(BaseModel):
-    id: str = Field(..., title="Id")
-    assigned_to: str = Field(..., title="Assigned To")
-    task_description: str = Field(..., title="Task Description")
-    status: str = Field(..., title="Status")
-    episodes: list[Episode] = Field(..., title="Episodes")
-
-
-class Team(BaseModel):
-    id: str = Field(..., title="Id")
-    team_members: list[str] = Field(..., title="Team Members")
-    tasks: list[TaskWork] = Field(..., title="Tasks")

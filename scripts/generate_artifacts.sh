@@ -129,7 +129,7 @@ check_json_schema() {
         exit 1
     fi
 
-    if ! grep -q '"title": "L9"' "$schema_path"; then
+    if ! grep -q '"title": "L9Schema"' "$schema_path"; then
         log_error "Schema missing required L9 title"
         exit 1
     fi
@@ -185,6 +185,12 @@ generate_bindings() {
 
     if [ ! -f "$golang_bindings" ]; then
         log_error "Golang bindings not generated: $golang_bindings"
+        exit 1
+    fi
+
+    log_info "Building Python wheel from generated bindings..."
+    if ! make build_wheel; then
+        log_error "Failed to build Python wheel"
         exit 1
     fi
 
