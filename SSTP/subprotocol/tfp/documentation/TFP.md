@@ -188,44 +188,5 @@ optional metadata on an offer and does not affect this reference selection.
 
 ## Running the Example
 
-```bash
-# from the repo root
-poetry install
-poetry run python SSTP/subprotocol/tfp/examples/team_formation_example.py
-poetry run pytest SSTP/subprotocol/tfp/language_bindings/python/test_tfp.py -v
-```
-
-The example runs an **open-world** poll: the recruiter broadcasts to a topic
-without knowing the roster, and each candidate agent owns its capability profile
-privately. `log-analyst` accepts; `threat-intel` is selected but **rejects**
-(reason: "already committed to incident-4470"), so the recruiter re-selects the
-`intel-2` fallback, which accepts. The irrelevant `comms-bot` self-declines, the
-silent `ghost-agent` is never heard, and `slow-intel` (the strongest threat-intel
-bidder) is **dropped for answering after the response window**. Final team:
-`log-analyst` + `intel-2` — the best team *among on-time responders*, not
-necessarily the global best.
-
-### L9 message dump
-
-Besides the human-readable trace table, the example writes a structured JSON
-dump of **every full L9 envelope** (header + payload) exchanged during the
-episode. By default it lands at the single, stable, git-visible path
-`SSTP/subprotocol/tfp/examples/dumps/team_formation_latest.json` (overwritten each
-run); override the destination with `--out`:
-
-```bash
-poetry run python SSTP/subprotocol/tfp/examples/team_formation_example.py --out /tmp/tfp_run.json
-```
-
-The file is a metadata wrapper around the message array:
-
-```json
-{
-  "schema": "ioc.tfp.message_dump.v1",
-  "episode": "2f9a6c1e-7b3d-4a8e-9c10-6d5e4f3a2b1c",
-  "poll_id": "urn:ioc:tfp:poll:d81903ec",
-  "message_count": 14,
-  "generated_at": "2026-06-18T20:01:27+00:00",
-  "messages": [ { "header": { ... }, "payload": { ... } }, ... ]
-}
-```
+See [`../examples/README.md`](../examples/README.md) for the runnable
+walkthrough, the scenario premise, and the L9 message-dump format.
