@@ -141,3 +141,9 @@ dmypy.json
 #*_generated*
 #generated_*
 
+
+# Demo runtime artifacts
+*.db
+cip_episodes.db
+episodes.db
+llm.env
