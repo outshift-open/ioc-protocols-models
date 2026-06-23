@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from src import L9
+from ai.outshift.data_model import L9
 from SSTP.subprotocol.siep.src.siep_models import siep_epistemic
 from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
 
@@ -126,7 +126,7 @@ class MessageStore:
                 msg.header.message.episode,
                 self._seq,
                 label,
-                msg.header.kind,
+                msg.header.kind.value if hasattr(msg.header.kind, "value") else msg.header.kind,
                 msg.header.subkind,
                 _sender_id(msg),
                 epistemic.state if epistemic else None,

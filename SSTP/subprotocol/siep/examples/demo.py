@@ -2,7 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verbose SIEP demo showcasing the repair cycle."""
+"""SIEP demo — happy-path grounding episode.
+
+Shows the three L9 kinds SIEP operates on: intent, exchange, commit.
+Contingency / repair-cycle handling is out of scope for SIEP and belongs
+to CIP (a peer subprotocol at the same layer).
+"""
 
 from __future__ import annotations
 
@@ -11,7 +16,7 @@ import uuid
 from pathlib import Path
 from typing import List, Tuple
 
-from src import L9
+from ai.outshift.data_model import L9
 from SSTP.subprotocol.siep.src.siep_models import siep_parents, siep_epistemic
 from SSTP.subprotocol.siep.src.builder import (
     RevisionCause,
@@ -27,9 +32,7 @@ from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
 C    = "concept:task_objective"
 SUB  = "urn:concept:task_objective:deliverable_spec"
 C2   = "concept:timeline"
-C3   = "concept:resource_allocation"
-C4   = "concept:acceptance_criteria"
-SCOPE = "concept:scope"
+C3   = "concept:acceptance_criteria"
 EpisodeLog = List[Tuple[str, L9]]
 _W = 100
 
@@ -55,15 +58,17 @@ def run_demo() -> None:
             store.append(label, response)
         return responses
 
+    # 1 · intent — coordinator opens the episode
     s1 = emit("1 · intent", builder("coordinator").intent().team_process().concept(C).build())
     engine.process(s1)
 
+    # 2 & 3 · taskwork priors — each agent registers its prior belief
     s2 = emit(
         "2 · prior (agent-alpha)",
         builder("agent-alpha").exchange().taskwork().asserted().concept(C)
         .parents(s1.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(evidence=[C, SUB, C4]),
+            utterance=SIEPUtterance(evidence=[C, SUB, C3]),
             belief=SIEPBelief(prior=0.72, posterior=0.72, revision_cause=RevisionCause.semantic_memory),
         ))
         .build(),
@@ -75,61 +80,54 @@ def run_demo() -> None:
         builder("agent-beta").exchange().taskwork().asserted().concept(C)
         .parents(s1.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(evidence=[C, SUB, C4]),
+            utterance=SIEPUtterance(evidence=[C, SUB, C3]),
             belief=SIEPBelief(prior=0.65, posterior=0.65, revision_cause=RevisionCause.semantic_memory),
         ))
         .build(),
     )
     engine.process(s3)
 
-    # GOOD: evidence overlaps 2 of 3 prior concepts → score ≈ 0.667 (passes THETA_C=0.40)
+    # 4 · first grounding exchange — overlaps 2/3 prior concepts → score ≈ 0.667 ✓
     s4 = emit(
-        "4 · exchange  GOOD ✓",
+        "4 · exchange  grounded ✓",
         builder("agent-alpha").exchange().grounding().asserted().concept(C)
         .uncertainty(0.28).parents(s3.header.message.id)
         .payload(SIEPPayload(
             utterance=SIEPUtterance(evidence=[C, SUB, C2], addresses_evidence=[C, SUB]),
             belief=SIEPBelief(prior=0.72, posterior=0.72),
         ))
-        .text("agent-beta, addressing task_objective + deliverable_spec; introducing timeline constraint")
+        .text("agent-beta, addressing task_objective + deliverable_spec; introducing timeline")
         .build(),
     )
     engine_responses(s4, "5 · exchange  grounding_ok ✓")
 
-    # BAD: drifts to new concepts — only 1 of 3 prior concepts covered → score ≈ 0.333 (fails THETA_C)
+    # 6 · second grounding exchange — overlaps all 3 prior concepts → score = 1.0 ✓
     s6 = emit(
-        "6 · exchange  BAD ✗",
+        "6 · exchange  grounded ✓",
         builder("agent-alpha").exchange().grounding().asserted().concept(C)
-        .uncertainty(0.28).parents(s4.header.message.id)
+        .uncertainty(0.15).parents(s4.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(
-                evidence=[C, C4, C3],
-                addresses_evidence=[],
-            ),
-            belief=SIEPBelief(prior=0.72, posterior=0.72),
+            utterance=SIEPUtterance(evidence=[C, SUB, C3, C2], addresses_evidence=[C, SUB, C3]),
+            belief=SIEPBelief(prior=0.72, posterior=0.85),
         ))
-        .text("What about resource allocation and acceptance criteria? Timeline seems secondary.")
+        .text("Confirmed: task_objective, deliverable_spec and acceptance_criteria all in scope")
         .build(),
     )
-    contingency_msg = engine_responses(s6, "7 · contingency  repair_required")[0]
+    engine_responses(s6, "7 · exchange  grounding_ok ✓")
 
-    # REPAIR: re-anchors to 2 of 3 challenged concepts → score ≈ 0.667 (passes, repair accepted)
+    # 8 · commit:converged — coordinator closes the episode
     s8 = emit(
-        "8 · exchange  REPAIR",
-        builder("agent-alpha").exchange().grounding().asserted().concept(C)
-        .uncertainty(0.28).parents(contingency_msg.header.message.id)
+        "8 · commit:converged",
+        builder("coordinator").commit_converged().grounding().revised().concept(C)
+        .parents(s6.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(evidence=[C, SUB, SCOPE], addresses_evidence=[C, SUB], turn_depth=1),
-            belief=SIEPBelief(
-                prior=0.72,
-                posterior=0.72,
-                revision_cause=RevisionCause.repair_resolution,
-            ),
+            utterance=SIEPUtterance(evidence=[C, SUB, C3]),
+            belief=SIEPBelief(prior=0.72, posterior=0.85, revision_cause=RevisionCause.grounded_argument),
         ))
-        .text("Re-anchoring: task_objective + deliverable_spec are the primary scope; adding scope clarification")
+        .text("Episode converged: shared grounding on task_objective established")
         .build(),
     )
-    engine_responses(s8, "9 · commit:converged  repair_verified ✓")
+    engine.process(s8)
 
     _print_verbose(log)
     _print_summary(log)
@@ -160,7 +158,7 @@ def _hr(char: str = "─") -> None:
 
 def _print_verbose(log: EpisodeLog) -> None:
     _hr("═")
-    print("  SIEP EPISODE  —  kind=contingency repair cycle")
+    print("  SIEP EPISODE  —  kind=intent / exchange / commit  (no contingency)")
     _hr("═")
     for label, msg in log:
         _hr()
@@ -173,7 +171,7 @@ def _print_verbose(log: EpisodeLog) -> None:
 def _print_message(msg: L9) -> None:
     header = msg.header
     epistemic = siep_epistemic(msg)
-    kind_str = header.kind + (f":{header.subkind}" if header.subkind else "")
+    kind_str = header.kind.value + (f":{header.subkind}" if header.subkind else "")
     print(f"  protocol     : {header.protocol} v{header.version}")
     print(f"  kind         : {kind_str}")
     print(f"  subprotocol  : {header.subprotocol}")
@@ -195,10 +193,6 @@ def _print_message(msg: L9) -> None:
     print("  siep.grounding :")
     print(f"    contingency_verified = {siep_payload.grounding.contingency_verified}")
     print(f"    contingency_score    = {siep_payload.grounding.contingency_score}")
-    if siep_payload.grounding.repair_reason:
-        print(f"    repair_reason        = {siep_payload.grounding.repair_reason}")
-    if siep_payload.grounding.challenges:
-        print(f"    challenges           = {siep_payload.grounding.challenges}")
     print("  siep.belief    :")
     print(f"    prior             = {siep_payload.belief.prior}")
     print(f"    posterior         = {siep_payload.belief.posterior}")
@@ -229,3 +223,4 @@ def _print_summary(log: EpisodeLog) -> None:
 
 
 __all__ = ["run_demo"]
+

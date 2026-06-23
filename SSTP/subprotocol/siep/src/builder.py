@@ -11,8 +11,7 @@ from enum import Enum
 from typing import Any, List, Optional
 import uuid
 
-from src import L9, L9Header, L9Payload
-from src.primitives import Actor, Context, Semantic
+from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, Context, Semantic, Kind
 from SSTP.subprotocol.siep.src.siep_models import Actors, Message, SIEPEpistemic as Epistemic
 from SSTP.subprotocol.siep.src.siep_payload import (
     SIEPMessagePayload,
@@ -23,12 +22,6 @@ from SSTP.subprotocol.siep.src.siep_payload import (
     SIEP_SCHEMA_URN,
 )
 
-
-class Kind(str, Enum):
-    intent = "intent"
-    exchange = "exchange"
-    contingency = "contingency"
-    commit = "commit"
 
 
 class SubKind(str, Enum):
@@ -173,10 +166,6 @@ class SIEPMessageBuilder:
 
     def exchange(self) -> "SIEPMessageBuilder":
         self._kind = Kind.exchange
-        return self
-
-    def contingency(self) -> "SIEPMessageBuilder":
-        self._kind = Kind.contingency
         return self
 
     def commit_converged(self) -> "SIEPMessageBuilder":
