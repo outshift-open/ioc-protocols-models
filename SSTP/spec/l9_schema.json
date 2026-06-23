@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ioc:l9:schema:v1",
   "version": "0.0.3",
+  "title": "L9",
   "description": "Combined JSON Schema for all ioc_l9 Pydantic models.",
   "$defs": {
     "Actor": {
@@ -34,51 +35,46 @@
       ],
       "type": "object"
     },
-    "Context": {
-      "$defs": {
-        "Epistemic": {
-          "description": "Participant epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
-          "properties": {},
-          "title": "Epistemic",
-          "type": "object"
+    "Epistemic": {
+      "description": "Participant epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
+      "properties": {},
+      "type": "object"
+    },
+    "Provenance": {
+      "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
+      "properties": {},
+      "type": "object"
+    },
+    "Semantic": {
+      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nImplementations use this to select the appropriate handler for the message.",
+      "properties": {
+        "schema_id": {
+          "title": "Schema Id",
+          "type": "string"
         },
-        "Provenance": {
-          "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
-          "properties": {},
-          "title": "Provenance",
-          "type": "object"
+        "ontology_ref": {
+          "title": "Ontology Ref",
+          "type": "string"
         },
-        "Semantic": {
-          "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nImplementations use this to select the appropriate handler for the message.",
-          "properties": {
-            "schema_id": {
-              "title": "Schema Id",
-              "type": "string"
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
             },
-            "ontology_ref": {
-              "title": "Ontology Ref",
-              "type": "string"
-            },
-            "provenance": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Provenance"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
+            {
+              "type": "null"
             }
-          },
-          "required": [
-            "schema_id",
-            "ontology_ref"
           ],
-          "title": "Semantic",
-          "type": "object"
+          "default": null
         }
       },
+      "required": [
+        "schema_id",
+        "ontology_ref"
+      ],
+      "type": "object"
+    },
+    "Context": {
       "properties": {
         "topic": {
           "title": "Topic",
@@ -112,11 +108,6 @@
       ],
       "type": "object"
     },
-    "Epistemic": {
-      "description": "Participant epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
-      "properties": {},
-      "type": "object"
-    },
     "Message": {
       "description": "A single message within a conversation episode.",
       "properties": {
@@ -131,39 +122,6 @@
       "type": "object"
     },
     "ParticipantSet": {
-      "$defs": {
-        "Actor": {
-          "description": "A participant in a protocol exchange \u2014 can be a human, a system, or any\nother entity. Multiple actors are listed in ParticipantSet to identify\nsender(s), receiver(s), and observers.",
-          "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
-            },
-            "role": {
-              "title": "Role",
-              "type": "string"
-            },
-            "attestation": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Attestation"
-            }
-          },
-          "required": [
-            "id",
-            "role"
-          ],
-          "title": "Actor",
-          "type": "object"
-        }
-      },
       "properties": {
         "actors": {
           "items": {
@@ -175,6 +133,7 @@
         "groups": {
           "anyOf": [
             {
+              "additionalProperties": true,
               "type": "object"
             },
             {
@@ -213,567 +172,18 @@
       ],
       "type": "object"
     },
-    "Provenance": {
-      "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
-      "properties": {},
-      "type": "object"
-    },
-    "Semantic": {
-      "$defs": {
-        "Provenance": {
-          "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
-          "properties": {},
-          "title": "Provenance",
-          "type": "object"
-        }
-      },
-      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nImplementations use this to select the appropriate handler for the message.",
-      "properties": {
-        "schema_id": {
-          "title": "Schema Id",
-          "type": "string"
-        },
-        "ontology_ref": {
-          "title": "Ontology Ref",
-          "type": "string"
-        },
-        "provenance": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Provenance"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "required": [
-        "schema_id",
-        "ontology_ref"
+    "Kind": {
+      "enum": [
+        "intent",
+        "contingency",
+        "exchange",
+        "commit",
+        "knowledge"
       ],
-      "type": "object"
-    },
-    "L9": {
-      "$defs": {
-        "Actor": {
-          "description": "A participant in a protocol exchange \u2014 can be a human, a system, or any\nother entity. Multiple actors are listed in ParticipantSet to identify\nsender(s), receiver(s), and observers.",
-          "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
-            },
-            "role": {
-              "title": "Role",
-              "type": "string"
-            },
-            "attestation": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Attestation"
-            }
-          },
-          "required": [
-            "id",
-            "role"
-          ],
-          "title": "Actor",
-          "type": "object"
-        },
-        "Context": {
-          "properties": {
-            "topic": {
-              "title": "Topic",
-              "type": "string"
-            },
-            "epistemic": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Epistemic"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            },
-            "semantic": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Semantic"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            }
-          },
-          "required": [
-            "topic"
-          ],
-          "title": "Context",
-          "type": "object"
-        },
-        "Epistemic": {
-          "description": "Participant epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
-          "properties": {},
-          "title": "Epistemic",
-          "type": "object"
-        },
-        "Kind": {
-          "enum": [
-            "intent",
-            "contingency",
-            "exchange",
-            "commit",
-            "knowledge"
-          ],
-          "title": "Kind",
-          "type": "string"
-        },
-        "L9Header": {
-          "description": "Routing and metadata envelope for every L9 message.\nThe routing layer reads the header \u2014 especially `kind` and `subkind` \u2014\nto decide which handler should process the message.",
-          "properties": {
-            "protocol": {
-              "title": "Protocol",
-              "type": "string"
-            },
-            "subprotocol": {
-              "title": "Subprotocol",
-              "type": "string"
-            },
-            "version": {
-              "title": "Version",
-              "type": "string"
-            },
-            "kind": {
-              "$ref": "#/$defs/Kind"
-            },
-            "subkind": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Subkind"
-            },
-            "participants": {
-              "$ref": "#/$defs/ParticipantSet"
-            },
-            "message": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Message"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            },
-            "policy": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/PolicyLabel"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            },
-            "attributes": {
-              "anyOf": [
-                {
-                  "type": "object"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Attributes"
-            },
-            "context": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Context"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            }
-          },
-          "required": [
-            "protocol",
-            "subprotocol",
-            "version",
-            "kind",
-            "participants"
-          ],
-          "title": "L9Header",
-          "type": "object"
-        },
-        "L9Payload": {
-          "description": "The actual content being carried by an L9 message.\nThe `type` field describes the payload format; `data` holds the content.",
-          "properties": {
-            "type": {
-              "title": "Type",
-              "type": "string"
-            },
-            "data": {
-              "title": "Data",
-              "type": "object"
-            }
-          },
-          "required": [
-            "type",
-            "data"
-          ],
-          "title": "L9Payload",
-          "type": "object"
-        },
-        "Message": {
-          "description": "Represents a message in the protocol.",
-          "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
-            },
-            "parents": {
-              "title": "Parents",
-              "type": "string"
-            },
-            "episode": {
-              "title": "Episode",
-              "type": "string"
-            }
-          },
-          "required": [
-            "id",
-            "parents",
-            "episode"
-          ],
-          "title": "Message",
-          "type": "object"
-        },
-        "ParticipantSet": {
-          "properties": {
-            "actors": {
-              "items": {
-                "$ref": "#/$defs/Actor"
-              },
-              "title": "Actors",
-              "type": "array"
-            },
-            "groups": {
-              "anyOf": [
-                {
-                  "type": "object"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Groups"
-            }
-          },
-          "required": [
-            "actors",
-            "groups"
-          ],
-          "title": "ParticipantSet",
-          "type": "object"
-        },
-        "PolicyLabel": {
-          "description": "Data governance and access-control labels applied to the message.",
-          "properties": {
-            "sensitivity": {
-              "title": "Sensitivity",
-              "type": "string"
-            },
-            "propagation": {
-              "title": "Propagation",
-              "type": "string"
-            },
-            "retention_policy": {
-              "title": "Retention Policy",
-              "type": "string"
-            }
-          },
-          "required": [
-            "sensitivity",
-            "propagation",
-            "retention_policy"
-          ],
-          "title": "PolicyLabel",
-          "type": "object"
-        },
-        "Provenance": {
-          "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
-          "properties": {},
-          "title": "Provenance",
-          "type": "object"
-        },
-        "Semantic": {
-          "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nImplementations use this to select the appropriate handler for the message.",
-          "properties": {
-            "schema_id": {
-              "title": "Schema Id",
-              "type": "string"
-            },
-            "ontology_ref": {
-              "title": "Ontology Ref",
-              "type": "string"
-            },
-            "provenance": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Provenance"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            }
-          },
-          "required": [
-            "schema_id",
-            "ontology_ref"
-          ],
-          "title": "Semantic",
-          "type": "object"
-        }
-      },
-      "description": "A complete L9 message: header (routing/metadata) + payload (content).\nThis is the top-level structure passed between participants in the IoC protocol.",
-      "properties": {
-        "header": {
-          "$ref": "#/$defs/L9Header"
-        },
-        "payload": {
-          "$ref": "#/$defs/L9Payload"
-        }
-      },
-      "required": [
-        "header",
-        "payload"
-      ],
-      "type": "object"
+      "title": "Kind",
+      "type": "string"
     },
     "L9Header": {
-      "$defs": {
-        "Actor": {
-          "description": "A participant in a protocol exchange \u2014 can be a human, a system, or any\nother entity. Multiple actors are listed in ParticipantSet to identify\nsender(s), receiver(s), and observers.",
-          "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
-            },
-            "role": {
-              "title": "Role",
-              "type": "string"
-            },
-            "attestation": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Attestation"
-            }
-          },
-          "required": [
-            "id",
-            "role"
-          ],
-          "title": "Actor",
-          "type": "object"
-        },
-        "Context": {
-          "properties": {
-            "topic": {
-              "title": "Topic",
-              "type": "string"
-            },
-            "epistemic": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Epistemic"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            },
-            "semantic": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Semantic"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            }
-          },
-          "required": [
-            "topic"
-          ],
-          "title": "Context",
-          "type": "object"
-        },
-        "Epistemic": {
-          "description": "Participant epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
-          "properties": {},
-          "title": "Epistemic",
-          "type": "object"
-        },
-        "Kind": {
-          "enum": [
-            "intent",
-            "contingency",
-            "exchange",
-            "commit",
-            "knowledge"
-          ],
-          "title": "Kind",
-          "type": "string"
-        },
-        "Message": {
-          "description": "Represents a message in the protocol.",
-          "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
-            },
-            "parents": {
-              "title": "Parents",
-              "type": "string"
-            },
-            "episode": {
-              "title": "Episode",
-              "type": "string"
-            }
-          },
-          "required": [
-            "id",
-            "parents",
-            "episode"
-          ],
-          "title": "Message",
-          "type": "object"
-        },
-        "ParticipantSet": {
-          "properties": {
-            "actors": {
-              "items": {
-                "$ref": "#/$defs/Actor"
-              },
-              "title": "Actors",
-              "type": "array"
-            },
-            "groups": {
-              "anyOf": [
-                {
-                  "type": "object"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Groups"
-            }
-          },
-          "required": [
-            "actors",
-            "groups"
-          ],
-          "title": "ParticipantSet",
-          "type": "object"
-        },
-        "PolicyLabel": {
-          "description": "Data governance and access-control labels applied to the message.",
-          "properties": {
-            "sensitivity": {
-              "title": "Sensitivity",
-              "type": "string"
-            },
-            "propagation": {
-              "title": "Propagation",
-              "type": "string"
-            },
-            "retention_policy": {
-              "title": "Retention Policy",
-              "type": "string"
-            }
-          },
-          "required": [
-            "sensitivity",
-            "propagation",
-            "retention_policy"
-          ],
-          "title": "PolicyLabel",
-          "type": "object"
-        },
-        "Provenance": {
-          "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
-          "properties": {},
-          "title": "Provenance",
-          "type": "object"
-        },
-        "Semantic": {
-          "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nImplementations use this to select the appropriate handler for the message.",
-          "properties": {
-            "schema_id": {
-              "title": "Schema Id",
-              "type": "string"
-            },
-            "ontology_ref": {
-              "title": "Ontology Ref",
-              "type": "string"
-            },
-            "provenance": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/Provenance"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            }
-          },
-          "required": [
-            "schema_id",
-            "ontology_ref"
-          ],
-          "title": "Semantic",
-          "type": "object"
-        }
-      },
       "description": "Routing and metadata envelope for every L9 message.\nThe routing layer reads the header \u2014 especially `kind` and `subkind` \u2014\nto decide which handler should process the message.",
       "properties": {
         "protocol": {
@@ -831,6 +241,7 @@
         "attributes": {
           "anyOf": [
             {
+              "additionalProperties": true,
               "type": "object"
             },
             {
@@ -869,6 +280,7 @@
           "type": "string"
         },
         "data": {
+          "additionalProperties": true,
           "title": "Data",
           "type": "object"
         }
@@ -879,23 +291,23 @@
       ],
       "type": "object"
     },
-    "Episode": {
-      "$defs": {
-        "Message": {
-          "description": "A single message within a conversation episode.",
-          "properties": {
-            "content": {
-              "title": "Content",
-              "type": "string"
-            }
-          },
-          "required": [
-            "content"
-          ],
-          "title": "Message",
-          "type": "object"
+    "L9": {
+      "description": "A complete L9 message: header (routing/metadata) + payload (content).\nThis is the top-level structure passed between participants in the IoC protocol.",
+      "properties": {
+        "header": {
+          "$ref": "#/$defs/L9Header"
+        },
+        "payload": {
+          "$ref": "#/$defs/L9Payload"
         }
       },
+      "required": [
+        "header",
+        "payload"
+      ],
+      "type": "object"
+    },
+    "Episode": {
       "description": "A discrete conversation or interaction sequence tied to a task.\nAn episode groups the messages exchanged during one focused interaction\n(e.g. one round of clarification, one tool invocation cycle).",
       "properties": {
         "id": {
@@ -917,44 +329,6 @@
       "type": "object"
     },
     "TaskWork": {
-      "$defs": {
-        "Episode": {
-          "description": "A discrete conversation or interaction sequence tied to a task.\nAn episode groups the messages exchanged during one focused interaction\n(e.g. one round of clarification, one tool invocation cycle).",
-          "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
-            },
-            "messages": {
-              "items": {
-                "$ref": "#/$defs/Message"
-              },
-              "title": "Messages",
-              "type": "array"
-            }
-          },
-          "required": [
-            "id",
-            "messages"
-          ],
-          "title": "Episode",
-          "type": "object"
-        },
-        "Message": {
-          "description": "A single message within a conversation episode.",
-          "properties": {
-            "content": {
-              "title": "Content",
-              "type": "string"
-            }
-          },
-          "required": [
-            "content"
-          ],
-          "title": "Message",
-          "type": "object"
-        }
-      },
       "description": "A unit of work assigned to a team member, tracked through one or more episodes.\nStatus lifecycle example: \"pending\" \u2192 \"in_progress\" \u2192 \"completed\" | \"blocked\"",
       "properties": {
         "id": {
@@ -991,81 +365,6 @@
       "type": "object"
     },
     "Team": {
-      "$defs": {
-        "Episode": {
-          "description": "A discrete conversation or interaction sequence tied to a task.\nAn episode groups the messages exchanged during one focused interaction\n(e.g. one round of clarification, one tool invocation cycle).",
-          "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
-            },
-            "messages": {
-              "items": {
-                "$ref": "#/$defs/Message"
-              },
-              "title": "Messages",
-              "type": "array"
-            }
-          },
-          "required": [
-            "id",
-            "messages"
-          ],
-          "title": "Episode",
-          "type": "object"
-        },
-        "Message": {
-          "description": "A single message within a conversation episode.",
-          "properties": {
-            "content": {
-              "title": "Content",
-              "type": "string"
-            }
-          },
-          "required": [
-            "content"
-          ],
-          "title": "Message",
-          "type": "object"
-        },
-        "TaskWork": {
-          "description": "A unit of work assigned to a team member, tracked through one or more episodes.\nStatus lifecycle example: \"pending\" \u2192 \"in_progress\" \u2192 \"completed\" | \"blocked\"",
-          "properties": {
-            "id": {
-              "title": "Id",
-              "type": "string"
-            },
-            "assigned_to": {
-              "title": "Assigned To",
-              "type": "string"
-            },
-            "task_description": {
-              "title": "Task Description",
-              "type": "string"
-            },
-            "status": {
-              "title": "Status",
-              "type": "string"
-            },
-            "episodes": {
-              "items": {
-                "$ref": "#/$defs/Episode"
-              },
-              "title": "Episodes",
-              "type": "array"
-            }
-          },
-          "required": [
-            "id",
-            "assigned_to",
-            "task_description",
-            "status",
-            "episodes"
-          ],
-          "title": "TaskWork",
-          "type": "object"
-        }
-      },
       "description": "A group of agents and/or humans collaborating on a shared set of tasks.",
       "properties": {
         "id": {
