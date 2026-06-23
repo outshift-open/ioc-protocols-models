@@ -262,7 +262,6 @@ description = "The uncompromising code formatter."
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
-markers = "sys_platform != \"emscripten\""
 files = [
     {file = "black-26.5.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:9942db8888e06943c5dde66ca0037dcff82a2a4ec1ad0ada9e0d2ee9d9823893"},
     {file = "black-26.5.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:89c93167a74d3a75dfaa38a5c7cca015537d5820dd7f17d63267d674a61cae90"},
@@ -1723,7 +1722,6 @@ description = "Utility library for gitignore style pattern matching of file path
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
-markers = "sys_platform != \"emscripten\""
 files = [
     {file = "pathspec-1.1.1-py3-none-any.whl", hash = "sha256:a00ce642f577bf7f473932318056212bc4f8bfdf53128c78bbd5af0b9b20b189"},
     {file = "pathspec-1.1.1.tar.gz", hash = "sha256:17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a"},
@@ -1741,7 +1739,6 @@ description = "A small Python package for determining appropriate platform-speci
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
-markers = "sys_platform != \"emscripten\""
 files = [
     {file = "platformdirs-4.10.0-py3-none-any.whl", hash = "sha256:fb516cdb12eb0d857d0cd85a7c57cea4d060bee4578d6cf5a14dfdf8cbf8784a"},
     {file = "platformdirs-4.10.0.tar.gz", hash = "sha256:31e761a6a0ca04faf7353ea759bdba55652be214725111e5aac52dfa29d4bef7"},
@@ -2110,7 +2107,6 @@ description = "A Fast, spec compliant Python 3.14+ tokenizer that runs on older 
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
-markers = "sys_platform != \"emscripten\""
 files = [
     {file = "pytokens-0.4.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:2a44ed93ea23415c54f3face3b65ef2b844d96aeb3455b8a69b3df6beab6acc5"},
     {file = "pytokens-0.4.1-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:add8bf86b71a5d9fb5b89f023a80b791e04fba57960aa790cc6125f7f1d39dfe"},
@@ -3009,4 +3005,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "2275468828ff9fba2d74b90811d02447a9cf8e9799f46259953035dca81516d7"
+content-hash = "ab2bf579bff4d2ac97c4db59f047243a2c51936239a735c1f1b795b6cb16551a"
