@@ -6,7 +6,7 @@
 AgentTOM keeps only the prediction loop (2nd-order ToM) and drift signals.
 LLM-based introspection (seed/update/assess_utterance/detect_ambiguity/peer_alignment)
 has been removed — those functions are now handled structurally:
-  - grounding checks: contingency_check() in sstp/ie/grounding.py
+  - grounding checks: contingency_check() in SSTP.subprotocol.siep.src.grounding
   - belief tracking: AgentBeliefStore.record_revision() via receive_peer_turn()
   - drift: anchor_gap from TaskworkState.prior vs BeliefState.current_confidence
   - alignment: ReplicaToM.alignment_matrix() from epistemic replica
@@ -41,7 +41,7 @@ class AgentTOM:
 
     Removed (replaced by structural equivalents):
       - seed() / update() — use AgentBeliefStore + TaskworkStore
-      - assess_utterance() — use contingency_check() in sstp/ie/grounding.py
+      - assess_utterance() — use contingency_check() in SSTP.subprotocol.siep.src.grounding
       - assess_task_alignment() — use epistemic_state field in L9 header
       - detect_ambiguity() — use diagnose_repair_reason() in grounding.py
       - peer_alignment() — use ReplicaToM.alignment_matrix()
@@ -446,8 +446,8 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
 
     Registry of AgentTOM instances keyed by agent_id. All live state lives
     in AgentTOM (prediction loop + drift signals). LLM introspection calls
-    have been replaced by structural equivalents in sstp.ie.grounding and
-    sstp.epistemic stores.
+    have been replaced by structural equivalents in SSTP.subprotocol.siep.src.grounding
+    and epistemic stores.
     """
 
     def __init__(

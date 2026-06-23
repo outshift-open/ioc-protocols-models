@@ -32,7 +32,6 @@ from SSTP.subprotocol.siep.src.builder import (
 )
 from SSTP.subprotocol.siep.src.siep_payload import SIEPMessagePayload
 from SSTP.subprotocol.siep.src.tomcore.cognition import TheoryOfMindEngine
-from SSTP.subprotocol.siep.src.tomcore.interaction import InteractionEngine
 from SSTP.subprotocol.siep.src.tomcore.llm import LiteLLMClient, NoOpLLMClient
 
 SIEP_KINDS = {Kind.intent, Kind.exchange, Kind.commit}
@@ -100,7 +99,6 @@ class SIEPEngine:
         self._priors: Dict[Tuple[str, str], SIEPBelief] = {}
         self._last_exchange: Dict[str, L9] = {}
         self._tom = TheoryOfMindEngine(_make_llm_client())
-        self._ie = InteractionEngine()
         self._seeded_peers: Set[str] = set()
 
     def process(self, msg: L9) -> List[L9]:
@@ -160,19 +158,14 @@ class SIEPEngine:
         )
         drift = self._tom.agent(self.agent_id).drift_signals()
 
-        contingency_action = self._ie.adaptive_contingency(
-            alignment_score=score,
-            anchor_gap=drift.get("anchor_gap", 0.0),
-            ema_alignment=drift.get("ema_alignment", 1.0),
-        )
-        force_repair = contingency_action in (
-            "repair_hard_stop", "repair_anchor", "repair_alignment", "request_clarification"
-        )
+        # TOM drift can escalate a borderline pass to a GroundingFailure
+        anchor_gap = drift.get("anchor_gap", 0.0)
+        ema_alignment = drift.get("ema_alignment", 1.0)
+        force_fail = anchor_gap > 0.3 and ema_alignment < THETA_C
 
-        if score >= THETA_C and not force_repair:
+        if score >= THETA_C and not force_fail:
             return [self._grounding_ok(msg, score)]
 
-        # Grounding failed — raise so CIP or caller can decide how to handle it
         raise GroundingFailure(msg, score, prior_evidence)
 
     def _grounding_ok(self, prior: L9, score: float) -> L9:

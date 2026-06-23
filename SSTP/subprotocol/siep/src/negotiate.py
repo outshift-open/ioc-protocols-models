@@ -109,18 +109,10 @@ __all__ = [
 ]
 
 
-# ── SIEP negotiation vocabulary (moved from l9.py) ───────────────────────────
+# ── SIEP negotiation vocabulary ───────────────────────────────────────────────
 
 from typing import Dict, Iterable, List, Optional
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import SpeechAct, EpistemicState, make_epistemic_block
-from SSTP.l9_base import (
-    L9HeaderBuilder,
-    L9_PROTOCOL,
-    L9_VERSION,
-    normalize_use_case,
-    schema_trust_level_for_kind,
-    schema_version_for_kind,
-)
 
 SNP_PROFILE: str = "semantic_negotiation"
 SNP_ONTOLOGY_REFERENCE: str = "protocol/ontology/snp_ontology.ttl"
@@ -235,70 +227,12 @@ def build_snp_payload(
     return out
 
 
-_SHORT_TTL_EVENTS: frozenset = frozenset({"peer_turn", "repair_required", "repair_applied"})
+__all__ += [
+    "NegotiationOperation",
+    "NegotiationStatus",
+    "SNP_ONTOLOGY_REFERENCE",
+    "SNP_PROFILE",
+    "build_snp_payload",
+    "snp_event_type_for_operation",
+]
 
-
-class SNPL9HeaderBuilder(L9HeaderBuilder):
-    """SIEP specialisation of L9HeaderBuilder."""
-
-    def kind_for_event_type(self, event_type: str) -> str:
-        return _SIEP_EVENT_TYPE_TO_KIND.get(event_type, "exchange")
-
-    def schema_id_for(self, use_case: str, event_type: str, kind: str, schema_trust_level: str) -> str:
-        normalized = normalize_use_case(use_case)
-        version = schema_version_for_kind(kind)
-        if schema_trust_level == "certified":
-            return f"urn:ioc:{normalized}:coordination:{event_type}:v{version}"
-        return f"urn:ioc:draft:{normalized}:coordination:{event_type}:v{version}"
-
-    def ttl_for_event_type(self, event_type: str) -> int:
-        return 86400 if event_type in _SHORT_TTL_EVENTS else 604800
-
-    def build_snp(self, *, operation: str, use_case: str, sender: str,
-                  receiver: Optional[str], timestamp_ms: int, proposal_id: str,
-                  turn_depth: Optional[int] = None, utterance: str = "",
-                  parent_ids: Optional[Iterable[str]] = None,
-                  episode_id: Optional[str] = None,
-                  provenance_sources: Optional[Iterable[str]] = None,
-                  message_id: Optional[str] = None, subprotocol: Optional[str] = "SIEP",
-                  epistemic: Optional[Dict[str, Any]] = None,
-                  state_sequence: Optional[Dict[str, Any]] = None,
-                  kind_override: Optional[str] = None,
-                  sequence_number: Optional[int] = None,
-                  payload_parts: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
-        if epistemic is None:
-            sa, es = _SIEP_DEFAULT_EPISTEMIC.get(operation, (SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS))
-            epistemic = make_epistemic_block(speech_act=sa, epistemic_state=es)
-        event_type = snp_event_type_for_operation(operation)
-        return self.build(
-            use_case=use_case, event_type=event_type, sender=sender,
-            receiver=receiver, timestamp_ms=timestamp_ms, turn_depth=turn_depth,
-            utterance=utterance, parent_ids=parent_ids, episode_id=episode_id,
-            provenance_sources=provenance_sources, ontology_ref=SNP_ONTOLOGY_REFERENCE,
-            message_id=message_id, subprotocol=subprotocol, epistemic=epistemic,
-            state_sequence=state_sequence, kind_override=kind_override,
-            sequence_number=sequence_number, payload_parts=payload_parts,
-        )
-
-
-_DEFAULT_BUILDER = SNPL9HeaderBuilder()
-
-
-def build_snp_l9_header(
-    *, operation: str, use_case: str, sender: str, receiver: Optional[str],
-    timestamp_ms: int, proposal_id: str, turn_depth: Optional[int] = None,
-    utterance: str = "", parent_ids: Optional[Iterable[str]] = None,
-    episode_id: Optional[str] = None, provenance_sources: Optional[Iterable[str]] = None,
-    message_id: Optional[str] = None, subprotocol: Optional[str] = "SIEP",
-    epistemic: Optional[Dict[str, Any]] = None, state_sequence: Optional[Dict[str, Any]] = None,
-    kind_override: Optional[str] = None, sequence_number: Optional[int] = None,
-    payload_parts: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
-    return _DEFAULT_BUILDER.build_snp(
-        operation=operation, use_case=use_case, sender=sender, receiver=receiver,
-        timestamp_ms=timestamp_ms, proposal_id=proposal_id, turn_depth=turn_depth,
-        utterance=utterance, parent_ids=parent_ids, episode_id=episode_id,
-        provenance_sources=provenance_sources, message_id=message_id,
-        subprotocol=subprotocol, epistemic=epistemic, state_sequence=state_sequence,
-        kind_override=kind_override, sequence_number=sequence_number, payload_parts=payload_parts,
-    )
