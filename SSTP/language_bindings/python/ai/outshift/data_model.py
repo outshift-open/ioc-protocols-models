@@ -13,11 +13,11 @@ from typing import Any
 from pydantic import BaseModel, Field, RootModel
 
 
-class L9(RootModel[Any]):
+class L9Schema(RootModel[Any]):
     root: Any = Field(
         ...,
         description="Combined JSON Schema for all ioc_l9 Pydantic models.",
-        title="L9",
+        title="L9Schema",
     )
 
 
@@ -109,6 +109,6 @@ class L9Payload(BaseModel):
     data: dict[str, Any] = Field(..., title="Data")
 
 
-class L91(BaseModel):
+class L9(BaseModel):
     header: L9Header
     payload: L9Payload

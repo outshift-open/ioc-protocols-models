@@ -119,7 +119,7 @@ def generate_combined(out_path: Path, filter_name: str | None = None, version: s
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "urn:ioc:l9:schema:v1",
         "version": version,
-        "title": "L9",
+        "title": "L9Schema",
         "description": "Combined JSON Schema for all ioc_l9 Pydantic models.",
         "$defs": {},
     }

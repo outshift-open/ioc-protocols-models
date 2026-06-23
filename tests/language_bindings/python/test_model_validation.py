@@ -110,13 +110,17 @@ class TestGeneratedModelValidation:
         """Test Message model validation."""
         # Valid data
         valid_message = data_model.Message(
-            content="Hello, world!"
+            id="msg-001",
+            parents="msg-000",
+            episode="ep-001"
         )
-        assert valid_message.content == "Hello, world!"
+        assert valid_message.id == "msg-001"
+        assert valid_message.parents == "msg-000"
+        assert valid_message.episode == "ep-001"
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            data_model.Message()  # Missing content
+            data_model.Message()  # Missing required fields
 
     def test_kind_enum(self):
         """Test Kind enum values."""
@@ -197,7 +201,9 @@ class TestGeneratedModelValidation:
                 )
             ),
             message=data_model.Message(
-                content="Analysis complete"
+                id="msg-001",
+                parents="",
+                episode="ep-001"
             ),
             policy=data_model.PolicyLabel(
                 sensitivity="confidential",
@@ -206,7 +212,7 @@ class TestGeneratedModelValidation:
             )
         )
         assert valid_header.context.topic == "threat_analysis"
-        assert valid_header.message.content == "Analysis complete"
+        assert valid_header.message.id == "msg-001"
         assert valid_header.policy.sensitivity == "confidential"
         assert valid_header.subkind == "indicator"
 
@@ -230,7 +236,7 @@ class TestGeneratedModelValidation:
     def test_complete_l91_validation(self):
         """Test complete L91 message validation."""
         # Valid complete message
-        valid_l91 = data_model.L91(
+        valid_l91 = data_model.L9(
             header=data_model.L9Header(
                 protocol="IOC_L9",
                 subprotocol="SSTP",
@@ -254,17 +260,17 @@ class TestGeneratedModelValidation:
 
         # Missing required components
         with pytest.raises(ValidationError):
-            data_model.L91(header={})  # Missing payload and invalid header
+            data_model.L9(header={})  # Missing payload and invalid header
 
     def test_l9_root_model(self):
-        """Test L9 RootModel accepts any data."""
-        l9 = data_model.L9(root={"any": "data"})
-        assert l9.root == {"any": "data"}
+        """Test L9Schema RootModel accepts any data."""
+        l9_schema = data_model.L9Schema(root={"any": "data"})
+        assert l9_schema.root == {"any": "data"}
 
     def test_state_management_validation(self):
         """Test complex model validation with nested structures."""
         # Valid L91 message with header and payload
-        valid_l91 = data_model.L91(
+        valid_l91 = data_model.L9(
             header=data_model.L9Header(
                 protocol="L9",
                 subprotocol="SSTP",
@@ -310,7 +316,7 @@ class TestGeneratedModelValidation:
         """Test Episode model validation."""
         valid_episode = data_model.Episode(
             id="ep_001",
-            messages=[data_model.Message(content="Hello")]
+            messages=[data_model.Message(id="msg-001", parents="", episode="ep_001")]
         )
         assert valid_episode.id == "ep_001"
         assert len(valid_episode.messages) == 1
@@ -328,7 +334,7 @@ class TestGeneratedModelValidation:
             episodes=[
                 data_model.Episode(
                     id="ep_001",
-                    messages=[data_model.Message(content="Starting analysis")]
+                    messages=[data_model.Message(id="msg-001", parents="", episode="ep_001")]
                 )
             ]
         )
@@ -366,7 +372,7 @@ class TestJSONSchemaValidation:
     def test_json_roundtrip_validation(self):
         """Test that models can be serialized to JSON and back with validation."""
         # Create a valid L91 message
-        l91_model = data_model.L91(
+        l91_model = data_model.L9(
             header=data_model.L9Header(
                 protocol="IOC_L9",
                 subprotocol="SSTP",
@@ -401,7 +407,7 @@ class TestJSONSchemaValidation:
         json_data = json.loads(json_str)
 
         # Deserialize from JSON and validate
-        l91_restored = data_model.L91(**json_data)
+        l91_restored = data_model.L9(**json_data)
 
         # Verify they're identical
         assert l91_model.model_dump() == l91_restored.model_dump()
@@ -417,7 +423,7 @@ class TestJSONSchemaValidation:
         }
 
         with pytest.raises(ValidationError):
-            data_model.L91(**invalid_data)
+            data_model.L9(**invalid_data)
 
     def test_partial_json_data(self):
         """Test validation with partial/incomplete JSON data."""
@@ -430,7 +436,7 @@ class TestJSONSchemaValidation:
         }
 
         with pytest.raises(ValidationError):
-            data_model.L91(**partial_data)
+            data_model.L9(**partial_data)
 
 
 if __name__ == "__main__":
