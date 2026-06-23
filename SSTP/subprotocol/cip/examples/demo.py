@@ -141,7 +141,7 @@ def run_demo() -> None:
     store.flush()
     print()
     store.print_table()
-    _save_json(store, Path(__file__).resolve().parents[1] / "scripts" / "cip_run.json")
+    _save_json(store, Path(__file__).resolve().parent / "cip_run.json")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

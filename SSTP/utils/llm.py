@@ -49,10 +49,16 @@ class LiteLLMClient(LLMClient):
     """
 
     def __init__(self, model: str | None = None, temperature: float = 0.2) -> None:
-        self.model = model or os.environ.get("LLM_MODEL", _DEFAULT_MODEL)
+        self._base_url = os.environ.get("LLM_API_BASE") or None
+        raw_model = model or os.environ.get("LLM_MODEL", _DEFAULT_MODEL)
+        # When routing through a proxy (base_url set), litellm must NOT use the
+        # native Bedrock SDK path. Strip the "bedrock/" prefix so litellm treats
+        # the call as an OpenAI-compatible request to the proxy endpoint.
+        if self._base_url and raw_model and raw_model.lower().startswith("bedrock/"):
+            raw_model = raw_model[len("bedrock/"):]
+        self.model = raw_model
         self.temperature = temperature
         self._api_key = os.environ.get("LLM_API_KEY") or None
-        self._base_url = os.environ.get("LLM_API_BASE") or None
 
     def complete_json(self, task: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         from SSTP.utils.litellm_util import litellm_completion_compat
@@ -73,12 +79,16 @@ class LiteLLMClient(LLMClient):
             kwargs["base_url"] = self._base_url
 
         logger.debug("LiteLLMClient.complete_json task=%s model=%s", task, self.model)
+        print(f"\n  [LLM] → task={task!r}  model={self.model}", flush=True)
         try:
             resp = litellm_completion_compat(**kwargs)
             raw = resp.choices[0].message.content or "{}"
-            return json.loads(raw)
+            result = json.loads(raw)
+            print(f"  [LLM] ← {json.dumps(result)}", flush=True)
+            return result
         except Exception as exc:
             logger.warning("LiteLLMClient.complete_json failed task=%s: %s", task, exc)
+            print(f"  [LLM] ✗ failed: {exc}", flush=True)
             return {}
 
 

@@ -37,7 +37,7 @@ if [ -f "$LLM_ENV" ]; then
     echo "Loading LLM config from $(realpath "$LLM_ENV")..."
     set -o allexport
     # shellcheck source=/dev/null
-    source <(grep -v '^\s*#' "$LLM_ENV" | grep -v '^\s*$')
+    source "$LLM_ENV"
     set +o allexport
 else
     echo "Warning: llm.env not found at $LLM_ENV — running without LLM keys" >&2

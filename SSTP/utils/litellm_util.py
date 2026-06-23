@@ -15,20 +15,24 @@ import litellm
 logger = logging.getLogger(__name__)
 
 
-def litellm_model_uses_bedrock_sync_path(model: str | None) -> bool:
-    """True when the model string indicates Bedrock (sync ``litellm.completion`` only).
+def litellm_model_uses_bedrock_sync_path(model: str | None, base_url: str | None = None) -> bool:
+    """True when the model string indicates native Bedrock (sync ``litellm.completion`` only).
 
-    Case-insensitive ``bedrock`` substring covers ``bedrock/``, ``aws_bedrock/``, ARNs, etc.
+    Returns False when a ``base_url`` is set — that means we're routing through a proxy
+    (OpenAI-compatible endpoint) regardless of the model name prefix.
     """
+    if base_url:
+        return False  # proxy route — always use acompletion
     if not model or not str(model).strip():
         return False
     return "bedrock" in str(model).strip().lower()
 
 
 def litellm_completion_compat(**kwargs: Any) -> Any:
-    """Sync entry: Bedrock → ``litellm.completion``; otherwise ``litellm.acompletion`` via ``asyncio.run``."""
+    """Sync entry: native Bedrock → ``litellm.completion``; proxy/other → ``litellm.acompletion`` via ``asyncio.run``."""
     model = kwargs.get("model")
-    if litellm_model_uses_bedrock_sync_path(model if isinstance(model, str) else None):
+    base_url = kwargs.get("base_url")
+    if litellm_model_uses_bedrock_sync_path(model if isinstance(model, str) else None, base_url):
         logger.debug(
             "litellm_completion_compat: sync litellm.completion for Bedrock model=%r",
             model,
@@ -38,9 +42,10 @@ def litellm_completion_compat(**kwargs: Any) -> Any:
 
 
 async def litellm_acompletion_compat(**kwargs: Any) -> Any:
-    """Async entry: Bedrock → threaded sync ``completion``; otherwise ``litellm.acompletion``."""
+    """Async entry: native Bedrock → threaded sync ``completion``; proxy/other → ``litellm.acompletion``."""
     model = kwargs.get("model")
-    if litellm_model_uses_bedrock_sync_path(model if isinstance(model, str) else None):
+    base_url = kwargs.get("base_url")
+    if litellm_model_uses_bedrock_sync_path(model if isinstance(model, str) else None, base_url):
         logger.debug(
             "litellm_acompletion_compat: threaded litellm.completion for Bedrock model=%r",
             model,
