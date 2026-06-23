@@ -111,11 +111,11 @@ class TestGeneratedModelValidation:
         # Valid data
         valid_message = data_model.Message(
             id="msg-001",
-            parents="msg-000",
+            parents=["msg-000"],
             episode="ep-001"
         )
         assert valid_message.id == "msg-001"
-        assert valid_message.parents == "msg-000"
+        assert valid_message.parents == ["msg-000"]
         assert valid_message.episode == "ep-001"
 
         # Missing required fields
@@ -202,7 +202,7 @@ class TestGeneratedModelValidation:
             ),
             message=data_model.Message(
                 id="msg-001",
-                parents="",
+                parents=[],
                 episode="ep-001"
             ),
             policy=data_model.PolicyLabel(
@@ -316,7 +316,7 @@ class TestGeneratedModelValidation:
         """Test Episode model validation."""
         valid_episode = data_model.Episode(
             id="ep_001",
-            messages=[data_model.Message(id="msg-001", parents="", episode="ep_001")]
+            messages=[data_model.Message(id="msg-001", parents=[], episode="ep_001")]
         )
         assert valid_episode.id == "ep_001"
         assert len(valid_episode.messages) == 1
@@ -334,7 +334,7 @@ class TestGeneratedModelValidation:
             episodes=[
                 data_model.Episode(
                     id="ep_001",
-                    messages=[data_model.Message(id="msg-001", parents="", episode="ep_001")]
+                    messages=[data_model.Message(id="msg-001", parents=[], episode="ep_001")]
                 )
             ]
         )
