@@ -1,0 +1,132 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+epistemic/vocabulary.py — Speech act vocabulary and epistemic block builder.
+
+Defines the five SpeechAct types, three EpistemicState values, and six BeliefStatus
+values that qualify every L9 message epistemically. Also provides:
+
+- make_epistemic_block(): construct a validated epistemic dict for the wire (message_act, state, belief_status, uncertainty)
+- infer_snp_epistemic(): deterministically infer (SpeechAct, EpistemicState) from SNP
+  operation context without extra wire messages
+
+EpistemicState — three first-class states that drive the L9 epistemic block:
+  TASKWORK      — agent forming independent prior; no peer contact yet
+  GROUNDING     — pairwise IE exchange; positions being verified or repaired
+  TEAM_PROCESS  — SNP convergence round; team negotiating shared position
+"""
+
+from __future__ import annotations
+
+import enum
+from typing import Any, Dict, Tuple
+
+
+class SpeechAct(str, enum.Enum):
+    """Three message_act values for communicative acts. Delegation and repair are carried by event_type."""
+    ASSERTION  = "assertion"   # sender commits a position or prior
+    CHALLENGE  = "challenge"   # sender disputes; contingency always true in IE
+    COMPLIANCE = "compliance"  # sender yields to social pressure; no posterior update
+
+    # Deprecated aliases — kept for backwards compatibility with persisted data
+    BELIEF_ASSERTION    = "assertion"    # → ASSERTION
+    ALIGNMENT_CHALLENGE = "challenge"    # → CHALLENGE
+    DELIBERATION_PASS   = "compliance"   # → COMPLIANCE
+    TASK_HANDOFF        = "assertion"    # → ASSERTION (delegation carried by event_type)
+    HELP_REQUEST        = "assertion"    # → ASSERTION (repair carried by event_type)
+
+
+class EpistemicState(str, enum.Enum):
+    """The three epistemic states that qualify every L9 peer_turn."""
+    TASKWORK     = "taskwork"      # independent prior formation; no peer contact
+    GROUNDING    = "grounding"     # pairwise IE exchange; verifying or repairing positions
+    TEAM_PROCESS = "team_process"  # SNP convergence; team negotiating shared position
+
+
+class BeliefStatus(str, enum.Enum):
+    """The lifecycle state of an asserted belief."""
+    ASSERTED   = "asserted"    # sender currently holds this belief
+    DEFERRED   = "deferred"    # sender withholds judgement
+    RETRACTED  = "retracted"   # sender withdraws a prior assertion without replacement
+    REVISED    = "revised"     # sender replaces a prior assertion with a new one
+    CHALLENGED = "challenged"  # sender's assertion has been challenged by a peer
+    UNRESOLVED = "unresolved"  # epistemic clarification failed after max attempts
+
+
+class RepairReason(str, enum.Enum):
+    """Why a repair_required message was emitted (Layer 3: IE semantic repair)."""
+    DELIVERY_FAILURE     = "delivery_failure"      # message never arrived
+    GROUNDING_FAILURE    = "grounding_failure"      # arrived but contingency check failed
+    UNGROUNDABLE_NOVELTY = "ungroundable_novelty"  # presupposes context receiver doesn't have
+    SCOPE_MISMATCH       = "scope_mismatch"        # response scope doesn't overlap utterance scope
+
+
+def make_epistemic_block(
+    *,
+    speech_act: SpeechAct | str,
+    epistemic_state: EpistemicState | str = EpistemicState.GROUNDING,
+    belief_status: BeliefStatus | str = BeliefStatus.ASSERTED,
+    uncertainty: float = 0.0,
+) -> Dict[str, Any]:
+    """Return a validated epistemic block for inclusion in the L9 header.
+
+    Produces stance fields only — sub-protocol agnostic:
+      message_act, epistemic_state, belief_status, uncertainty
+
+    IE sub-protocol extension fields (scope, addresses_evidence, repair_reason,
+    challenges) belong in IEPayload — not in the L9 header.
+
+    SNP sub-protocol extension (deferred_to) belongs in NegotiationPayload.proposal_payload.
+    """
+    def _val(v: Any) -> str:
+        return v.value if isinstance(v, enum.Enum) else str(v)
+
+    block: Dict[str, Any] = {
+        "message_act":   _val(speech_act),
+        "state":         _val(epistemic_state),
+        "belief_status": _val(belief_status),
+        "uncertainty":   max(0.0, min(1.0, float(uncertainty))),
+    }
+    return block
+
+
+def infer_snp_epistemic(
+    *,
+    operation: str,
+    ctrl_position_key: str,
+    member_position_key: str,
+    ctrl_conf: float,
+    member_conf: float,
+    accept_threshold: float = 0.1,
+) -> Tuple[SpeechAct, EpistemicState]:
+    """Infer (SpeechAct, EpistemicState) from SNP operation context — no wire messages needed.
+
+    PROPOSE          → (BELIEF_ASSERTION,    TEAM_PROCESS)  opens convergence round
+    NEGOTIATE        → (BELIEF_ASSERTION,    TEAM_PROCESS)  convergence in progress
+    ACCEPT genuine   → (BELIEF_ASSERTION,    TEAM_PROCESS)  convergence resolved
+    ACCEPT forced    → (DELIBERATION_PASS,   TEAM_PROCESS)  social compliance
+    COUNTER_PROPOSAL → (ALIGNMENT_CHALLENGE, TEAM_PROCESS)  position challenge
+    REJECT           → (ALIGNMENT_CHALLENGE, TEAM_PROCESS)  position challenge
+    """
+    op = operation.lower()
+    if op == "propose":
+        return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
+    if op == "negotiate":
+        return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
+    if op == "accept":
+        if ctrl_position_key == member_position_key:
+            return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
+        if ctrl_conf >= member_conf + accept_threshold:
+            return SpeechAct.COMPLIANCE, EpistemicState.TEAM_PROCESS
+        return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
+    if op in ("counter_proposal", "reject"):
+        return SpeechAct.CHALLENGE, EpistemicState.TEAM_PROCESS
+    return SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS
+
+
+__all__ = [
+    "SpeechAct", "EpistemicState", "BeliefStatus", "RepairReason",
+    "make_epistemic_block",
+    "infer_snp_epistemic",
+]
