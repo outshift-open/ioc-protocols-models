@@ -247,3 +247,4 @@ The following header fields and behaviours appeared in the newer `ioc-cfn-protoc
 - The `knowledge` post-commit write announcement schema with `provenance_weight` and `revision_cause`.
 - TeamEpistemicMemory lookup and write episode flows.
 - The `L9` / `Episode` Python API (replaces the raw `AgentBus.emit_*` API).
+- **Pending schema fix — `Message.parents` must be typed as an array**: `l9_schema.json` currently declares `Message.parents` as `{ "type": "string" }`. It must be changed to `{ "type": "array", "items": { "type": "string" } }`. The canonical spec (L9.md) and the Python implementation both treat it as a list of UUIDs. The generated data model (`data_model.py`) also carries the wrong `str` type as a result.
