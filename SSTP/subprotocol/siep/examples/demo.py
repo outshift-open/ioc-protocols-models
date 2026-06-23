@@ -135,8 +135,10 @@ def run_demo() -> None:
     print()
     store.print_table()
 
-    _SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
-    store.write_json(_SCRIPTS / "siep_run.json")
+    _EXAMPLES = Path(__file__).resolve().parent
+    json_path = _EXAMPLES / "siep_run.json"
+    store.write_json(json_path)
+    print(f"\nL9 messages written → {json_path}")
 
 
 def _sender_id(msg: L9) -> str:
