@@ -57,19 +57,26 @@ class TestGeneratedModelValidation:
         )
         assert actor_with_attestation.attestation == "signed_token_xyz"
 
-    def test_actors_required_fields(self):
-        """Test Actors model required field validation."""
+    def test_participant_set_required_fields(self):
+        """Test ParticipantSet model required field validation."""
         # Valid data
-        valid_actors = data_model.Actors(
+        valid_participants = data_model.ParticipantSet(
             actors=[data_model.Actor(id="actor_001", role="analyst")],
-            groups=["security_team"]
+            groups={"security_team": ["actor_001"]}
         )
-        assert len(valid_actors.actors) == 1
-        assert valid_actors.groups == ["security_team"]
+        assert len(valid_participants.actors) == 1
+        assert valid_participants.groups == {"security_team": ["actor_001"]}
+
+        # Valid with null groups
+        valid_participants_no_groups = data_model.ParticipantSet(
+            actors=[data_model.Actor(id="actor_001", role="analyst")],
+            groups=None
+        )
+        assert valid_participants_no_groups.groups is None
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            data_model.Actors(actors=[])  # Missing groups
+            data_model.ParticipantSet(actors=[])  # Missing groups
 
     def test_semantic_required_fields(self):
         """Test Semantic required field validation."""
@@ -103,15 +110,21 @@ class TestGeneratedModelValidation:
         """Test Message model validation."""
         # Valid data
         valid_message = data_model.Message(
-            id="msg_001",
-            parents="msg_000",
-            episode="ep_001"
+            content="Hello, world!"
         )
-        assert valid_message.id == "msg_001"
+        assert valid_message.content == "Hello, world!"
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            data_model.Message(id="msg_001")  # Missing parents, episode
+            data_model.Message()  # Missing content
+
+    def test_kind_enum(self):
+        """Test Kind enum values."""
+        assert data_model.Kind.intent.value == "intent"
+        assert data_model.Kind.contingency.value == "contingency"
+        assert data_model.Kind.exchange.value == "exchange"
+        assert data_model.Kind.commit.value == "commit"
+        assert data_model.Kind.knowledge.value == "knowledge"
 
     def test_context_validation(self):
         """Test Context model validation."""
@@ -144,24 +157,24 @@ class TestGeneratedModelValidation:
             protocol="IOC_L9",
             subprotocol="SSTP",
             version="1.0.0",
-            kind="threat_intel",
-            subkind="indicator",
-            actors={
-                "actors": [{"id": "actor_001", "role": "analyst"}],
-                "groups": ["security_team"]
-            }
+            kind=data_model.Kind.intent,
+            participants=data_model.ParticipantSet(
+                actors=[data_model.Actor(id="actor_001", role="analyst")],
+                groups={"security_team": ["actor_001"]}
+            )
         )
         assert valid_header.protocol == "IOC_L9"
         assert valid_header.subprotocol == "SSTP"
-        assert valid_header.subkind == "indicator"
+        assert valid_header.kind == data_model.Kind.intent
+        assert valid_header.subkind is None
 
         # Missing required fields
         with pytest.raises(ValidationError):
             data_model.L9Header(
                 protocol="IOC_L9",
                 version="1.0.0",
-                kind="threat_intel"
-                # Missing subprotocol, subkind, actors
+                kind=data_model.Kind.intent
+                # Missing subprotocol, participants
             )
 
     def test_l9_header_with_optional_fields(self):
@@ -170,11 +183,11 @@ class TestGeneratedModelValidation:
             protocol="IOC_L9",
             subprotocol="SSTP",
             version="1.0.0",
-            kind="threat_intel",
+            kind=data_model.Kind.exchange,
             subkind="indicator",
-            actors=data_model.Actors(
+            participants=data_model.ParticipantSet(
                 actors=[data_model.Actor(id="actor_001", role="analyst")],
-                groups=["security_team"]
+                groups={"security_team": ["actor_001"]}
             ),
             context=data_model.Context(
                 topic="threat_analysis",
@@ -184,9 +197,7 @@ class TestGeneratedModelValidation:
                 )
             ),
             message=data_model.Message(
-                id="msg_001",
-                parents="msg_000",
-                episode="ep_001"
+                content="Analysis complete"
             ),
             policy=data_model.PolicyLabel(
                 sensitivity="confidential",
@@ -195,8 +206,9 @@ class TestGeneratedModelValidation:
             )
         )
         assert valid_header.context.topic == "threat_analysis"
-        assert valid_header.message.id == "msg_001"
+        assert valid_header.message.content == "Analysis complete"
         assert valid_header.policy.sensitivity == "confidential"
+        assert valid_header.subkind == "indicator"
 
     def test_l9_payload_validation(self):
         """Test L9Payload validation."""
@@ -215,48 +227,52 @@ class TestGeneratedModelValidation:
         with pytest.raises(ValidationError):
             data_model.L9Payload(type="indicator")  # Missing data
 
-    def test_complete_l9_validation(self):
-        """Test complete L9 message validation."""
+    def test_complete_l91_validation(self):
+        """Test complete L91 message validation."""
         # Valid complete message
-        valid_l9 = data_model.L9(
-            header={
-                "protocol": "IOC_L9",
-                "subprotocol": "SSTP",
-                "version": "1.0.0",
-                "kind": "threat_intel",
-                "subkind": "indicator",
-                "actors": {
-                    "actors": [{"id": "actor_001", "role": "analyst"}],
-                    "groups": ["security_team"]
-                }
-            },
-            payload={
-                "type": "indicator",
-                "data": {
+        valid_l91 = data_model.L91(
+            header=data_model.L9Header(
+                protocol="IOC_L9",
+                subprotocol="SSTP",
+                version="1.0.0",
+                kind=data_model.Kind.knowledge,
+                participants=data_model.ParticipantSet(
+                    actors=[data_model.Actor(id="actor_001", role="analyst")],
+                    groups={"security_team": ["actor_001"]}
+                )
+            ),
+            payload=data_model.L9Payload(
+                type="indicator",
+                data={
                     "indicator_type": "ip",
                     "value": "192.168.1.100"
                 }
-            }
+            )
         )
-        assert valid_l9.header.protocol == "IOC_L9"
+        assert valid_l91.header.protocol == "IOC_L9"
+        assert valid_l91.payload.type == "indicator"
 
         # Missing required components
         with pytest.raises(ValidationError):
-            data_model.L9(header={})  # Missing payload and invalid header
+            data_model.L91(header={})  # Missing payload and invalid header
+
+    def test_l9_root_model(self):
+        """Test L9 RootModel accepts any data."""
+        l9 = data_model.L9(root={"any": "data"})
+        assert l9.root == {"any": "data"}
 
     def test_state_management_validation(self):
         """Test complex model validation with nested structures."""
-        # Valid L9 message with header and payload
-        valid_l9 = data_model.L9(
+        # Valid L91 message with header and payload
+        valid_l91 = data_model.L91(
             header=data_model.L9Header(
                 protocol="L9",
                 subprotocol="SSTP",
                 version="1.0",
-                kind="message",
-                subkind="chat",
-                actors=data_model.Actors(
+                kind=data_model.Kind.commit,
+                participants=data_model.ParticipantSet(
                     actors=[data_model.Actor(id="user1", role="analyst")],
-                    groups=["team_alpha"]
+                    groups={"team_alpha": ["user1"]}
                 ),
                 context=data_model.Context(
                     topic="security_analysis",
@@ -271,8 +287,8 @@ class TestGeneratedModelValidation:
                 data={"content": "Hello, world!"}
             )
         )
-        assert valid_l9.header.protocol == "L9"
-        assert valid_l9.payload.data["content"] == "Hello, world!"
+        assert valid_l91.header.protocol == "L9"
+        assert valid_l91.payload.data["content"] == "Hello, world!"
 
     def test_empty_required_fields(self):
         """Test validation with missing required fields."""
@@ -280,7 +296,7 @@ class TestGeneratedModelValidation:
             data_model.Actor()  # Missing all required fields
 
         with pytest.raises(ValidationError):
-            data_model.Actors()  # Missing all required fields
+            data_model.ParticipantSet()  # Missing all required fields
 
         with pytest.raises(ValidationError):
             data_model.Actor(id="test")  # Missing role
@@ -290,56 +306,105 @@ class TestGeneratedModelValidation:
         with pytest.raises(ValidationError):
             data_model.Actor(id=None, role="analyst")
 
+    def test_episode_validation(self):
+        """Test Episode model validation."""
+        valid_episode = data_model.Episode(
+            id="ep_001",
+            messages=[data_model.Message(content="Hello")]
+        )
+        assert valid_episode.id == "ep_001"
+        assert len(valid_episode.messages) == 1
+
+        with pytest.raises(ValidationError):
+            data_model.Episode(id="ep_001")  # Missing messages
+
+    def test_task_work_validation(self):
+        """Test TaskWork model validation."""
+        valid_task = data_model.TaskWork(
+            id="task_001",
+            assigned_to="user1",
+            task_description="Analyze threat",
+            status="in_progress",
+            episodes=[
+                data_model.Episode(
+                    id="ep_001",
+                    messages=[data_model.Message(content="Starting analysis")]
+                )
+            ]
+        )
+        assert valid_task.id == "task_001"
+        assert valid_task.status == "in_progress"
+
+        with pytest.raises(ValidationError):
+            data_model.TaskWork(id="task_001")  # Missing required fields
+
+    def test_team_validation(self):
+        """Test Team model validation."""
+        valid_team = data_model.Team(
+            id="team_001",
+            team_members=["user1", "user2"],
+            tasks=[
+                data_model.TaskWork(
+                    id="task_001",
+                    assigned_to="user1",
+                    task_description="Analyze threat",
+                    status="pending",
+                    episodes=[]
+                )
+            ]
+        )
+        assert valid_team.id == "team_001"
+        assert len(valid_team.team_members) == 2
+
+        with pytest.raises(ValidationError):
+            data_model.Team(id="team_001")  # Missing required fields
+
 
 class TestJSONSchemaValidation:
     """Test JSON serialization/deserialization validation."""
 
     def test_json_roundtrip_validation(self):
         """Test that models can be serialized to JSON and back with validation."""
-        # Create a valid L9 message
-        l9_data = {
-            "header": {
-                "protocol": "IOC_L9",
-                "subprotocol": "SSTP",
-                "version": "1.0.0",
-                "kind": "threat_intel",
-                "subkind": "indicator",
-                "actors": {
-                    "actors": [{"id": "actor_001", "role": "analyst"}],
-                    "groups": ["security_team"]
-                },
-                "context": {
-                    "topic": "threat_analysis",
-                    "semantic": {
-                        "schema_id": "ioc_l9_v1.0",
-                        "ontology_ref": "https://example.com/ontology"
-                    }
-                }
-            },
-            "payload": {
-                "type": "indicator",
-                "data": {
+        # Create a valid L91 message
+        l91_model = data_model.L91(
+            header=data_model.L9Header(
+                protocol="IOC_L9",
+                subprotocol="SSTP",
+                version="1.0.0",
+                kind=data_model.Kind.knowledge,
+                participants=data_model.ParticipantSet(
+                    actors=[data_model.Actor(id="actor_001", role="analyst")],
+                    groups={"security_team": ["actor_001"]}
+                ),
+                context=data_model.Context(
+                    topic="threat_analysis",
+                    semantic=data_model.Semantic(
+                        schema_id="ioc_l9_v1.0",
+                        ontology_ref="https://example.com/ontology"
+                    )
+                )
+            ),
+            payload=data_model.L9Payload(
+                type="indicator",
+                data={
                     "indicator_type": "ip",
                     "value": "192.168.1.100",
                     "confidence": 0.85
                 }
-            }
-        }
-
-        # Create model from data
-        l9_model = data_model.L9(**l9_data)
+            )
+        )
 
         # Serialize to JSON
-        json_str = l9_model.model_dump_json()
+        json_str = l91_model.model_dump_json()
 
         # Verify it's valid JSON
         json_data = json.loads(json_str)
 
         # Deserialize from JSON and validate
-        l9_model_restored = data_model.L9(**json_data)
+        l91_restored = data_model.L91(**json_data)
 
         # Verify they're identical
-        assert l9_model.model_dump() == l9_model_restored.model_dump()
+        assert l91_model.model_dump() == l91_restored.model_dump()
 
     def test_invalid_json_data(self):
         """Test validation with invalid JSON data."""
@@ -352,7 +417,7 @@ class TestJSONSchemaValidation:
         }
 
         with pytest.raises(ValidationError):
-            data_model.L9(**invalid_data)
+            data_model.L91(**invalid_data)
 
     def test_partial_json_data(self):
         """Test validation with partial/incomplete JSON data."""
@@ -365,7 +430,7 @@ class TestJSONSchemaValidation:
         }
 
         with pytest.raises(ValidationError):
-            data_model.L9(**partial_data)
+            data_model.L91(**partial_data)
 
 
 if __name__ == "__main__":
