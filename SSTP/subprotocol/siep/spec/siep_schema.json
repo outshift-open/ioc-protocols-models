@@ -1,0 +1,141 @@
+{
+  "$defs": {
+    "SIEPBeliefBlock": {
+      "properties": {
+        "prior": {
+          "default": 0.5,
+          "title": "Prior",
+          "type": "number"
+        },
+        "posterior": {
+          "default": 0.5,
+          "title": "Posterior",
+          "type": "number"
+        },
+        "revision_cause": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revision Cause"
+        }
+      },
+      "title": "SIEPBeliefBlock",
+      "type": "object"
+    },
+    "SIEPGroundingBlock": {
+      "properties": {
+        "contingency_verified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contingency Verified"
+        },
+        "contingency_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contingency Score"
+        },
+        "repair_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Reason"
+        },
+        "challenges": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Challenges",
+          "type": "array"
+        }
+      },
+      "title": "SIEPGroundingBlock",
+      "type": "object"
+    },
+    "SIEPUtteranceBlock": {
+      "properties": {
+        "evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "addresses_evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Addresses Evidence",
+          "type": "array"
+        },
+        "turn_depth": {
+          "default": 0,
+          "title": "Turn Depth",
+          "type": "integer"
+        }
+      },
+      "title": "SIEPUtteranceBlock",
+      "type": "object"
+    }
+  },
+  "description": "SIEP protocol payload \u2014 goes under L9Payload.data when type='siep'.",
+  "properties": {
+    "utterance": {
+      "$ref": "#/$defs/SIEPUtteranceBlock",
+      "default": {
+        "evidence": [],
+        "addresses_evidence": [],
+        "turn_depth": 0
+      }
+    },
+    "grounding": {
+      "$ref": "#/$defs/SIEPGroundingBlock",
+      "default": {
+        "contingency_verified": null,
+        "contingency_score": null,
+        "repair_reason": null,
+        "challenges": []
+      }
+    },
+    "belief": {
+      "$ref": "#/$defs/SIEPBeliefBlock",
+      "default": {
+        "prior": 0.5,
+        "posterior": 0.5,
+        "revision_cause": null
+      }
+    }
+  },
+  "title": "SIEPMessagePayload",
+  "type": "object",
+  "$id": "urn:ioc:siep:payload:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -1,0 +1,284 @@
+/Users/melidris/workspace/projects/ioc/ioc-cfn-protocols-models/.venv/lib/python3.13/site-packages/litellm/litellm_core_utils/logging_worker.py:76: RuntimeWarning: coroutine 'Logging.async_success_handler' was never awaited
+  self._queue = None
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  SIEP EPISODE  —  kind=contingency repair cycle
+════════════════════════════════════════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  1 · intent
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  protocol     : SSTP v0.0.3
+  kind         : intent
+  subprotocol  : SIEP
+  actor        : coordinator
+  message.id   : fd21879a…
+  parents      : []
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
+  epistemic (siep):
+    state        = team_process
+    message_act  = —
+    uncertainty  = 0.0
+    belief_status= —
+    concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = []
+    addresses_evidence= []
+    turn_depth        = 0
+  siep.grounding :
+    contingency_verified = None
+    contingency_score    = None
+  siep.belief    :
+    prior             = 0.5
+    posterior         = 0.5
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  2 · prior (agent-alpha)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  protocol     : SSTP v0.0.3
+  kind         : exchange
+  subprotocol  : SIEP
+  actor        : agent-alpha
+  message.id   : 60357516…
+  parents      : ['fd21879a…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
+  epistemic (siep):
+    state        = taskwork
+    message_act  = assertion
+    uncertainty  = 0.0
+    belief_status= asserted
+    concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = ['concept:task_objective']
+    addresses_evidence= []
+    turn_depth        = 0
+  siep.grounding :
+    contingency_verified = None
+    contingency_score    = None
+  siep.belief    :
+    prior             = 0.72
+    posterior         = 0.72
+    revision_cause    = semantic_memory
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  3 · prior (agent-beta)
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  protocol     : SSTP v0.0.3
+  kind         : exchange
+  subprotocol  : SIEP
+  actor        : agent-beta
+  message.id   : a3540a4a…
+  parents      : ['fd21879a…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
+  epistemic (siep):
+    state        = taskwork
+    message_act  = assertion
+    uncertainty  = 0.0
+    belief_status= asserted
+    concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = ['concept:task_objective']
+    addresses_evidence= []
+    turn_depth        = 0
+  siep.grounding :
+    contingency_verified = None
+    contingency_score    = None
+  siep.belief    :
+    prior             = 0.65
+    posterior         = 0.65
+    revision_cause    = semantic_memory
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  4 · exchange  GOOD ✓
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  protocol     : SSTP v0.0.3
+  kind         : exchange
+  subprotocol  : SIEP
+  actor        : agent-alpha
+  message.id   : fb59edb1…
+  parents      : ['a3540a4a…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
+  epistemic (siep):
+    state        = grounding
+    message_act  = assertion
+    uncertainty  = 0.28
+    belief_status= asserted
+    concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = ['concept:task_objective', 'urn:concept:task_objective:deliverable_spec']
+    addresses_evidence= ['concept:task_objective']
+    turn_depth        = 0
+  siep.grounding :
+    contingency_verified = None
+    contingency_score    = None
+  siep.belief    :
+    prior             = 0.72
+    posterior         = 0.72
+  utterance    : agent-beta, bound to task_objective:deliverable_spec pathway only
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  5 · exchange  grounding_ok ✓
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  protocol     : SSTP v0.0.3
+  kind         : exchange
+  subprotocol  : SIEP
+  actor        : agent-beta
+  message.id   : 66f40a17…
+  parents      : ['fb59edb1…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
+  epistemic (siep):
+    state        = grounding
+    message_act  = assertion
+    uncertainty  = 0.0
+    belief_status= asserted
+    concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = ['concept:task_objective', 'urn:concept:task_objective:deliverable_spec']
+    addresses_evidence= ['concept:task_objective', 'urn:concept:task_objective:deliverable_spec']
+    turn_depth        = 0
+  siep.grounding :
+    contingency_verified = True
+    contingency_score    = 1.0
+  siep.belief    :
+    prior             = 0.65
+    posterior         = 0.65
+    revision_cause    = grounded_argument
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  6 · exchange  BAD ✗
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  protocol     : SSTP v0.0.3
+  kind         : exchange
+  subprotocol  : SIEP
+  actor        : agent-alpha
+  message.id   : de06006f…
+  parents      : ['fb59edb1…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
+  epistemic (siep):
+    state        = grounding
+    message_act  = assertion
+    uncertainty  = 0.28
+    belief_status= asserted
+    concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = ['concept:timeline', 'concept:resource_availability']
+    addresses_evidence= []
+    turn_depth        = 0
+  siep.grounding :
+    contingency_verified = None
+    contingency_score    = None
+  siep.belief    :
+    prior             = 0.72
+    posterior         = 0.72
+  utterance    : What does the timeline look like for next sprint?
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  7 · contingency  repair_required
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  protocol     : SSTP v0.0.3
+  kind         : contingency
+  subprotocol  : SIEP
+  actor        : agent-beta
+  message.id   : aa8b8df5…
+  parents      : ['de06006f…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
+  epistemic (siep):
+    state        = grounding
+    message_act  = challenge
+    uncertainty  = 0.0
+    belief_status= challenged
+    concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = []
+    addresses_evidence= []
+    turn_depth        = 0
+  siep.grounding :
+    contingency_verified = False
+    contingency_score    = 0.0
+    repair_reason        = scope_mismatch
+    challenges           = ['concept:task_objective', 'urn:concept:task_objective:deliverable_spec']
+  siep.belief    :
+    prior             = 0.5
+    posterior         = 0.5
+  utterance    : repair_required:reason=scope_mismatch:target=de06006f-8759-4861-9c75-69df5b7293d6
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  8 · exchange  REPAIR
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  protocol     : SSTP v0.0.3
+  kind         : exchange
+  subprotocol  : SIEP
+  actor        : agent-alpha
+  message.id   : 2f340b1a…
+  parents      : ['aa8b8df5…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
+  epistemic (siep):
+    state        = grounding
+    message_act  = assertion
+    uncertainty  = 0.28
+    belief_status= asserted
+    concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = ['concept:task_objective', 'urn:concept:task_objective:deliverable_spec']
+    addresses_evidence= ['concept:task_objective', 'urn:concept:task_objective:deliverable_spec']
+    turn_depth        = 1
+  siep.grounding :
+    contingency_verified = None
+    contingency_score    = None
+  siep.belief    :
+    prior             = 0.72
+    posterior         = 0.72
+    revision_cause    = repair_resolution
+  utterance    : agent-alpha, re-anchored to task_objective:deliverable_spec pathway
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  9 · commit:converged  repair_verified ✓
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  protocol     : SSTP v0.0.3
+  kind         : commit:converged
+  subprotocol  : SIEP
+  actor        : agent-beta
+  message.id   : 37dd28c4…
+  parents      : ['2f340b1a…']
+  episode      : urn:ioc:episode:4321a2a6-f4bb-4458-af7c-502863422263
+  epistemic (siep):
+    state        = grounding
+    message_act  = assertion
+    uncertainty  = 0.0
+    belief_status= revised
+    concept_id   = concept:task_objective
+  siep.utterance :
+    evidence          = []
+    addresses_evidence= []
+    turn_depth        = 0
+  siep.grounding :
+    contingency_verified = True
+    contingency_score    = 1.0
+  siep.belief    :
+    prior             = 0.5
+    posterior         = 0.5
+  utterance    : repair_verified:agent-alpha re-anchored
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  EPISODE SUMMARY
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  step / label                        actor             score  verified  
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  1 · intent                          coordinator         —    —         
+  2 · prior (agent-alpha)             agent-alpha         —    —         
+  3 · prior (agent-beta)              agent-beta          —    —         
+  4 · exchange  GOOD ✓                agent-alpha         —    —         
+  5 · exchange  grounding_ok ✓        agent-beta        1.000  ✓         
+  6 · exchange  BAD ✗                 agent-alpha         —    —         
+  7 · contingency  repair_required    agent-beta        0.000  ✗         
+  8 · exchange  REPAIR                agent-alpha         —    —         
+  9 · commit:converged  repair_verified ✓  agent-beta        1.000  ✓         
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+====================================================================================================
+  L9 MESSAGE SEQUENCE  —  run=24353ee4…
+====================================================================================================
+  seq  step / label                      kind          actor           state            score  ✓
+----------------------------------------------------------------------------------------------------
+    1  1 · intent                        intent        coordinator     team_process       —    —
+    2  2 · prior (agent-alpha)           exchange      agent-alpha     taskwork           —    —
+    3  3 · prior (agent-beta)            exchange      agent-beta      taskwork           —    —
+    4  4 · exchange  GOOD ✓              exchange      agent-alpha     grounding          —    —
+    5  5 · exchange  grounding_ok ✓      exchange      agent-beta      grounding        1.000  ✓
+    6  6 · exchange  BAD ✗               exchange      agent-alpha     grounding          —    —
+    7  7 · contingency  repair_required  contingency   agent-beta      grounding        0.000  ✗
+    8  8 · exchange  REPAIR              exchange      agent-alpha     grounding          —    —
+    9  9 · commit:converged  repair_verified ✓  commit:converged  agent-beta      grounding        1.000  ✓
+====================================================================================================
