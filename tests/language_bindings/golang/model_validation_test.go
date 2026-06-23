@@ -215,7 +215,9 @@ func TestMessageValidation(t *testing.T) {
 
 	// Test valid Message
 	validMessage := l9.Message{
-		Content: "hello world",
+		ID:      "msg-001",
+		Parents: "msg-000",
+		Episode: "ep-001",
 	}
 
 	jsonBytes, err := json.Marshal(validMessage)
@@ -231,8 +233,8 @@ func TestMessageValidation(t *testing.T) {
 		return
 	}
 
-	if unmarshaledMessage.Content != "hello world" {
-		t.Errorf("Expected message Content 'hello world', got %s", unmarshaledMessage.Content)
+	if unmarshaledMessage.Parents != "msg-000" {
+		t.Errorf("Expected message Parents 'msg-000', got %s", unmarshaledMessage.Parents)
 	}
 
 	// Test missing required fields
@@ -240,7 +242,7 @@ func TestMessageValidation(t *testing.T) {
 	var invalidMessage l9.Message
 	err = json.Unmarshal([]byte(invalidMessageJSON), &invalidMessage)
 	if err == nil {
-		t.Error("Expected unmarshal error for Message missing required 'content' field")
+		t.Error("Expected unmarshal error for Message missing required fields")
 	}
 
 	t.Log("✓ Message validation passed")

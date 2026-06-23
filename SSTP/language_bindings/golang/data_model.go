@@ -120,38 +120,6 @@ func (j *Context) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// A discrete conversation or interaction sequence tied to a task.
-// An episode groups the messages exchanged during one focused interaction
-// (e.g. one round of clarification, one tool invocation cycle).
-type Episode struct {
-	// ID corresponds to the JSON schema field "id".
-	ID string `json:"id" yaml:"id" mapstructure:"id"`
-
-	// Messages corresponds to the JSON schema field "messages".
-	Messages []Message `json:"messages" yaml:"messages" mapstructure:"messages"`
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *Episode) UnmarshalJSON(value []byte) error {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(value, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["id"]; raw != nil && !ok {
-		return fmt.Errorf("field id in Episode: required")
-	}
-	if _, ok := raw["messages"]; raw != nil && !ok {
-		return fmt.Errorf("field messages in Episode: required")
-	}
-	type Plain Episode
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = Episode(plain)
-	return nil
-}
-
 // Participant epistemic (belief/knowledge) state at the time the message was sent.
 // Currently a placeholder — fields will be added as the model is defined.
 type Epistemic map[string]interface{}
@@ -342,10 +310,16 @@ func (j *L9HeaderContext) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// A single message within a conversation episode.
+// Represents a message in the protocol.
 type L9HeaderMessage struct {
-	// Content corresponds to the JSON schema field "content".
-	Content string `json:"content" yaml:"content" mapstructure:"content"`
+	// Episode corresponds to the JSON schema field "episode".
+	Episode string `json:"episode" yaml:"episode" mapstructure:"episode"`
+
+	// ID corresponds to the JSON schema field "id".
+	ID string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// Parents corresponds to the JSON schema field "parents".
+	Parents string `json:"parents" yaml:"parents" mapstructure:"parents"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -492,10 +466,16 @@ func (j *L9) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// A single message within a conversation episode.
+// Represents a message in the protocol.
 type Message struct {
-	// Content corresponds to the JSON schema field "content".
-	Content string `json:"content" yaml:"content" mapstructure:"content"`
+	// Episode corresponds to the JSON schema field "episode".
+	Episode string `json:"episode" yaml:"episode" mapstructure:"episode"`
+
+	// ID corresponds to the JSON schema field "id".
+	ID string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// Parents corresponds to the JSON schema field "parents".
+	Parents string `json:"parents" yaml:"parents" mapstructure:"parents"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -504,8 +484,14 @@ func (j *Message) UnmarshalJSON(value []byte) error {
 	if err := json.Unmarshal(value, &raw); err != nil {
 		return err
 	}
-	if _, ok := raw["content"]; raw != nil && !ok {
-		return fmt.Errorf("field content in Message: required")
+	if _, ok := raw["episode"]; raw != nil && !ok {
+		return fmt.Errorf("field episode in Message: required")
+	}
+	if _, ok := raw["id"]; raw != nil && !ok {
+		return fmt.Errorf("field id in Message: required")
+	}
+	if _, ok := raw["parents"]; raw != nil && !ok {
+		return fmt.Errorf("field parents in Message: required")
 	}
 	type Plain Message
 	var plain Plain
@@ -539,49 +525,6 @@ func (j *ParticipantSetGroups_0) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-type L9HeaderContextSemantic_0 = Semantic
-
-type ContextSemanticProvenance_0 = Provenance
-
-type ContextSemantic_0 = Semantic
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *Semantic) UnmarshalJSON(value []byte) error {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(value, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["ontology_ref"]; raw != nil && !ok {
-		return fmt.Errorf("field ontology_ref in Semantic: required")
-	}
-	if _, ok := raw["schema_id"]; raw != nil && !ok {
-		return fmt.Errorf("field schema_id in Semantic: required")
-	}
-	type Plain Semantic
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = Semantic(plain)
-	return nil
-}
-
-// Describes the semantic/ontological framework needed to correctly interpret the
-// payload.
-// Implementations use this to select the appropriate handler for the message.
-type Semantic struct {
-	// OntologyRef corresponds to the JSON schema field "ontology_ref".
-	OntologyRef string `json:"ontology_ref" yaml:"ontology_ref" mapstructure:"ontology_ref"`
-
-	// Provenance corresponds to the JSON schema field "provenance".
-	Provenance *SemanticProvenance `json:"provenance,omitempty,omitzero" yaml:"provenance,omitempty" mapstructure:"provenance,omitempty"`
-
-	// SchemaID corresponds to the JSON schema field "schema_id".
-	SchemaID string `json:"schema_id" yaml:"schema_id" mapstructure:"schema_id"`
-}
-
-type L9HeaderContextSemanticProvenance_0 = Provenance
-
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *ParticipantSet) UnmarshalJSON(value []byte) error {
 	var raw map[string]interface{}
@@ -602,6 +545,18 @@ func (j *ParticipantSet) UnmarshalJSON(value []byte) error {
 	*j = ParticipantSet(plain)
 	return nil
 }
+
+type L9HeaderPolicy_0 = PolicyLabel
+
+type L9HeaderContextEpistemic_0 = Epistemic
+
+type L9HeaderMessage_0 = Message
+
+type ContextSemanticProvenance_0 = Provenance
+
+type L9HeaderContextSemantic_0 = Semantic
+
+type L9HeaderContextSemanticProvenance_0 = Provenance
 
 // Data governance and access-control labels applied to the message.
 type PolicyLabel struct {
@@ -639,18 +594,6 @@ func (j *PolicyLabel) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-type L9HeaderPolicy_0 = PolicyLabel
-
-type L9HeaderMessage_0 = Message
-
-// Tracks the origin and lineage of a message — who created it, from what source,
-// and through which transformations. Fields TBD.
-type SemanticProvenance map[string]interface{}
-
-type L9HeaderContextEpistemic_0 = Epistemic
-
-type ContextEpistemic_0 = Epistemic
-
 type L9HeaderContext_0 = Context
 
 // Tracks the origin and lineage of a message — who created it, from what source,
@@ -670,87 +613,45 @@ func (j *Provenance) UnmarshalJSON(value []byte) error {
 
 type SemanticProvenance_0 = Provenance
 
-// A unit of work assigned to a team member, tracked through one or more episodes.
-// Status lifecycle example: "pending" → "in_progress" → "completed" | "blocked"
-type TaskWork struct {
-	// AssignedTo corresponds to the JSON schema field "assigned_to".
-	AssignedTo string `json:"assigned_to" yaml:"assigned_to" mapstructure:"assigned_to"`
+type ContextEpistemic_0 = Epistemic
 
-	// Episodes corresponds to the JSON schema field "episodes".
-	Episodes []Episode `json:"episodes" yaml:"episodes" mapstructure:"episodes"`
+// Tracks the origin and lineage of a message — who created it, from what source,
+// and through which transformations. Fields TBD.
+type SemanticProvenance map[string]interface{}
 
-	// ID corresponds to the JSON schema field "id".
-	ID string `json:"id" yaml:"id" mapstructure:"id"`
+// Describes the semantic/ontological framework needed to correctly interpret the
+// payload.
+// Implementations use this to select the appropriate handler for the message.
+type Semantic struct {
+	// OntologyRef corresponds to the JSON schema field "ontology_ref".
+	OntologyRef string `json:"ontology_ref" yaml:"ontology_ref" mapstructure:"ontology_ref"`
 
-	// Status corresponds to the JSON schema field "status".
-	Status string `json:"status" yaml:"status" mapstructure:"status"`
+	// Provenance corresponds to the JSON schema field "provenance".
+	Provenance *SemanticProvenance `json:"provenance,omitempty,omitzero" yaml:"provenance,omitempty" mapstructure:"provenance,omitempty"`
 
-	// TaskDescription corresponds to the JSON schema field "task_description".
-	TaskDescription string `json:"task_description" yaml:"task_description" mapstructure:"task_description"`
+	// SchemaID corresponds to the JSON schema field "schema_id".
+	SchemaID string `json:"schema_id" yaml:"schema_id" mapstructure:"schema_id"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (j *TaskWork) UnmarshalJSON(value []byte) error {
+func (j *Semantic) UnmarshalJSON(value []byte) error {
 	var raw map[string]interface{}
 	if err := json.Unmarshal(value, &raw); err != nil {
 		return err
 	}
-	if _, ok := raw["assigned_to"]; raw != nil && !ok {
-		return fmt.Errorf("field assigned_to in TaskWork: required")
+	if _, ok := raw["ontology_ref"]; raw != nil && !ok {
+		return fmt.Errorf("field ontology_ref in Semantic: required")
 	}
-	if _, ok := raw["episodes"]; raw != nil && !ok {
-		return fmt.Errorf("field episodes in TaskWork: required")
+	if _, ok := raw["schema_id"]; raw != nil && !ok {
+		return fmt.Errorf("field schema_id in Semantic: required")
 	}
-	if _, ok := raw["id"]; raw != nil && !ok {
-		return fmt.Errorf("field id in TaskWork: required")
-	}
-	if _, ok := raw["status"]; raw != nil && !ok {
-		return fmt.Errorf("field status in TaskWork: required")
-	}
-	if _, ok := raw["task_description"]; raw != nil && !ok {
-		return fmt.Errorf("field task_description in TaskWork: required")
-	}
-	type Plain TaskWork
+	type Plain Semantic
 	var plain Plain
 	if err := json.Unmarshal(value, &plain); err != nil {
 		return err
 	}
-	*j = TaskWork(plain)
+	*j = Semantic(plain)
 	return nil
 }
 
-// A group of agents and/or humans collaborating on a shared set of tasks.
-type Team struct {
-	// ID corresponds to the JSON schema field "id".
-	ID string `json:"id" yaml:"id" mapstructure:"id"`
-
-	// Tasks corresponds to the JSON schema field "tasks".
-	Tasks []TaskWork `json:"tasks" yaml:"tasks" mapstructure:"tasks"`
-
-	// TeamMembers corresponds to the JSON schema field "team_members".
-	TeamMembers []string `json:"team_members" yaml:"team_members" mapstructure:"team_members"`
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *Team) UnmarshalJSON(value []byte) error {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(value, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["id"]; raw != nil && !ok {
-		return fmt.Errorf("field id in Team: required")
-	}
-	if _, ok := raw["tasks"]; raw != nil && !ok {
-		return fmt.Errorf("field tasks in Team: required")
-	}
-	if _, ok := raw["team_members"]; raw != nil && !ok {
-		return fmt.Errorf("field team_members in Team: required")
-	}
-	type Plain Team
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = Team(plain)
-	return nil
-}
+type ContextSemantic_0 = Semantic

@@ -48,7 +48,9 @@ class Context(BaseModel):
 
 
 class Message(BaseModel):
-    content: str = Field(..., title="Content")
+    id: str = Field(..., title="Id")
+    parents: str = Field(..., title="Parents")
+    episode: str = Field(..., title="Episode")
 
 
 class ParticipantSet(BaseModel):
@@ -91,22 +93,3 @@ class L9Payload(BaseModel):
 class L91(BaseModel):
     header: L9Header
     payload: L9Payload
-
-
-class Episode(BaseModel):
-    id: str = Field(..., title="Id")
-    messages: list[Message] = Field(..., title="Messages")
-
-
-class TaskWork(BaseModel):
-    id: str = Field(..., title="Id")
-    assigned_to: str = Field(..., title="Assigned To")
-    task_description: str = Field(..., title="Task Description")
-    status: str = Field(..., title="Status")
-    episodes: list[Episode] = Field(..., title="Episodes")
-
-
-class Team(BaseModel):
-    id: str = Field(..., title="Id")
-    team_members: list[str] = Field(..., title="Team Members")
-    tasks: list[TaskWork] = Field(..., title="Tasks")
