@@ -1,7 +1,12 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ioc:l9:schema:v1",
+  "version": "0.0.4",
+  "title": "L9Schema",
+  "description": "Combined JSON Schema for all ioc_l9 Pydantic models.",
   "$defs": {
     "Actor": {
-      "description": "A participant in a protocol exchange - can be a human, an AI agent, or a system.\nMultiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).",
+      "description": "A participant in a protocol exchange \u2014 can be a human, a system, or any\nother entity. Multiple actors are listed in ParticipantSet to identify\nsender(s), receiver(s), and observers.",
       "properties": {
         "id": {
           "title": "Id",
@@ -28,31 +33,45 @@
         "id",
         "role"
       ],
-      "title": "Actor",
       "type": "object"
     },
-    "Actors": {
+    "Epistemic": {
+      "description": "Participant epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder \u2014 fields will be added as the model is defined.",
+      "properties": {},
+      "type": "object"
+    },
+    "Provenance": {
+      "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
+      "properties": {},
+      "type": "object"
+    },
+    "Semantic": {
+      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nImplementations use this to select the appropriate handler for the message.",
       "properties": {
-        "actors": {
-          "items": {
-            "$ref": "#/$defs/Actor"
-          },
-          "title": "Actors",
-          "type": "array"
+        "schema_id": {
+          "title": "Schema Id",
+          "type": "string"
         },
-        "groups": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Groups",
-          "type": "array"
+        "ontology_ref": {
+          "title": "Ontology Ref",
+          "type": "string"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
-        "actors",
-        "groups"
+        "schema_id",
+        "ontology_ref"
       ],
-      "title": "Actors",
       "type": "object"
     },
     "Context": {
@@ -87,115 +106,6 @@
       "required": [
         "topic"
       ],
-      "title": "Context",
-      "type": "object"
-    },
-    "Epistemic": {
-      "description": "Agent epistemic (belief/knowledge) state at the time the message was sent.\nCurrently a placeholder - fields will be added as the model is defined.",
-      "properties": {},
-      "title": "Epistemic",
-      "type": "object"
-    },
-    "L9Header": {
-      "description": "Routing and metadata envelope for every L9 message.\nThe CFN layer reads the header - especially `kind` and `sub_kind` -\nto decide which Cognitive Engine (CE) should handle the message.",
-      "properties": {
-        "protocol": {
-          "title": "Protocol",
-          "type": "string"
-        },
-        "subprotocol": {
-          "title": "Subprotocol",
-          "type": "string"
-        },
-        "version": {
-          "title": "Version",
-          "type": "string"
-        },
-        "kind": {
-          "title": "Kind",
-          "type": "string"
-        },
-        "subkind": {
-          "title": "Subkind",
-          "type": "string"
-        },
-        "actors": {
-          "$ref": "#/$defs/Actors"
-        },
-        "message": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Message"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "policy": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PolicyLabel"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        },
-        "attributes": {
-          "anyOf": [
-            {
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Attributes"
-        },
-        "context": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Context"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "required": [
-        "protocol",
-        "subprotocol",
-        "version",
-        "kind",
-        "subkind",
-        "actors"
-      ],
-      "title": "L9Header",
-      "type": "object"
-    },
-    "L9Payload": {
-      "description": "The actual content being carried by an L9 message.\nThe `type` field describes the payload format; `data` holds the content.",
-      "properties": {
-        "type": {
-          "title": "Type",
-          "type": "string"
-        },
-        "data": {
-          "title": "Data",
-          "type": "object"
-        }
-      },
-      "required": [
-        "type",
-        "data"
-      ],
-      "title": "L9Payload",
       "type": "object"
     },
     "Message": {
@@ -223,11 +133,59 @@
         "parents",
         "episode"
       ],
-      "title": "Message",
+      "type": "object"
+    },
+    "Episode": {
+      "description": "A discrete conversation or interaction sequence tied to a task.\nAn episode groups the messages exchanged during one focused interaction\n(e.g. one round of clarification, one tool invocation cycle).",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/Message"
+          },
+          "title": "Messages",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "messages"
+      ],
+      "type": "object"
+    },
+    "ParticipantSet": {
+      "properties": {
+        "actors": {
+          "items": {
+            "$ref": "#/$defs/Actor"
+          },
+          "title": "Actors",
+          "type": "array"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Groups"
+        }
+      },
+      "required": [
+        "actors",
+        "groups"
+      ],
       "type": "object"
     },
     "PolicyLabel": {
-      "description": "Data governance and access-control labels applied to the message.\n## TODO Nandu, Peter please review",
+      "description": "Data governance and access-control labels applied to the message.",
       "properties": {
         "sensitivity": {
           "title": "Sensitivity",
@@ -247,30 +205,156 @@
         "propagation",
         "retention_policy"
       ],
-      "title": "PolicyLabel",
       "type": "object"
     },
-    "Provenance": {
-      "description": "Tracks the origin and lineage of a message - who created it, from what source,\nand through which transformations. Fields TBD.",
-      "properties": {},
-      "title": "Provenance",
-      "type": "object"
-    },
-    "Semantic": {
-      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nThe CFN routing layer uses this to select appropriate cognitive engines (CEs).",
+    "TaskWork": {
+      "description": "A unit of work assigned to a team member, tracked through one or more episodes.\nStatus lifecycle example: \"pending\" \u2192 \"in_progress\" \u2192 \"completed\" | \"blocked\"",
       "properties": {
-        "schema_id": {
-          "title": "Schema Id",
+        "id": {
+          "title": "Id",
           "type": "string"
         },
-        "ontology_ref": {
-          "title": "Ontology Ref",
+        "assigned_to": {
+          "title": "Assigned To",
           "type": "string"
         },
-        "provenance": {
+        "task_description": {
+          "title": "Task Description",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "episodes": {
+          "items": {
+            "$ref": "#/$defs/Episode"
+          },
+          "title": "Episodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "assigned_to",
+        "task_description",
+        "status",
+        "episodes"
+      ],
+      "type": "object"
+    },
+    "Team": {
+      "description": "A group of agents and/or humans collaborating on a shared set of tasks.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "team_members": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Team Members",
+          "type": "array"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/$defs/TaskWork"
+          },
+          "title": "Tasks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "team_members",
+        "tasks"
+      ],
+      "type": "object"
+    },
+    "Kind": {
+      "enum": [
+        "intent",
+        "contingency",
+        "exchange",
+        "commit",
+        "knowledge"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "L9Header": {
+      "description": "Routing and metadata envelope for every L9 message.\nThe routing layer reads the header \u2014 especially `kind` and `subkind` \u2014\nto decide which handler should process the message.",
+      "properties": {
+        "protocol": {
+          "title": "Protocol",
+          "type": "string"
+        },
+        "subprotocol": {
+          "title": "Subprotocol",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/Kind"
+        },
+        "subkind": {
           "anyOf": [
             {
-              "$ref": "#/$defs/Provenance"
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subkind"
+        },
+        "participants": {
+          "$ref": "#/$defs/ParticipantSet"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Message"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PolicyLabel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attributes": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attributes"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Context"
             },
             {
               "type": "null"
@@ -280,27 +364,48 @@
         }
       },
       "required": [
-        "schema_id",
-        "ontology_ref"
+        "protocol",
+        "subprotocol",
+        "version",
+        "kind",
+        "participants"
       ],
-      "title": "Semantic",
+      "type": "object"
+    },
+    "L9Payload": {
+      "description": "The actual content being carried by an L9 message.\nThe `type` field describes the payload format; `data` holds the content.",
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type",
+        "data"
+      ],
+      "type": "object"
+    },
+    "L9": {
+      "description": "A complete L9 message: header (routing/metadata) + payload (content).\nThis is the top-level structure passed between participants in the IoC protocol.",
+      "properties": {
+        "header": {
+          "$ref": "#/$defs/L9Header"
+        },
+        "payload": {
+          "$ref": "#/$defs/L9Payload"
+        }
+      },
+      "required": [
+        "header",
+        "payload"
+      ],
       "type": "object"
     }
-  },
-  "description": "A complete L9 message: header (routing/metadata) + payload (content).\nThis is the top-level structure passed between agents and through the CFN.",
-  "properties": {
-    "header": {
-      "$ref": "#/$defs/L9Header"
-    },
-    "payload": {
-      "$ref": "#/$defs/L9Payload"
-    }
-  },
-  "required": [
-    "header",
-    "payload"
-  ],
-  "title": "L9",
-  "type": "object",
-  "version": "0.0.2"
+  }
 }

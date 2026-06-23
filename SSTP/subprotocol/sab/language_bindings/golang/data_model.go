@@ -1335,7 +1335,7 @@ type SABHeader struct {
 	Kind        string              `json:"kind"                          yaml:"kind"                          mapstructure:"kind"`
 	Subkind     string              `json:"subkind"                       yaml:"subkind"                       mapstructure:"subkind"`
 	Version     string              `json:"version"                       yaml:"version"                       mapstructure:"version"`
-	Actors      SABActors           `json:"actors"                        yaml:"actors"                        mapstructure:"actors"`
+	Participants SABActors           `json:"participants"                  yaml:"participants"                  mapstructure:"participants"`
 	Attributes  *SABAttributes      `json:"attributes,omitempty,omitzero" yaml:"attributes,omitempty"           mapstructure:"attributes,omitempty"`
 	Context     *l9.L9HeaderContext `json:"context,omitempty,omitzero"    yaml:"context,omitempty"             mapstructure:"context,omitempty"`
 	Message     *l9.L9HeaderMessage `json:"message,omitempty,omitzero"    yaml:"message,omitempty"             mapstructure:"message,omitempty"`
