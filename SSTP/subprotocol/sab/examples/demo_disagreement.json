@@ -6,7 +6,7 @@
       "version": "0",
       "kind": "contingency",
       "subkind": "negotiate",
-      "actors": {
+      "participants": {
         "actors": [
           {
             "id": "agent-buyer",
@@ -65,7 +65,7 @@
       "version": "0",
       "kind": "contingency",
       "subkind": "negotiate",
-      "actors": {
+      "participants": {
         "actors": [
           {
             "id": "agent-buyer",
@@ -188,7 +188,7 @@
       "version": "0",
       "kind": "contingency",
       "subkind": "negotiate",
-      "actors": {
+      "participants": {
         "actors": [
           {
             "id": "agent-seller",
@@ -292,7 +292,7 @@
       "version": "0",
       "kind": "contingency",
       "subkind": "negotiate",
-      "actors": {
+      "participants": {
         "actors": [
           {
             "id": "agent-buyer",
@@ -396,7 +396,7 @@
       "version": "0",
       "kind": "contingency",
       "subkind": "negotiate",
-      "actors": {
+      "participants": {
         "actors": [
           {
             "id": "agent-seller",
@@ -500,7 +500,7 @@
       "version": "0",
       "kind": "contingency",
       "subkind": "negotiate",
-      "actors": {
+      "participants": {
         "actors": [
           {
             "id": "agent-buyer",
@@ -604,7 +604,7 @@
       "version": "0",
       "kind": "contingency",
       "subkind": "negotiate",
-      "actors": {
+      "participants": {
         "actors": [
           {
             "id": "agent-seller",
@@ -708,7 +708,7 @@
       "version": "0",
       "kind": "commit",
       "subkind": "disagreement",
-      "actors": {
+      "participants": {
         "actors": [
           {
             "id": "agent-buyer",

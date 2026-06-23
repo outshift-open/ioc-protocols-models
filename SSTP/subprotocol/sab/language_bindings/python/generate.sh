@@ -15,7 +15,7 @@
 #   Both sab_schema.json and l9_schema.json must be present.
 #
 # OUTPUT:
-#   SSTP/subprotocol/sab/language_bindings/python/generated_models.py
+#   SSTP/subprotocol/sab/language_bindings/python/data_model.py
 #
 # The script runs in two steps:
 #   1. datamodel-codegen produces a self-contained file (L9 types inlined).
@@ -29,7 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
 SCHEMA_FILE="$PROJECT_ROOT/SSTP/subprotocol/sab/spec/sab_schema.json"
-OUTPUT_FILE="$SCRIPT_DIR/generated_models.py"
+OUTPUT_FILE="$SCRIPT_DIR/data_model.py"
 
 echo "Generating Python SAB bindings..."
 echo "  schema : $SCHEMA_FILE"
@@ -89,12 +89,8 @@ for cls in L9_CLASSES:
 
 # Add L9 import (just before the pydantic import line).
 l9_import = (
-    "\nfrom SSTP.language_bindings.python.generated_models import (\n"
-    "    Actor,\n"
-    "    Context,\n"
-    "    L9Header,\n"
-    "    L9Payload,\n"
-    ")\n"
+    "\nfrom src import L9Header, L9Payload\n"
+    "from src.primitives import Actor, Context\n"
 )
 content = content.replace("from pydantic import", l9_import + "from pydantic import", 1)
 

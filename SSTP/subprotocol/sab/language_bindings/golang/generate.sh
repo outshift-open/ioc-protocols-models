@@ -15,7 +15,7 @@
 #   Both sab_schema.json and l9_schema.json must be present.
 #
 # OUTPUT:
-#   SSTP/subprotocol/sab/language_bindings/golang/generated_models.go
+#   SSTP/subprotocol/sab/language_bindings/golang/data_model.go
 #
 # The script runs in two steps:
 #   1. go-jsonschema produces a self-contained file (L9 types inlined).
@@ -29,7 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
 SCHEMA_FILE="$PROJECT_ROOT/SSTP/subprotocol/sab/spec/sab_schema.json"
-OUT_FILE="$SCRIPT_DIR/generated_models.go"
+OUT_FILE="$SCRIPT_DIR/data_model.go"
 PACKAGE="sab"
 L9_MODULE="github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang"
 

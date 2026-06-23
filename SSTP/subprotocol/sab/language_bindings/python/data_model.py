@@ -6,12 +6,8 @@ from __future__ import annotations
 from enum import Enum, IntEnum
 from typing import Any, Literal
 
-from SSTP.language_bindings.python.generated_models import (
-    Actor,
-    Context,
-    L9Header,
-    L9Payload,
-)
+from src import L9Header, L9Payload
+from src.primitives import Actor, Context
 from pydantic import BaseModel, Field, RootModel
 
 
@@ -258,7 +254,7 @@ class SABHeader(L9Header):
     subprotocol: Literal["SAB"] = Field("SAB", title="Subprotocol")
     kind: Kind | None = Field(None, title="Kind")
     subkind: Subkind | None = Field(None, title="Subkind")
-    actors: SABActors | None = None
+    participants: SABActors | None = None
     attributes: SABAttributes | None = Field(None, title="Attributes")
     context: Context | None = Field(
         None,

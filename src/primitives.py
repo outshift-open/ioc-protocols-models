@@ -22,7 +22,7 @@ class Actor(BaseModel):
     role: str  # role in this exchange: "sender" | "receiver" | "observer" etc.
     attestation: Optional[str] = None  # optional attestation or credential information
 
-class Actors(BaseModel):
+class ParticipantSet(BaseModel):
     actors: list[Actor] # The list of actors in this message
     groups: Optional[Dict] # a place to add mas_id, workspace_id or any other grouping of the actors
 class PolicyLabel(BaseModel):

@@ -26,13 +26,8 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from SSTP.language_bindings.python.generated_models import (
-    Actor,
-    Context,
-    Message,
-    Semantic,
-)
-from SSTP.subprotocol.sab.language_bindings.python.generated_models import (
+from src.primitives import Actor, Context, Message, Semantic
+from SSTP.subprotocol.sab.language_bindings.python.data_model import (
     SAB,
     SABActors,
     SABAttributes,
@@ -114,7 +109,7 @@ def _header(
         version="0",
         kind=kind,
         subkind=subkind,
-        actors=_actors(sender, receiver),
+        participants=_actors(sender, receiver),
         message=Message(id=msg_id, parents=parents, episode=episode),
         policy=None,
         context=_context(),

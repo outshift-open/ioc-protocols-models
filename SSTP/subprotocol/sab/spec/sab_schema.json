@@ -18,7 +18,7 @@
             "subprotocol": { "const": "SAB",  "type": "string" },
             "kind":        { "enum": ["contingency", "commit"],                              "type": "string" },
             "subkind":     { "enum": ["negotiate", "converged", "disagreement", "timeout"], "type": "string" },
-            "actors":      { "$ref": "#/$defs/SABActors" },
+            "participants": { "$ref": "#/$defs/SABActors" },
             "attributes": {
               "anyOf": [
                 { "$ref": "#/$defs/SABAttributes" },
