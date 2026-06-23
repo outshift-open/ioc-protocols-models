@@ -6,7 +6,6 @@
 
 from . import epistemic, tomcore
 from .builder import *
-from .demo import run_demo
 from .engine import *
 from .epistemic import *
 from .negotiate import *
