@@ -4,12 +4,26 @@
 
 from __future__ import annotations
 
+import enum
 from typing import List, Optional
 
 from pydantic import BaseModel
 
 CIP_SCHEMA_URN = "urn:ioc:cip:payload:v1"
 CIP_ONTOLOGY_REF = "protocol/ontology/cip_ontology.ttl"
+
+
+class RepairReason(str, enum.Enum):
+    """Canonical repair reason vocabulary — upper-case names, lower-case wire values."""
+    GROUNDING_FAILURE = "grounding_failure"
+    SCOPE_MISMATCH = "scope_mismatch"
+    UNGROUNDABLE_NOVELTY = "ungroundable_novelty"
+    DELIVERY_FAILURE = "delivery_failure"
+    # lower-case aliases for backwards compat with old builder usage
+    grounding_failure = "grounding_failure"
+    scope_mismatch = "scope_mismatch"
+    ungroundable_novelty = "ungroundable_novelty"
+    delivery_failure = "delivery_failure"
 
 
 class CIPUtteranceBlock(BaseModel):
