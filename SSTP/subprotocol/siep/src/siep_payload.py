@@ -16,7 +16,8 @@ class SIEPUtteranceBlock(BaseModel):
     text: Optional[str] = None
     evidence: List[str] = []
     addresses_evidence: List[str] = []
-    turn_depth: int = 0
+    ring_round: int = 0    # pass through the agent ring (0 = first pass)
+    repair_depth: int = 0  # recursion depth within a repair branch (0 = not in repair)
 
 
 class SIEPGroundingBlock(BaseModel):

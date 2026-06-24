@@ -304,7 +304,7 @@ class AgentBus:
         from SSTP.subprotocol.cip.src.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
         _utterance = f"initial_prior:{concept_id}:{posterior:.4f}"
         payload = IEPayload(
-            utterance=IEUtteranceBlock(evidence=list(evidence or [concept_id]), addresses_evidence=[], turn_depth=0),
+            utterance=IEUtteranceBlock(evidence=list(evidence or [concept_id]), addresses_evidence=[], ring_round=0),
             grounding=IEGroundingBlock(),
             belief=IEBeliefBlock(prior=prior, posterior=posterior, revision_cause="semantic_memory"),
         )
@@ -652,7 +652,8 @@ class AgentBus:
         revision_cause: str = "grounded_argument",
         evidence: "List[str] | None" = None,
         addresses_evidence: "List[str] | None" = None,
-        turn_depth: int = 0,
+        ring_round: int = 0,
+        repair_depth: int = 0,
         parent_id: "str | None" = None,
         episode_id: "str | None" = None,
         rationale: str = "",
@@ -662,7 +663,7 @@ class AgentBus:
     ) -> Dict[str, Any]:
         from SSTP.subprotocol.cip.src.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
         ie_payload = IEPayload(
-            utterance=IEUtteranceBlock(evidence=list(evidence or []), addresses_evidence=list(addresses_evidence or []), turn_depth=turn_depth),
+            utterance=IEUtteranceBlock(evidence=list(evidence or []), addresses_evidence=list(addresses_evidence or []), ring_round=ring_round, repair_depth=repair_depth),
             grounding=IEGroundingBlock(),
             belief=IEBeliefBlock(prior=prior, posterior=posterior, revision_cause=revision_cause),
         )

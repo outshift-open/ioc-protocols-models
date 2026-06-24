@@ -629,12 +629,12 @@ def _extract_argument_outcomes(
         actors = (msg.get("participants") or {}).get("actors") or msg.get("actors") or []
         sender = (actors[0].get("id", "") if actors else "") or msg.get("origin", {}).get("actor_id", "")
         receiver = snp_payload.get("receiver", "")
-        turn_depth = int(snp_payload.get("turn_depth") or 0)
+        ring_round = int(snp_payload.get("ring_round") or 0)
 
         if operation == "propose":
-            pending[(turn_depth, receiver)] = msg
+            pending[(ring_round, receiver)] = msg
         elif operation in ("accept", "counter_proposal"):
-            proposal = pending.get((turn_depth, sender))
+            proposal = pending.get((ring_round, sender))
             if proposal is None:
                 continue
             prop_ep = proposal.get("epistemic", {})

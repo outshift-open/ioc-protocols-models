@@ -121,7 +121,7 @@ def run_demo() -> None:
                 text="Re-anchoring on deliverable scope only.",
                 evidence=[C, SUB],
                 addresses_evidence=[C, SUB],
-                turn_depth=1,
+                ring_round=1,
             ),
             belief=CIPBelief(
                 prior=0.62,

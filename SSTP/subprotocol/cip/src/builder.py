@@ -60,7 +60,8 @@ class CIPUtterance:
     text: Optional[str] = None
     evidence: List[str] = field(default_factory=list)
     addresses_evidence: List[str] = field(default_factory=list)
-    turn_depth: int = 0
+    ring_round: int = 0
+    repair_depth: int = 0
 
 
 @dataclass
@@ -198,7 +199,8 @@ class CIPMessageBuilder:
                 text=self._text or internal.utterance.text,
                 evidence=list(internal.utterance.evidence),
                 addresses_evidence=list(internal.utterance.addresses_evidence),
-                turn_depth=internal.utterance.turn_depth,
+                ring_round=internal.utterance.ring_round,
+                repair_depth=internal.utterance.repair_depth,
             ),
             grounding=CIPGroundingBlock(
                 contingency_verified=internal.grounding.contingency_verified,
