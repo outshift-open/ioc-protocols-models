@@ -10,7 +10,7 @@
 #
 # Pipeline:
 #   src/tfp_models.py  --(this script)-->  spec/tfp_schema.json
-#   spec/tfp_schema.json  --(language_bindings/python/generate.sh)-->  data_model.py
+#   spec/tfp_schema.json  --(language_bindings/python/generate.sh)-->  ai/outshift/tfp/data_model.py
 #
 # USAGE:
 #   From project root: ./SSTP/subprotocol/tfp/scripts/generate_spec.sh

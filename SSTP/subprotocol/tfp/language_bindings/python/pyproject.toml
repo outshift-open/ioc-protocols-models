@@ -1,0 +1,17 @@
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "ai-outshift-tfp-data-model"
+# NOTE: version is auto-stamped by `make build_tfp_wheel` from SSTP/subprotocol/tfp/spec/tfp_schema.json "version" field.
+# If building manually, bump this to match the TFP schema version.
+version = "0.0.1"
+description = "IOC TFP Subprotocol Data Models"
+authors = []
+packages = [{include = "ai"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+pydantic = ">=2.0"
+ai-outshift-data-model = ">=0.0.4"

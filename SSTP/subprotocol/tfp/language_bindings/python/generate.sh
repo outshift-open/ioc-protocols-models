@@ -14,7 +14,8 @@
 #   2. Ensure JSON schema exists at: <tfp-root>/spec/tfp_schema.json
 #
 # OUTPUT:
-#   Generated models will be written to: data_model.py
+#   Generated models will be written to the namespaced wheel package:
+#   ai/outshift/tfp/data_model.py
 
 set -e
 
@@ -23,9 +24,10 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TFP_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Define paths
+# Define paths. The binding ships as the namespace-packaged wheel
+# `ai-outshift-tfp-data-model`, so models live under ai/outshift/tfp/.
 SCHEMA_FILE="$TFP_ROOT/spec/tfp_schema.json"
-OUTPUT_FILE="$SCRIPT_DIR/data_model.py"
+OUTPUT_FILE="$SCRIPT_DIR/ai/outshift/tfp/data_model.py"
 
 echo "Generating Python bindings from JSON Schema..."
 echo "Schema file: $SCHEMA_FILE"
@@ -36,6 +38,9 @@ if [ ! -f "$SCHEMA_FILE" ]; then
     echo "Error: Schema file not found at $SCHEMA_FILE"
     exit 1
 fi
+
+# Ensure the namespace package directory exists.
+mkdir -p "$(dirname "$OUTPUT_FILE")"
 
 # Generate Python models using datamodel-codegen
 poetry run datamodel-codegen \

@@ -1,7 +1,8 @@
 """
 Tests for the TFP (Team Formation via Polling) subprotocol.
 
-Validates the TFP payload models (``data_model.py``) and the end-to-end example
+Validates the TFP payload models (``ai/outshift/tfp/data_model.py``, shipped as
+the ``ai-outshift-tfp-data-model`` wheel) and the end-to-end example
 episode:
 
     poll_open -> bid/decline -> select -> accept/reject -> [re_poll] -> commit
@@ -31,7 +32,7 @@ for _p in (str(_REPO_ROOT), str(_TFP_PY), str(_EXAMPLES)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from data_model import (  # noqa: E402
+from ai.outshift.tfp.data_model import (  # noqa: E402
     CandidateOffer,
     RoleAssignment,
     SkillClaim,
