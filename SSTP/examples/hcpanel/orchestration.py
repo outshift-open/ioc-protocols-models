@@ -7,7 +7,7 @@ app/hcpanel/orchestration.py — Joint clinical debate orchestrator.
 
 Runs the SIEP star negotiation with inline CIP contingency gating.
 Team-process preamble and taskwork episodes are included for protocol
-correctness. Every IE exchange is assessed through ToM (assess_utterance).
+correctness. Every CIP exchange is assessed through ToM (assess_utterance).
 """
 
 from __future__ import annotations
@@ -169,7 +169,7 @@ class DebateOrchestrator:
         belief_store: Any = None,
         concept_id: str = "",
     ) -> Dict[str, Any]:
-        """Call assess_utterance on the listener's ToM agent after an IE exchange.
+        """Call assess_utterance on the listener's ToM agent after a CIP exchange.
 
         Returns the assessment dict so callers can act on ambiguity/grounding_failure.
         Returns {} when tom_engine is not set or on error.

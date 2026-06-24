@@ -87,7 +87,7 @@ class AgentBus:
 
     @property
     def snp_trace(self) -> List[Dict[str, Any]]:
-        return [m for m in self.messages if m.get("subprotocol") == "SNP"]
+        return [m for m in self.messages if m.get("subprotocol") == "SIEP"]
 
     def emit_peer_turn(
         self,

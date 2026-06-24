@@ -1059,12 +1059,12 @@ class SimulatedHealthcareLLMClient(LLMClient):
             agents_str = "; ".join(lines)
             _utterance = (
                 f"Team prior alignment complete. All agents have declared reasoned starting beliefs. "
-                f"{agents_str}. SCR={scr:.2f} — {'no divergence detected' if scr < 0.15 else 'minor divergence resolved by SNP'}. "
+                f"{agents_str}. SCR={scr:.2f} — {'no divergence detected' if scr < 0.15 else 'minor divergence resolved by SIEP'}. "
                 f"Team is committed to entering the action phase with these priors. Goal: {team_goal}."
             )
             _rationale = (
                 f"Each agent declared its prior for its owned concept. "
-                f"SNP alignment round completed with SCR={scr:.2f}. "
+                f"SIEP alignment round completed with SCR={scr:.2f}. "
                 f"No agent holds concept:unknown. Gate is open."
             )
             _thought = (
@@ -1194,7 +1194,7 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
             "tom_belief_update": (
                 "You are tracking an agent's evolving confidence in a shared healthcare coordination objective. "
                 "Payload: agent_id, agent_role, current_belief {objective, context_summary, inferred_constraints, confidence}, "
-                "utterance, speaker_role, argument_direction (support|challenge|neutral, from IE grounding judge), "
+                "utterance, speaker_role, argument_direction (support|challenge|neutral, from CIP grounding judge),"
                 "alignment_score (0..1), task_goal. "
                 "Determine how much to move the agent's confidence. Rules: "
                 "(a) support + alignment_score>0.8 + clinical evidence → delta +0.08..+0.15; "
@@ -1267,7 +1267,7 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
                 "thought_summary (str — one sentence on what belief or constraint shaped this response)."
             ),
             "ie_utterance_judge": (
-                "IE Utterance Judge — evaluate a peer-agent utterance in a healthcare coordination dialogue. "
+                "CIP Utterance Judge — evaluate a peer-agent utterance in a healthcare coordination dialogue."
                 "Inputs: utterance (B's message), task_goal, speaker (B's role), listener (A's role), "
                 "speaker_belief (B's ToM model of the speaker), "
                 "listener_belief (A's own belief state: prior, posterior, public_confidence, "
@@ -1320,16 +1320,16 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
             "team_prior_commit": (
                 "You are the team coordinator synthesising the outcome of a shared-mental-model "
                 "alignment episode (TP-2). All agents have declared their starting priors. "
-                "The SNP alignment round has completed. "
+                "The SIEP alignment round has completed."
                 "Payload: role_assignments (dict agent_id→concept_id), "
                 "agent_priors (dict agent_id→{concept_id→prior_val}), "
                 "agent_utterances (dict agent_id→{utterance, rationale, thought_summary}), "
-                "scr (float 0..1 — social compliance ratio from the SNP round), team_goal (str). "
+                "scr (float 0..1 — social compliance ratio from the SIEP round), team_goal (str)."
                 "Synthesise what the team has committed to: summarise each agent's declared prior "
                 "and key reasoning, note whether any divergence or missing concepts were detected, "
                 "state what the team is entering the action phase with. "
                 "Return JSON: utterance (str — coordinator closing synthesis, 3-5 sentences), "
-                "rationale (str — what the SNP round resolved and why accepted=True is warranted), "
+                "rationale (str — what the SIEP round resolved and why accepted=True is warranted),"
                 "thought_summary (str — one sentence on the team epistemic state at phase transition), "
                 "summary (dict with keys: agreed_priors {agent_id→{concept_id→val}}, scr, agent_count, team_goal)."
             ),
@@ -1363,7 +1363,7 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
                     "content": user_prompt,
                 },
             ]
-            response = self.client.chat.completions.create(model=self.model, messages=messages)
+            response = self.client.chat.completions.create(model=self.model, max_tokens=2048, messages=messages)
             content = response.choices[0].message.content or "{}"
             parsed = json.loads(content)
             thought_summary = str(parsed.get("thought_summary", ""))
@@ -1487,7 +1487,7 @@ class AnthropicHealthcareLLMClient(LLMClient):
             "tom_belief_update": (
                 "You are tracking an agent's evolving confidence in a shared healthcare coordination objective. "
                 "Payload: agent_id, agent_role, current_belief {objective, context_summary, inferred_constraints, confidence}, "
-                "utterance, speaker_role, argument_direction (support|challenge|neutral, from IE grounding judge), "
+                "utterance, speaker_role, argument_direction (support|challenge|neutral, from CIP grounding judge),"
                 "alignment_score (0..1), task_goal. "
                 "Determine how much to move the agent's confidence. Rules: "
                 "(a) support + alignment_score>0.8 + clinical evidence → delta +0.08..+0.15; "
@@ -1560,7 +1560,7 @@ class AnthropicHealthcareLLMClient(LLMClient):
                 "thought_summary (str — one sentence on what belief or constraint shaped this response)."
             ),
             "ie_utterance_judge": (
-                "IE Utterance Judge — evaluate a peer-agent utterance in a healthcare coordination dialogue. "
+                "CIP Utterance Judge — evaluate a peer-agent utterance in a healthcare coordination dialogue."
                 "Inputs: utterance (B's message), task_goal, speaker (B's role), listener (A's role), "
                 "speaker_belief (B's ToM model of the speaker), "
                 "listener_belief (A's own belief state: prior, posterior, public_confidence, "
@@ -1613,16 +1613,16 @@ class AnthropicHealthcareLLMClient(LLMClient):
             "team_prior_commit": (
                 "You are the team coordinator synthesising the outcome of a shared-mental-model "
                 "alignment episode (TP-2). All agents have declared their starting priors. "
-                "The SNP alignment round has completed. "
+                "The SIEP alignment round has completed."
                 "Payload: role_assignments (dict agent_id→concept_id), "
                 "agent_priors (dict agent_id→{concept_id→prior_val}), "
                 "agent_utterances (dict agent_id→{utterance, rationale, thought_summary}), "
-                "scr (float 0..1 — social compliance ratio from the SNP round), team_goal (str). "
+                "scr (float 0..1 — social compliance ratio from the SIEP round), team_goal (str)."
                 "Synthesise what the team has committed to: summarise each agent's declared prior "
                 "and key reasoning, note whether any divergence or missing concepts were detected, "
                 "state what the team is entering the action phase with. "
                 "Return JSON: utterance (str — coordinator closing synthesis, 3-5 sentences), "
-                "rationale (str — what the SNP round resolved and why accepted=True is warranted), "
+                "rationale (str — what the SIEP round resolved and why accepted=True is warranted),"
                 "thought_summary (str — one sentence on the team epistemic state at phase transition), "
                 "summary (dict with keys: agreed_priors {agent_id→{concept_id→val}}, scr, agent_count, team_goal)."
             ),
@@ -1648,7 +1648,7 @@ class AnthropicHealthcareLLMClient(LLMClient):
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
-                max_tokens=1024,
+                max_tokens=2048,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
