@@ -2,19 +2,32 @@
 
 A single, self-contained script — [`team_formation_example.py`](team_formation_example.py)
 — that drives a full **Team Formation via Polling** episode end-to-end. Every
-message it emits is a real L9 envelope (`src.L9`) carrying a typed
-`TFPPayload`, so the run doubles as a living conformance fixture for the schema.
+message it emits is a real L9 envelope (`ai.outshift.data_model.L9`, the
+`ai-outshift-data-model` wheel) carrying a typed `TFPPayload`, so the run doubles
+as a living conformance fixture for the schema.
 
 ## Running it
+
+The example imports L9 as an installed package (`ai.outshift.data_model`). The
+easiest way to run it is the helper script, which installs the L9 wheel into the
+Poetry environment if it isn't already present:
 
 ```bash
 # from the repo root
 poetry install
 
 # success path: a team converges
-poetry run python SSTP/subprotocol/tfp/examples/team_formation_example.py
+./SSTP/subprotocol/tfp/examples/run_demo.sh
 
 # failure path: an unsatisfiable mandatory skill forces a re-poll + form_failed
+./SSTP/subprotocol/tfp/examples/run_demo.sh --fail
+```
+
+To run the script directly, first install the L9 wheel once, then invoke it:
+
+```bash
+poetry run pip install SSTP/language_bindings/python/ai_outshift_data_model-*.whl
+poetry run python SSTP/subprotocol/tfp/examples/team_formation_example.py
 poetry run python SSTP/subprotocol/tfp/examples/team_formation_example.py --fail
 
 # the accompanying tests
@@ -90,10 +103,10 @@ By default the dump is named by scenario so the two runs don't clobber each othe
 - normal run → `dumps/team_formation_success.json`
 - `--fail` run → `dumps/team_formation_failure.json`
 
-Override the destination with `--out`:
+Override the destination with `--out` (the helper forwards extra args):
 
 ```bash
-poetry run python SSTP/subprotocol/tfp/examples/team_formation_example.py --out /tmp/tfp_run.json
+./SSTP/subprotocol/tfp/examples/run_demo.sh --out /tmp/tfp_run.json
 ```
 
 The file is a small metadata wrapper around the message array:

@@ -47,6 +47,12 @@ from data_model import (  # noqa: E402
 SUBKINDS = {"team-formation", "converged", "abort"}
 
 
+def _kind(msg) -> str:
+    """header.kind as a plain string (it is a ``Kind`` Enum when L9 is imported
+    from the ``ai.outshift.data_model`` wheel)."""
+    return getattr(msg.header.kind, "value", msg.header.kind)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Enums — the model's vocabulary (operations + lifecycle subkinds).
 # ──────────────────────────────────────────────────────────────────────────────
@@ -211,7 +217,7 @@ class TestTFPEpisode:
         bus = ex.run()
 
         # the closing message is a converged commit
-        commit = next(m for m in bus.messages if m.header.kind == "commit")
+        commit = next(m for m in bus.messages if _kind(m) == "commit")
         assert commit.header.subkind == "converged"
         assert commit.payload.data["operation"] == TFPOperation.FORM_CONVERGED.value
 
@@ -286,7 +292,7 @@ class TestTFPEpisode:
 
         by_kind: dict[str, set[str]] = {}
         for m in bus.messages:
-            by_kind.setdefault(m.header.kind, set()).add(m.header.subkind)
+            by_kind.setdefault(_kind(m), set()).add(m.header.subkind)
 
         # non-terminal turns (poll, bids, selects) all carry the generic team-formation
         # subkind; only the terminal commit is converged/abort.
@@ -314,7 +320,7 @@ class TestTFPEpisode:
         # a late responder bids but is excluded from the selected team
         slow = [m for m in bus.messages if m.header.participants.actors[0].id == "slow-intel"]
         assert slow and slow[0].payload.data.get("operation") == "bid"
-        commit = next(m for m in bus.messages if m.header.kind == "commit")
+        commit = next(m for m in bus.messages if _kind(m) == "commit")
         assert "slow-intel" not in commit.payload.data["selection"]["members"]
 
     def test_topic_does_not_expose_offers_until_bid(self):
@@ -373,14 +379,14 @@ class TestTFPFailureEpisode:
         re_polls = [m for m in bus.messages if m.payload.data.get("operation") == "re_poll"]
         assert len(re_polls) == 1
         re_poll = re_polls[0]
-        assert re_poll.header.kind == "exchange"
+        assert _kind(re_poll) == "exchange"
         assert re_poll.header.subkind == "team-formation"
         # the re-poll names the uncovered mandatory skill
         re_poll_skills = [s["skill"] for s in re_poll.payload.data["required_skills"]]
         assert "skill:quantum_forensics" in re_poll_skills
 
         # the episode commits as failed
-        commit = next(m for m in bus.messages if m.header.kind == "commit")
+        commit = next(m for m in bus.messages if _kind(m) == "commit")
         assert commit.header.subkind == "abort"
         assert commit.payload.data["operation"] == TFPOperation.FORM_FAILED.value
 
@@ -407,7 +413,7 @@ class TestTFPMessageDump:
         import json
 
         import team_formation_example as ex
-        from src import L9
+        from ai.outshift.data_model import L9
 
         bus = ex.run()
         out = tmp_path / "dump.json"
@@ -426,7 +432,7 @@ class TestTFPMessageDump:
         assert doc["message_count"] == len(bus.messages)
         assert "generated_at" in doc
 
-        # one full envelope per message, and each round-trips into src.L9
+        # one full envelope per message, and each round-trips into L9
         assert len(doc["messages"]) == len(bus.messages)
         for raw in doc["messages"]:
             assert "header" in raw and "payload" in raw

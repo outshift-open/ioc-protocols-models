@@ -14,8 +14,8 @@ This is the *open-world* discovery model: candidates self-select, late responder
 are dropped, and silent agents are simply never heard from. The recruiter can
 only ever claim "best team among agents that responded within the window."
 
-Every message is a real L9 envelope (``src.L9``) carrying a typed
-``TFPPayload`` in its payload. Run it directly:
+Every message is a real L9 envelope (``ai.outshift.data_model.L9``) carrying a
+typed ``TFPPayload`` in its payload. Run it directly:
 
     poetry run python SSTP/subprotocol/tfp/examples/team_formation_example.py
 
@@ -34,7 +34,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# ── make `src` (L9) and the TFP binding importable when run as a script ───────
+# ── make the TFP binding importable when run as a script ──────────────────────
+# L9 is imported as an installed package (``ai.outshift.data_model``, the
+# ``ai-outshift-data-model`` wheel), the same way CIP's example does. Install it
+# with:
+#   poetry run pip install SSTP/language_bindings/python/ai_outshift_data_model-*.whl
 _HERE = Path(__file__).resolve()
 _REPO_ROOT = _HERE.parents[4]          # …/ioc-protocols-models
 _TFP_PY = _HERE.parents[1] / "language_bindings" / "python"
@@ -42,8 +46,15 @@ for _p in (str(_REPO_ROOT), str(_TFP_PY)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from src import L9, L9Header, L9Payload                                  # noqa: E402
-from src.primitives import Actor, ParticipantSet, Context, Message       # noqa: E402
+from ai.outshift.data_model import (                                     # noqa: E402
+    L9,
+    L9Header,
+    L9Payload,
+    Actor,
+    ParticipantSet,
+    Context,
+    Message,
+)
 from data_model import (                                                 # noqa: E402
     CandidateOffer,
     RoleAssignment,
@@ -139,7 +150,7 @@ class TFPBus:
             participants=participants,
             message=Message(
                 id=str(uuid.uuid4()),
-                parents=parent_id or "",
+                parents=[parent_id] if parent_id else [],
                 episode=self.episode,
             ),
             context=Context(
@@ -176,7 +187,8 @@ def _print_trace(bus: TFPBus) -> None:
         h, p = m.header, m.payload.data
         sender = h.participants.actors[0].id
         receivers = ",".join(a.id for a in h.participants.actors if a.role == "receiver") or "(broadcast)"
-        kind = h.kind + (f":{h.subkind}" if h.subkind else "")
+        kind_name = getattr(h.kind, "value", h.kind)
+        kind = kind_name + (f":{h.subkind}" if h.subkind else "")
         print(f"{kind:<12}{p.get('operation',''):<11}{sender:<14}{receivers:<26}{_describe(p)}")
 
 
@@ -199,7 +211,9 @@ def _poll_id_of(bus: "TFPBus") -> Optional[str]:
 
 def _dump_message(msg: L9) -> Dict[str, Any]:
     """Serialize one L9 envelope, dropping the unused header.attributes field."""
-    d = msg.model_dump()
+    # mode="json" so enum fields (e.g. header.kind) serialize to their string
+    # values rather than enum objects.
+    d = msg.model_dump(mode="json")
     d["header"].pop("attributes", None)  # TFP does not use header attributes
     return d
 

@@ -1,9 +1,9 @@
 {
   "schema": "ioc.tfp.message_dump.v1",
-  "episode": "74d7908f-dd72-4324-8540-f87e1846a75c",
-  "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+  "episode": "6356e69f-5692-4203-b084-120c91a3172d",
+  "poll_id": "urn:ioc:tfp:poll:86be8c0e",
   "message_count": 14,
-  "generated_at": "2026-06-23T23:18:10.140060+00:00",
+  "generated_at": "2026-06-24T05:55:18.595803+00:00",
   "messages": [
     {
       "header": {
@@ -23,9 +23,9 @@
           "groups": null
         },
         "message": {
-          "id": "99549d2d-72d1-4e69-886b-28070287e636",
-          "parents": "",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "018b65ea-8d39-4fde-a9b5-76b9915b1e32",
+          "parents": [],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -38,7 +38,7 @@
         "type": "json-schema",
         "data": {
           "operation": "poll_open",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "task": {
             "task_id": "incident-4471",
             "description": "Triage a suspicious-login security incident across SIEM + endpoint data",
@@ -91,9 +91,11 @@
           "groups": null
         },
         "message": {
-          "id": "cdaa1a84-d8fa-465b-8eda-988537d4039d",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "626037b1-6299-4fbe-b3b7-695452f73bdc",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -106,7 +108,7 @@
         "type": "json-schema",
         "data": {
           "operation": "decline",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "reason": "None of my skills match the required skills for this poll."
         }
@@ -140,9 +142,11 @@
           "groups": null
         },
         "message": {
-          "id": "10768dc4-595d-4c4f-8d40-ee5573f1a052",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "ae176ad1-706e-4e20-8b71-f98923eb821d",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -155,7 +159,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -207,9 +211,11 @@
           "groups": null
         },
         "message": {
-          "id": "aef8b312-eb8b-4ed0-ae9a-36707ad8b53a",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "bb84c5b8-6805-4eb5-b8c8-566b7546c8f1",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -222,7 +228,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -279,9 +285,11 @@
           "groups": null
         },
         "message": {
-          "id": "dec1f230-45f8-4edf-8722-bcabb58adb83",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "9f8fa2fe-5678-479d-a02f-b0b469407cd4",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -294,7 +302,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -356,9 +364,11 @@
           "groups": null
         },
         "message": {
-          "id": "f3cda1f6-9026-45ae-b504-f4ca0e4896e6",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "89ae06d3-aaff-4b65-b1ce-7d1b9635d55c",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -371,7 +381,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -434,9 +444,11 @@
           "groups": null
         },
         "message": {
-          "id": "f6c02a42-81db-46e0-9c61-d0c419975dc5",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "cc35bf6c-d268-415c-86e3-3c8dd3fc2e9c",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -449,7 +461,7 @@
         "type": "json-schema",
         "data": {
           "operation": "bid",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "offer": {
             "skills": [
@@ -512,9 +524,11 @@
           "groups": null
         },
         "message": {
-          "id": "e67082f4-982c-4462-9133-393085ccb703",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "0b36903f-cde3-49ed-b964-8221fa317b4e",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -527,7 +541,7 @@
         "type": "json-schema",
         "data": {
           "operation": "select",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "selection": {
             "members": [
@@ -605,9 +619,11 @@
           "groups": null
         },
         "message": {
-          "id": "e1b5fde3-7113-4981-8cc7-e5704d4d42f1",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "cdac90c9-eb44-46a7-9876-976c056aa641",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -620,7 +636,7 @@
         "type": "json-schema",
         "data": {
           "operation": "accept",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "reason": "Skills match the task and I have capacity this shift."
         }
@@ -674,9 +690,11 @@
           "groups": null
         },
         "message": {
-          "id": "2a31c995-f24a-4b19-b752-8b1f6aa6ead2",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "f7d12543-2a43-4484-92d3-2a47dd6fd9b3",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -689,7 +707,7 @@
         "type": "json-schema",
         "data": {
           "operation": "select",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "selection": {
             "members": [
@@ -767,9 +785,11 @@
           "groups": null
         },
         "message": {
-          "id": "0cb1dbf8-6b0a-4bcd-a328-118735cd1fd5",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "2eba890a-a2af-40f4-ac91-8ad9d746974c",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -782,7 +802,7 @@
         "type": "json-schema",
         "data": {
           "operation": "reject",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "reason": "Already committed to incident-4470 this shift; at capacity."
         }
@@ -836,9 +856,11 @@
           "groups": null
         },
         "message": {
-          "id": "961a0542-2e5a-4a56-bc1f-8f0eeeaaaab7",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "bd86ccd2-61ef-4532-95de-bfa51a20b4c9",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -851,7 +873,7 @@
         "type": "json-schema",
         "data": {
           "operation": "select",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "selection": {
             "members": [
@@ -929,9 +951,11 @@
           "groups": null
         },
         "message": {
-          "id": "7eab5f0a-7e15-4085-bf91-7ea090c95a15",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "3210bb95-c233-4fbc-847d-65a2a847550e",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -944,7 +968,7 @@
         "type": "json-schema",
         "data": {
           "operation": "accept",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "reason": "Skills match the task and I have capacity this shift."
         }
@@ -998,9 +1022,11 @@
           "groups": null
         },
         "message": {
-          "id": "c20466a2-2112-4dce-ab04-231caebaa2d7",
-          "parents": "99549d2d-72d1-4e69-886b-28070287e636",
-          "episode": "74d7908f-dd72-4324-8540-f87e1846a75c"
+          "id": "fa82e8ce-b585-4e14-b95d-1cd181851932",
+          "parents": [
+            "018b65ea-8d39-4fde-a9b5-76b9915b1e32"
+          ],
+          "episode": "6356e69f-5692-4203-b084-120c91a3172d"
         },
         "policy": null,
         "context": {
@@ -1013,7 +1039,7 @@
         "type": "json-schema",
         "data": {
           "operation": "form_converged",
-          "poll_id": "urn:ioc:tfp:poll:bd6ed2bf",
+          "poll_id": "urn:ioc:tfp:poll:86be8c0e",
           "required_skills": [],
           "selection": {
             "members": [
