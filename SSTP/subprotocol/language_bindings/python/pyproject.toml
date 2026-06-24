@@ -1,0 +1,15 @@
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "ai-outshift-subprotocols"
+version = "0.1.0"
+description = "SSTP subprotocol public API: SIEP, CIP, SAB (re-exports from SSTP.subprotocol.*)"
+authors = []
+packages = [{include = "ai"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+pydantic = ">=2.0"
+ai-outshift-data-model = ">=0.0.4"
