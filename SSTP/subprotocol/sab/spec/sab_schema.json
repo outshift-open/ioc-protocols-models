@@ -1,0 +1,469 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "0.0.1",
+  "protocol": "SSTP",
+  "subprotocol": "SAB",
+  "title": "SAB",
+  "description": "An L9 envelope carrying an SSTP message over the SAB subprotocol.\n\nSAB (Semantic Alignment via Bargaining) enables agents to reach semantic\nalignment through a bargaining process implemented with NegMAS Stacked\nAlternating Offers (SAO).\n\nKind / subkind mapping\n----------------------\nSSTP kind            L9 kind       L9 subkind\nintent               contingency   negotiate\nnegotiate            contingency   negotiate\ncommit / agreement   commit        converged\ncommit / disagree    commit        disagreement\ncommit / broken|err  commit        timeout",
+  "allOf": [
+    { "$ref": "../../../spec/l9_schema.json" }
+  ],
+  "properties": {
+    "header": {
+      "allOf": [
+        { "$ref": "../../../spec/l9_schema.json#/$defs/L9Header" },
+        {
+          "properties": {
+            "protocol":    { "const": "SSTP", "type": "string" },
+            "subprotocol": { "const": "SAB",  "type": "string" },
+            "kind":        { "enum": ["contingency", "commit"],                              "type": "string" },
+            "subkind":     { "enum": ["negotiate", "converged", "disagreement", "timeout"], "type": "string" },
+            "participants": { "$ref": "#/$defs/SABActors" },
+            "attributes": {
+              "anyOf": [
+                { "$ref": "#/$defs/SABAttributes" },
+                { "type": "null" }
+              ],
+              "default": null
+            },
+            "context": {
+              "anyOf": [
+                { "$ref": "../../../spec/l9_schema.json#/$defs/Context" },
+                { "type": "null" }
+              ],
+              "default": null,
+              "description": "Present when a topic, issues, or options_per_issue are available. context.topic encodes: '<mission> | issues: [...] | options_per_issue: {...}'. context.semantic.schema_id = 'urn:ioc:schema:sab-l9:v1' identifies this envelope."
+            }
+          }
+        }
+      ]
+    },
+    "payload": {
+      "allOf": [
+        { "$ref": "../../../spec/l9_schema.json#/$defs/L9Payload" },
+        {
+          "properties": {
+            "type": { "const": "json-schema", "type": "string" },
+            "data": {
+              "anyOf": [
+                { "$ref": "#/$defs/SABIntentPayloadData" },
+                { "$ref": "#/$defs/SABNegotiatePayloadData" },
+                { "$ref": "#/$defs/SABCommitPayloadData" }
+              ],
+              "description": "The stripped SSTP message body. Discriminate by semantic_context.schema_id: 'urn:ioc:schema:intent:v1' -> intent, 'urn:ioc:schema:negotiate:negmas-sao:v1' -> negotiate, 'urn:ioc:schema:negotiate:commit:v1' -> commit.",
+              "title": "Data"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "required": ["header", "payload"],
+  "$defs": {
+    "SABActors": {
+      "description": "Actors block for SAB messages. groups is always null (no MAS/workspace IDs).",
+      "properties": {
+        "actors": {
+          "items": { "$ref": "../../../spec/l9_schema.json#/$defs/Actor" },
+          "title": "Actors",
+          "type": "array"
+        },
+        "groups": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Groups"
+        }
+      },
+      "required": ["actors"],
+      "title": "SABActors",
+      "type": "object"
+    },
+    "SABAttributes": {
+      "description": "header.attributes block written by the SAB adapter.",
+      "properties": {
+        "msg_created_at": {
+          "description": "dt_created from the wrapped SSTP message (ISO 8601).",
+          "title": "Msg Created At",
+          "type": "string"
+        }
+      },
+      "required": ["msg_created_at"],
+      "title": "SABAttributes",
+      "type": "object"
+    },
+    "SABOrigin": {
+      "description": "Origin block after tenant_id is stripped by the L9 adapter.",
+      "properties": {
+        "actor_id": { "title": "Actor Id", "type": "string" },
+        "attestation": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "title": "Attestation"
+        }
+      },
+      "required": ["actor_id"],
+      "title": "SABOrigin",
+      "type": "object"
+    },
+    "SABIntentPayloadData": {
+      "description": "payload.data when the wrapped SSTP message is kind=intent.",
+      "properties": {
+        "message_id":       { "title": "Message Id", "type": "string" },
+        "version":          { "default": "0", "description": "SSTP protocol version.", "title": "Version", "type": "string" },
+        "dt_created":       { "description": "ISO 8601 creation timestamp.", "title": "Dt Created", "type": "string" },
+        "origin":           { "$ref": "#/$defs/SABOrigin" },
+        "payload_hash":     { "description": "SHA-256 hex digest of the original payload.", "title": "Payload Hash", "type": "string" },
+        "semantic_context": { "$ref": "#/$defs/SemanticContext" }
+      },
+      "required": ["message_id", "dt_created", "origin", "payload_hash", "semantic_context"],
+      "title": "SABIntentPayloadData",
+      "type": "object"
+    },
+    "SABNegotiatePayloadData": {
+      "description": "payload.data when the wrapped SSTP message is kind=negotiate.",
+      "properties": {
+        "message_id":       { "title": "Message Id", "type": "string" },
+        "version":          { "default": "0", "description": "SSTP protocol version.", "title": "Version", "type": "string" },
+        "dt_created":       { "description": "ISO 8601 creation timestamp.", "title": "Dt Created", "type": "string" },
+        "origin":           { "$ref": "#/$defs/SABOrigin" },
+        "payload_hash":     { "description": "SHA-256 hex digest of the original payload.", "title": "Payload Hash", "type": "string" },
+        "semantic_context": { "$ref": "#/$defs/NegotiateSemanticContext" }
+      },
+      "required": ["message_id", "dt_created", "origin", "payload_hash", "semantic_context"],
+      "title": "SABNegotiatePayloadData",
+      "type": "object"
+    },
+    "SABCommitPayloadData": {
+      "description": "payload.data when the wrapped SSTP message is kind=commit.",
+      "properties": {
+        "message_id":       { "title": "Message Id", "type": "string" },
+        "version":          { "default": "0", "description": "SSTP protocol version.", "title": "Version", "type": "string" },
+        "dt_created":       { "description": "ISO 8601 creation timestamp.", "title": "Dt Created", "type": "string" },
+        "origin":           { "$ref": "#/$defs/SABOrigin" },
+        "payload_hash":     { "description": "SHA-256 hex digest of the original payload.", "title": "Payload Hash", "type": "string" },
+        "semantic_context": { "$ref": "#/$defs/NegotiateCommitSemanticContext" }
+      },
+      "required": ["message_id", "dt_created", "origin", "payload_hash", "semantic_context"],
+      "title": "SABCommitPayloadData",
+      "type": "object"
+    },
+    "SemanticContext": {
+      "description": "Schema and encoding metadata for the payload.",
+      "properties": {
+        "schema_version": { "title": "Schema Version", "type": "string" },
+        "encoding": {
+          "default": "json",
+          "enum": ["json", "structured_text", "hybrid"],
+          "title": "Encoding",
+          "type": "string"
+        }
+      },
+      "required": ["schema_version"],
+      "title": "SemanticContext",
+      "type": "object"
+    },
+    "NegotiateSemanticContext": {
+      "description": "SAO-specific semantic context for kind='negotiate' messages.\n\nCarries a full NegMAS SAO negotiation snapshot so that receivers have\ncomplete mechanism state, the latest response, and optionally the NMI\nconfiguration - all in one well-typed envelope.",
+      "properties": {
+        "schema_version": { "default": "1.0", "title": "Schema Version", "type": "string" },
+        "encoding": {
+          "default": "json",
+          "enum": ["json", "structured_text", "hybrid"],
+          "title": "Encoding",
+          "type": "string"
+        },
+        "session_id": { "title": "Session Id", "type": "string" },
+        "sao_state": {
+          "anyOf": [{ "$ref": "#/$defs/SAOState" }, { "type": "null" }],
+          "default": null
+        },
+        "sao_response": {
+          "anyOf": [{ "$ref": "#/$defs/SAOResponse" }, { "type": "null" }],
+          "default": null
+        },
+        "nmi": {
+          "anyOf": [{ "$ref": "#/$defs/SAONMI" }, { "type": "null" }],
+          "default": null
+        },
+        "offer_validation_failure": {
+          "anyOf": [{ "additionalProperties": true, "type": "object" }, { "type": "null" }],
+          "default": null,
+          "title": "Offer Validation Failure"
+        }
+      },
+      "required": ["session_id"],
+      "title": "NegotiateSemanticContext",
+      "type": "object"
+    },
+    "NegotiateCommitSemanticContext": {
+      "description": "Semantic context for kind='commit' messages that finalize a negotiation.\n\nCarries the schema identity of the commit plus the final_agreement\nso consumers can inspect the outcome directly from the envelope without\nhaving to parse the full payload.",
+      "properties": {
+        "schema_version": { "default": "1.0", "title": "Schema Version", "type": "string" },
+        "encoding": {
+          "default": "json",
+          "enum": ["json", "structured_text", "hybrid"],
+          "title": "Encoding",
+          "type": "string"
+        },
+        "session_id": { "title": "Session Id", "type": "string" },
+        "outcome": {
+          "description": "High-level outcome of the negotiation. 'agreement' - all agents reached consensus; 'disagreement' - step budget exhausted without agreement; 'broken' - a participant dropped out or returned an invalid offer; 'error' - pipeline exception during execution.",
+          "enum": ["agreement", "disagreement", "broken", "error"],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "error_message": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "description": "Populated only when outcome='error'. Human-readable exception summary.",
+          "title": "Error Message"
+        },
+        "content_text": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "description": "Original natural-language mission description passed to /initiate.",
+          "title": "Content Text"
+        },
+        "agents_negotiating": {
+          "anyOf": [{ "items": { "type": "string" }, "type": "array" }, { "type": "null" }],
+          "default": null,
+          "description": "List of agent IDs that participated in this negotiation.",
+          "title": "Agents Negotiating"
+        },
+        "final_agreement": {
+          "anyOf": [
+            { "items": { "additionalProperties": true, "type": "object" }, "type": "array" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "description": "Agreed option per issue. Each entry is {'issue_id': str, 'chosen_option': str}. None when negotiation ended without agreement.",
+          "title": "Final Agreement"
+        }
+      },
+      "required": ["session_id", "outcome"],
+      "title": "NegotiateCommitSemanticContext",
+      "type": "object"
+    },
+    "ResponseType": {
+      "description": "Possible responses to offers during a NegMAS SAO negotiation round. Mirrors negmas.gb.common.ResponseType.",
+      "enum": [0, 1, 2, 3, 4, 5],
+      "title": "ResponseType",
+      "type": "integer",
+      "x-enum-varnames": [
+        "ACCEPT_OFFER",
+        "REJECT_OFFER",
+        "END_NEGOTIATION",
+        "NO_RESPONSE",
+        "WAIT",
+        "LEAVE"
+      ]
+    },
+    "SAOResponse": {
+      "description": "A single negotiator response in one SAO round.\nEncapsulates the decision (accept / reject / end / ...) plus an optional offer.\n\nNegMAS source: negmas.sao.common.SAOResponse",
+      "properties": {
+        "response": { "$ref": "#/$defs/ResponseType", "default": 3 },
+        "outcome": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "items": {}, "type": "array" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Outcome"
+        },
+        "data": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Data"
+        }
+      },
+      "title": "SAOResponse",
+      "type": "object"
+    },
+    "SAONMI": {
+      "description": "NegotiatorMechanismInterface configuration snapshot for SAO.\n\nNegMAS source: negmas.sao.common.SAONMI",
+      "properties": {
+        "id":                        { "default": "",                        "title": "Id",                        "type": "string" },
+        "n_outcomes":                { "anyOf": [{ "type": "integer" }, { "type": "number" }], "default": 0, "title": "N Outcomes" },
+        "shared_time_limit":         { "default": 1.7976931348623157e+308,   "title": "Shared Time Limit",         "type": "number" },
+        "shared_n_steps":            { "anyOf": [{ "type": "integer" }, { "type": "null" }], "default": null, "title": "Shared N Steps" },
+        "private_time_limit":        { "default": 1.7976931348623157e+308,   "title": "Private Time Limit",        "type": "number" },
+        "private_n_steps":           { "anyOf": [{ "type": "integer" }, { "type": "null" }], "default": null, "title": "Private N Steps" },
+        "pend":                      { "default": 0.0,                       "title": "Pend",                      "type": "number" },
+        "pend_per_second":           { "default": 0.0,                       "title": "Pend Per Second",           "type": "number" },
+        "step_time_limit":           { "default": 1.7976931348623157e+308,   "title": "Step Time Limit",           "type": "number" },
+        "negotiator_time_limit":     { "default": 1.7976931348623157e+308,   "title": "Negotiator Time Limit",     "type": "number" },
+        "dynamic_entry":             { "default": false,                     "title": "Dynamic Entry",             "type": "boolean" },
+        "max_n_negotiators":         { "anyOf": [{ "type": "integer" }, { "type": "null" }], "default": null, "title": "Max N Negotiators" },
+        "annotation":                { "additionalProperties": true,         "title": "Annotation",                "type": "object" },
+        "end_on_no_response":        { "default": true,                      "title": "End On No Response",        "type": "boolean" },
+        "one_offer_per_step":        { "default": false,                     "title": "One Offer Per Step",        "type": "boolean" },
+        "offering_is_accepting":     { "default": true,                      "title": "Offering Is Accepting",     "type": "boolean" },
+        "allow_none_with_data":      { "default": true,                      "title": "Allow None With Data",      "type": "boolean" },
+        "allow_negotiators_to_leave":{ "default": true,                      "title": "Allow Negotiators To Leave","type": "boolean" }
+      },
+      "title": "SAONMI",
+      "type": "object"
+    },
+    "ThreadState": {
+      "description": "Per-thread state in a GB (Generalized Bargaining) negotiation round.\n\nNegMAS source: negmas.gb.common.ThreadState",
+      "properties": {
+        "new_offer": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "items": {}, "type": "array" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "New Offer"
+        },
+        "new_data": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "New Data"
+        },
+        "new_responses": {
+          "additionalProperties": { "$ref": "#/$defs/ResponseType" },
+          "title": "New Responses",
+          "type": "object"
+        },
+        "accepted_offers": {
+          "items": {
+            "anyOf": [
+              { "additionalProperties": true, "type": "object" },
+              { "items": {}, "type": "array" },
+              { "type": "null" }
+            ]
+          },
+          "title": "Accepted Offers",
+          "type": "array"
+        }
+      },
+      "title": "ThreadState",
+      "type": "object"
+    },
+    "SAOState": {
+      "description": "Full mechanism state for the Stacked Alternating Offers (SAO) protocol.\n\nNegMAS source: negmas.sao.common.SAOState",
+      "properties": {
+        "running":                { "default": false, "title": "Running",                "type": "boolean" },
+        "waiting":                { "default": false, "title": "Waiting",                "type": "boolean" },
+        "started":                { "default": false, "title": "Started",                "type": "boolean" },
+        "step":                   { "default": 0,     "title": "Step",                   "type": "integer" },
+        "time":                   { "default": 0.0,   "title": "Time",                   "type": "number" },
+        "relative_time":          { "default": 0.0,   "title": "Relative Time",          "type": "number" },
+        "broken":                 { "default": false, "title": "Broken",                 "type": "boolean" },
+        "timedout":               { "default": false, "title": "Timedout",               "type": "boolean" },
+        "agreement": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "items": {}, "type": "array" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Agreement"
+        },
+        "results":                { "default": null,  "title": "Results" },
+        "n_negotiators":          { "default": 0,     "title": "N Negotiators",          "type": "integer" },
+        "has_error":              { "default": false, "title": "Has Error",               "type": "boolean" },
+        "error_details":          { "default": "",    "title": "Error Details",           "type": "string" },
+        "erred_negotiator":       { "default": "",    "title": "Erred Negotiator",        "type": "string" },
+        "erred_agent":            { "default": "",    "title": "Erred Agent",             "type": "string" },
+        "threads": {
+          "additionalProperties": { "$ref": "#/$defs/ThreadState" },
+          "title": "Threads",
+          "type": "object"
+        },
+        "last_thread":            { "default": "",    "title": "Last Thread",             "type": "string" },
+        "left_negotiators": {
+          "items": { "type": "string" },
+          "title": "Left Negotiators",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "current_offer": {
+          "anyOf": [
+            { "additionalProperties": true, "type": "object" },
+            { "items": {}, "type": "array" },
+            { "type": "null" }
+          ],
+          "default": null,
+          "title": "Current Offer"
+        },
+        "current_proposer": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "title": "Current Proposer"
+        },
+        "current_proposer_agent": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "title": "Current Proposer Agent"
+        },
+        "n_acceptances":          { "default": 0,     "title": "N Acceptances",          "type": "integer" },
+        "new_offers": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              { "type": "string" },
+              {
+                "anyOf": [
+                  { "additionalProperties": true, "type": "object" },
+                  { "items": {}, "type": "array" },
+                  { "type": "null" }
+                ]
+              }
+            ],
+            "type": "array"
+          },
+          "title": "New Offers",
+          "type": "array"
+        },
+        "new_offerer_agents": {
+          "items": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "title": "New Offerer Agents",
+          "type": "array"
+        },
+        "last_negotiator": {
+          "anyOf": [{ "type": "string" }, { "type": "null" }],
+          "default": null,
+          "title": "Last Negotiator"
+        },
+        "current_data": {
+          "anyOf": [{ "additionalProperties": true, "type": "object" }, { "type": "null" }],
+          "default": null,
+          "title": "Current Data"
+        },
+        "new_data": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              { "type": "string" },
+              {
+                "anyOf": [
+                  { "additionalProperties": true, "type": "object" },
+                  { "type": "null" }
+                ]
+              }
+            ],
+            "type": "array"
+          },
+          "title": "New Data",
+          "type": "array"
+        }
+      },
+      "title": "SAOState",
+      "type": "object"
+    }
+  }
+}

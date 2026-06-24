@@ -350,8 +350,8 @@ type L9HeaderMessage struct {
 	// ID corresponds to the JSON schema field "id".
 	ID string `json:"id" yaml:"id" mapstructure:"id"`
 
-	// Parents corresponds to the JSON schema field "parents".
-	Parents string `json:"parents" yaml:"parents" mapstructure:"parents"`
+	// Ordered list of parent message IDs. Empty list for root messages.
+	Parents []string `json:"parents" yaml:"parents" mapstructure:"parents"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -506,8 +506,8 @@ type Message struct {
 	// ID corresponds to the JSON schema field "id".
 	ID string `json:"id" yaml:"id" mapstructure:"id"`
 
-	// Parents corresponds to the JSON schema field "parents".
-	Parents string `json:"parents" yaml:"parents" mapstructure:"parents"`
+	// Ordered list of parent message IDs. Empty list for root messages.
+	Parents []string `json:"parents" yaml:"parents" mapstructure:"parents"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.

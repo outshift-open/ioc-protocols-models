@@ -216,7 +216,7 @@ func TestMessageValidation(t *testing.T) {
 	// Test valid Message
 	validMessage := l9.Message{
 		ID:      "msg-001",
-		Parents: "msg-000",
+		Parents: []string{"msg-000"},
 		Episode: "ep-001",
 	}
 
@@ -233,8 +233,8 @@ func TestMessageValidation(t *testing.T) {
 		return
 	}
 
-	if unmarshaledMessage.Parents != "msg-000" {
-		t.Errorf("Expected message Parents 'msg-000', got %s", unmarshaledMessage.Parents)
+	if len(unmarshaledMessage.Parents) != 1 || unmarshaledMessage.Parents[0] != "msg-000" {
+		t.Errorf("Expected message Parents ['msg-000'], got %v", unmarshaledMessage.Parents)
 	}
 
 	// Test missing required fields

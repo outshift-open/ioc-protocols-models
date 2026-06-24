@@ -5,7 +5,7 @@ PROJECT_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCHEMA_FILE := $(PROJECT_ROOT)/SSTP/spec/l9_schema.json
 ARTIFACT_PUBLISH_FOLDER := $(PROJECT_ROOT)/SSTP/documentation
 
-.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder build_wheel
+.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder build_wheel build_sab_wheel
 
 help:
 	@echo "Available targets:"
@@ -19,6 +19,7 @@ help:
 	@echo "  clean_docs                - Clean generated documentation files"
 	@echo "  clean_pycache             - Clean all __pycache__ directories and .pyc files"
 	@echo "  build_wheel               - Build Python wheel (ai-outshift-data-model)"
+	@echo "  build_sab_wheel           - Build Python wheel (ai-outshift-sab-data-model)"
 	@echo "  clean                     - Clean all generated files"
 	@echo "  print-version             - Print schema version"
 	@echo "  print-artifact-folder     - Print artifact publish folder path"
@@ -177,3 +178,16 @@ build_wheel:
 
 print-artifact-folder:
 	@echo "$(ARTIFACT_PUBLISH_FOLDER)"
+
+SAB_SCHEMA_FILE := $(PROJECT_ROOT)/SSTP/subprotocol/sab/spec/sab_schema.json
+SAB_WHEEL_DIR   := $(PROJECT_ROOT)/SSTP/subprotocol/sab/language_bindings/python
+
+build_sab_wheel:
+	@echo "Building SAB Python wheel..."
+	@VERSION=$$(python3 -c "import json; f=open('$(SAB_SCHEMA_FILE)'); print(json.load(f)['version']); f.close()"); \
+	sed "s/^version = .*/version = \"$$VERSION\"/" "$(SAB_WHEEL_DIR)/pyproject.toml" > "$(SAB_WHEEL_DIR)/pyproject.toml.tmp" && mv "$(SAB_WHEEL_DIR)/pyproject.toml.tmp" "$(SAB_WHEEL_DIR)/pyproject.toml"; \
+	rm -f "$(SAB_WHEEL_DIR)"/ai_outshift_sab_data_model-*.whl; \
+	cd "$(SAB_WHEEL_DIR)" && poetry build -f wheel; \
+	mv "$(SAB_WHEEL_DIR)/dist/"*.whl "$(SAB_WHEEL_DIR)/"; \
+	rm -rf "$(SAB_WHEEL_DIR)/dist"; \
+	echo "Wheel built: SSTP/subprotocol/sab/language_bindings/python/ai_outshift_sab_data_model-$$VERSION-py3-none-any.whl"
