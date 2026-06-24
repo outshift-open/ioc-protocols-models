@@ -176,6 +176,9 @@ class DebateOrchestrator:
         """
         if self.tom_engine is None:
             return {}
+        # TEAM_PROCESS coordination tokens have no clinical content — skip the judge.
+        if utterance.startswith(("process_proposal:", "process_accepted:", "process_challenged:")):
+            return {}
         try:
             listener_tom = self.tom_engine.agent(listener)
             return listener_tom.assess_utterance(
