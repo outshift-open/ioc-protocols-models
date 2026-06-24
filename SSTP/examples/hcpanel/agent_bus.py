@@ -15,6 +15,7 @@ import time
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, List, Optional
 
+from SSTP.subprotocol.siep.src.epistemic.stores import AgentBeliefStore, BeliefRevision, CommonGround
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
     SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block, RepairReason,
 )
@@ -433,7 +434,6 @@ class AgentBus:
             from SSTP.subprotocol.cip.src.l9 import get_topic
             ep_concept_id = get_topic(header) or ""
             if belief_store is not None and ep_concept_id:
-                from SSTP.subprotocol.siep.src.epistemic.stores import BeliefRevision
                 sender = ((header.get("participants") or {}).get("actors") or header.get("actors") or [{}])[0].get("id", "unknown")
                 ep_id = (header.get("message") or {}).get("episode", "")
                 revision = BeliefRevision(
@@ -448,7 +448,6 @@ class AgentBus:
                                              revision, new_status="asserted",
                                              new_public_confidence=float(belief.get("posterior", 0.5)))
             if common_ground_store is not None:
-                from SSTP.subprotocol.siep.src.epistemic.stores import CommonGround
                 sender = ((header.get("participants") or {}).get("actors") or header.get("actors") or [{}])[0].get("id", "unknown")
                 ep = header.get("epistemic") or {}
                 prior_sender = ""

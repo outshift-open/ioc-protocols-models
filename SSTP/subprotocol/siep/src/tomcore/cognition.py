@@ -142,7 +142,7 @@ class AgentTOM:
                          use_case: str = "",
                          ) -> Dict[str, Any]:
         """Grounding check: structural when epistemic blocks available, LLM fallback otherwise."""
-        from SSTP.subprotocol.siep.src.grounding import contingency_check, diagnose_repair_reason
+        from SSTP.subprotocol.cip.src.grounding import contingency_check, diagnose_repair_reason
         has_concepts = (
             bool((speaker_epistemic or {}).get("scope") or
                  (speaker_epistemic or {}).get("addresses_evidence"))
