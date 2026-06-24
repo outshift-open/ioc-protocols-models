@@ -3,12 +3,12 @@
 #
 # Usage:
 #   ./scripts/build_wheel.sh
-#   pip install dist/ai_outshift_models-*.whl
+#   pip install dist/ai_outshift_all_models-*.whl
 #
 # After install, import models like:
 #   from ai.outshift.data_model import L9, L9Header, L9Payload
 #   from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind
-#   from ai.outshift.tfp.tfp_models import TFPOperation, TFPPayload
+#   from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -36,8 +36,8 @@ cp "$REPO_ROOT/SSTP/subprotocol/sab/language_bindings/python/ai/outshift/sab/dat
 
 mkdir -p "$PKG_DIR/outshift/tfp"
 touch "$PKG_DIR/outshift/tfp/__init__.py"
-cp "$REPO_ROOT/SSTP/subprotocol/tfp/src/tfp_models.py" \
-   "$PKG_DIR/outshift/tfp/tfp_models.py"
+cp "$REPO_ROOT/SSTP/subprotocol/tfp/language_bindings/python/ai/outshift/tfp/data_model.py" \
+   "$PKG_DIR/outshift/tfp/data_model.py"
 
 # Build wheel
 cd "$REPO_ROOT"
