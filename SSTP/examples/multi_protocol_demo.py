@@ -9,10 +9,12 @@ All imports from the ai-outshift-subprotocols wheel:
 
 Scenario: Supply-chain coordination — from team assembly to agreed delivery terms.
 
+  Agents: agent-alpha (leads TFP + SIEP), agent-beta (participant).
+  cip-engine is a protocol-internal component (future: Cognition Engine).
+
   Phase 1 — TFP  (Team Formation via Polling)
-    A coordinator recruits agents for a supply-chain task via open-world polling.
-    agent-alpha bids (log-triage + scope-analysis skills).
-    agent-beta  bids (timeline-analysis skill).
+    agent-alpha opens a poll; agent-beta bids.
+    agent-alpha bids (scope-analysis + negotiation skills).
     Both accept — team commits: converged.
 
   Phase 2 — SIEP (Epistemic Grounding)
@@ -21,12 +23,12 @@ Scenario: Supply-chain coordination — from team assembly to agreed delivery te
     agent-beta  drifts to timeline scope — mismatch detected.
 
   Phase 3 — CIP  (Contingency Repair)
-    CIP emits LLM-powered guidance to re-anchor agent-beta.
+    cip-engine (future Cognition Engine) emits LLM-powered guidance to re-anchor agent-beta.
     agent-beta re-attempts on the correct concept.
     CIP closes the branch: commit:resolved.
 
   Phase 4 — SIEP (Commit)
-    Epistemic alignment restored — coordinator commits: converged.
+    Epistemic alignment restored — agent-alpha commits: converged.
 
   Phase 5 — SAB  (Negotiation)
     Team negotiates supply terms: price × delivery_speed.
@@ -248,9 +250,9 @@ def run_demo() -> None:
     ]
     tf_topic = f"Forming a team to {task.description}"
 
-    # 1a. Poll open — coordinator broadcasts to topic
-    poll_msg = record("TFP", "1a · intent:team-formation  (coordinator opens poll)",
-        _tfp_emit(episode, "coordinator", ["topic:tfp/polls"],
+    # 1a. Poll open — agent-alpha broadcasts to topic
+    poll_msg = record("TFP", "1a · intent:team-formation  (agent-alpha opens poll)",
+        _tfp_emit(episode, "agent-alpha", ["topic:tfp/polls"],
                   "intent", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.POLL_OPEN,
                              poll_id=poll_id, task=task,
@@ -272,7 +274,7 @@ def run_demo() -> None:
 
     # 1b. agent-alpha bids
     alpha_bid = record("TFP", "1b · exchange:team-formation  (agent-alpha bids)",
-        _tfp_emit(episode, "agent-alpha", ["coordinator"],
+        _tfp_emit(episode, "agent-alpha", ["agent-alpha"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.BID, poll_id=poll_id,
                              offer=alpha_offer,
@@ -282,7 +284,7 @@ def run_demo() -> None:
 
     # 1c. agent-beta bids
     beta_bid = record("TFP", "1c · exchange:team-formation  (agent-beta bids)",
-        _tfp_emit(episode, "agent-beta", ["coordinator"],
+        _tfp_emit(episode, "agent-beta", ["agent-alpha"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.BID, poll_id=poll_id,
                              offer=beta_offer,
@@ -293,8 +295,8 @@ def run_demo() -> None:
     # 1d. Coordinator selects team
     bids = {"agent-alpha": alpha_offer, "agent-beta": beta_offer}
     selection = _tfp_select(required, bids)
-    select_msg = record("TFP", "1d · exchange:team-formation  (coordinator selects team)",
-        _tfp_emit(episode, "coordinator", ["agent-alpha", "agent-beta"],
+    select_msg = record("TFP", "1d · exchange:team-formation  (agent-alpha selects team)",
+        _tfp_emit(episode, "agent-alpha", ["agent-alpha", "agent-beta"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.SELECT, poll_id=poll_id,
                              selection=selection,
@@ -305,7 +307,7 @@ def run_demo() -> None:
 
     # 1e. agent-alpha accepts
     record("TFP", "1e · exchange:team-formation  (agent-alpha accepts)",
-        _tfp_emit(episode, "agent-alpha", ["coordinator"],
+        _tfp_emit(episode, "agent-alpha", ["agent-alpha"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.ACCEPT, poll_id=poll_id,
                              reason="Skills match; I have capacity."),
@@ -314,7 +316,7 @@ def run_demo() -> None:
 
     # 1f. agent-beta accepts
     record("TFP", "1f · exchange:team-formation  (agent-beta accepts)",
-        _tfp_emit(episode, "agent-beta", ["coordinator"],
+        _tfp_emit(episode, "agent-beta", ["agent-alpha"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.ACCEPT, poll_id=poll_id,
                              reason="Scope analysis and timeline skills engaged; joining."),
@@ -323,7 +325,7 @@ def run_demo() -> None:
 
     # 1g. Commit: converged
     record("TFP", "1g · commit:converged          (team formed ✓)",
-        _tfp_emit(episode, "coordinator", ["topic:tfp/polls"],
+        _tfp_emit(episode, "agent-alpha", ["topic:tfp/polls"],
                   "commit", SUBKIND_CONV,
                   TFPPayload(operation=TFPOperation.FORM_CONVERGED, poll_id=poll_id,
                              selection=selection,
@@ -336,13 +338,13 @@ def run_demo() -> None:
     print("  PHASE 2 — SIEP  (Epistemic Grounding)")
     _hr("═")
 
-    siep_engine = SIEPEngine("coordinator", episode)
+    siep_engine = SIEPEngine("agent-alpha", episode)
 
     def _siep(sender: str) -> SIEPMessageBuilder:
         return SIEPMessageBuilder(episode, sender)
 
-    intent = record("SIEP", "2a · intent      (coordinator opens episode)",
-        _siep("coordinator").intent().team_process().concept(C_SCOPE).build())
+    intent = record("SIEP", "2a · intent      (agent-alpha opens episode)",
+        _siep("agent-alpha").intent().team_process().concept(C_SCOPE).build())
     siep_engine.process(intent)
     _print_l9("SIEP", "2a", intent)
 
@@ -392,7 +394,8 @@ def run_demo() -> None:
         },
         normal_utterance_template="{listener}, continue within the shared deliverable scope.",
     )
-    cip = CIPProcessor("cip-agent", episode, cip_config)
+    # cip-engine is a protocol-internal component; will become the Cognition Engine
+    cip = CIPProcessor("cip-engine", episode, cip_config)
 
     def _cip(sender: str) -> CIPMessageBuilder:
         return CIPMessageBuilder(episode, sender)
@@ -443,8 +446,8 @@ def run_demo() -> None:
     print("  PHASE 4 — SIEP  (Commit: epistemic alignment restored)")
     _hr("═")
 
-    siep_commit = record("SIEP", "4a · commit      (coordinator confirms alignment)",
-        _siep("coordinator")
+    siep_commit = record("SIEP", "4a · commit      (agent-alpha confirms alignment)",
+        _siep("agent-alpha")
         .commit_converged().grounding().concept(C_SCOPE)
         .parents(intent.header.message.id)
         .payload(SIEPPayload(
