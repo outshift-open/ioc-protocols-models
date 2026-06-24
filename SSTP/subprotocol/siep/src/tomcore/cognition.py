@@ -151,6 +151,9 @@ class AgentTOM:
         if has_concepts:
             verified, score = contingency_check(listener_prior_epistemic, speaker_epistemic)
             repair = diagnose_repair_reason(listener_prior_epistemic, speaker_epistemic)
+            # Structural check covers scope/evidence contingency; call LLM for ambiguity
+            # which the structural path cannot detect.
+            amb = self.detect_ambiguity(utterance=utterance, task_goal=task_goal)
             return {
                 "aligned": verified,
                 "alignment_score": score,
@@ -159,8 +162,8 @@ class AgentTOM:
                 "derailment_cause": repair.value if repair is not None else None,
                 "grounding_failure": not verified,
                 "contingency_score": score,
-                "ambiguous": False,
-                "ambiguity_score": 0.0,
+                "ambiguous": amb.get("ambiguous", False),
+                "ambiguity_score": amb.get("ambiguity_score", 0.0),
                 "judge_confidence": 1.0,
                 "critique": "structural_grounding_check",
             }
