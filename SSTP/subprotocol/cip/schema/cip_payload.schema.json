@@ -108,9 +108,16 @@
           "title": "Addresses Evidence",
           "type": "array"
         },
-        "turn_depth": {
+        "ring_round": {
           "default": 0,
-          "title": "Turn Depth",
+          "description": "Pass through the agent ring (0 = first pass).",
+          "title": "Ring Round",
+          "type": "integer"
+        },
+        "repair_depth": {
+          "default": 0,
+          "description": "Recursion depth within a repair branch (0 = not in repair).",
+          "title": "Repair Depth",
           "type": "integer"
         }
       },
@@ -126,7 +133,8 @@
         "text": null,
         "evidence": [],
         "addresses_evidence": [],
-        "turn_depth": 0
+        "ring_round": 0,
+        "repair_depth": 0
       }
     },
     "grounding": {

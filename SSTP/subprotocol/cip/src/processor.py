@@ -150,7 +150,7 @@ class CIPProcessor:
             task_goal=concept_id,
         )
         challenges = list(payload.grounding.challenges) or ([concept_id] if concept_id else [])
-        turn_depth = payload.utterance.turn_depth + 1
+        repair_depth = payload.utterance.repair_depth + 1
         text = f"{guidance} reason={repair_reason}; address={challenges or ['current_concept']}"
         return (
             self._builder()
@@ -162,7 +162,8 @@ class CIPProcessor:
                     text=text,
                     evidence=[concept_id] if concept_id else [],
                     addresses_evidence=challenges,
-                    turn_depth=turn_depth,
+                    ring_round=payload.utterance.ring_round,
+                    repair_depth=repair_depth,
                 ),
                 grounding=CIPGrounding(
                     contingency_verified=False,
@@ -194,7 +195,7 @@ class CIPProcessor:
                     text=text,
                     evidence=list(payload.utterance.evidence),
                     addresses_evidence=list(payload.utterance.addresses_evidence),
-                    turn_depth=payload.utterance.turn_depth,
+                    ring_round=payload.utterance.ring_round,
                 ),
                 grounding=CIPGrounding(
                     contingency_verified=True,

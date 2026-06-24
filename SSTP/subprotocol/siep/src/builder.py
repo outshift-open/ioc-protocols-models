@@ -11,8 +11,7 @@ from enum import Enum
 from typing import Any, List, Optional
 import uuid
 
-from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, Context, Semantic, Kind
-from SSTP.subprotocol.siep.src.siep_models import Actors, Message, SIEPEpistemic as Epistemic
+from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, Context, Semantic, Kind, ParticipantSet as Actors, Message
 from SSTP.subprotocol.siep.src.siep_payload import (
     SIEPMessagePayload,
     SIEPBeliefBlock,
@@ -83,7 +82,8 @@ class SIEPUtterance:
     text: Optional[str] = None
     evidence: List[str] = field(default_factory=list)
     addresses_evidence: List[str] = field(default_factory=list)
-    turn_depth: int = 0
+    ring_round: int = 0
+    repair_depth: int = 0
 
 
 @dataclass
@@ -235,7 +235,7 @@ class SIEPMessageBuilder:
 
         msg_id = str(uuid.uuid4())
         payload = self._to_pydantic_payload()
-        siep_ep = Epistemic(
+        siep_ep = SIEPEpistemic(
             message_act=self._msg_act.value if self._msg_act else None,
             state=self._ep_state.value if self._ep_state else None,
             belief_status=self._belief_status.value if self._belief_status else None,
@@ -253,8 +253,8 @@ class SIEPMessageBuilder:
                 version="0.0.3",
                 kind=self._kind.value,
                 subkind=self._subkind.value if self._subkind else None,
-                participants=Actors(actors=[Actor(id=self._sender, role="sender")]).model_dump(),
-                message=Message(id=msg_id, parents=list(self._parents), episode=self._ep).to_base_dict(),
+                participants=Actors(actors=[Actor(id=self._sender, role="sender")], groups=None).model_dump(),
+                message=Message(id=msg_id, parents=list(self._parents), episode=self._ep).model_dump(),
                 attributes=attributes,
                 context=Context(
                     topic=self._concept or "",
@@ -278,7 +278,8 @@ class SIEPMessageBuilder:
                 text=self._text or internal.utterance.text,
                 evidence=list(internal.utterance.evidence),
                 addresses_evidence=list(internal.utterance.addresses_evidence),
-                turn_depth=internal.utterance.turn_depth,
+                ring_round=internal.utterance.ring_round,
+                repair_depth=internal.utterance.repair_depth,
             ),
             grounding=SIEPGroundingBlock(
                 contingency_verified=internal.grounding.contingency_verified,

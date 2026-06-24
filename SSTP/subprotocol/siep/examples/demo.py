@@ -191,7 +191,7 @@ def _print_message(msg: L9) -> None:
     print("  siep.utterance :")
     print(f"    evidence          = {siep_payload.utterance.evidence}")
     print(f"    addresses_evidence= {siep_payload.utterance.addresses_evidence}")
-    print(f"    turn_depth        = {siep_payload.utterance.turn_depth}")
+    print(f"    ring_round        = {siep_payload.utterance.ring_round}")
     print("  siep.grounding :")
     print(f"    contingency_verified = {siep_payload.grounding.contingency_verified}")
     print(f"    contingency_score    = {siep_payload.grounding.contingency_score}")

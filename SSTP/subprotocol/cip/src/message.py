@@ -3,7 +3,7 @@
 """IE payload v0.1 — Interaction Engine wire payload.
 
 CIPPayload carries the IE-specific content of a message:
-  utterance — evidence URIs, addresses_evidence, turn_depth
+  utterance — evidence URIs, addresses_evidence, ring_round
   grounding — contingency verification state
   belief    — prior (GAR anchor) and posterior
 
@@ -27,14 +27,14 @@ class CIPUtteranceBlock:
     ``evidence`` carries supporting evidence concept URIs for the argument.
     The primary concept being asserted is in L9 epistemic.concept_id.
 
-    ``turn_depth``:
-      0 = top-level exchange or initial_prior
-      >0 = inside a repair branch
+    ``ring_round``:   pass through the agent ring (0 = first pass)
+    ``repair_depth``: recursion depth within a repair branch (0 = not in repair)
     """
     evidence:           List[str]    # supporting evidence concept URIs
     addresses_evidence: List[str]    # concept URIs from the prior turn being engaged;
                                      # input to contingency_check(); empty on first turn
-    turn_depth:         int = 0
+    ring_round:         int = 0
+    repair_depth:       int = 0
 
 
 @dataclass
@@ -82,7 +82,8 @@ class CIPPayload:
             "utterance": {
                 "evidence":           list(self.utterance.evidence),
                 "addresses_evidence": list(self.utterance.addresses_evidence),
-                "turn_depth":         self.utterance.turn_depth,
+                "ring_round":         self.utterance.ring_round,
+                "repair_depth":       self.utterance.repair_depth,
             },
             "grounding": {
                 "contingency_verified": self.grounding.contingency_verified,
@@ -106,7 +107,8 @@ class CIPPayload:
             utterance=CIPUtteranceBlock(
                 evidence=list(u.get("evidence") or u.get("concept_ids", [])),
                 addresses_evidence=list(u.get("addresses_evidence", [])),
-                turn_depth=int(u.get("turn_depth", 0)),
+                ring_round=int(u.get("ring_round", 0)),
+                repair_depth=int(u.get("repair_depth", 0)),
             ),
             grounding=CIPGroundingBlock(
                 contingency_verified=g.get("contingency_verified"),
