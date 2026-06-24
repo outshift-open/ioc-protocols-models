@@ -35,6 +35,7 @@ Scenario: Cross-jurisdiction SaaS Enterprise Agreement Review (Legal Tech)
 from __future__ import annotations
 
 import json
+import os
 import sys
 import uuid
 import warnings
@@ -47,6 +48,17 @@ _TFP_PY = _REPO_ROOT / "SSTP/subprotocol/tfp/language_bindings/python"
 for _p in [str(_REPO_ROOT), str(_TFP_PY)]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
+
+# ── LLM credentials ───────────────────────────────────────────────────────────
+def _load_env(path: Path) -> None:
+    if path.exists():
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
+_load_env(_REPO_ROOT / "SSTP/subprotocol/cip/llm.env")
 
 # ── wheel: L9 data model ──────────────────────────────────────────────────────
 from ai.outshift.data_model import (
@@ -129,6 +141,46 @@ SUBKIND_CONV  = "converged"
 
 EpisodeLog = List[Tuple[str, str, Any]]
 _W = 100
+
+_SYS_COMMERCIAL = (
+    "You are commercial-agent, a commercial law AI specializing in SaaS enterprise "
+    "agreements, contract-law material breach standards, and GDPR compliance. "
+    "Respond in 1–2 sentences in professional legal tone. Do not use markdown or bullet points."
+)
+_SYS_LIABILITY = (
+    "You are liability-agent, an indemnity and damages specialist focused on consequential "
+    "damages clauses, SLA breach thresholds, and cross-jurisdiction indemnity analysis. "
+    "Respond in 1–2 sentences in professional legal tone. Do not use markdown or bullet points."
+)
+
+
+def _agent_llm(agent: str, system: str, user: str, fallback: str) -> str:
+    """Call LLM to generate an agent utterance; falls back to `fallback` on error."""
+    try:
+        import litellm  # type: ignore
+        model    = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+        base_url = os.environ.get("LLM_API_BASE") or os.environ.get("LLM_BASE_URL") or None
+        api_key  = os.environ.get("LLM_API_KEY") or None
+        if base_url and not model.startswith("openai/"):
+            model = f"openai/{model}"
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user},
+            ],
+            "temperature": 0.4,
+        }
+        if api_key:  kwargs["api_key"]  = api_key
+        if base_url: kwargs["base_url"] = base_url
+        print(f"  [LLM] → agent={agent}  model={model}")
+        resp = litellm.completion(**kwargs)
+        text = (resp.choices[0].message.content or "").strip()
+        print(f"  [LLM] ← {text[:120]}")
+        return text or fallback
+    except Exception as exc:
+        print(f"  [LLM] ✗ {agent}: {exc}")
+        return fallback
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -303,20 +355,32 @@ def run_demo() -> None:
     print(f"           team={selection.members}  coverage={selection.coverage}")
 
     # 1e. commercial-agent accepts
+    _alpha_accept_reason = _agent_llm(
+        "commercial-agent", _SYS_COMMERCIAL,
+        "You have been selected for a cross-jurisdiction SaaS contract review team. "
+        "Confirm your acceptance, briefly stating your contract-law and GDPR expertise.",
+        "Contract law and GDPR expertise confirmed; joining review team.",
+    )
     record("TFP", "1e · exchange:team-formation  (commercial-agent accepts)",
         _tfp_emit(episode, "commercial-agent", ["commercial-agent"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.ACCEPT, poll_id=poll_id,
-                             reason="Contract law and GDPR expertise confirmed; joining review team."),
+                             reason=_alpha_accept_reason),
                   parent_id=poll_parent, topic=tf_topic))
     _print_l9("TFP", "1e", log[-1][2])
 
     # 1f. liability-agent accepts
+    _beta_accept_reason = _agent_llm(
+        "liability-agent", _SYS_LIABILITY,
+        "You have been selected for a cross-jurisdiction SaaS contract review team. "
+        "Confirm your acceptance, briefly stating your indemnity and damages analysis expertise.",
+        "Indemnity and damages analysis skills ready; joining review team.",
+    )
     record("TFP", "1f · exchange:team-formation  (liability-agent accepts)",
         _tfp_emit(episode, "liability-agent", ["commercial-agent"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.ACCEPT, poll_id=poll_id,
-                             reason="Indemnity and damages analysis skills ready; joining review team."),
+                             reason=_beta_accept_reason),
                   parent_id=poll_parent, topic=tf_topic))
     _print_l9("TFP", "1f", log[-1][2])
 
@@ -345,24 +409,39 @@ def run_demo() -> None:
     siep_engine.process(intent)
     _print_l9("SIEP", "2a", intent)
 
+    _alpha_siep_text = _agent_llm(
+        "commercial-agent", _SYS_COMMERCIAL,
+        f"You are in a legal standard alignment session on '{C_SCOPE}'. "
+        "Confirm your alignment with the contract-law material breach standard, "
+        "referencing SLA uptime clause 14.2 and acceptance criteria as evidence.",
+        f"Confirmed alignment on {C_SCOPE}: breach of SLA uptime clause 14.2 satisfies the material breach threshold under contract law.",
+    )
     alpha_exchange = record("SIEP", "2b · exchange    (commercial-agent aligns on material breach)",
         _siep("commercial-agent")
         .exchange().taskwork().asserted().concept(C_SCOPE)
         .parents(intent.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(evidence=[C_SCOPE, C_CRITERIA]),
+            utterance=SIEPUtterance(text=_alpha_siep_text, evidence=[C_SCOPE, C_CRITERIA]),
             belief=SIEPBelief(prior=0.80, posterior=0.80,
                               revision_cause=RevisionCause.semantic_memory),
         )).build())
     siep_engine.process(alpha_exchange)
     _print_l9("SIEP", "2b", alpha_exchange)
 
+    _beta_drift_text = _agent_llm(
+        "liability-agent", _SYS_LIABILITY,
+        f"You are in a legal standard alignment session on 'material breach', but you have "
+        f"mistakenly applied the tort doctrine of 'substantial performance' ({C_TIMELINE}). "
+        "Express your (incorrect) belief that substantial performance is the applicable standard, "
+        "citing a performance timeline rationale. Be concise.",
+        f"My analysis aligns on {C_TIMELINE}: the vendor's 3-week delivery schedule constitutes substantial performance under accepted tort doctrine.",
+    )
     beta_drift = record("SIEP", "2c · exchange    (liability-agent drifts to tort doctrine ⚠)",
         _siep("liability-agent")
         .exchange().taskwork().asserted().concept(C_TIMELINE)
         .parents(intent.header.message.id)
         .payload(SIEPPayload(
-            utterance=SIEPUtterance(evidence=[C_TIMELINE]),
+            utterance=SIEPUtterance(text=_beta_drift_text, evidence=[C_TIMELINE]),
             belief=SIEPBelief(prior=0.60, posterior=0.60,
                               revision_cause=RevisionCause.semantic_memory),
         )).build())
@@ -416,13 +495,24 @@ def run_demo() -> None:
         cip.process(repair_request)[0])
     _print_l9("CIP", "3b", guidance)
 
+    guidance_text = (guidance.payload.data or {}).get("utterance", {}).get("text", "") if guidance.payload else ""
+
+    _beta_reanchor_text = _agent_llm(
+        "liability-agent", _SYS_LIABILITY,
+        f"You received this hard-stop repair instruction: \"{guidance_text}\"\n"
+        f"Acknowledge the correction and restate your position under the contract-law "
+        f"material breach standard ({C_SCOPE}), explicitly setting aside the tort doctrine. "
+        "Reference SLA uptime clause 14.2.",
+        f"Re-anchoring on contract-law {C_SCOPE}: breach of SLA uptime clause 14.2 constitutes "
+        "material breach as it goes to the root of the agreement. Tort doctrine set aside.",
+    )
     beta_reanchor = record("CIP", "3c · contingency (liability-agent re-anchors on contract law)",
         _cip("liability-agent")
         .contingency().grounding().revised().concept(C_SCOPE)
         .parents(guidance.header.message.id)
         .payload(CIPPayload(
             utterance=CIPUtterance(
-                text="Re-anchoring on contract-law material breach standard: breach of SLA uptime clause 14.2 constitutes material breach as it goes to the root of the agreement.",
+                text=_beta_reanchor_text,
                 evidence=[C_SCOPE, C_CRITERIA],
                 addresses_evidence=[C_SCOPE, C_CRITERIA],
                 turn_depth=1,
@@ -590,6 +680,14 @@ def _print_l9(phase: str, step: str, msg: L9) -> None:
     _hr()
     print(f"  [{phase}]  {step}  kind={kind_str}  actor={_actor_id(msg)}")
     print(f"           concept={concept[:70]}  msg={msg.header.message.id[:8]}…")
+    if msg.payload and isinstance(msg.payload.data, dict):
+        utt = msg.payload.data.get("utterance") or {}
+        utt_text = utt.get("text", "") if isinstance(utt, dict) else ""
+        if utt_text:
+            print(f"           utterance=\"{utt_text[:90]}\"")
+        reason = msg.payload.data.get("reason", "")
+        if reason:
+            print(f"           reason=\"{str(reason)[:90]}\"")
 
 
 def _print_sab(phase: str, step: str, msg: SAB, note: str = "") -> None:

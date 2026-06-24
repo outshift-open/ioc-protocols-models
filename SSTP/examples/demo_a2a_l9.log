@@ -1,0 +1,693 @@
+LiteLLMClient.complete_json failed task=tom_belief_seed: Expecting value: line 1 column 1 (char 0)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  STEP 1 — TFP   (Team Formation via Polling)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [TFP]  1a · POLL_OPEN  (commercial-agent opens poll)
+  ② A2A Message
+       msg_id   = 51ae81eb…
+       role     = user
+       task_id  = 01ed5cb7…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/TFP/intent:team-formation"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = TFP
+     │   .version     = 0
+     │   .kind        = intent:team-formation
+     │   .message.id      = 6b92b0f9…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = []
+     │   .participants.sender    = commercial-agent
+     │   .context.topic = Forming a team to Review cross-jurisdiction SaaS enterprise agree
+     └─ L9Payload
+         .type = json-schema
+         .data.operation = poll_open
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [TFP]  1b · BID  (commercial-agent bids)
+  ② A2A Message
+       msg_id   = 12a31f91…
+       role     = agent
+       task_id  = 01ed5cb7…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/TFP/exchange:team-formation"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = TFP
+     │   .version     = 0
+     │   .kind        = exchange:team-formation
+     │   .message.id      = b55b5441…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = ['6b92b0f9…']
+     │   .participants.sender    = commercial-agent
+     │   .participants.receivers = ['commercial-agent']
+     │   .context.topic = Forming a team to Review cross-jurisdiction SaaS enterprise agree
+     └─ L9Payload
+         .type = json-schema
+         .data.operation = bid
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [TFP]  1c · BID  (liability-agent bids)
+  ② A2A Message
+       msg_id   = 29402a98…
+       role     = agent
+       task_id  = 01ed5cb7…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/TFP/exchange:team-formation"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = TFP
+     │   .version     = 0
+     │   .kind        = exchange:team-formation
+     │   .message.id      = cc533afd…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = ['6b92b0f9…']
+     │   .participants.sender    = liability-agent
+     │   .participants.receivers = ['commercial-agent']
+     │   .context.topic = Forming a team to Review cross-jurisdiction SaaS enterprise agree
+     └─ L9Payload
+         .type = json-schema
+         .data.operation = bid
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [TFP]  1d · SELECT  (commercial-agent selects team)
+  note : team=['commercial-agent', 'liability-agent']  coverage=1.0
+  ② A2A Message
+       msg_id   = 00015eab…
+       role     = agent
+       task_id  = 01ed5cb7…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/TFP/exchange:team-formation"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = TFP
+     │   .version     = 0
+     │   .kind        = exchange:team-formation
+     │   .message.id      = 05614081…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = ['6b92b0f9…']
+     │   .participants.sender    = commercial-agent
+     │   .participants.receivers = ['commercial-agent', 'liability-agent']
+     │   .context.topic = Forming a team to Review cross-jurisdiction SaaS enterprise agree
+     └─ L9Payload
+         .type = json-schema
+         .data.operation = select
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+  [LLM] → agent=commercial-agent  model=openai/bedrock/global.anthropic.claude-opus-4-6-v1
+  [LLM] ← Confirmed—I accept my role on the cross-jurisdiction SaaS review team. My expertise covers SaaS enterprise agreement str
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [TFP]  1e · ACCEPT  (commercial-agent accepts)
+  ② A2A Message
+       msg_id   = 4dccc809…
+       role     = agent
+       task_id  = 01ed5cb7…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/TFP/exchange:team-formation"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = TFP
+     │   .version     = 0
+     │   .kind        = exchange:team-formation
+     │   .message.id      = dc54a6d4…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = ['6b92b0f9…']
+     │   .participants.sender    = commercial-agent
+     │   .participants.receivers = ['commercial-agent']
+     │   .context.topic = Forming a team to Review cross-jurisdiction SaaS enterprise agree
+     └─ L9Payload
+         .type = json-schema
+         .data.operation = accept
+         .data.reason    = "Confirmed—I accept my role on the cross-jurisdiction SaaS review team. My expert"
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))LiteLLMClient.complete_json failed task=tom_belief_seed: Expecting value: line 1 column 1 (char 0)
+
+  [LLM] → agent=liability-agent  model=openai/bedrock/global.anthropic.claude-opus-4-6-v1
+  [LLM] ← Confirmed—I accept my role on the cross-jurisdiction SaaS review team. My expertise covers consequential damages clauses
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [TFP]  1f · ACCEPT  (liability-agent accepts)
+  ② A2A Message
+       msg_id   = 2e7bf9d1…
+       role     = agent
+       task_id  = 01ed5cb7…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/TFP/exchange:team-formation"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = TFP
+     │   .version     = 0
+     │   .kind        = exchange:team-formation
+     │   .message.id      = b92cf5ba…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = ['6b92b0f9…']
+     │   .participants.sender    = liability-agent
+     │   .participants.receivers = ['commercial-agent']
+     │   .context.topic = Forming a team to Review cross-jurisdiction SaaS enterprise agree
+     └─ L9Payload
+         .type = json-schema
+         .data.operation = accept
+         .data.reason    = "Confirmed—I accept my role on the cross-jurisdiction SaaS review team. My expert"
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [TFP]  1g · commit:converged  (team formed ✓)
+  ② A2A Message
+       msg_id   = 703b0804…
+       role     = agent
+       task_id  = 01ed5cb7…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/TFP/commit:converged"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = TFP
+     │   .version     = 0
+     │   .kind        = commit:converged
+     │   .message.id      = 9f172511…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = ['6b92b0f9…']
+     │   .participants.sender    = commercial-agent
+     │   .context.topic = Forming a team to Review cross-jurisdiction SaaS enterprise agree
+     └─ L9Payload
+         .type = json-schema
+         .data.operation = form_converged
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  STEP 2 — SIEP  (Legal Standard Alignment: aligning on "material breach")
+════════════════════════════════════════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [SIEP]  2a · intent  (commercial-agent opens alignment session)
+  ② A2A Message
+       msg_id   = d1b0160b…
+       role     = user
+       task_id  = 25256f7a…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/SIEP/intent"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = SIEP
+     │   .version     = 0.0.3
+     │   .kind        = intent
+     │   .message.id      = 1e573648…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = []
+     │   .participants.sender    = commercial-agent
+     │   .context.topic = concept:material_breach
+     └─ L9Payload
+         .type = siep
+         .data.utterance.text     = ""
+         .data.belief.prior          = 0.5
+         .data.belief.posterior      = 0.5
+         .data.belief.revision_cause = None
+         .data.grounding.repair_reason     = None
+         .data.grounding.contingency_score = None
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+  [LLM] → agent=commercial-agent  model=openai/bedrock/global.anthropic.claude-opus-4-6-v1
+  [LLM] ← A material breach under contract law occurs when a party fails to perform a substantial obligation that goes to the esse
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [SIEP]  2b · exchange  (commercial-agent aligns on material breach)
+  ② A2A Message
+       msg_id   = f52422be…
+       role     = agent
+       task_id  = 25256f7a…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/SIEP/exchange"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = SIEP
+     │   .version     = 0.0.3
+     │   .kind        = exchange
+     │   .message.id      = 369241bb…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = ['1e573648…']
+     │   .participants.sender    = commercial-agent
+     │   .context.topic = concept:material_breach
+     └─ L9Payload
+         .type = siep
+         .data.utterance.text     = "A material breach under contract law occurs when a party fails to perform a subs"
+         .data.utterance.evidence = ['concept:material_breach', 'concept:sla_breach_threshold']
+         .data.belief.prior          = 0.8
+         .data.belief.posterior      = 0.8
+         .data.belief.revision_cause = semantic_memory
+         .data.grounding.repair_reason     = None
+         .data.grounding.contingency_score = None
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+  [LLM] → agent=liability-agent  model=openai/bedrock/global.anthropic.claude-opus-4-6-v1
+  [LLM] ← I believe that under the material breach analysis, the obligor's delivery of 92% of contracted services by the Day 60 mi
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [SIEP]  2c · exchange  (liability-agent drifts to tort doctrine ⚠)
+  note : ⚠ mismatch: 'concept:substantial_performance' (tort) ≠ 'concept:material_breach' (contract-law) → escalate to CIP
+  ② A2A Message
+       msg_id   = 49d2ffe8…
+       role     = agent
+       task_id  = 25256f7a…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/SIEP/exchange"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = SIEP
+     │   .version     = 0.0.3
+     │   .kind        = exchange
+     │   .message.id      = 05c45af7…
+     │   .message.episode = …-e8e5-47a0-a186-5bcb411033da
+     │   .message.parents = ['1e573648…']
+     │   .participants.sender    = liability-agent
+     │   .context.topic = concept:substantial_performance
+     └─ L9Payload
+         .type = siep
+         .data.utterance.text     = "I believe that under the material breach analysis, the obligor's delivery of 92%"
+         .data.utterance.evidence = ['concept:substantial_performance']
+         .data.belief.prior          = 0.6
+         .data.belief.posterior      = 0.6
+         .data.belief.revision_cause = semantic_memory
+         .data.grounding.repair_reason     = None
+         .data.grounding.contingency_score = None
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  STEP 3 — CIP   (Contingency Repair: doctrine mismatch on liability-agent)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [CIP]  3a · contingency  (commercial-agent raises repair request)
+  ② A2A Message
+       msg_id   = 4b9b2a1a…
+       role     = user
+       task_id  = 22d41124…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/CIP/contingency"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = CIP
+     │   .version     = 0.0.3
+     │   .kind        = contingency
+     │   .message.id      = 607d1b79…
+     │   .message.episode = …-3455-42df-aa05-fce25e0773dc
+     │   .message.parents = ['05c45af7…']
+     │   .participants.sender    = commercial-agent
+     │   .context.topic = concept:material_breach
+     └─ L9Payload
+         .type = cip
+         .data.utterance.text     = "repair_required:reason=scope_mismatch:target=liability-agent"
+         .data.belief.prior          = 0.5
+         .data.belief.posterior      = 0.5
+         .data.belief.revision_cause = None
+         .data.grounding.repair_reason     = scope_mismatch
+         .data.grounding.contingency_score = 0.0
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+
+  [LLM] → task='tom_agent_utterance'  model=openai/bedrock/global.anthropic.claude-opus-4-6-v1
+  [LLM] ← {"utterance": "I need to flag a critical issue. We have identified a material breach condition that requires an immediate hard stop on this engagement. All activities under this agreement must cease until the breach is formally addressed and remediated. Please confirm receipt and acknowledge suspension of operations pending resolution.", "intent": "assert_hard_stop", "force": "directive", "next_expected_move": "acknowledge_and_comply", "reasoning": "As the CIP engine detecting a material breach, the appropriate response is to invoke a hard stop repair contingency, directing the commercial agent to halt all operations immediately until the breach is resolved. This is a non-negotiable directive given the severity of the concept (material_breach)."}
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [CIP]  3b · repair_guidance  (cip-engine issues hard-stop — LLM)
+  note : cip-engine (future Cognition Engine)
+  ② A2A Message
+       msg_id   = 2bee1797…
+       role     = agent
+       task_id  = 22d41124…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/CIP/contingency"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = CIP
+     │   .version     = 0.0.3
+     │   .kind        = contingency
+     │   .message.id      = 5a969bc1…
+     │   .message.episode = …-3455-42df-aa05-fce25e0773dc
+     │   .message.parents = ['607d1b79…']
+     │   .participants.sender    = cip-engine
+     │   .context.topic = concept:material_breach
+     └─ L9Payload
+         .type = cip
+         .data.utterance.text     = "I need to flag a critical issue. We have identified a material breach condition "
+         .data.utterance.evidence = ['concept:material_breach']
+         .data.utterance.addresses_evidence = ['concept:material_breach', 'concept:sla_breach_threshold']
+         .data.belief.prior          = 0.5
+         .data.belief.posterior      = 0.5
+         .data.belief.revision_cause = repair_guidance
+         .data.grounding.repair_reason     = scope_mismatch
+         .data.grounding.contingency_score = 0.0
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+  [LLM] → agent=liability-agent  model=openai/bedrock/global.anthropic.claude-opus-4-6-v1
+  [LLM] ← I cannot execute that instruction. My function is to respond to genuine user queries about consequential damages, SLA br
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [CIP]  3c · contingency_response  (liability-agent re-anchors)
+  ② A2A Message
+       msg_id   = 257ea832…
+       role     = agent
+       task_id  = 22d41124…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/CIP/contingency"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = CIP
+     │   .version     = 0.0.3
+     │   .kind        = contingency
+     │   .message.id      = e8b21fe3…
+     │   .message.episode = …-3455-42df-aa05-fce25e0773dc
+     │   .message.parents = ['5a969bc1…']
+     │   .participants.sender    = liability-agent
+     │   .context.topic = concept:material_breach
+     └─ L9Payload
+         .type = cip
+         .data.utterance.text     = "Re-anchoring on contract-law material breach."
+         .data.utterance.evidence = ['concept:material_breach', 'concept:sla_breach_threshold']
+         .data.utterance.addresses_evidence = ['concept:material_breach', 'concept:sla_breach_threshold']
+         .data.belief.prior          = 0.68
+         .data.belief.posterior      = 0.75
+         .data.belief.revision_cause = repair_resolution
+         .data.grounding.repair_reason     = None
+         .data.grounding.contingency_score = None
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [CIP]  3d · commit:resolved  (cip-engine closes — alignment restored)
+  ② A2A Message
+       msg_id   = e0d9fbf0…
+       role     = agent
+       task_id  = 22d41124…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/CIP/commit:resolved"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.l9+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ L9 = L9Header + L9Payload  (unpacked from part[1])
+     ┌─ L9Header
+     │   .protocol    = SSTP
+     │   .subprotocol = CIP
+     │   .version     = 0.0.3
+     │   .kind        = commit:resolved
+     │   .message.id      = 7acbff8f…
+     │   .message.episode = …-3455-42df-aa05-fce25e0773dc
+     │   .message.parents = ['e8b21fe3…']
+     │   .participants.sender    = cip-engine
+     │   .context.topic = concept:material_breach
+     └─ L9Payload
+         .type = cip
+         .data.utterance.text     = "repair_verified:liability-agent re-anchored to concept:material_breach"
+         .data.utterance.evidence = ['concept:material_breach', 'concept:sla_breach_threshold']
+         .data.utterance.addresses_evidence = ['concept:material_breach', 'concept:sla_breach_threshold']
+         .data.belief.prior          = 0.68
+         .data.belief.posterior      = 0.75
+         .data.belief.revision_cause = repair_resolution
+         .data.grounding.repair_reason     = None
+         .data.grounding.contingency_score = 1.0
+     ✓ unpack_l9(part[1]) → L9.model_validate(MessageToDict(part.data))
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  STEP 4 — SAB   (Semantic Negotiation: consequential damages clause)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [SAB]  4a · negotiate_open  (commercial-agent opens SAB)
+  note : issues: governing_interpretation × damages_cap
+  ② A2A Message
+       msg_id   = 5cc25fa0…
+       role     = user
+       task_id  = 7d652b18…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/SAB/contingency:negotiate"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.sab+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ SAB = SABHeader + SABPayload  (unpacked from part[1])
+     ┌─ SABHeader
+     │   .subprotocol = SAB
+     │   .kind        = contingency:negotiate
+     │   .message.id  = 9b36c135…
+     │   .participants.sender   = commercial-agent
+     │   .participants.receiver = topic:sab/sessions
+     └─ SABPayload
+     ✓ unpack_sab(part[1]) → SAB.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [SAB]  4b · negotiate  (commercial→liability: us_standard / 6_months_fees)
+  ② A2A Message
+       msg_id   = 39b9860a…
+       role     = agent
+       task_id  = 7d652b18…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/SAB/contingency:negotiate"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.sab+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ SAB = SABHeader + SABPayload  (unpacked from part[1])
+     ┌─ SABHeader
+     │   .subprotocol = SAB
+     │   .kind        = contingency:negotiate
+     │   .message.id  = 131fda51…
+     │   .participants.sender   = commercial-agent
+     │   .participants.receiver = liability-agent
+     └─ SABPayload
+         .data.sao_state.step     = 0
+         .data.sao_state.proposer = commercial-agent
+         .data.current_offer.governing_interpretation = us_standard
+         .data.current_offer.damages_cap = 6_months_fees
+     ✓ unpack_sab(part[1]) → SAB.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [SAB]  4c · negotiate  (liability→commercial: uk_standard / 24_months_fees)
+  ② A2A Message
+       msg_id   = ec273b6c…
+       role     = agent
+       task_id  = 7d652b18…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/SAB/contingency:negotiate"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.sab+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ SAB = SABHeader + SABPayload  (unpacked from part[1])
+     ┌─ SABHeader
+     │   .subprotocol = SAB
+     │   .kind        = contingency:negotiate
+     │   .message.id  = 70a2aaa3…
+     │   .participants.sender   = liability-agent
+     │   .participants.receiver = commercial-agent
+     └─ SABPayload
+         .data.sao_state.step     = 1
+         .data.sao_state.proposer = liability-agent
+         .data.current_offer.governing_interpretation = uk_standard
+         .data.current_offer.damages_cap = 24_months_fees
+     ✓ unpack_sab(part[1]) → SAB.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [SAB]  4d · negotiate  (commercial→liability: hybrid / 12_months_fees)
+  ② A2A Message
+       msg_id   = 78b3d494…
+       role     = agent
+       task_id  = 7d652b18…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/SAB/contingency:negotiate"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.sab+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ SAB = SABHeader + SABPayload  (unpacked from part[1])
+     ┌─ SABHeader
+     │   .subprotocol = SAB
+     │   .kind        = contingency:negotiate
+     │   .message.id  = b53bdab0…
+     │   .participants.sender   = commercial-agent
+     │   .participants.receiver = liability-agent
+     └─ SABPayload
+         .data.sao_state.step     = 2
+         .data.sao_state.proposer = commercial-agent
+         .data.current_offer.governing_interpretation = hybrid
+         .data.current_offer.damages_cap = 12_months_fees
+     ✓ unpack_sab(part[1]) → SAB.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [SAB]  4e · negotiate  (liability-agent accepts ✓)
+  ② A2A Message
+       msg_id   = d4dde747…
+       role     = agent
+       task_id  = 7d652b18…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/SAB/contingency:negotiate"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.sab+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ SAB = SABHeader + SABPayload  (unpacked from part[1])
+     ┌─ SABHeader
+     │   .subprotocol = SAB
+     │   .kind        = contingency:negotiate
+     │   .message.id  = d5077b13…
+     │   .participants.sender   = liability-agent
+     │   .participants.receiver = commercial-agent
+     └─ SABPayload
+         .data.sao_state.step     = 3
+         .data.sao_state.proposer = commercial-agent
+         .data.current_offer.governing_interpretation = hybrid
+         .data.current_offer.damages_cap = 12_months_fees
+     ✓ unpack_sab(part[1]) → SAB.model_validate(MessageToDict(part.data))
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  [SAB]  4f · commit:converged  (damages clause agreed ✓)
+  note : governing=hybrid  cap=12_months_fees
+  ② A2A Message
+       msg_id   = da1c7e4a…
+       role     = agent
+       task_id  = 7d652b18…
+       parts    = 2
+       part[0] TextPart
+               .text       = "L9/SAB/commit:converged"
+       part[1] DataPart
+               .media_type = "application/vnd.sstp.sab+json"
+               .data       = struct_pb2.Value  keys=['header', 'payload']
+  ④ SAB = SABHeader + SABPayload  (unpacked from part[1])
+     ┌─ SABHeader
+     │   .subprotocol = SAB
+     │   .kind        = commit:converged
+     │   .message.id  = c8f6b28c…
+     │   .participants.sender   = commercial-agent
+     │   .participants.receiver = topic:sab/sessions
+     └─ SABPayload
+     ✓ unpack_sab(part[1]) → SAB.model_validate(MessageToDict(part.data))
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  A2A + L9 EPISODE SUMMARY
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  [TFP ]  1a · POLL_OPEN  (commercial-agent opens poll)
+  [TFP ]  1b · BID  (commercial-agent bids)
+  [TFP ]  1c · BID  (liability-agent bids)
+  [TFP ]  1d · SELECT  (commercial-agent selects team)
+  [TFP ]  1e · ACCEPT  (commercial-agent accepts)
+  [TFP ]  1f · ACCEPT  (liability-agent accepts)
+  [TFP ]  1g · commit:converged  (team formed ✓)
+  [SIEP]  2a · intent  (commercial-agent opens alignment session)
+  [SIEP]  2b · exchange  (commercial-agent aligns on material breach)
+  [SIEP]  2c · exchange  (liability-agent drifts to tort doctrine ⚠)
+  [CIP ]  3a · contingency  (commercial-agent raises repair request)
+  [CIP ]  3b · repair_guidance  (cip-engine issues hard-stop — LLM)
+  [CIP ]  3c · contingency_response  (liability-agent re-anchors)
+  [CIP ]  3d · commit:resolved  (cip-engine closes — alignment restored)
+  [SAB ]  4a · negotiate_open  (commercial-agent opens SAB)
+  [SAB ]  4b · negotiate  (commercial→liability: us_standard / 6_months_fees)
+  [SAB ]  4c · negotiate  (liability→commercial: uk_standard / 24_months_fees)
+  [SAB ]  4d · negotiate  (commercial→liability: hybrid / 12_months_fees)
+  [SAB ]  4e · negotiate  (liability-agent accepts ✓)
+  [SAB ]  4f · commit:converged  (damages clause agreed ✓)
+════════════════════════════════════════════════════════════════════════════════════════════════════
+  Total messages: 20
+════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  JSON (messages) → /Users/melidris/workspace/projects/ioc/ioc-cfn-protocols-models/SSTP/examples/demo_a2a_l9_messages.json
+  JSON (tasks)    → /Users/melidris/workspace/projects/ioc/ioc-cfn-protocols-models/SSTP/examples/demo_a2a_l9_tasks.json
+
+====================================================
+                     AgentCard                      
+====================================================
+--- General ---
+Name        : commercial-agent
+Description : Lead agent: contract law, GDPR compliance, team coordination.
+Version     : 1.0
+
+--- Interfaces ---
+  [0] a2a://agent-alpha  (A2A 1.1)
+
+--- Capabilities ---
+Streaming           : False
+Push notifications  : False
+Extended agent card : False
+
+--- I/O Modes ---
+Input  : application/vnd.sstp.l9+json
+Output : application/vnd.sstp.l9+json
+
+--- Skills ---
+----------------------------------------------------
+  ID          : contract_law
+  Name        : Contract Law
+  Description : Material breach standards.
+  Tags        : (none)
+----------------------------------------------------
+  ID          : gdpr_compliance
+  Name        : GDPR Compliance
+  Description : GDPR/CCPA data processing.
+  Tags        : (none)
+====================================================
+
+====================================================
+                     AgentCard                      
+====================================================
+--- General ---
+Name        : liability-agent
+Description : Participant: indemnity analysis, damages scope specialist.
+Version     : 1.0
+
+--- Interfaces ---
+  [0] a2a://agent-beta  (A2A 1.1)
+
+--- Capabilities ---
+Streaming           : False
+Push notifications  : False
+Extended agent card : False
+
+--- I/O Modes ---
+Input  : application/vnd.sstp.l9+json
+Output : application/vnd.sstp.l9+json
+
+--- Skills ---
+----------------------------------------------------
+  ID          : indemnity_analysis
+  Name        : Indemnity Analysis
+  Description : Indemnity and consequential damages.
+  Tags        : (none)
+====================================================
+
