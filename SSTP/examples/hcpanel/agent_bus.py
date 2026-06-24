@@ -15,22 +15,21 @@ import time
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, List, Optional
 
-from SSTP.subprotocol.siep.src.epistemic.stores import AgentBeliefStore, BeliefRevision, CommonGround
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
     SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block, RepairReason,
 )
 from SSTP.subprotocol.cip.src.grounding import diagnose_repair_reason
-from SSTP.examples.hcpanel.cip_l9 import build_l9_header
+from SSTP.subprotocol.cip.src.l9 import build_l9_header
 
 
 class ProtocolViolation(RuntimeError):
     """Raised when application code attempts to emit a lifecycle kind directly."""
 
 
-def get_cip_repair(header: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Return the cip-repair payload content from an L9 header, or None."""
+def get_ie_repair(header: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return the ie-repair payload content from an L9 header, or None."""
     for part in header.get("payload") or []:
-        if part.get("type") == "cip-repair":
+        if part.get("type") == "ie-repair":
             return part.get("content")
     return None
 
@@ -87,7 +86,7 @@ class AgentBus:
 
     @property
     def snp_trace(self) -> List[Dict[str, Any]]:
-        return [m for m in self.messages if m.get("subprotocol") == "SIEP"]
+        return [m for m in self.messages if m.get("subprotocol") == "SNP"]
 
     def emit_peer_turn(
         self,
@@ -127,7 +126,7 @@ class AgentBus:
         _payload_parts: List[Dict[str, Any]] = [_utt_part]
         if ie_payload is not None:
             _payload_parts.append(
-                {"type": "cip", "location": "inline", "content": ie_payload.to_dict()}
+                {"type": "ie", "location": "inline", "content": ie_payload.to_dict()}
             )
         _recipients = recipients if recipients is not None else (
             [receiver] if receiver and receiver != sender else []
@@ -190,7 +189,8 @@ class AgentBus:
         target_epistemic: "Optional[Dict[str, Any]]" = None,
         episode_id: "str | None" = None,
     ) -> Dict[str, Any]:
-        from SSTP.examples.hcpanel.cip_l9 import get_topic
+        from SSTP.subprotocol.cip.src.l9 import get_topic
+        _repair_topic = get_topic({"topic": None, "epistemic": target_epistemic}) if target_epistemic else None
         _reason_str = repair_reason.value if isinstance(repair_reason, RepairReason) else str(repair_reason)
         _utterance = f"repair_required:reason={_reason_str}:target={target_message_id}"
         header = build_l9_header(
@@ -214,7 +214,7 @@ class AgentBus:
             ],
         )
         header["payload"].append({
-            "type": "cip-repair",
+            "type": "ie-repair",
             "location": "inline",
             "content": {
                 "target_message_id": target_message_id,
@@ -304,7 +304,7 @@ class AgentBus:
         from SSTP.subprotocol.cip.src.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
         _utterance = f"initial_prior:{concept_id}:{posterior:.4f}"
         payload = IEPayload(
-            utterance=IEUtteranceBlock(evidence=list(evidence or [concept_id]), addresses_evidence=[], ring_round=0),
+            utterance=IEUtteranceBlock(evidence=list(evidence or [concept_id]), addresses_evidence=[], turn_depth=0),
             grounding=IEGroundingBlock(),
             belief=IEBeliefBlock(prior=prior, posterior=posterior, revision_cause="semantic_memory"),
         )
@@ -321,7 +321,7 @@ class AgentBus:
             epistemic=make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK),
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
-                {"type": "cip", "location": "inline", "content": payload.to_dict()},
+                {"type": "ie", "location": "inline", "content": payload.to_dict()},
             ],
         )
         self.messages.append(header)
@@ -393,7 +393,7 @@ class AgentBus:
         from SSTP.subprotocol.cip.src.message import get_part
 
         header = {k: v for k, v in envelope.items() if k != "payload"}
-        ie_content = get_part(envelope, "cip")
+        ie_content = get_part(envelope, "ie")
         grounding = ie_content.get("grounding") or {}
         utterance = ie_content.get("utterance") or {}
         belief = ie_content.get("belief") or {}
@@ -430,9 +430,10 @@ class AgentBus:
             replica.apply(header, payload=ie_content)
 
         if verified:
-            from SSTP.examples.hcpanel.cip_l9 import get_topic
+            from SSTP.subprotocol.cip.src.l9 import get_topic
             ep_concept_id = get_topic(header) or ""
             if belief_store is not None and ep_concept_id:
+                from SSTP.subprotocol.siep.src.epistemic.stores import BeliefRevision
                 sender = ((header.get("participants") or {}).get("actors") or header.get("actors") or [{}])[0].get("id", "unknown")
                 ep_id = (header.get("message") or {}).get("episode", "")
                 revision = BeliefRevision(
@@ -447,6 +448,7 @@ class AgentBus:
                                              revision, new_status="asserted",
                                              new_public_confidence=float(belief.get("posterior", 0.5)))
             if common_ground_store is not None:
+                from SSTP.subprotocol.siep.src.epistemic.stores import CommonGround
                 sender = ((header.get("participants") or {}).get("actors") or header.get("actors") or [{}])[0].get("id", "unknown")
                 ep = header.get("epistemic") or {}
                 prior_sender = ""
@@ -514,8 +516,7 @@ class AgentBus:
 
     def _emit_episode_open(self, *, coordinator: str, subject: str, episode_id: "str | None" = None,
                             rationale: str = "", thought_summary: str = "",
-                            team_process: "Dict[str, Any] | None" = None,
-                            recipients: "List[str] | None" = None) -> Dict[str, Any]:
+                            team_process: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
         _utterance = f"session:open subject={subject}"
         _utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": _utterance}
         if rationale:
@@ -533,7 +534,6 @@ class AgentBus:
                 sensitivity=self.sensitivity, utterance=_utterance,
                 episode_id=episode_id, kind_override="intent",
                 epistemic=_epistemic, payload_parts=_payload_parts,
-                recipients=recipients or [],
             )
         self.messages.append(header)
         return header
@@ -541,8 +541,7 @@ class AgentBus:
     def _emit_episode_close(self, *, coordinator: str, subject: str, accepted: bool,
                              episode_id: "str | None" = None, rationale: str = "",
                              thought_summary: str = "",
-                             summary: "Dict[str, Any] | None" = None,
-                             recipients: "List[str] | None" = None) -> Dict[str, Any]:
+                             summary: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
         _outcome = "commit:converged" if accepted else "commit:rejected"
         _utterance = f"session:close subject={subject} accepted={accepted}"
         payload_parts: List[Dict[str, Any]] = [{"type": "utterance", "location": "inline", "content": _utterance}]
@@ -560,7 +559,6 @@ class AgentBus:
                 sensitivity=self.sensitivity, utterance=_utterance,
                 episode_id=episode_id, kind_override=_outcome,
                 epistemic=_epistemic, payload_parts=payload_parts,
-                recipients=recipients or [],
             )
         self.messages.append(header)
         return header
@@ -575,21 +573,13 @@ class AgentBus:
                                        kind_override="commit:ready", episode_id=episode_id, epistemic=epistemic)
 
     def emit_grounding_phase_converged(self, *, coordinator: str, episode_id: "str | None" = None,
-                                        coordination_summary: "Dict[str, Any] | None" = None,
-                                        recipients: "List[str] | None" = None,
-                                        rationale: str = "",
-                                        thought_summary: str = "") -> Dict[str, Any]:
+                                        coordination_summary: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
         _status = (coordination_summary or {}).get("coordination_status", "aligned")
         _utterance = f"grounding:converged status={_status}"
-        _utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": _utterance}
-        if rationale:
-            _utt_part["rationale"] = rationale
-        if thought_summary:
-            _utt_part["thought_summary"] = thought_summary
-        payload_parts: List[Dict[str, Any]] = [_utt_part]
+        payload_parts: List[Dict[str, Any]] = [{"type": "utterance", "location": "inline", "content": _utterance}]
         if coordination_summary:
             payload_parts.append({"type": "team_process", "location": "inline", "content": coordination_summary})
-        _epistemic = make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS,
+        _epistemic = make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
                                           belief_status=BeliefStatus.ASSERTED, uncertainty=0.0)
         with self._lifecycle_emit():
             header = build_l9_header(
@@ -598,7 +588,6 @@ class AgentBus:
                 sensitivity=self.sensitivity, utterance=_utterance,
                 episode_id=episode_id, kind_override="commit:converged",
                 epistemic=_epistemic, payload_parts=payload_parts,
-                recipients=recipients or [],
             )
         self.messages.append(header)
         return header
@@ -607,25 +596,9 @@ class AgentBus:
                                     episode_id: "str | None" = None,
                                     coordination_summary: "Dict[str, Any] | None" = None,
                                     role: "str | None" = None,
-                                    recipients: "List[str] | None" = None,
-                                    patient_complaint: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
+                                    recipients: "List[str] | None" = None) -> Dict[str, Any]:
         _utterance = f"taskwork:open subject={subject}"
         payload_parts: List[Dict[str, Any]] = [{"type": "utterance", "location": "inline", "content": _utterance}]
-        if patient_complaint:
-            _complaint_text = "; ".join(patient_complaint.get("chat_history") or [])
-            _symptoms = ", ".join(patient_complaint.get("symptoms") or [])
-            _meds = ", ".join(patient_complaint.get("medications") or [])
-            _complaint_utterance = (
-                f"patient:{subject} symptoms=[{_symptoms}] medications=[{_meds}]"
-                + (f" complaint: {_complaint_text}" if _complaint_text else "")
-            )
-            payload_parts.append({
-                "type": "utterance",
-                "location": "inline",
-                "content": _complaint_utterance,
-                "rationale": "Patient intake establishing the clinical question for this episode.",
-                "thought_summary": f"Case {subject}: {_symptoms or 'see complaint'} on {_meds or 'current medications'}.",
-            })
         if coordination_summary:
             payload_parts.append({"type": "team_process", "location": "inline", "content": coordination_summary})
         _epistemic = make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS,
@@ -679,8 +652,7 @@ class AgentBus:
         revision_cause: str = "grounded_argument",
         evidence: "List[str] | None" = None,
         addresses_evidence: "List[str] | None" = None,
-        ring_round: int = 0,
-        repair_depth: int = 0,
+        turn_depth: int = 0,
         parent_id: "str | None" = None,
         episode_id: "str | None" = None,
         rationale: str = "",
@@ -690,7 +662,7 @@ class AgentBus:
     ) -> Dict[str, Any]:
         from SSTP.subprotocol.cip.src.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
         ie_payload = IEPayload(
-            utterance=IEUtteranceBlock(evidence=list(evidence or []), addresses_evidence=list(addresses_evidence or []), ring_round=ring_round, repair_depth=repair_depth),
+            utterance=IEUtteranceBlock(evidence=list(evidence or []), addresses_evidence=list(addresses_evidence or []), turn_depth=turn_depth),
             grounding=IEGroundingBlock(),
             belief=IEBeliefBlock(prior=prior, posterior=posterior, revision_cause=revision_cause),
         )
@@ -810,7 +782,7 @@ class HCPanelAgentBus(AgentBus):
         )
 
 
-__all__ = ["AgentBus", "HCPanelAgentBus", "ProtocolViolation", "get_cip_repair"]
+__all__ = ["AgentBus", "HCPanelAgentBus", "ProtocolViolation", "get_ie_repair"]
 
 class HealthcareAgentBus(AgentBus):
     def __init__(self, run_id: str, conversation_id: str) -> None:
@@ -905,40 +877,27 @@ class BeliefStoreProxy:
 class HCPanelAgentBus(HealthcareAgentBus):
     """HCPanel bus — adds public lifecycle wrappers for the two-phase episode structure."""
 
-    def emit_episode_open(self, *, coordinator: str, subject: str, episode_id: str,
-                           recipients: "List[str] | None" = None) -> Dict[str, Any]:
+    def emit_episode_open(self, *, coordinator: str, subject: str, episode_id: str) -> Dict[str, Any]:
         """kind=intent team_process — opens an episode (team-process or outer session)."""
-        return self._emit_episode_open(coordinator=coordinator, subject=subject, episode_id=episode_id,
-                                       recipients=recipients)
+        return self._emit_episode_open(coordinator=coordinator, subject=subject, episode_id=episode_id)
 
     def emit_episode_close(self, *, coordinator: str, subject: str, episode_id: str,
-                            accepted: bool = True,
-                            recipients: "List[str] | None" = None) -> Dict[str, Any]:
+                            accepted: bool = True) -> Dict[str, Any]:
         """kind=commit:converged — closes an episode."""
         return self._emit_episode_close(coordinator=coordinator, subject=subject,
-                                        episode_id=episode_id, accepted=accepted,
-                                        recipients=recipients)
+                                        episode_id=episode_id, accepted=accepted)
 
-    def emit_taskwork_open(self, *, coordinator: str, subject: str, episode_id: str,
-                            recipients: "List[str] | None" = None,
-                            patient_complaint: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
+    def emit_taskwork_open(self, *, coordinator: str, subject: str, episode_id: str) -> Dict[str, Any]:
         """kind=intent taskwork — opens the taskwork assessment episode."""
         return self.emit_taskwork_phase_intent(coordinator=coordinator, subject=subject,
-                                               episode_id=episode_id, recipients=recipients,
-                                               patient_complaint=patient_complaint)
+                                               episode_id=episode_id)
 
     def emit_team_process_close(self, *, coordinator: str, episode_id: str,
-                                 role_count: int = 0,
-                                 recipients: "List[str] | None" = None,
-                                 rationale: str = "",
-                                 thought_summary: str = "") -> Dict[str, Any]:
-        """kind=commit:converged team_process — closes the team-process episode."""
+                                 role_count: int = 0) -> Dict[str, Any]:
+        """kind=commit:converged grounding — closes the team-process episode."""
         return self.emit_grounding_phase_converged(
             coordinator=coordinator, episode_id=episode_id,
             coordination_summary={"coordination_status": "aligned", "role_count": role_count},
-            recipients=recipients,
-            rationale=rationale,
-            thought_summary=thought_summary,
         )
 
 

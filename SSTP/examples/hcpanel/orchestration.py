@@ -5,15 +5,9 @@
 """
 app/hcpanel/orchestration.py — Joint clinical debate orchestrator.
 
-Runs three L9 episode phases in sequence:
-  A. team process   — open_team_process → run → close
-  B. taskwork       — open_taskwork     → run → close
-  C. SIEP task      — open_task        → run → announce
-
-All protocol mechanics (belief seeding, ToM assessment, contingency repair,
-proposal/acceptance loops, SIEP star negotiation) are encapsulated inside
-the Episode API. The orchestrator handles domain data extraction and
-dependency injection only.
+Runs the SIEP star negotiation with inline CIP contingency gating.
+Team-process preamble and taskwork episodes are included for protocol
+correctness. Every IE exchange is assessed through ToM (assess_utterance).
 """
 
 from __future__ import annotations
@@ -23,10 +17,11 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
+from SSTP.examples.hcpanel.panel_bus import PanelBus, StarNegotiation
+from SSTP.subprotocol.siep.src.epistemic.stores import AgentBeliefStore, BeliefRevision
+
 from SSTP.examples.hcpanel.agent_bus import BeliefStoreProxy
 from SSTP.examples.hcpanel.domain import ClinicalDebateOutcome, SpecialistOpinion
-from SSTP.examples.hcpanel.episode import L9, TaskworkParticipant
-from SSTP.subprotocol.siep.src.epistemic.stores import AgentBeliefStore
 
 if TYPE_CHECKING:
     from SSTP.examples.hcpanel.specialists import PharmacologyController, PhysicianController, SpecialistAgent
@@ -72,6 +67,19 @@ def _build_role_assignments(
     ]
 
 
+def _extract_convergence_metrics(snp_trace: List[Dict[str, Any]]) -> Dict[str, float]:
+    for msg in reversed(snp_trace):
+        for part in msg.get("payload") or []:
+            if part.get("type") == "snp-convergence":
+                content = part.get("content") or {}
+                return {
+                    "gar": float(content.get("gar", 0.0)),
+                    "scr": float(content.get("scr", 0.0)),
+                    "mpc": float(content.get("mpc", 0.5)),
+                }
+    return {"gar": 0.0, "scr": 0.0, "mpc": 0.5}
+
+
 def _positions_to_opinions(
     specialist_positions: Dict[str, Any],
     all_specialists: List["SpecialistAgent"],
@@ -98,12 +106,17 @@ def _positions_to_opinions(
 
 
 def _flatten_rationale(value: Any) -> str:
-    """Return a plain-text string from a rationale that may be a dict, list, or str."""
+    """Return a plain-text string from a rationale that may be a dict, list, or str.
+
+    The Haiku LLM occasionally returns rationale as a nested JSON object with
+    keys like 'primary_reasoning'. Extract prose in that case rather than repr.
+    """
     if isinstance(value, dict):
         for key in ("primary_reasoning", "reasoning", "summary", "rationale", "text"):
             v = value.get(key)
             if isinstance(v, str) and v.strip():
                 return v.strip()
+        # fall back: join all string values
         parts = [str(v) for v in value.values() if isinstance(v, str) and str(v).strip()]
         return " ".join(parts).strip()
     if isinstance(value, list):
@@ -147,6 +160,113 @@ class DebateOrchestrator:
         self.tom_engine = tom_engine
         self.repair_fn = repair_fn
 
+    def _tom_assess(
+        self,
+        utterance: str,
+        speaker: str,
+        listener: str,
+        prior_utterance: str = "",
+        belief_store: Any = None,
+        concept_id: str = "",
+    ) -> Dict[str, Any]:
+        """Call assess_utterance on the listener's ToM agent after an IE exchange.
+
+        Returns the assessment dict so callers can act on ambiguity/grounding_failure.
+        Returns {} when tom_engine is not set or on error.
+        """
+        if self.tom_engine is None:
+            return {}
+        try:
+            listener_tom = self.tom_engine.agent(listener)
+            return listener_tom.assess_utterance(
+                utterance=utterance,
+                task_goal=_TASK_GOAL,
+                speaker=speaker,
+                listener=listener,
+                listener_prior_utterance=prior_utterance or None,
+                belief_store=belief_store,
+                concept_id=concept_id,
+                use_case="healthcare",
+            )
+        except Exception as exc:
+            LOGGER.warning("tom.assess_utterance failed speaker=%s listener=%s err=%s",
+                           speaker, listener, exc)
+            return {}
+
+    def _handle_taskwork_contingency(
+        self,
+        agent: Any,
+        pos: Dict[str, Any],
+        assessment: Dict[str, Any],
+        original_msg_id: str,
+        episode_id: str,
+        concept_id: str,
+    ) -> None:
+        """Open a contingency sub-episode when ToM detects ambiguity or grounding failure.
+
+        Emits: epistemic_clarification (kind=contingency) → clarification response
+        (kind=exchange) → commit:resolved. The clarification content is derived from
+        the agent's supporting_evidence and drug_change_proposal fields.
+        """
+        ambiguity_score = float(assessment.get("ambiguity_score", 0.0))
+        critique = str(assessment.get("critique", ""))
+        clarification_request = (
+            f"Clarification requested for {agent.agent_id} assertion on {concept_id}: "
+            f"ambiguity_score={ambiguity_score:.2f} critique={critique or 'grounding_failure'}"
+        )
+
+        clarif_hdr = self.ie_bus.emit_epistemic_clarification(
+            sender=_CONTROLLER_ID,
+            receiver=agent.agent_id,
+            target_message_id=original_msg_id,
+            reason=f"ambiguous_taskwork:score={ambiguity_score:.2f}",
+            episode_id=episode_id,
+        )
+
+        # Specialist responds with a clarified rationale
+        evidence = pos.get("supporting_evidence") or []
+        drug_changes = pos.get("drug_change_proposal") or pos.get("proposed_changes") or ""
+        clarification_text = (
+            str(pos.get("rationale") or pos.get("reasoning_summary") or "")
+            + (f" Supporting evidence: {', '.join(str(e) for e in evidence[:3])}." if evidence else "")
+            + (f" Proposed changes: {drug_changes}." if drug_changes else "")
+        ).strip()
+        if not clarification_text:
+            clarification_text = f"Reaffirming: {pos.get('likely_cause','?')} posterior={float(pos.get('posterior') or pos.get('confidence') or 0.5):.2f}"
+
+        clarif_response_hdr = self.ie_bus.emit_taskwork_result(
+            sender=agent.agent_id,
+            receiver=_CONTROLLER_ID,
+            utterance=clarification_text,
+            concept_id=concept_id,
+            posterior=float(pos.get("posterior") or pos.get("confidence") or 0.5),
+            episode_id=episode_id,
+        )
+
+        # Re-assess clarification through ToM before closing
+        clarif_assessment = self._tom_assess(
+            utterance=clarification_text,
+            speaker=agent.agent_id,
+            listener=_CONTROLLER_ID,
+            prior_utterance=clarification_request,
+            belief_store=agent.belief_store,
+            concept_id=concept_id,
+        )
+
+        resolution = "resolved" if clarif_assessment.get("aligned") or not clarif_assessment.get("grounding_failure") else "partial"
+        self.ie_bus.emit_repair_resolved(
+            sender=_CONTROLLER_ID,
+            receiver=agent.agent_id,
+            utterance=f"contingency_resolved:{concept_id}:{resolution}",
+            parent_id=clarif_hdr["message"]["id"],
+            episode_id=episode_id,
+        )
+        LOGGER.debug(
+            "taskwork.contingency_resolved agent=%s concept=%s resolution=%s aligned=%s",
+            agent.agent_id, concept_id, resolution,
+            clarif_assessment.get("aligned"),
+        )
+
     def run_joint_panel(
         self,
         patient: "PatientProfile",
@@ -163,14 +283,16 @@ class DebateOrchestrator:
         all_ids = [a.agent_id for a in all_specialists]
         all_positions = {**physician_positions, **pharmacy_positions}
 
-        # BeliefStoreProxy — routes PanelBus belief reads/writes to each
-        # specialist's private AgentBeliefStore.
+        # BeliefStoreProxy — routes all PanelBus belief reads/writes to the
+        # owning agent's private AgentBeliefStore.
+        # The controller gets its own private store (not shared with any specialist).
         controller_belief_store = AgentBeliefStore()
         agent_store_map = {agent.agent_id: agent.belief_store for agent in all_specialists}
         agent_store_map[_CONTROLLER_ID] = controller_belief_store
         belief_proxy = BeliefStoreProxy(agent_store_map)
 
-        # Seed ToM engine with specialist roles.
+        # Seed ToM engine with specialist roles so predict_peer_response has
+        # a non-empty peer model from round 1 onward.
         if self.tom_engine is not None:
             session_ctx = {
                 "patient_id": patient.patient_id,
@@ -184,26 +306,22 @@ class DebateOrchestrator:
                     ctrl_tom = self.tom_engine.agent(_CONTROLLER_ID)
                     ctrl_tom.seed_peer(agent.agent_id, role_desc, session_ctx)
                     agent_tom = self.tom_engine.agent(agent.agent_id)
-                    agent_tom.seed_peer(
-                        _CONTROLLER_ID,
-                        "diagnostics coordinator driving joint clinical debate",
-                        session_ctx,
-                    )
+                    agent_tom.seed_peer(_CONTROLLER_ID,
+                                        "diagnostics coordinator driving joint clinical debate",
+                                        session_ctx)
                 except Exception as exc:
                     LOGGER.warning("tom.seed_peer failed agent=%s err=%s", agent.agent_id, exc)
 
         episode_tp = f"{episode_id}:tp"
         episode_tw = f"{episode_id}:tw"
 
-        # Controller L9 entry point — tom_engine and task_goal wired in once.
-        ctrl_l9 = L9(
-            self.ie_bus,
-            agent_id=_CONTROLLER_ID,
-            tom_engine=self.tom_engine,
-            task_goal=_TASK_GOAL,
+        # ── EPISODE A: team process ──────────────────────────────────────
+        self.ie_bus.emit_episode_open(
+            coordinator=_CONTROLLER_ID,
+            subject=patient.patient_id,
+            episode_id=episode_tp,
         )
 
-        # ── EPISODE A: team process ──────────────────────────────────────
         role_assignments = _build_role_assignments(all_specialists)
         agreement = TeamProcessAgreement(
             episode_id=episode_tp,
@@ -222,72 +340,139 @@ class DebateOrchestrator:
             ],
             formed_at_ms=int(time.time() * 1000),
         )
+        for specialist_id in all_ids:
+            prop_hdr = self.ie_bus.emit_process_proposal(
+                sender=_CONTROLLER_ID,
+                receiver=specialist_id,
+                agreement=agreement,
+                episode_id=episode_tp,
+            )
+            prop_utterance = (
+                (prop_hdr.get("payload") or [{}])[0].get("content", "")
+                or prop_hdr.get("utterance", "")
+            )
+            # ToM: specialist assesses the coordinator's proposal
+            self._tom_assess(
+                utterance=prop_utterance,
+                speaker=_CONTROLLER_ID,
+                listener=specialist_id,
+            )
 
-        tp_episode = ctrl_l9.open_team_process(
-            concept_id=patient.patient_id,
-            group=all_ids,
+            acc_hdr = self.ie_bus.emit_process_acceptance(
+                sender=specialist_id,
+                receiver=_CONTROLLER_ID,
+                parent_id=prop_hdr["message"]["id"],
+                episode_id=episode_tp,
+            )
+            acc_utterance = (
+                (acc_hdr.get("payload") or [{}])[0].get("content", "")
+                or acc_hdr.get("utterance", "")
+            )
+            # ToM: coordinator assesses the specialist's acceptance
+            self._tom_assess(
+                utterance=acc_utterance,
+                speaker=specialist_id,
+                listener=_CONTROLLER_ID,
+                prior_utterance=prop_utterance,
+            )
+
+        self.ie_bus.emit_team_process_close(
+            coordinator=_CONTROLLER_ID,
             episode_id=episode_tp,
-            agreement=agreement,
-            task_goal=_TASK_GOAL,
-            rationale=f"Opening team process for patient {patient.patient_id}: assigning roles to {len(all_ids)} specialists.",
-            thought_summary=f"Initiating team formation before taskwork; {len(all_ids)} specialists need role assignments.",
-        )
-        tp_episode.run()
-        tp_episode.close(
-            rationale=(
-                f"All {len(all_ids)} specialists acknowledged their role assignments. "
-                f"Team structure is confirmed — taskwork gate is now open."
-            ),
-            thought_summary=(
-                f"{len(all_ids)} role assignments accepted; team process converged, proceeding to taskwork."
-            ),
+            role_count=len(all_ids),
         )
 
         # ── EPISODE B: taskwork assessments ─────────────────────────────
-        participants = [
-            TaskworkParticipant(
-                agent_id=agent.agent_id,
-                utterance=_utterance_from_pos(agent, all_positions.get(agent.agent_id, {})),
-                posterior=float(
-                    all_positions.get(agent.agent_id, {}).get("posterior")
-                    or all_positions.get(agent.agent_id, {}).get("confidence")
-                    or 0.5
-                ),
-                concept_id=f"urn:concept:healthcare:{all_positions.get(agent.agent_id, {}).get('likely_cause', '?')}",
-                belief_store=agent.belief_store,
-                thought_summary=_thought_from_pos(all_positions.get(agent.agent_id, {})),
-            )
-            for agent in all_specialists
-        ]
-
-        tw_episode = ctrl_l9.open_taskwork(
-            concept_id=patient.patient_id,
-            group=all_ids,
+        self.ie_bus.emit_taskwork_open(
+            coordinator=_CONTROLLER_ID,
+            subject=patient.patient_id,
             episode_id=episode_tw,
-            participants=participants,
-            task_goal=_TASK_GOAL,
-            coordinator_id=_CONTROLLER_ID,
-            team_process={
-                "symptoms": patient.symptoms,
-                "medications": patient.current_medications,
-                "chat_history": patient.chat_history,
-            },
-            rationale=f"Opening taskwork for patient {patient.patient_id}: collecting independent priors from {len(all_ids)} specialists.",
-            thought_summary=f"Each specialist must declare their prior before peer exchange begins.",
-        )
-        tw_episode.run()
-        tw_episode.close(
-            rationale=(
-                f"Independent priors declared by all {len(all_ids)} specialists for patient "
-                f"{patient.patient_id}. Each agent has stated its position before peer exchange — "
-                f"baseline beliefs are on record."
-            ),
-            thought_summary=(
-                f"All {len(all_ids)} prior declarations received; taskwork baseline established, proceeding to panel debate."
-            ),
         )
 
-        # ── EPISODE C: SIEP panel negotiation ───────────────────────────
+        for agent in all_specialists:
+            pos = all_positions.get(agent.agent_id, {})
+            utterance = _utterance_from_pos(agent, pos)
+            thought = _thought_from_pos(pos)
+            concept_id = f"urn:concept:healthcare:{pos.get('likely_cause', '?')}"
+            posterior = float(pos.get("posterior") or pos.get("confidence") or 0.5)
+
+            # Seed agent's prior into their own belief_store before ToM assessment
+            # so listener_belief carries the specialist's held prior.
+            if not agent.belief_store.current_belief(agent.agent_id, concept_id, "healthcare"):
+                agent.belief_store.set_prior(agent.agent_id, concept_id, "healthcare",
+                                             posterior, 1.0)
+                agent.belief_store.record_revision(
+                    agent.agent_id, concept_id, "healthcare",
+                    episode_tw,
+                    BeliefRevision(
+                        revision_id=str(uuid.uuid4()),
+                        timestamp_ms=int(time.time() * 1000),
+                        episode_id=episode_tw,
+                        message_id=None,
+                        confidence_before=posterior,
+                        confidence_after=posterior,
+                        cause="semantic_memory",
+                        caused_by_agent=None,
+                        argument_concept_ids=[concept_id],
+                    ),
+                    new_status="held",
+                    new_public_confidence=posterior,
+                )
+
+            tw_hdr = self.ie_bus.emit_taskwork_result(
+                sender=agent.agent_id,
+                receiver=_CONTROLLER_ID,
+                utterance=utterance,
+                concept_id=concept_id,
+                posterior=posterior,
+                episode_id=episode_tw,
+                rationale=utterance,
+                thought_summary=thought,
+            )
+
+            # ToM: coordinator assesses the specialist's taskwork assertion
+            # belief_store=agent.belief_store now has a seeded prior for context
+            assessment = self._tom_assess(
+                utterance=utterance,
+                speaker=agent.agent_id,
+                listener=_CONTROLLER_ID,
+                belief_store=agent.belief_store,
+                concept_id=concept_id,
+            )
+
+            # Open contingency sub-episode when ToM detects ambiguity or grounding failure
+            if assessment.get("ambiguous") or assessment.get("grounding_failure"):
+                original_msg_id = (tw_hdr.get("message") or {}).get("id", "")
+                self._handle_taskwork_contingency(
+                    agent=agent,
+                    pos=pos,
+                    assessment=assessment,
+                    original_msg_id=original_msg_id,
+                    episode_id=episode_tw,
+                    concept_id=concept_id,
+                )
+
+        self.ie_bus.emit_episode_close(
+            coordinator=_CONTROLLER_ID,
+            subject=patient.patient_id,
+            episode_id=episode_tw,
+            accepted=True,
+        )
+
+        # ── EPISODE C: SNP panel negotiation (PanelBus-managed URN) ─────
+        panel_bus = PanelBus(
+            panel_name="hcpanel",
+            ie_bus=self.ie_bus,
+            use_case="healthcare",
+            tom_engine=self.tom_engine,
+            repair_fn=self.repair_fn,
+            convergence_store=self.memory.convergence_store,
+            semantic_rule_store=self.memory.semantic_rule_store,
+            belief_store=belief_proxy,
+            peer_interaction_store=self.memory.peer_interaction_store,
+        )
+
+        # Derive controller position from physician plurality
         cause_counts: Counter = Counter(
             str(pos.get("likely_cause", "drug_interaction"))
             for pos in physician_positions.values()
@@ -318,36 +503,19 @@ class DebateOrchestrator:
             episode_id, leading_cause, ctrl_confidence, len(all_ids),
         )
 
-        task_ep = ctrl_l9.open_task(
-            concept_id=f"urn:concept:healthcare:{leading_cause}",
-            group=all_ids,
-            convergence_store=self.memory.convergence_store,
-            semantic_rule_store=self.memory.semantic_rule_store,
-            peer_interaction_store=self.memory.peer_interaction_store,
-            belief_store=belief_proxy,
-            tom_engine=self.tom_engine,
-            repair_fn=self.repair_fn,
-            task_name="hcpanel",
-        )
-        task_ep.run(
+        star = StarNegotiation(panel_bus, panel_name="hcpanel")
+        winning_position, resolution_label, snp_trace = star.run(
+            controller_id=_CONTROLLER_ID,
+            member_ids=all_ids,
             controller_position=controller_position,
             specialist_positions=all_positions,
             task_goal=_TASK_GOAL,
             accept_threshold=0.1,
             max_rounds=2,
         )
-        task_ep.announce(
-            concept_id=task_ep.winning_position_key,
-            posterior=task_ep.mpc,
-            gar=task_ep.gar,
-            scr=task_ep.scr,
-        )
 
-        snp_trace = task_ep.snp_trace
-        winning_position = task_ep.winning_position
-        resolution_label = task_ep.resolution_label or "timeout_majority"
-        task_episode_id = task_ep.episode_id
-        metrics = {"gar": task_ep.gar, "scr": task_ep.scr, "mpc": task_ep.mpc}
+        panel_episode_id = panel_bus._episode_id()
+        metrics = _extract_convergence_metrics(snp_trace)
         opinions = _positions_to_opinions(all_positions, all_specialists)
 
         win_key = str(
@@ -393,5 +561,5 @@ class DebateOrchestrator:
             resolution_label=resolution_label,
             specialist_opinions=opinions,
             snp_trace=snp_trace,
-            panel_episode_id=task_episode_id,
+            panel_episode_id=panel_episode_id,
         )

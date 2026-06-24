@@ -9,9 +9,6 @@ from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 
 from SSTP.subprotocol.siep.src.tomcore.llm import LLMClient
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block
-from SSTP.subprotocol.siep.src.epistemic.stores import (
-    AgentBeliefStore, AgentEpistemicStore, PeerInteractionStore, TaskworkStore,
-)
 from SSTP.examples.hcpanel.domain import (
     ClinicalAssessment,
     DoctorAssessment,
@@ -22,7 +19,6 @@ from SSTP.examples.hcpanel.domain import (
     SpecialistProvider,
 )
 from SSTP.examples.hcpanel.interaction_semantics import concept_uri_for_interaction
-from SSTP.examples.hcpanel.llm_backends import extract_findings, SimulatedHealthcareLLMClient
 
 if TYPE_CHECKING:
     from SSTP.examples.hcpanel.agent_bus import HealthcareAgentBus
@@ -206,7 +202,7 @@ def _mean(values: List[float], default: float) -> float:
 
 class DiagnosticsController:
     """Diagnostics controller that gathers independent opinions from 5 specialist
-    agents and then uses SIEP star negotiation to converge on a panel outcome.
+    agents and then uses SNP star negotiation to converge on a panel outcome.
 
     Architecture
     ------------
@@ -214,7 +210,7 @@ class DiagnosticsController:
     (internal_medicine, clinical_pharmacology, cardiology, neurology, immunology)
     submits an independent assessment via an LLM call with a role-specific payload.
 
-    Phase 2 — **SIEP star negotiation**: the controller forms its initial proposal
+    Phase 2 — **SNP star negotiation**: the controller forms its initial proposal
     from the plurality position and negotiates hub-and-spoke with all 5 specialists.
     Specialists that align adopt the controller's position; others counter-propose.
     The controller commits when a majority accept.
@@ -499,6 +495,7 @@ class DiagnosticsController:
         }
 
         # ── Layer 7: extract structured findings once per episode ─────────────
+        from SSTP.examples.hcpanel.llm_backends import extract_findings
         episode_findings = extract_findings(
             symptoms=patient.symptoms,
             health_history=patient.health_history,
@@ -536,9 +533,9 @@ class DiagnosticsController:
         # ── Phase 2: annotate initial corroboration ──────────────────────────
         self._annotate_corroboration(doctor_assessments)
 
-        # ── Phase 3: SIEP star negotiation ───────────────────────────────────
+        # ── Phase 3: SNP star negotiation ────────────────────────────────────
         if self.panel_negotiation_bus is not None:
-            from SSTP.examples.hcpanel.panel_negotiation_bus import PanelNegotiationStar, CIPRepairExhausted
+            from SSTP.examples.hcpanel.panel_negotiation_bus import PanelNegotiationStar, IERepairExhausted
 
             self.panel_negotiation_bus.reset()
             controller_id = "diagnostics-controller"
@@ -574,12 +571,12 @@ class DiagnosticsController:
                     task_goal=f"clinical diagnosis for patient {getattr(patient, 'name', 'unknown')}",
                     agent_beliefs={mid: {"role": "diagnostics specialist", "confidence": 0.6} for mid in member_ids},
                 )
-            except CIPRepairExhausted as exc:
+            except IERepairExhausted as exc:
                 LOGGER.warning(
-                    "diagnostics.cip_repair_exhausted siep_msg=%s depth=%d cause=%s",
+                    "diagnostics.ie_repair_exhausted snp_msg=%s depth=%d cause=%s",
                     exc.snp_message_id, exc.ie_depth, exc.cause,
                 )
-                winning_pos, resolution_label = None, "cip_repair_exhausted"
+                winning_pos, resolution_label = None, "ie_repair_exhausted"
 
             # Update assessments to reflect post-negotiation positions
             for a in doctor_assessments:
@@ -665,7 +662,7 @@ DiagnosticsAgent = DiagnosticsController
 
 class PharmacyController:
     """Pharmacy controller that gathers independent medication reviews from 5
-    specialist pharmacists and then uses SIEP star negotiation to converge on a
+    specialist pharmacists and then uses SNP star negotiation to converge on a
     panel risk assessment.
 
     Architecture
@@ -675,7 +672,7 @@ class PharmacyController:
     clinical_toxicology) submits an independent review via an LLM call with a
     role-specific payload.
 
-    Phase 2 — **SIEP star negotiation**: the controller forms its initial proposal
+    Phase 2 — **SNP star negotiation**: the controller forms its initial proposal
     from the plurality risk bucket and negotiates hub-and-spoke with all 5.
 
     Phase 3 — **Aggregation**: ``_aggregate_panel`` computes the final
@@ -996,9 +993,9 @@ class PharmacyController:
                 except Exception as exc:
                     LOGGER.warning("pharmacy: %s abstained: %s", futures[future].get("id_suffix"), exc)
 
-        # ── Phase 2: SIEP star negotiation ───────────────────────────────────
+        # ── Phase 2: SNP star negotiation ────────────────────────────────────
         if self.panel_negotiation_bus is not None:
-            from SSTP.examples.hcpanel.panel_negotiation_bus import PanelNegotiationStar, CIPRepairExhausted
+            from SSTP.examples.hcpanel.panel_negotiation_bus import PanelNegotiationStar, IERepairExhausted
 
             self.panel_negotiation_bus.reset()
             controller_id = "pharmacy-controller"
@@ -1028,12 +1025,12 @@ class PharmacyController:
                     task_goal=f"medication risk review for patient {getattr(patient, 'name', 'unknown')}",
                     agent_beliefs={mid: {"role": "pharmacy reviewer", "confidence": 0.6} for mid in member_ids},
                 )
-            except CIPRepairExhausted as exc:
+            except IERepairExhausted as exc:
                 LOGGER.warning(
-                    "pharmacy.cip_repair_exhausted siep_msg=%s depth=%d cause=%s",
+                    "pharmacy.ie_repair_exhausted snp_msg=%s depth=%d cause=%s",
                     exc.snp_message_id, exc.ie_depth, exc.cause,
                 )
-                winning_pos, resolution_label = None, "cip_repair_exhausted"
+                winning_pos, resolution_label = None, "ie_repair_exhausted"
 
             for a in assessments:
                 pos = specialist_positions[a["reviewer_id"]]
@@ -1428,7 +1425,7 @@ class InsuranceAgent:
             decisions = self._expand_panel(patient, providers, requested_specialties, decisions, coordination_summary=coordination_summary)
 
         if len(decisions) > 1 and self.panel_negotiation_bus is not None:
-            from SSTP.examples.hcpanel.panel_negotiation_bus import PanelNegotiationRing, CIPRepairExhausted
+            from SSTP.examples.hcpanel.panel_negotiation_bus import PanelNegotiationRing, IERepairExhausted
 
             self.panel_negotiation_bus.reset()
             member_ids = [d["reviewer_id"] for d in decisions]
@@ -1452,12 +1449,12 @@ class InsuranceAgent:
                     task_goal=f"insurance coverage decision for patient {getattr(patient, 'name', 'unknown')}",
                     agent_beliefs={mid: {"role": "insurance reviewer", "confidence": 0.6} for mid in member_ids},
                 )
-            except CIPRepairExhausted as exc:
+            except IERepairExhausted as exc:
                 LOGGER.warning(
-                    "insurance.cip_repair_exhausted siep_msg=%s depth=%d cause=%s",
+                    "insurance.ie_repair_exhausted snp_msg=%s depth=%d cause=%s",
                     exc.snp_message_id, exc.ie_depth, exc.cause,
                 )
-                winning_pos, resolution_label = None, "cip_repair_exhausted"
+                winning_pos, resolution_label = None, "ie_repair_exhausted"
             for d in decisions:
                 pos = initial_positions[d["reviewer_id"]]
                 d["in_network_only"] = pos["in_network_only"]
@@ -1676,7 +1673,6 @@ class SpecialistAgent:
         thought_summary = ""
         if likelihood_table is not None and findings:
             from SSTP.subprotocol.siep.src.epistemic.bayes import compute_posterior, normalize_posteriors
-            from SSTP.examples.hcpanel.memory import compute_prior
             hypotheses = ["drug_interaction", "new_disease"]
             unnorm = {
                 h: compute_posterior(

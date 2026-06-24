@@ -237,7 +237,6 @@ class HealthcareGraphState(TypedDict, total=False):
     snp_trace: List[Dict[str, Any]]
     panel_snapshots: Dict[str, Any]
 
-@dataclass
 class SpecialistOpinion:
     specialist_id: str
     specialty: str

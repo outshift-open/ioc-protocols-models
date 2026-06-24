@@ -49,7 +49,6 @@ class TEMEntry:
     episode_count: int
     source_episode: Optional[str] = None
     last_updated_ms: int = field(default_factory=lambda: int(time.time() * 1000))
-    ground_truth_outcome: Optional[str] = None  # verified outcome label once ground truth is known
 
 
 # ── Agent ─────────────────────────────────────────────────────────────────────
@@ -119,7 +118,6 @@ class TeamEpistemicMemoryAgent:
         provenance_weight: float,
         episode_id: Optional[str] = None,
         use_case: str | None = None,
-        ground_truth_outcome: Optional[str] = None,
     ) -> TEMEntry:
         """Update the store with a new posterior from a converged episode.
 
@@ -139,7 +137,6 @@ class TeamEpistemicMemoryAgent:
                 episode_count=1,
                 source_episode=episode_id,
                 last_updated_ms=int(time.time() * 1000),
-                ground_truth_outcome=ground_truth_outcome,
             )
         else:
             entry = TEMEntry(
@@ -150,7 +147,6 @@ class TeamEpistemicMemoryAgent:
                 episode_count=existing.episode_count + 1,
                 source_episode=episode_id or existing.source_episode,
                 last_updated_ms=int(time.time() * 1000),
-                ground_truth_outcome=ground_truth_outcome or existing.ground_truth_outcome,
             )
         self._store[key] = entry
         self._persist()

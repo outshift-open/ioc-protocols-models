@@ -10,9 +10,9 @@ Three classes:
   StarNegotiation   — hub-and-spoke: controller proposes → N members respond → commit
   RingNegotiation   — ring: each member proposes to the next → rotate until convergence
 
-Every SIEP message (build_snp_l9_header) is appended directly to ie_bus.messages so
+Every SNP message (build_snp_l9_header) is appended directly to ie_bus.messages so
 that SNP and IE messages share a single ordered stream.  snp_trace is a read-only
-property that returns the filtered subset (subprotocol=="SIEP").
+property that returns the filtered subset (subprotocol=="SNP").
 
 Ported from app/healthcare_ie_snp/panel_negotiation_bus.py; only use_case hardcode
 and the episode_id format have been parameterised.
@@ -26,13 +26,13 @@ import uuid
 from collections import Counter
 from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from SSTP.examples.hcpanel.siep_l9 import (
+from SSTP.subprotocol.siep.src.l9 import (
     NegotiationOperation,
     NegotiationStatus,
     build_snp_l9_header,
     build_snp_payload,
 )
-from SSTP.examples.hcpanel.cip_l9 import build_l9_header
+from SSTP.subprotocol.cip.src.l9 import build_l9_header
 from SSTP.subprotocol.cip.src.message import get_part as _get_part
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
     SpeechAct, EpistemicState, BeliefStatus,
@@ -66,14 +66,14 @@ LOGGER = logging.getLogger(__name__)
 SCR_ALARM_THRESHOLD: float = 0.6
 
 
-class CIPRepairExhausted(Exception):
-    """Raised when the CIP repair cycle reaches max_ie_depth without alignment."""
+class IERepairExhausted(Exception):
+    """Raised when the IE repair cycle reaches max_ie_depth without alignment."""
 
     def __init__(self, snp_message_id: str, ie_depth: int, cause: str | None) -> None:
         self.snp_message_id = snp_message_id
         self.ie_depth = ie_depth
         self.cause = cause
-        super().__init__(f"CIP repair exhausted at depth {ie_depth}: {cause}")
+        super().__init__(f"IE repair exhausted at depth {ie_depth}: {cause}")
 
 
 class PanelBus:
@@ -124,8 +124,8 @@ class PanelBus:
 
     @property
     def snp_trace(self) -> List[Dict[str, Any]]:
-        """Filtered view of ie_bus.messages containing only SIEP messages."""
-        return [m for m in self.ie_bus.messages if m.get("subprotocol") == "SIEP"]
+        """Filtered view of ie_bus.messages containing only SNP messages."""
+        return [m for m in self.ie_bus.messages if m.get("subprotocol") == "SNP"]
 
     def reset(self, negotiation_id: str | None = None) -> None:
         self._common_ground_ids = []
@@ -349,7 +349,7 @@ class PanelBus:
             ts = int(time.time() * 1000)
             ep_id = self._episode_id()
 
-            # Spec CIP §3.1: deliberation_pass speech_act does not constitute grounding.
+            # Spec IE §3.1: deliberation_pass speech_act does not constitute grounding.
             # Use explicit speech_act from result if present; fall back to contingency proxy.
             _sa = result.get("speech_act", "")
             is_deliberation_pass = (
@@ -464,7 +464,7 @@ class PanelBus:
             })
 
         if ie_depth > max_ie_depth:
-            raise CIPRepairExhausted(snp_message_id, ie_depth, derailment_cause)
+            raise IERepairExhausted(snp_message_id, ie_depth, derailment_cause)
 
         ts = int(time.time() * 1000)
         child_state_id = f"{self._episode_id()}:ie:{ie_depth}"
@@ -485,7 +485,10 @@ class PanelBus:
                 belief_status=BeliefStatus.DEFERRED,
             ),
         )
-        self.ie_bus.messages.append(repair_required_header)
+        self.ie_bus.messages.append(
+            {"type": "repair_required", "l9_header": repair_required_header,
+             "utterance": utterance, "derailment_cause": derailment_cause}
+        )
         acc.append(repair_required_header)
 
         _failure_type = (
@@ -525,7 +528,10 @@ class PanelBus:
                 belief_status=BeliefStatus.REVISED,
             ),
         )
-        self.ie_bus.messages.append(repair_applied_header)
+        self.ie_bus.messages.append(
+            {"type": "repair_applied", "l9_header": repair_applied_header,
+             "utterance": repaired}
+        )
         acc.append(repair_applied_header)
 
         if self.belief_store is not None:
@@ -571,7 +577,7 @@ class PanelBus:
         """Verify grounding using B's actual response, not a pre-response prediction.
 
         Called AFTER listener has responded with response_b. Assesses whether
-        response_b is contingent on utterance_a (spec §CIP-3.1 condition a).
+        response_b is contingent on utterance_a (spec §IE-3.1 condition a).
         Uses listener's real expressed confidence for the belief revision, not
         a simulated posterior. Records CommonGround with actual BeliefState
         posteriors for both parties.
@@ -581,14 +587,6 @@ class PanelBus:
         and suppresses CommonGround to avoid polluting SCR.
         """
         if self.tom_engine is None:
-            return
-
-        # Team-process coordination tokens (process_proposal/process_accepted) carry
-        # epistemic_state=TEAM_PROCESS and no clinical content — skip the LLM judge.
-        # Grounding is structurally guaranteed by the auto-accept contract.
-        _spk_ep_state = (speaker_epistemic or {}).get("state", "")
-        _lst_ep_state = (listener_epistemic or {}).get("state", "")
-        if _spk_ep_state == "team_process" or _lst_ep_state == "team_process":
             return
 
         cid = concept_id or f"urn:concept:{self.use_case}:{task_goal[:32]}"
@@ -651,46 +649,6 @@ class PanelBus:
 
         ts = int(time.time() * 1000)
         ep_id = self._episode_id()
-
-        # CIP repair: when the bilateral judge detects grounding failure, emit
-        # repair_required → repair_applied on the shared bus so the failure is
-        # visible as first-class CIP events in the IE trace.
-        if not forced_accept and result.get("grounding_failure"):
-            _repair_child = f"{ep_id}:cip_repair:{snp_message_id[-8:]}"
-            _repair_req = build_l9_header(
-                use_case=self.use_case,
-                event_type="repair_required",
-                sender=listener,
-                receiver=speaker,
-                timestamp_ms=ts,
-                sensitivity="confidential",
-                utterance=response_b,
-                parent_ids=[snp_message_id],
-                episode_id=_repair_child,
-                epistemic=make_epistemic_block(
-                    speech_act=SpeechAct.ASSERTION,
-                    epistemic_state=EpistemicState.GROUNDING,
-                    belief_status=BeliefStatus.DEFERRED,
-                ),
-            )
-            self.ie_bus.messages.append(_repair_req)
-            _repair_applied = build_l9_header(
-                use_case=self.use_case,
-                event_type="repair_applied",
-                sender=speaker,
-                receiver=listener,
-                timestamp_ms=ts + 1,
-                sensitivity="confidential",
-                utterance=f"re-anchor to task: {task_goal}",
-                parent_ids=[_repair_req["message"]["id"]],
-                episode_id=_repair_child,
-                epistemic=make_epistemic_block(
-                    speech_act=SpeechAct.ASSERTION,
-                    epistemic_state=EpistemicState.GROUNDING,
-                    belief_status=BeliefStatus.REVISED,
-                ),
-            )
-            self.ie_bus.messages.append(_repair_applied)
 
         if self.belief_store is not None:
             if is_deliberation_pass:
@@ -956,7 +914,7 @@ class StarNegotiation:
             epistemic=epistemic_block,
             payload_parts=[
                 _ctrl_utt_part,
-                {"type": "siep", "location": "inline", "content": _snp_payload},
+                {"type": "snp", "location": "inline", "content": _snp_payload},
             ],
         )
         if self.panel_bus.proposal_store is not None:
@@ -1063,7 +1021,7 @@ class StarNegotiation:
             kind_override="exchange",
             payload_parts=[
                 _spec_utt_part,
-                {"type": "siep", "location": "inline", "content": _snp_payload},
+                {"type": "snp", "location": "inline", "content": _snp_payload},
             ],
         )
         self.panel_bus.ie_bus.messages.append(snp_header)
@@ -1138,21 +1096,7 @@ class StarNegotiation:
 
         # Panel session open — emit intent on the panel episode
         _panel_episode_id = self.panel_bus._episode_id()
-        _all_panel_ids = [controller_id] + list(member_ids)
-        _intent_utterance = f"panel:open concept={ctrl_key_init} participants={_all_panel_ids}"
-        _ctrl_conf = self._confidence(controller_position)
-        _intent_rationale = (
-            f"Opening SIEP panel on concept '{ctrl_key_init}' with {len(member_ids)} specialists. "
-            f"Controller's opening position: '{ctrl_key_init}' at confidence {_ctrl_conf:.2f}. "
-            f"Each specialist will respond with their taskwork-declared prior."
-        )
-        _intent_thought = (
-            f"Panel opened on '{ctrl_key_init}'; {len(member_ids)} specialists will now state or challenge this position."
-        )
-        _intent_utt_part: Dict[str, Any] = {
-            "type": "utterance", "location": "inline", "content": _intent_utterance,
-            "rationale": _intent_rationale, "thought_summary": _intent_thought,
-        }
+        _intent_utterance = f"panel:open concept={ctrl_key_init} participants={[controller_id]+list(member_ids)}"
         _intent_header = build_snp_l9_header(
             operation=NegotiationOperation.PROPOSE,
             use_case=self.panel_bus.use_case,
@@ -1163,8 +1107,7 @@ class StarNegotiation:
             utterance=_intent_utterance,
             episode_id=_panel_episode_id,
             kind_override="intent",
-            payload_parts=[_intent_utt_part],
-            recipients=_all_panel_ids,
+            payload_parts=[{"type": "utterance", "location": "inline", "content": _intent_utterance}],
         )
         self.panel_bus.ie_bus.messages.append(_intent_header)
 
@@ -1257,7 +1200,7 @@ class StarNegotiation:
 
             for member_id in member_ids:
                 snp_hdr = self._emit_propose(controller_id, member_id, ctrl_pos, round_idx)
-                _prop_id = _get_part(snp_hdr, "siep").get("proposal_id") or snp_hdr["message"]["id"]
+                _prop_id = _get_part(snp_hdr, "snp").get("proposal_id") or snp_hdr["message"]["id"]
                 _prop_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
                     proposal_id=_prop_id,
@@ -1487,34 +1430,11 @@ class StarNegotiation:
             # all participants see it without individual addressing.
             _conv_proposal_id = f"convergence-{self.panel_bus._negotiation_id[:8]}"
             _conv_utterance = (
-                f"SIEP convergence: {win_key} → {truth.outcome}"
+                f"SNP convergence: {win_key} → {truth.outcome}"
                 f" posterior={truth.consensus_posterior:.4f}"
                 f" gar={truth.genuine_agreement_ratio:.4f}"
                 f" scr={truth.social_compliance_ratio:.4f}"
             )
-            _gar_interp = (
-                "unanimous genuine agreement" if truth.genuine_agreement_ratio >= 0.99
-                else f"genuine agreement ratio {truth.genuine_agreement_ratio:.2f}"
-            )
-            _scr_interp = (
-                "no social compliance detected" if truth.social_compliance_ratio < 0.05
-                else f"social compliance ratio {truth.social_compliance_ratio:.2f} — some deference present"
-            )
-            _conv_rationale = (
-                f"SIEP panel converged on '{win_key}' (outcome: {truth.outcome}) with "
-                f"posterior={truth.consensus_posterior:.4f} across {len(truth.participant_ids)} participants. "
-                f"GAR={truth.genuine_agreement_ratio:.4f} ({_gar_interp}); "
-                f"SCR={truth.social_compliance_ratio:.4f} ({_scr_interp}). "
-                f"This becomes the team-grounded consensus posterior for this concept."
-            )
-            _conv_thought = (
-                f"Panel closed: '{win_key}' accepted at posterior {truth.consensus_posterior:.4f} "
-                f"with GAR={truth.genuine_agreement_ratio:.4f}, SCR={truth.social_compliance_ratio:.4f}."
-            )
-            _conv_utt_part: Dict[str, Any] = {
-                "type": "utterance", "location": "inline", "content": _conv_utterance,
-                "rationale": _conv_rationale, "thought_summary": _conv_thought,
-            }
             _snp_convergence = {
                 "profile": "semantic_negotiation",
                 "operation": NegotiationOperation.ACCEPT,
@@ -1535,10 +1455,9 @@ class StarNegotiation:
                 episode_id=truth.episode_id,
                 kind_override="commit:converged",
                 payload_parts=[
-                    _conv_utt_part,
+                    {"type": "utterance", "location": "inline", "content": _conv_utterance},
                     {"type": "snp-convergence", "location": "inline", "content": _snp_convergence},
                 ],
-                recipients=list(truth.participant_ids),
             )
             self.panel_bus.ie_bus.messages.append(convergence_header)
 
@@ -1997,7 +1916,7 @@ class RingNegotiation:
             # One commit:converged — ring_bus is a shared observable bus.
             _ring_conv_proposal_id = f"convergence-{self.panel_bus._negotiation_id[:8]}"
             _ring_conv_utterance = (
-                f"SIEP ring convergence: {win_key} → {truth.outcome}"
+                f"SNP ring convergence: {win_key} → {truth.outcome}"
                 f" posterior={truth.consensus_posterior:.4f}"
                 f" gar={truth.genuine_agreement_ratio:.4f}"
                 f" scr={truth.social_compliance_ratio:.4f}"
@@ -2139,7 +2058,7 @@ class RingNegotiation:
 
 
 __all__ = [
-    "CIPRepairExhausted",
+    "IERepairExhausted",
     "PanelBus",
     "StarNegotiation",
     "RingNegotiation",
