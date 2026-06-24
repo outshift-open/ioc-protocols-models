@@ -1,0 +1,264 @@
+[
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "CIP",
+      "version": "0.0.3",
+      "kind": "contingency",
+      "subkind": null,
+      "participants": {
+        "actors": [
+          {
+            "id": "agent-beta",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "a312ce6f-40ad-4b87-9315-090da6cd194d",
+        "parents": "[\"msg-bad-scope\"]",
+        "episode": "urn:ioc:episode:9d2a2ae3-4e66-4c6c-aa4c-cc226e8717b8"
+      },
+      "policy": null,
+      "attributes": {
+        "utterance_text": "repair_required:reason=scope_mismatch:target=msg-bad-scope"
+      },
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {},
+        "semantic": {
+          "schema_id": "urn:ioc:cip:payload:v1",
+          "ontology_ref": "protocol/ontology/cip_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "cip",
+      "data": {
+        "utterance": {
+          "text": "repair_required:reason=scope_mismatch:target=msg-bad-scope",
+          "evidence": [],
+          "addresses_evidence": [],
+          "turn_depth": 0
+        },
+        "grounding": {
+          "contingency_verified": false,
+          "contingency_score": 0.0,
+          "repair_reason": "scope_mismatch",
+          "challenges": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ]
+        },
+        "belief": {
+          "prior": 0.5,
+          "posterior": 0.5,
+          "revision_cause": null
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "CIP",
+      "version": "0.0.3",
+      "kind": "contingency",
+      "subkind": null,
+      "participants": {
+        "actors": [
+          {
+            "id": "cip-agent",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "2688ae7e-da82-414e-a2c9-e2cdef34187e",
+        "parents": "[\"a312ce6f-40ad-4b87-9315-090da6cd194d\"]",
+        "episode": "urn:ioc:episode:9d2a2ae3-4e66-4c6c-aa4c-cc226e8717b8"
+      },
+      "policy": null,
+      "attributes": {
+        "utterance_text": "I need to halt our current process immediately. We've encountered a critical issue that requires a hard stop. Let's pause all ongoing actions and reassess our approach to the task objective before proceeding further. reason=scope_mismatch; address=['concept:task_objective', 'urn:concept:task_objective:deliverable_spec']"
+      },
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {},
+        "semantic": {
+          "schema_id": "urn:ioc:cip:payload:v1",
+          "ontology_ref": "protocol/ontology/cip_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "cip",
+      "data": {
+        "utterance": {
+          "text": "I need to halt our current process immediately. We've encountered a critical issue that requires a hard stop. Let's pause all ongoing actions and reassess our approach to the task objective before proceeding further. reason=scope_mismatch; address=['concept:task_objective', 'urn:concept:task_objective:deliverable_spec']",
+          "evidence": [
+            "concept:task_objective"
+          ],
+          "addresses_evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "turn_depth": 1
+        },
+        "grounding": {
+          "contingency_verified": false,
+          "contingency_score": 0.0,
+          "repair_reason": "scope_mismatch",
+          "challenges": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ]
+        },
+        "belief": {
+          "prior": 0.5,
+          "posterior": 0.5,
+          "revision_cause": "repair_guidance"
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "CIP",
+      "version": "0.0.3",
+      "kind": "contingency",
+      "subkind": null,
+      "participants": {
+        "actors": [
+          {
+            "id": "agent-alpha",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "3cd45127-bb3d-4f52-a75c-d9d151d71a78",
+        "parents": "[\"2688ae7e-da82-414e-a2c9-e2cdef34187e\"]",
+        "episode": "urn:ioc:episode:9d2a2ae3-4e66-4c6c-aa4c-cc226e8717b8"
+      },
+      "policy": null,
+      "attributes": {
+        "utterance_text": "Re-anchoring on deliverable scope only."
+      },
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {},
+        "semantic": {
+          "schema_id": "urn:ioc:cip:payload:v1",
+          "ontology_ref": "protocol/ontology/cip_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "cip",
+      "data": {
+        "utterance": {
+          "text": "Re-anchoring on deliverable scope only.",
+          "evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "addresses_evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "turn_depth": 1
+        },
+        "grounding": {
+          "contingency_verified": null,
+          "contingency_score": null,
+          "repair_reason": null,
+          "challenges": []
+        },
+        "belief": {
+          "prior": 0.62,
+          "posterior": 0.62,
+          "revision_cause": "repair_resolution"
+        }
+      }
+    }
+  },
+  {
+    "header": {
+      "protocol": "SSTP",
+      "subprotocol": "CIP",
+      "version": "0.0.3",
+      "kind": "commit",
+      "subkind": "resolved",
+      "participants": {
+        "actors": [
+          {
+            "id": "cip-agent",
+            "role": "sender",
+            "attestation": null
+          }
+        ],
+        "groups": null
+      },
+      "message": {
+        "id": "9cf1bd8e-107d-49d4-a377-b7bf02c224a5",
+        "parents": "[\"3cd45127-bb3d-4f52-a75c-d9d151d71a78\"]",
+        "episode": "urn:ioc:episode:9d2a2ae3-4e66-4c6c-aa4c-cc226e8717b8"
+      },
+      "policy": null,
+      "attributes": {
+        "utterance_text": "repair_verified:agent-alpha re-anchored to concept:task_objective"
+      },
+      "context": {
+        "topic": "concept:task_objective",
+        "epistemic": {},
+        "semantic": {
+          "schema_id": "urn:ioc:cip:payload:v1",
+          "ontology_ref": "protocol/ontology/cip_ontology.ttl",
+          "provenance": null
+        }
+      }
+    },
+    "payload": {
+      "type": "cip",
+      "data": {
+        "utterance": {
+          "text": "repair_verified:agent-alpha re-anchored to concept:task_objective",
+          "evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "addresses_evidence": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ],
+          "turn_depth": 1
+        },
+        "grounding": {
+          "contingency_verified": true,
+          "contingency_score": 1.0,
+          "repair_reason": null,
+          "challenges": [
+            "concept:task_objective",
+            "urn:concept:task_objective:deliverable_spec"
+          ]
+        },
+        "belief": {
+          "prior": 0.62,
+          "posterior": 0.62,
+          "revision_cause": "repair_resolution"
+        }
+      }
+    }
+  }
+]
