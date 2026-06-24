@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "CIPBeliefBlock": {
+      "properties": {
+        "prior": {
+          "default": 0.5,
+          "title": "Prior",
+          "type": "number"
+        },
+        "posterior": {
+          "default": 0.5,
+          "title": "Posterior",
+          "type": "number"
+        },
+        "revision_cause": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revision Cause"
+        }
+      },
+      "title": "CIPBeliefBlock",
+      "type": "object"
+    },
+    "CIPGroundingBlock": {
+      "properties": {
+        "contingency_verified": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contingency Verified"
+        },
+        "contingency_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contingency Score"
+        },
+        "repair_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repair Reason"
+        },
+        "challenges": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Challenges",
+          "type": "array"
+        }
+      },
+      "title": "CIPGroundingBlock",
+      "type": "object"
+    },
+    "CIPUtteranceBlock": {
+      "properties": {
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text"
+        },
+        "evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "addresses_evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Addresses Evidence",
+          "type": "array"
+        },
+        "turn_depth": {
+          "default": 0,
+          "title": "Turn Depth",
+          "type": "integer"
+        }
+      },
+      "title": "CIPUtteranceBlock",
+      "type": "object"
+    }
+  },
+  "description": "CIP protocol payload \u2014 goes under L9Payload.data when type='cip'.",
+  "properties": {
+    "utterance": {
+      "$ref": "#/$defs/CIPUtteranceBlock",
+      "default": {
+        "text": null,
+        "evidence": [],
+        "addresses_evidence": [],
+        "turn_depth": 0
+      }
+    },
+    "grounding": {
+      "$ref": "#/$defs/CIPGroundingBlock",
+      "default": {
+        "contingency_verified": null,
+        "contingency_score": null,
+        "repair_reason": null,
+        "challenges": []
+      }
+    },
+    "belief": {
+      "$ref": "#/$defs/CIPBeliefBlock",
+      "default": {
+        "prior": 0.5,
+        "posterior": 0.5,
+        "revision_cause": null
+      }
+    }
+  },
+  "title": "CIPMessagePayload",
+  "type": "object",
+  "$id": "urn:ioc:cip:payload:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
