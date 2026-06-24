@@ -126,11 +126,12 @@ Full per-turn mapping:
 The TFP payload (`payload[type=json-schema].data`) is defined by `TFPPayload`. The
 source of truth is the Pydantic models in `src/tfp_models.py`. The JSON Schema in
 `spec/tfp_schema.json` is generated from them via `scripts/generate_spec.sh`, and
-the Pydantic bindings in `language_bindings/python/data_model.py` are in turn
-generated from the schema via `language_bindings/python/generate.sh`:
+the Pydantic bindings in `language_bindings/python/ai/outshift/tfp/data_model.py`
+(shipped as the `ai-outshift-tfp-data-model` wheel) are in turn generated from the
+schema via `language_bindings/python/generate.sh`:
 
 ```
-src/tfp_models.py → spec/tfp_schema.json → language_bindings/python/data_model.py
+src/tfp_models.py → spec/tfp_schema.json → language_bindings/python/ai/outshift/tfp/data_model.py
 ```
 
 | Field | Type | Set on | Description |
@@ -178,7 +179,7 @@ optional metadata on an offer and does not affect this reference selection.
 
 - Source models (source of truth): [`../src/tfp_models.py`](../src/tfp_models.py)
 - Schema (generated from source models): [`../spec/tfp_schema.json`](../spec/tfp_schema.json)
-- Generated bindings (generated from schema): [`../language_bindings/python/data_model.py`](../language_bindings/python/data_model.py)
+- Generated bindings (generated from schema; `ai-outshift-tfp-data-model` wheel): [`../language_bindings/python/ai/outshift/tfp/data_model.py`](../language_bindings/python/ai/outshift/tfp/data_model.py)
 - Runnable example: [`../examples/team_formation_example.py`](../examples/team_formation_example.py)
 - Tests: [`../language_bindings/python/test_tfp.py`](../language_bindings/python/test_tfp.py)
 - L9 envelope: [`../../../documentation/L9.md`](../../../documentation/L9.md)

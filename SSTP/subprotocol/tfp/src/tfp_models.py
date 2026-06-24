@@ -9,7 +9,7 @@ subprotocol payload. The pipeline is:
     spec/tfp_schema.json         (generated JSON Schema)
         │  language_bindings/python/generate.sh
         ▼
-    language_bindings/python/data_model.py   (generated bindings)
+    language_bindings/python/ai/outshift/tfp/data_model.py   (generated bindings)
 
 Do NOT hand-edit ``tfp_schema.json`` or ``data_model.py``. Change these
 models and re-run the generators.

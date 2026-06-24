@@ -15,7 +15,8 @@ are dropped, and silent agents are simply never heard from. The recruiter can
 only ever claim "best team among agents that responded within the window."
 
 Every message is a real L9 envelope (``ai.outshift.data_model.L9``) carrying a
-typed ``TFPPayload`` in its payload. Run it directly:
+typed ``TFPPayload`` from the TFP wheel package (``ai.outshift.tfp.data_model``,
+distributed as ``ai-outshift-tfp-data-model``) in its payload. Run it directly:
 
     poetry run python SSTP/subprotocol/tfp/examples/team_formation_example.py
 
@@ -55,7 +56,7 @@ from ai.outshift.data_model import (                                     # noqa:
     Context,
     Message,
 )
-from data_model import (                                                 # noqa: E402
+from ai.outshift.tfp.data_model import (                                 # noqa: E402
     CandidateOffer,
     RoleAssignment,
     SkillClaim,
