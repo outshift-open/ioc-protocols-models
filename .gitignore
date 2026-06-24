@@ -147,3 +147,4 @@ dmypy.json
 cip_episodes.db
 episodes.db
 llm.env
+*_run.json

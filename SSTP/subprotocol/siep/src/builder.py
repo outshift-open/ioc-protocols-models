@@ -9,10 +9,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, List, Optional
+import json
 import uuid
 
 from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, Context, Semantic, Kind
-from SSTP.subprotocol.siep.src.siep_models import Actors, Message, SIEPEpistemic as Epistemic
+from SSTP.subprotocol.siep.src.siep_models import ParticipantSet, Message, SIEPEpistemic as Epistemic
 from SSTP.subprotocol.siep.src.siep_payload import (
     SIEPMessagePayload,
     SIEPBeliefBlock,
@@ -253,8 +254,8 @@ class SIEPMessageBuilder:
                 version="0.0.3",
                 kind=self._kind.value,
                 subkind=self._subkind.value if self._subkind else None,
-                participants=Actors(actors=[Actor(id=self._sender, role="sender")]).model_dump(),
-                message=Message(id=msg_id, parents=list(self._parents), episode=self._ep).to_base_dict(),
+                participants=ParticipantSet(actors=[Actor(id=self._sender, role="sender")], groups=None).model_dump(),
+                message=Message(id=msg_id, parents=json.dumps(list(self._parents)), episode=self._ep),
                 attributes=attributes,
                 context=Context(
                     topic=self._concept or "",
