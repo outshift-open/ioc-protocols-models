@@ -19,7 +19,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 from SSTP.subprotocol.siep.src.tomcore.llm import LLMClient
-from SSTP.subprotocol.siep.src.tom import TheoryOfMindEngineBase
+from SSTP.subprotocol.cip.src.tom import TheoryOfMindEngineBase
 from SSTP.subprotocol.siep.src.epistemic.stores import AgentEpistemicStore
 
 LOGGER = logging.getLogger("ioc")
@@ -137,6 +137,9 @@ class AgentTOM:
                          confidence_before: Optional[float] = None,
                          speaker_epistemic: Optional[Dict[str, Any]] = None,
                          listener_prior_epistemic: Optional[Dict[str, Any]] = None,
+                         belief_store: Optional[Any] = None,
+                         concept_id: str = "",
+                         use_case: str = "",
                          ) -> Dict[str, Any]:
         """Grounding check: structural when epistemic blocks available, LLM fallback otherwise."""
         from SSTP.subprotocol.siep.src.grounding import contingency_check, diagnose_repair_reason

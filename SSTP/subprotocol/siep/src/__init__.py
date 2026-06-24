@@ -6,9 +6,17 @@
 
 from . import epistemic, tomcore
 from .builder import *
-from .engine import *
 from .epistemic import *
 from .negotiate import *
-from .siep_models import *
 from .siep_payload import *
 from .tomcore import *
+
+try:
+    from .engine import *
+except ImportError:
+    pass
+
+try:
+    from .siep_models import *
+except ImportError:
+    pass
