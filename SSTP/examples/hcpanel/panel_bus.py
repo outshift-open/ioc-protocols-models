@@ -485,10 +485,7 @@ class PanelBus:
                 belief_status=BeliefStatus.DEFERRED,
             ),
         )
-        self.ie_bus.messages.append(
-            {"type": "repair_required", "l9_header": repair_required_header,
-             "utterance": utterance, "derailment_cause": derailment_cause}
-        )
+        self.ie_bus.messages.append(repair_required_header)
         acc.append(repair_required_header)
 
         _failure_type = (
@@ -528,10 +525,7 @@ class PanelBus:
                 belief_status=BeliefStatus.REVISED,
             ),
         )
-        self.ie_bus.messages.append(
-            {"type": "repair_applied", "l9_header": repair_applied_header,
-             "utterance": repaired}
-        )
+        self.ie_bus.messages.append(repair_applied_header)
         acc.append(repair_applied_header)
 
         if self.belief_store is not None:
@@ -679,12 +673,7 @@ class PanelBus:
                     belief_status=BeliefStatus.DEFERRED,
                 ),
             )
-            self.ie_bus.messages.append({
-                "type": "repair_required",
-                "l9_header": _repair_req,
-                "utterance": response_b,
-                "derailment_cause": result.get("derailment_cause"),
-            })
+            self.ie_bus.messages.append(_repair_req)
             _repair_applied = build_l9_header(
                 use_case=self.use_case,
                 event_type="repair_applied",
@@ -701,11 +690,7 @@ class PanelBus:
                     belief_status=BeliefStatus.REVISED,
                 ),
             )
-            self.ie_bus.messages.append({
-                "type": "repair_applied",
-                "l9_header": _repair_applied,
-                "utterance": f"re-anchor to task: {task_goal}",
-            })
+            self.ie_bus.messages.append(_repair_applied)
 
         if self.belief_store is not None:
             if is_deliberation_pass:
