@@ -27,8 +27,7 @@ jobs:
   ###############################################################################
   checkout-unit-tests:
     name: checkout & unit test
-    runs-on:
-      group: arc-runner-set
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -77,8 +76,7 @@ jobs:
     name: Reusable Workflow CI Status
     needs: [ checkout-unit-tests ]
     if: always()
-    runs-on:
-      group: arc-runner-set
+    runs-on: ubuntu-latest
     steps:
       - name: report failure
         if: ${{ cancelled() || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'failure') }}
