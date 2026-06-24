@@ -11,7 +11,7 @@ Scenario: Cross-jurisdiction SaaS Enterprise Agreement Review (Legal Tech)
 
   Agents: commercial-agent (leads — contract law + GDPR expertise),
           liability-agent  (participant — indemnity + damages specialist).
-  cip-engine: protocol-internal component (future: Cognition Engine).
+  cip-engine: protocol-internal component only (not a registered agent).
 
 Transport: in-process A2A bus — simulates A2A routing without HTTP servers.
 
@@ -195,7 +195,7 @@ def _save_json(log: EpisodeLog, bus: A2ABus) -> None:
 # Agent cards
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _make_cards() -> tuple[AgentCard, AgentCard, AgentCard]:
+def _make_cards() -> tuple[AgentCard, AgentCard]:
     alpha = AgentCard(
         name="commercial-agent",
         description="Lead agent: contract law, GDPR compliance, team coordination.",
@@ -235,23 +235,7 @@ def _make_cards() -> tuple[AgentCard, AgentCard, AgentCard]:
                        tags=["contract"]),
         ],
     )
-    # cip-engine: protocol-internal component (future Cognition Engine)
-    cip_engine = AgentCard(
-        name="cip-engine",
-        description="CIP contingency engine — protocol-internal (future: Cognition Engine).",
-        version="1.0",
-        capabilities=AgentCapabilities(streaming=False),
-        supported_interfaces=[AgentInterface(
-            url="a2a://cip-engine", protocol_binding="A2A", protocol_version="1.1")],
-        default_input_modes=["application/json"],
-        default_output_modes=["application/json"],
-        skills=[
-            AgentSkill(id="contingency_repair", name="Contingency Repair",
-                       description="Detects scope drift and issues repair guidance.",
-                       tags=["cip", "repair"]),
-        ],
-    )
-    return alpha, beta, cip_engine
+    return alpha, beta
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -260,10 +244,9 @@ def _make_cards() -> tuple[AgentCard, AgentCard, AgentCard]:
 
 def run_demo() -> None:
     bus = A2ABus()
-    alpha_card, beta_card, cip_card = _make_cards()
+    alpha_card, beta_card = _make_cards()
     bus.register(alpha_card)
     bus.register(beta_card)
-    bus.register(cip_card)
     log: EpisodeLog = []
 
     def rec(phase: str, label: str, sender: str, msg: Message,
