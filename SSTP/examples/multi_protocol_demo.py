@@ -2,37 +2,34 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Multi-protocol SSTP demo: TFP → SIEP → CIP → SIEP → SAB
+"""Multi-protocol SSTP demo: TFP → SIEP → CIP → SAB
 
 All imports from the ai-outshift-subprotocols wheel:
   ai.outshift.subprotocols.{tfp, siep, cip, sab}
 
-Scenario: Supply-chain coordination — from team assembly to agreed delivery terms.
+Scenario: Cross-jurisdiction SaaS Enterprise Agreement Review (Legal Tech)
 
-  Agents: agent-alpha (leads TFP + SIEP), agent-beta (participant).
-  cip-engine is a protocol-internal component (future: Cognition Engine).
+  Agents: commercial-agent (leads — contract law + GDPR expertise),
+          liability-agent  (participant — indemnity + damages specialist).
+  cip-engine: protocol-internal component (future: Cognition Engine).
 
   Step 1 — TFP  (Team Formation via Polling)
-    agent-alpha opens a poll; agent-beta bids.
-    agent-alpha bids (scope-analysis + negotiation skills).
-    Both accept — team commits: converged.
+    commercial-agent opens a poll for a contract review team.
+    Both agents bid; team commits: converged.
 
   Step 2 — SIEP (Epistemic Grounding)
-    Formed team aligns on the deliverable scope concept.
-    agent-alpha exchanges correctly on deliverable scope.
-    agent-beta  drifts to timeline scope — mismatch detected.
+    Team aligns on the operative definition of "material breach" (contract-law standard).
+    liability-agent drifts — applies tort-law "substantial performance" doctrine instead.
 
   Step 3 — CIP  (Contingency Repair)
-    cip-engine (future Cognition Engine) emits LLM-powered guidance to re-anchor agent-beta.
-    agent-beta re-attempts on the correct concept.
-    CIP closes the branch: commit:resolved.
+    cip-engine detects doctrine mismatch and issues hard-stop repair.
+    liability-agent re-anchors on contract-law standard.
+    CIP closes: commit:resolved — epistemic alignment restored.
 
-  Step 4 — SIEP (Commit)
-    Epistemic alignment restored — agent-alpha commits: converged.
-
-  Step 5 — SAB  (Negotiation)
-    Team negotiates supply terms: price × delivery_speed.
-    Two offer rounds → agreement → commit:converged.
+  Step 4 — SAB  (Semantic Negotiation: consequential damages clause)
+    Genuine semantic misalignment: commercial-agent and liability-agent disagree
+    on the scope of "consequential damages" — US broad exclusion vs. UK narrower
+    standard. They negotiate governing_interpretation and damages_cap until agreement.
 """
 
 from __future__ import annotations
@@ -115,14 +112,14 @@ from ai.outshift.subprotocols.sab import (
 )
 
 # ── Episode constants ─────────────────────────────────────────────────────────
-C_SCOPE    = "concept:deliverable_scope"
-C_TIMELINE = "concept:timeline"
-C_CRITERIA = "concept:acceptance_criteria"
+C_SCOPE    = "concept:material_breach"          # contract-law standard (operative)
+C_TIMELINE = "concept:substantial_performance"   # tort doctrine — wrong domain (drift)
+C_CRITERIA = "concept:sla_breach_threshold"      # supporting evidence concept
 
-ISSUES  = ["price", "delivery_speed"]
-OPTIONS = {"price": ["low", "medium", "high"],
-           "delivery_speed": ["express", "standard", "deferred"]}
-N_OUTCOMES = len(OPTIONS["price"]) * len(OPTIONS["delivery_speed"])
+ISSUES  = ["governing_interpretation", "damages_cap"]
+OPTIONS = {"governing_interpretation": ["us_standard", "uk_standard", "hybrid"],
+           "damages_cap": ["6_months_fees", "12_months_fees", "24_months_fees"]}
+N_OUTCOMES = len(OPTIONS["governing_interpretation"]) * len(OPTIONS["damages_cap"])
 
 TFP_PROTOCOL  = "SSTP"
 TFP_SUBPROTO  = "TFP"
@@ -236,67 +233,67 @@ def run_demo() -> None:
 
     poll_id  = f"urn:ioc:tfp:poll:{uuid.uuid4().hex[:8]}"
     task     = TaskSpec(
-        task_id="task:supply-chain-coordination",
-        description="Coordinate deliverable scope alignment and supply term negotiation",
-        objective="Align team on scope then agree delivery terms within one episode",
+        task_id="task:saas-contract-review",
+        description="Review cross-jurisdiction SaaS enterprise agreement — material breach and consequential damages clauses",
+        objective="Align team on operative legal definitions then resolve semantic disagreement on damages scope",
     )
     required = [
-        SkillRequirement(skill="skill:scope_analysis",     min_proficiency=0.7,
+        SkillRequirement(skill="skill:contract_law",       min_proficiency=0.8,
                          weight=2.0, mandatory=True),
-        SkillRequirement(skill="skill:timeline_analysis",  min_proficiency=0.6,
+        SkillRequirement(skill="skill:indemnity_analysis", min_proficiency=0.7,
                          weight=1.5, mandatory=True),
-        SkillRequirement(skill="skill:negotiation",        min_proficiency=0.6,
+        SkillRequirement(skill="skill:gdpr_compliance",    min_proficiency=0.6,
                          weight=1.0, mandatory=False),
     ]
     tf_topic = f"Forming a team to {task.description}"
 
-    # 1a. Poll open — agent-alpha broadcasts to topic
-    poll_msg = record("TFP", "1a · intent:team-formation  (agent-alpha opens poll)",
-        _tfp_emit(episode, "agent-alpha", ["topic:tfp/polls"],
+    # 1a. Poll open — commercial-agent broadcasts to topic
+    poll_msg = record("TFP", "1a · intent:team-formation  (commercial-agent opens poll)",
+        _tfp_emit(episode, "commercial-agent", ["topic:tfp/polls"],
                   "intent", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.POLL_OPEN,
                              poll_id=poll_id, task=task,
                              required_skills=required,
-                             reasoning_summary="Need scope + timeline + negotiation skills."),
+                             reasoning_summary="Need contract_law + indemnity_analysis + GDPR skills for cross-jurisdiction SaaS review."),
                   topic=tf_topic))
     poll_parent = poll_msg.header.message.id
     _print_l9("TFP", "1a", poll_msg)
 
     # Agent profiles (private — recruiter only learns via bids)
     alpha_offer = CandidateOffer(
-        skills=[SkillClaim(skill="skill:scope_analysis",    proficiency=0.92),
-                SkillClaim(skill="skill:negotiation",       proficiency=0.80)],
+        skills=[SkillClaim(skill="skill:contract_law",    proficiency=0.92),
+                SkillClaim(skill="skill:gdpr_compliance", proficiency=0.80)],
         availability=0.9, fit_score=0.88)
     beta_offer = CandidateOffer(
-        skills=[SkillClaim(skill="skill:timeline_analysis", proficiency=0.85),
-                SkillClaim(skill="skill:scope_analysis",    proficiency=0.65)],
+        skills=[SkillClaim(skill="skill:indemnity_analysis", proficiency=0.88),
+                SkillClaim(skill="skill:contract_law",       proficiency=0.72)],
         availability=0.8, fit_score=0.75)
 
-    # 1b. agent-alpha bids
-    alpha_bid = record("TFP", "1b · exchange:team-formation  (agent-alpha bids)",
-        _tfp_emit(episode, "agent-alpha", ["agent-alpha"],
+    # 1b. commercial-agent bids
+    alpha_bid = record("TFP", "1b · exchange:team-formation  (commercial-agent bids)",
+        _tfp_emit(episode, "commercial-agent", ["commercial-agent"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.BID, poll_id=poll_id,
                              offer=alpha_offer,
-                             reasoning_summary=f"fit≈{_tfp_fit(required, alpha_offer)}"),
+                             reasoning_summary=f"contract_law+GDPR expertise; fit≈{_tfp_fit(required, alpha_offer)}"),
                   parent_id=poll_parent, topic=tf_topic))
     _print_l9("TFP", "1b", alpha_bid)
 
-    # 1c. agent-beta bids
-    beta_bid = record("TFP", "1c · exchange:team-formation  (agent-beta bids)",
-        _tfp_emit(episode, "agent-beta", ["agent-alpha"],
+    # 1c. liability-agent bids
+    beta_bid = record("TFP", "1c · exchange:team-formation  (liability-agent bids)",
+        _tfp_emit(episode, "liability-agent", ["commercial-agent"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.BID, poll_id=poll_id,
                              offer=beta_offer,
-                             reasoning_summary=f"fit≈{_tfp_fit(required, beta_offer)}"),
+                             reasoning_summary=f"indemnity+damages specialist; fit≈{_tfp_fit(required, beta_offer)}"),
                   parent_id=poll_parent, topic=tf_topic))
     _print_l9("TFP", "1c", beta_bid)
 
-    # 1d. Coordinator selects team
-    bids = {"agent-alpha": alpha_offer, "agent-beta": beta_offer}
+    # 1d. commercial-agent selects team
+    bids = {"commercial-agent": alpha_offer, "liability-agent": beta_offer}
     selection = _tfp_select(required, bids)
-    select_msg = record("TFP", "1d · exchange:team-formation  (agent-alpha selects team)",
-        _tfp_emit(episode, "agent-alpha", ["agent-alpha", "agent-beta"],
+    select_msg = record("TFP", "1d · exchange:team-formation  (commercial-agent selects team)",
+        _tfp_emit(episode, "commercial-agent", ["commercial-agent", "liability-agent"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.SELECT, poll_id=poll_id,
                              selection=selection,
@@ -305,94 +302,94 @@ def run_demo() -> None:
     _print_l9("TFP", "1d", select_msg)
     print(f"           team={selection.members}  coverage={selection.coverage}")
 
-    # 1e. agent-alpha accepts
-    record("TFP", "1e · exchange:team-formation  (agent-alpha accepts)",
-        _tfp_emit(episode, "agent-alpha", ["agent-alpha"],
+    # 1e. commercial-agent accepts
+    record("TFP", "1e · exchange:team-formation  (commercial-agent accepts)",
+        _tfp_emit(episode, "commercial-agent", ["commercial-agent"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.ACCEPT, poll_id=poll_id,
-                             reason="Skills match; I have capacity."),
+                             reason="Contract law and GDPR expertise confirmed; joining review team."),
                   parent_id=poll_parent, topic=tf_topic))
     _print_l9("TFP", "1e", log[-1][2])
 
-    # 1f. agent-beta accepts
-    record("TFP", "1f · exchange:team-formation  (agent-beta accepts)",
-        _tfp_emit(episode, "agent-beta", ["agent-alpha"],
+    # 1f. liability-agent accepts
+    record("TFP", "1f · exchange:team-formation  (liability-agent accepts)",
+        _tfp_emit(episode, "liability-agent", ["commercial-agent"],
                   "exchange", SUBKIND_TF,
                   TFPPayload(operation=TFPOperation.ACCEPT, poll_id=poll_id,
-                             reason="Scope analysis and timeline skills engaged; joining."),
+                             reason="Indemnity and damages analysis skills ready; joining review team."),
                   parent_id=poll_parent, topic=tf_topic))
     _print_l9("TFP", "1f", log[-1][2])
 
     # 1g. Commit: converged
     record("TFP", "1g · commit:converged          (team formed ✓)",
-        _tfp_emit(episode, "agent-alpha", ["topic:tfp/polls"],
+        _tfp_emit(episode, "commercial-agent", ["topic:tfp/polls"],
                   "commit", SUBKIND_CONV,
                   TFPPayload(operation=TFPOperation.FORM_CONVERGED, poll_id=poll_id,
                              selection=selection,
-                             reasoning_summary=f"Team formed: {selection.members}"),
+                             reasoning_summary=f"Contract review team formed: {selection.members}"),
                   parent_id=poll_parent, topic=tf_topic))
     _print_l9("TFP", "1g", log[-1][2])
 
     # ── Step 2: SIEP — Epistemic Grounding ───────────────────────────────────
     _hr("═")
-    print("  STEP 2 — SIEP  (Epistemic Grounding)")
+    print("  STEP 2 — SIEP  (Epistemic Grounding: aligning on 'material breach')")
     _hr("═")
 
-    siep_engine = SIEPEngine("agent-alpha", episode)
+    siep_engine = SIEPEngine("commercial-agent", episode)
 
     def _siep(sender: str) -> SIEPMessageBuilder:
         return SIEPMessageBuilder(episode, sender)
 
-    intent = record("SIEP", "2a · intent      (agent-alpha opens episode)",
-        _siep("agent-alpha").intent().team_process().concept(C_SCOPE).build())
+    intent = record("SIEP", "2a · intent      (commercial-agent opens grounding session)",
+        _siep("commercial-agent").intent().team_process().concept(C_SCOPE).build())
     siep_engine.process(intent)
     _print_l9("SIEP", "2a", intent)
 
-    alpha_exchange = record("SIEP", "2b · exchange    (agent-alpha aligns on scope)",
-        _siep("agent-alpha")
+    alpha_exchange = record("SIEP", "2b · exchange    (commercial-agent aligns on material breach)",
+        _siep("commercial-agent")
         .exchange().taskwork().asserted().concept(C_SCOPE)
         .parents(intent.header.message.id)
         .payload(SIEPPayload(
             utterance=SIEPUtterance(evidence=[C_SCOPE, C_CRITERIA]),
-            belief=SIEPBelief(prior=0.75, posterior=0.75,
+            belief=SIEPBelief(prior=0.80, posterior=0.80,
                               revision_cause=RevisionCause.semantic_memory),
         )).build())
     siep_engine.process(alpha_exchange)
     _print_l9("SIEP", "2b", alpha_exchange)
 
-    beta_drift = record("SIEP", "2c · exchange    (agent-beta drifts to timeline ⚠)",
-        _siep("agent-beta")
+    beta_drift = record("SIEP", "2c · exchange    (liability-agent drifts to tort doctrine ⚠)",
+        _siep("liability-agent")
         .exchange().taskwork().asserted().concept(C_TIMELINE)
         .parents(intent.header.message.id)
         .payload(SIEPPayload(
             utterance=SIEPUtterance(evidence=[C_TIMELINE]),
-            belief=SIEPBelief(prior=0.55, posterior=0.55,
+            belief=SIEPBelief(prior=0.60, posterior=0.60,
                               revision_cause=RevisionCause.semantic_memory),
         )).build())
     siep_engine.process(beta_drift)
     _print_l9("SIEP", "2c", beta_drift)
-    print(f"  ⚠  scope mismatch: beta replied on '{C_TIMELINE}', "
-          f"expected '{C_SCOPE}' → escalate to CIP")
+    print(f"  ⚠  doctrine mismatch: liability-agent applied '{C_TIMELINE}' (tort), "
+          f"expected '{C_SCOPE}' (contract law) → escalate to CIP")
 
     # ── Step 3: CIP — Contingency Repair ─────────────────────────────────────
     _hr("═")
-    print("  STEP 3 — CIP   (Contingency Repair: scope mismatch on agent-beta)")
+    print("  STEP 3 — CIP   (Contingency Repair: doctrine mismatch on liability-agent)")
     _hr("═")
 
     cip_config = CIPEngineConfig(
         derailment_causes={
-            "scope_mismatch":    ["{listener}, your reply drifted to timeline scope."],
-            "grounding_failure": ["{listener}, your reply did not engage the prior evidence."],
+            "scope_mismatch":    ["{listener}, your reply applied the wrong legal doctrine."],
+            "grounding_failure": ["{listener}, your reply did not engage the agreed legal standard."],
         },
         nonsense_derailment_causes=set(),
         repair_utterances={
-            "repair_hard_stop":      "{listener}, stop and restate only against deliverable scope.",
-            "repair_anchor":         "{listener}, re-anchor on the deliverable concept.",
-            "repair_alignment":      "{listener}, restate within deliverable scope.",
-            "request_clarification": "{listener}, clarify how your reply answers deliverable scope.",
-            "default":               "{listener}, remain within deliverable scope.",
+            "repair_hard_stop":      "{listener}, stop — restate only under the contract-law material breach standard.",
+            "repair_anchor":         "{listener}, re-anchor on the contract-law material breach definition.",
+            "repair_alignment":      "{listener}, restate within the agreed operative legal standard.",
+            "request_clarification": "{listener}, clarify how your reply addresses material breach under contract law.",
+            "default":               "{listener}, remain within the contract-law material breach standard.",
         },
-        normal_utterance_template="{listener}, continue within the shared deliverable scope.",
+        normal_utterance_template="{listener}, continue within the shared contract-law material breach standard.",
     )
     # cip-engine is a protocol-internal component; will become the Cognition Engine
     cip = CIPProcessor("cip-engine", episode, cip_config)
@@ -400,8 +397,8 @@ def run_demo() -> None:
     def _cip(sender: str) -> CIPMessageBuilder:
         return CIPMessageBuilder(episode, sender)
 
-    repair_request = record("CIP", "3a · contingency (repair request: beta drifted)",
-        _cip("agent-alpha")
+    repair_request = record("CIP", "3a · contingency (repair: liability-agent drifted to tort doctrine)",
+        _cip("commercial-agent")
         .contingency().grounding().challenged().concept(C_SCOPE)
         .parents(beta_drift.header.message.id)
         .payload(CIPPayload(
@@ -411,71 +408,51 @@ def run_demo() -> None:
                 challenges=[C_SCOPE, C_CRITERIA],
             ),
         ))
-        .text("repair_required:reason=scope_mismatch:target=agent-beta")
+        .text("repair_required:reason=scope_mismatch:doctrine=substantial_performance:target=liability-agent")
         .build())
     _print_l9("CIP", "3a", repair_request)
 
-    guidance = record("CIP", "3b · contingency (cip guidance — LLM)",
+    guidance = record("CIP", "3b · contingency (cip-engine issues repair — LLM)",
         cip.process(repair_request)[0])
     _print_l9("CIP", "3b", guidance)
 
-    beta_reanchor = record("CIP", "3c · contingency (agent-beta re-anchors on scope)",
-        _cip("agent-beta")
+    beta_reanchor = record("CIP", "3c · contingency (liability-agent re-anchors on contract law)",
+        _cip("liability-agent")
         .contingency().grounding().revised().concept(C_SCOPE)
         .parents(guidance.header.message.id)
         .payload(CIPPayload(
             utterance=CIPUtterance(
-                text="Re-anchoring on deliverable scope: confirms spec and criteria.",
+                text="Re-anchoring on contract-law material breach standard: breach of SLA uptime clause 14.2 constitutes material breach as it goes to the root of the agreement.",
                 evidence=[C_SCOPE, C_CRITERIA],
                 addresses_evidence=[C_SCOPE, C_CRITERIA],
                 turn_depth=1,
             ),
-            belief=CIPBelief(prior=0.68, posterior=0.68,
+            belief=CIPBelief(prior=0.68, posterior=0.75,
                              revision_cause=CIPRevisionCause.repair_resolution),
         ))
-        .text("Re-anchoring on deliverable scope.")
+        .text("Re-anchoring on contract-law material breach.")
         .build())
     _print_l9("CIP", "3c", beta_reanchor)
 
-    resolved = record("CIP", "3d · commit:resolved (cip closes branch)",
+    resolved = record("CIP", "3d · commit:resolved (cip-engine closes — epistemic alignment restored)",
         cip.process(beta_reanchor)[0])
     _print_l9("CIP", "3d", resolved)
 
-    # ── Step 4: SIEP — Commit ────────────────────────────────────────────────
+    # ── Step 4: SAB — Consequential damages clause negotiation ────────────────
     _hr("═")
-    print("  STEP 4 — SIEP  (Commit: epistemic alignment restored)")
-    _hr("═")
-
-    siep_commit = record("SIEP", "4a · commit      (agent-alpha confirms alignment)",
-        _siep("agent-alpha")
-        .commit_converged().grounding().concept(C_SCOPE)
-        .parents(intent.header.message.id)
-        .payload(SIEPPayload(
-            utterance=SIEPUtterance(
-                evidence=[C_SCOPE, C_CRITERIA],
-                addresses_evidence=[C_SCOPE, C_CRITERIA],
-            ),
-            belief=SIEPBelief(prior=0.80, posterior=0.85,
-                              revision_cause=RevisionCause.grounded_argument),
-        )).build())
-    siep_engine.process(siep_commit)
-    _print_l9("SIEP", "4a", siep_commit)
-
-    # ── Step 5: SAB — Negotiate supply terms ─────────────────────────────────
-    _hr("═")
-    print("  STEP 5 — SAB   (Negotiation: price × delivery_speed)")
+    print("  STEP 4 — SAB   (Semantic Negotiation: consequential damages clause)")
     _hr("═")
 
     sab_episode = f"urn:ioc:episode:sab:{uuid.uuid4()}"
     session_id  = f"urn:ioc:sab:session:{uuid.uuid4()}"
-    origin_buyer  = SABOrigin(actor_id="agent-alpha", attestation=None)
-    origin_seller = SABOrigin(actor_id="agent-beta",  attestation=None)
+    origin_buyer  = SABOrigin(actor_id="commercial-agent", attestation=None)
+    origin_seller = SABOrigin(actor_id="liability-agent",  attestation=None)
     attrs         = SABAttributes(msg_created_at="2026-06-24T10:00:00Z")
     payload_hash  = "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1"
-    content_text  = "Team negotiates supply price and delivery speed for the agreed deliverable scope."
+    content_text  = "Consequential damages clause resolved: governing interpretation and liability cap for cross-jurisdiction SaaS enterprise agreement."
     sab_topic     = (f"{content_text} | issues: {json.dumps(ISSUES)} "
                      f"| options_per_issue: {json.dumps(OPTIONS)}")
-    agreed        = {"price": "medium", "delivery_speed": "standard"}
+    agreed        = {"governing_interpretation": "hybrid", "damages_cap": "12_months_fees"}
 
     def _sab_actors(sender: str, receiver: str) -> SABActors:
         return SABActors(actors=[
@@ -529,8 +506,8 @@ def run_demo() -> None:
     id_r3 = str(uuid.uuid4()); id_r4 = str(uuid.uuid4())
     id_c  = str(uuid.uuid4())
 
-    record("SAB", "5a · contingency:negotiate  (agent-alpha opens SAB)",
-        SAB(header=_sab_header(id_i, [], "agent-alpha", "topic:sab/sessions",
+    record("SAB", "4a · contingency:negotiate  (commercial-agent opens SAB)",
+        SAB(header=_sab_header(id_i, [], "commercial-agent", "topic:sab/sessions",
                                SABKind.contingency, SABSubkind.negotiate),
             payload=SABPayload(type="json-schema",
                                data=SABIntentPayloadData(
@@ -538,40 +515,40 @@ def run_demo() -> None:
                                    dt_created="2026-06-24T10:00:00Z",
                                    origin=origin_buyer, payload_hash=payload_hash,
                                    semantic_context=SemanticContext(schema_version="1.0")))))
-    _print_sab("SAB", "5a", log[-1][2], "agent-alpha opens SAB session")
+    _print_sab("SAB", "4a", log[-1][2], "commercial-agent opens SAB — consequential damages clause")
 
-    record("SAB", "5b · contingency:negotiate  (agent-alpha offers high/express)",
-        SAB(header=_sab_header(id_r1, [id_i], "agent-alpha", "agent-beta",
+    record("SAB", "4b · contingency:negotiate  (commercial-agent proposes us_standard / 6_months_fees)",
+        SAB(header=_sab_header(id_r1, [id_i], "commercial-agent", "liability-agent",
                                SABKind.contingency, SABSubkind.negotiate),
             payload=_neg(id_r1, "2026-06-24T10:00:02Z", origin_buyer, 0, 2.1,
-                         {"price": "high", "delivery_speed": "express"},
-                         "agent-alpha", None, 3, nmi=nmi)))
-    _print_sab("SAB", "5b", log[-1][2], "alpha→beta: price=high, delivery=express")
+                         {"governing_interpretation": "us_standard", "damages_cap": "6_months_fees"},
+                         "commercial-agent", None, 3, nmi=nmi)))
+    _print_sab("SAB", "4b", log[-1][2], "commercial→liability: us_standard / 6_months_fees")
 
-    record("SAB", "5c · contingency:negotiate  (agent-beta counters low/deferred)",
-        SAB(header=_sab_header(id_r2, [id_i], "agent-beta", "agent-alpha",
+    record("SAB", "4c · contingency:negotiate  (liability-agent counters uk_standard / 24_months_fees)",
+        SAB(header=_sab_header(id_r2, [id_i], "liability-agent", "commercial-agent",
                                SABKind.contingency, SABSubkind.negotiate),
             payload=_neg(id_r2, "2026-06-24T10:00:08Z", origin_seller, 1, 8.4,
-                         {"price": "low", "delivery_speed": "deferred"},
-                         "agent-beta", "agent-alpha", 1)))
-    _print_sab("SAB", "5c", log[-1][2], "beta→alpha: price=low, delivery=deferred")
+                         {"governing_interpretation": "uk_standard", "damages_cap": "24_months_fees"},
+                         "liability-agent", "commercial-agent", 1)))
+    _print_sab("SAB", "4c", log[-1][2], "liability→commercial: uk_standard / 24_months_fees")
 
-    record("SAB", "5d · contingency:negotiate  (agent-alpha concedes medium/standard)",
-        SAB(header=_sab_header(id_r3, [id_i], "agent-alpha", "agent-beta",
+    record("SAB", "4d · contingency:negotiate  (commercial-agent concedes hybrid / 12_months_fees)",
+        SAB(header=_sab_header(id_r3, [id_i], "commercial-agent", "liability-agent",
                                SABKind.contingency, SABSubkind.negotiate),
             payload=_neg(id_r3, "2026-06-24T10:00:14Z", origin_buyer, 2, 14.7,
-                         agreed, "agent-alpha", "agent-beta", 1)))
-    _print_sab("SAB", "5d", log[-1][2], "alpha→beta: price=medium, delivery=standard")
+                         agreed, "commercial-agent", "liability-agent", 1)))
+    _print_sab("SAB", "4d", log[-1][2], "commercial→liability: hybrid / 12_months_fees")
 
-    record("SAB", "5e · contingency:negotiate  (agent-beta accepts)",
-        SAB(header=_sab_header(id_r4, [id_i], "agent-beta", "agent-alpha",
+    record("SAB", "4e · contingency:negotiate  (liability-agent accepts ✓)",
+        SAB(header=_sab_header(id_r4, [id_i], "liability-agent", "commercial-agent",
                                SABKind.contingency, SABSubkind.negotiate),
             payload=_neg(id_r4, "2026-06-24T10:00:20Z", origin_seller, 3, 20.3,
-                         agreed, "agent-alpha", "agent-alpha", 0)))
-    _print_sab("SAB", "5e", log[-1][2], "beta accepts ✓")
+                         agreed, "commercial-agent", "commercial-agent", 0)))
+    _print_sab("SAB", "4e", log[-1][2], "liability-agent accepts ✓")
 
-    record("SAB", "5f · commit:converged       (supply terms agreed)",
-        SAB(header=_sab_header(id_c, [id_i], "agent-alpha", "topic:sab/sessions",
+    record("SAB", "4f · commit:converged       (damages clause agreed)",
+        SAB(header=_sab_header(id_c, [id_i], "commercial-agent", "topic:sab/sessions",
                                SABKind.commit, SABSubkind.converged),
             payload=SABPayload(type="json-schema",
                                data=SABCommitPayloadData(
@@ -582,12 +559,12 @@ def run_demo() -> None:
                                        session_id=session_id,
                                        outcome=Outcome("agreement"),
                                        content_text=content_text,
-                                       agents_negotiating=["agent-alpha", "agent-beta"],
+                                       agents_negotiating=["commercial-agent", "liability-agent"],
                                        final_agreement=[
-                                           {"issue_id": "price",          "chosen_option": "medium"},
-                                           {"issue_id": "delivery_speed", "chosen_option": "standard"},
+                                           {"issue_id": "governing_interpretation", "chosen_option": "hybrid"},
+                                           {"issue_id": "damages_cap",              "chosen_option": "12_months_fees"},
                                        ])))))
-    _print_sab("SAB", "5f", log[-1][2], "commit:converged — price=medium, delivery=standard")
+    _print_sab("SAB", "4f", log[-1][2], "commit:converged — governing=hybrid, cap=12_months_fees")
 
     # ── Summary + JSON ─────────────────────────────────────────────────────────
     _print_episode_summary(log)

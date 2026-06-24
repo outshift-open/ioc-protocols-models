@@ -2,37 +2,59 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Pure A2A multi-protocol demo: TFP → SIEP → CIP → SIEP → SAB
+"""Pure A2A multi-protocol demo: TFP → SIEP → CIP → SAB
 
 Same scenario as multi_protocol_demo.py but expressed entirely in A2A protocol
 primitives (AgentCard, Task, Message, Part) — no L9 types used.
 
-Agents: agent-alpha (leads), agent-beta (participant).
-cip-engine: protocol-internal component (future: Cognition Engine).
+Scenario: Cross-jurisdiction SaaS Enterprise Agreement Review (Legal Tech)
+
+  Agents: commercial-agent (leads — contract law + GDPR expertise),
+          liability-agent  (participant — indemnity + damages specialist).
+  cip-engine: protocol-internal component (future: Cognition Engine).
 
 Transport: in-process A2A bus — simulates A2A routing without HTTP servers.
 
   Step 1 — TFP  (Team Formation via Polling)
-    agent-alpha opens poll task, agent-beta bids, alpha selects & commits.
+    commercial-agent opens poll; liability-agent bids; team formed.
 
-  Step 2 — SIEP (Epistemic Grounding)
-    alpha opens grounding task; beta drifts to wrong concept → mismatch.
+  Step 2 — SIEP (Legal Standard Alignment)
+    Team aligns on "material breach" (contract-law standard).
+    liability-agent drifts to tort "substantial performance" doctrine → mismatch.
 
   Step 3 — CIP  (Contingency Repair)
-    alpha raises contingency task; cip-engine issues repair; beta re-anchors.
+    cip-engine detects doctrine mismatch, issues hard-stop repair.
+    liability-agent re-anchors on contract-law standard. CIP: commit:resolved.
 
-  Step 4 — SIEP (Commit)
-    alpha commits: epistemic alignment converged.
-
-  Step 5 — SAB  (Negotiation: price × delivery_speed)
-    alpha and beta exchange offers until agreement.
+  Step 4 — SAB  (Semantic Negotiation: consequential damages clause)
+    Genuine semantic misalignment on "consequential damages" scope —
+    US broad exclusion vs. UK narrower standard. Agents negotiate until agreement.
 """
 
 from __future__ import annotations
 
 import json
+import os
+import sys
 import uuid
+from pathlib import Path
 from typing import Any
+
+# ── Path bootstrap (SSTP must be importable) ──────────────────────────────────
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+# ── LLM credentials (needed by CIPProcessor) ─────────────────────────────────
+def _load_env(path: Path) -> None:
+    if path.exists():
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip())
+
+_load_env(_REPO_ROOT / "SSTP/subprotocol/cip/llm.env")
 
 from a2a.types.a2a_pb2 import (
     AgentCard,
@@ -57,9 +79,22 @@ from a2a.helpers.proto_helpers import (
 from a2a.helpers.agent_card import display_agent_card
 from google.protobuf.json_format import MessageToDict
 
+# ── wheel: CIP (real CIPProcessor — LLM-powered repair) ──────────────────────
+from ai.outshift.subprotocols.cip import (
+    CIPMessageBuilder,
+    CIPPayload,
+    CIPUtterance,
+    CIPBelief,
+    CIPGrounding,
+    RepairReason,
+    RevisionCause as CIPRevisionCause,
+    CIPEngineConfig,
+    CIPProcessor,
+)
+
 # ── Constants ─────────────────────────────────────────────────────────────────
-C_SCOPE    = "concept:deliverable_scope"
-C_TIMELINE = "concept:timeline"
+C_SCOPE    = "concept:material_breach"          # contract-law standard (operative)
+C_TIMELINE = "concept:substantial_performance"   # tort doctrine — wrong domain (drift)
 _W = 100
 
 
@@ -162,8 +197,8 @@ def _save_json(log: EpisodeLog, bus: A2ABus) -> None:
 
 def _make_cards() -> tuple[AgentCard, AgentCard, AgentCard]:
     alpha = AgentCard(
-        name="agent-alpha",
-        description="Lead agent: scope analysis, negotiation, team coordination.",
+        name="commercial-agent",
+        description="Lead agent: contract law, GDPR compliance, team coordination.",
         version="1.0",
         capabilities=AgentCapabilities(streaming=False),
         supported_interfaces=[AgentInterface(
@@ -171,20 +206,20 @@ def _make_cards() -> tuple[AgentCard, AgentCard, AgentCard]:
         default_input_modes=["text/plain", "application/json"],
         default_output_modes=["text/plain", "application/json"],
         skills=[
-            AgentSkill(id="scope_analysis", name="Scope Analysis",
-                       description="Analyzes and aligns deliverable scope.",
-                       tags=["scope", "analysis"], examples=["Align on C_SCOPE."]),
-            AgentSkill(id="negotiation", name="Negotiation",
-                       description="Negotiates supply terms (price, delivery).",
-                       tags=["negotiation", "sab"]),
+            AgentSkill(id="contract_law", name="Contract Law",
+                       description="Applies contract-law standards to SaaS agreements.",
+                       tags=["contract", "saas"], examples=["Define material breach under contract law."]),
+            AgentSkill(id="gdpr_compliance", name="GDPR Compliance",
+                       description="Ensures data processing clauses meet GDPR/CCPA standards.",
+                       tags=["gdpr", "privacy"]),
             AgentSkill(id="team_coordination", name="Team Coordination",
-                       description="Opens TFP polls and leads epistemic episodes.",
+                       description="Opens TFP polls and leads legal standard alignment sessions.",
                        tags=["tfp", "siep"]),
         ],
     )
     beta = AgentCard(
-        name="agent-beta",
-        description="Participant agent: timeline analysis, scope support.",
+        name="liability-agent",
+        description="Participant agent: indemnity analysis, damages scope specialist.",
         version="1.0",
         capabilities=AgentCapabilities(streaming=False),
         supported_interfaces=[AgentInterface(
@@ -192,12 +227,12 @@ def _make_cards() -> tuple[AgentCard, AgentCard, AgentCard]:
         default_input_modes=["text/plain"],
         default_output_modes=["text/plain"],
         skills=[
-            AgentSkill(id="timeline_analysis", name="Timeline Analysis",
-                       description="Analyzes project timelines.",
-                       tags=["timeline"]),
-            AgentSkill(id="scope_analysis", name="Scope Analysis",
-                       description="Secondary scope analysis support.",
-                       tags=["scope"]),
+            AgentSkill(id="indemnity_analysis", name="Indemnity Analysis",
+                       description="Analyses indemnity and consequential damages clauses.",
+                       tags=["indemnity", "damages"]),
+            AgentSkill(id="contract_law", name="Contract Law",
+                       description="Secondary contract law support.",
+                       tags=["contract"]),
         ],
     )
     # cip-engine: protocol-internal component (future Cognition Engine)
@@ -254,13 +289,13 @@ def run_demo() -> None:
                 "operation": "POLL_OPEN",
                 "poll_id": poll_task_id,
                 "task": {
-                    "description": "Coordinate deliverable scope alignment and supply term negotiation",
+                    "description": "Review cross-jurisdiction SaaS enterprise agreement — material breach and consequential damages clauses",
                     "objective": "Align on scope then agree delivery terms",
                 },
                 "required_skills": [
-                    {"skill": "scope_analysis",    "min_proficiency": 0.7, "mandatory": True},
-                    {"skill": "timeline_analysis", "min_proficiency": 0.6, "mandatory": True},
-                    {"skill": "negotiation",       "min_proficiency": 0.6, "mandatory": False},
+                    {"skill": "contract_law",       "min_proficiency": 0.8, "mandatory": True},
+                    {"skill": "indemnity_analysis", "min_proficiency": 0.7, "mandatory": True},
+                    {"skill": "gdpr_compliance",    "min_proficiency": 0.6, "mandatory": False},
                 ],
             }, media_type="application/json"),
         ],
@@ -269,21 +304,21 @@ def run_demo() -> None:
         context_id=ctx_id,
     )
     tfp_task = bus.submit(new_task_from_user_message(poll_open))
-    rec("TFP", "1a · POLL_OPEN  (agent-alpha opens poll)", "agent-alpha", poll_open,
+    rec("TFP", "1a · POLL_OPEN  (commercial-agent opens poll)", "commercial-agent", poll_open,
         "agent-alpha broadcasts poll to topic:tfp/polls")
 
     # 1b. agent-alpha bids (also a participant)
     alpha_bid = new_message(
         parts=[
-            new_text_part("BID: I offer scope_analysis (0.92) and negotiation (0.80). Availability: 90%."),
+            new_text_part("BID: I offer contract_law (0.92) and gdpr_compliance (0.80). Availability: 90%."),
             new_data_part({
                 "operation": "BID",
                 "poll_id": poll_task_id,
-                "agent_id": "agent-alpha",
+                "agent_id": "commercial-agent",
                 "offer": {
                     "skills": [
-                        {"skill": "scope_analysis", "proficiency": 0.92},
-                        {"skill": "negotiation",    "proficiency": 0.80},
+                        {"skill": "contract_law", "proficiency": 0.92},
+                        {"skill": "gdpr_compliance", "proficiency": 0.80},
                     ],
                     "availability": 0.9,
                 },
@@ -294,20 +329,20 @@ def run_demo() -> None:
         context_id=ctx_id,
     )
     bus.append_message(tfp_task.id, alpha_bid)
-    rec("TFP", "1b · BID  (agent-alpha bids)", "agent-alpha", alpha_bid)
+    rec("TFP", "1b · BID  (commercial-agent bids)", "commercial-agent", alpha_bid)
 
     # 1c. agent-beta bids
     beta_bid = new_message(
         parts=[
-            new_text_part("BID: I offer timeline_analysis (0.85) and scope_analysis (0.65). Availability: 80%."),
+            new_text_part("BID: I offer indemnity_analysis (0.88) and contract_law (0.72). Availability: 80%."),
             new_data_part({
                 "operation": "BID",
                 "poll_id": poll_task_id,
-                "agent_id": "agent-beta",
+                "agent_id": "liability-agent",
                 "offer": {
                     "skills": [
-                        {"skill": "timeline_analysis", "proficiency": 0.85},
-                        {"skill": "scope_analysis",    "proficiency": 0.65},
+                        {"skill": "indemnity_analysis", "proficiency": 0.88},
+                        {"skill": "contract_law",       "proficiency": 0.72},
                     ],
                     "availability": 0.8,
                 },
@@ -318,7 +353,7 @@ def run_demo() -> None:
         context_id=ctx_id,
     )
     bus.append_message(tfp_task.id, beta_bid)
-    rec("TFP", "1c · BID  (agent-beta bids)", "agent-beta", beta_bid)
+    rec("TFP", "1c · BID  (liability-agent bids)", "liability-agent", beta_bid)
 
     # 1d. alpha selects team
     select_msg = new_message(
@@ -328,11 +363,11 @@ def run_demo() -> None:
                 "operation": "SELECT",
                 "poll_id": poll_task_id,
                 "selection": {
-                    "members": ["agent-alpha", "agent-beta"],
+                    "members": ["commercial-agent", "liability-agent"],
                     "coverage": 1.0,
                     "roles": [
-                        {"agent_id": "agent-alpha", "role": "lead",        "responsible_for": ["scope_analysis", "negotiation"]},
-                        {"agent_id": "agent-beta",  "role": "contributor", "responsible_for": ["timeline_analysis"]},
+                        {"agent_id": "commercial-agent", "role": "lead",        "responsible_for": ["contract_law", "gdpr_compliance"]},
+                        {"agent_id": "liability-agent",  "role": "contributor", "responsible_for": ["indemnity_analysis"]},
                     ],
                 },
             }, media_type="application/json"),
@@ -342,53 +377,53 @@ def run_demo() -> None:
         context_id=ctx_id,
     )
     bus.append_message(tfp_task.id, select_msg)
-    rec("TFP", "1d · SELECT  (agent-alpha selects team)", "agent-alpha", select_msg,
+    rec("TFP", "1d · SELECT  (commercial-agent selects team)", "commercial-agent", select_msg,
         "team=[agent-alpha, agent-beta]  coverage=1.0")
 
     # 1e. alpha accepts
     alpha_accept = new_text_message(
-        "ACCEPT: Skills match, I have capacity. Joining team.",
+        "ACCEPT: Contract law and GDPR expertise confirmed; joining review team.",
         role=Role.ROLE_AGENT, task_id=tfp_task.id, context_id=ctx_id)
     bus.append_message(tfp_task.id, alpha_accept)
-    rec("TFP", "1e · ACCEPT  (agent-alpha accepts)", "agent-alpha", alpha_accept)
+    rec("TFP", "1e · ACCEPT  (commercial-agent accepts)", "commercial-agent", alpha_accept)
 
     # 1f. beta accepts
     beta_accept = new_text_message(
-        "ACCEPT: Timeline and scope skills ready. Joining team.",
+        "ACCEPT: Indemnity and damages analysis skills ready; joining review team.",
         role=Role.ROLE_AGENT, task_id=tfp_task.id, context_id=ctx_id)
     bus.append_message(tfp_task.id, beta_accept)
-    rec("TFP", "1f · ACCEPT  (agent-beta accepts)", "agent-beta", beta_accept)
+    rec("TFP", "1f · ACCEPT  (liability-agent accepts)", "liability-agent", beta_accept)
 
     # 1g. alpha commits: team formed
     commit_tfp = new_message(
         parts=[
-            new_text_part("FORM_CONVERGED: Team assembled. Starting epistemic grounding."),
+            new_text_part("FORM_CONVERGED: Team assembled. Starting legal standard alignment."),
             new_data_part({"operation": "FORM_CONVERGED", "poll_id": poll_task_id,
-                           "members": ["agent-alpha", "agent-beta"]},
+                           "members": ["commercial-agent", "liability-agent"]},
                           media_type="application/json"),
         ],
         role=Role.ROLE_AGENT, task_id=tfp_task.id, context_id=ctx_id)
     bus.complete(tfp_task.id, commit_tfp)
-    rec("TFP", "1g · FORM_CONVERGED  (team formed ✓)", "agent-alpha", commit_tfp)
+    rec("TFP", "1g · FORM_CONVERGED  (team formed ✓)", "commercial-agent", commit_tfp)
 
-    # ── Step 2: SIEP — Epistemic Grounding ───────────────────────────────────
+    # ── Step 2: SIEP — Legal Standard Alignment ──────────────────────────────
     _hr("═")
-    print("  STEP 2 — SIEP  (Epistemic Grounding)")
+    print('  STEP 2 — SIEP  (Legal Standard Alignment: aligning on "material breach")')
     _hr("═")
 
     siep_task_id = str(uuid.uuid4())
 
-    # 2a. alpha opens grounding task
+    # 2a. commercial-agent opens legal standard alignment task
     siep_intent = new_message(
         parts=[
-            new_text_part(f"INTENT: Grounding session on {C_SCOPE}. All members please align."),
+            new_text_part(f"INTENT: Legal standard alignment on {C_SCOPE}. All agents must confirm interpretive framework."),
             new_data_part({"act": "intent", "concept": C_SCOPE,
                            "subkind": "team-process", "subprotocol": "SIEP"},
                           media_type="application/json"),
         ],
         role=Role.ROLE_USER, task_id=siep_task_id, context_id=ctx_id)
     siep_task = bus.submit(new_task_from_user_message(siep_intent))
-    rec("SIEP", "2a · intent  (agent-alpha opens episode)", "agent-alpha", siep_intent)
+    rec("SIEP", "2a · intent  (commercial-agent opens alignment session)", "commercial-agent", siep_intent)
 
     # 2b. alpha exchanges on correct concept
     alpha_exchange = new_message(
@@ -397,12 +432,12 @@ def run_demo() -> None:
                           "Evidence: spec-v2 and acceptance criteria doc."),
             new_data_part({"act": "exchange", "concept": C_SCOPE,
                            "belief": {"prior": 0.75, "posterior": 0.75},
-                           "evidence": [C_SCOPE, "concept:acceptance_criteria"]},
+                           "evidence": [C_SCOPE, "concept:sla_breach_threshold"]},
                           media_type="application/json"),
         ],
         role=Role.ROLE_AGENT, task_id=siep_task.id, context_id=ctx_id)
     bus.append_message(siep_task.id, alpha_exchange)
-    rec("SIEP", "2b · exchange  (agent-alpha aligns on scope)", "agent-alpha", alpha_exchange)
+    rec("SIEP", "2b · exchange  (commercial-agent aligns on material breach)", "commercial-agent", alpha_exchange)
 
     # 2c. beta drifts to wrong concept
     beta_drift = new_message(
@@ -416,72 +451,135 @@ def run_demo() -> None:
         ],
         role=Role.ROLE_AGENT, task_id=siep_task.id, context_id=ctx_id)
     bus.append_message(siep_task.id, beta_drift)
-    rec("SIEP", "2c · exchange  (agent-beta drifts to timeline ⚠)", "agent-beta", beta_drift,
-        f"⚠ scope mismatch: beta replied on '{C_TIMELINE}', expected '{C_SCOPE}' → escalate to CIP")
+    rec("SIEP", "2c · exchange  (liability-agent drifts to tort doctrine ⚠)", "liability-agent", beta_drift,
+        f"⚠ doctrine mismatch: liability-agent applied tort 'substantial_performance', expected contract-law 'material_breach' → escalate to CIP")
 
     # ── Step 3: CIP — Contingency Repair ─────────────────────────────────────
     _hr("═")
-    print("  STEP 3 — CIP   (Contingency Repair: scope mismatch on agent-beta)")
+    print("  STEP 3 — CIP   (Contingency Repair: doctrine mismatch on liability-agent)")
     _hr("═")
 
     cip_task_id = str(uuid.uuid4())
+    cip_episode  = f"urn:ioc:cip:{uuid.uuid4()}"
 
-    # 3a. alpha raises contingency task
+    # CIPProcessor (real LLM-powered — same as L9 demo)
+    cip_config = CIPEngineConfig(
+        derailment_causes={
+            "scope_mismatch":    ["{listener}, your reply applied the wrong legal doctrine."],
+            "alignment_failure": ["{listener}, your reply did not engage the agreed legal standard."],
+        },
+        nonsense_derailment_causes=set(),
+        repair_utterances={
+            "repair_hard_stop":      "{listener}, stop — restate only under the contract-law material breach standard.",
+            "repair_anchor":         "{listener}, re-anchor on the contract-law material breach definition.",
+            "repair_alignment":      "{listener}, restate within the agreed operative legal standard.",
+            "request_clarification": "{listener}, clarify how your reply addresses material breach under contract law.",
+            "default":               "{listener}, remain within the contract-law material breach standard.",
+        },
+        normal_utterance_template="{listener}, continue within the shared contract-law material breach standard.",
+    )
+    cip_proc = CIPProcessor("cip-engine", cip_episode, cip_config)
+
+    def _cip_l9(sender: str) -> CIPMessageBuilder:
+        return CIPMessageBuilder(cip_episode, sender)
+
+    def _cip_text(l9_msg: Any) -> str:
+        """Extract utterance text from a CIPProcessor L9 result."""
+        data = l9_msg.payload.data or {}
+        return data.get("utterance", {}).get("text", str(data))
+
+    # 3a. commercial-agent raises contingency (A2A message on bus)
     repair_req = new_message(
         parts=[
-            new_text_part(f"CONTINGENCY: agent-beta drifted to {C_TIMELINE}. "
-                          f"Repair required — target must re-anchor on {C_SCOPE}."),
-            new_data_part({"act": "contingency", "repair_reason": "scope_mismatch",
-                           "target_agent": "agent-beta",
+            new_text_part(f"CONTINGENCY: liability-agent applied tort doctrine ({C_TIMELINE}). "
+                          f"Repair required — must re-anchor on {C_SCOPE} (contract law)."),
+            new_data_part({"act": "contingency", "repair_reason": "doctrine_mismatch",
+                           "target_agent": "liability-agent",
                            "expected_concept": C_SCOPE,
+                           "expected_doctrine": "contract_law",
                            "observed_concept": C_TIMELINE,
+                           "observed_doctrine": "tort_law",
                            "subprotocol": "CIP"},
                           media_type="application/json"),
         ],
         role=Role.ROLE_USER, task_id=cip_task_id, context_id=ctx_id)
     cip_task = bus.submit(new_task_from_user_message(repair_req))
-    rec("CIP", "3a · contingency  (repair request: beta drifted)", "agent-alpha", repair_req)
+    rec("CIP", "3a · contingency  (repair: liability-agent applied tort doctrine)", "commercial-agent", repair_req)
 
-    # 3b. cip-engine issues repair guidance (simulated — in prod this calls LLM)
+    # Build internal L9 message → run CIPProcessor → LLM generates guidance
+    repair_req_l9 = (
+        _cip_l9("commercial-agent")
+        .contingency().grounding().challenged().concept(C_SCOPE)
+        .payload(CIPPayload(
+            grounding=CIPGrounding(
+                contingency_verified=False, contingency_score=0.0,
+                repair_reason=RepairReason.scope_mismatch,
+                challenges=[C_SCOPE, "concept:sla_breach_threshold"],
+            ),
+        ))
+        .text("repair_required:reason=doctrine_mismatch:target=liability-agent")
+        .build()
+    )
+    guidance_l9 = cip_proc.process(repair_req_l9)[0]
+    guidance_text = _cip_text(guidance_l9)
+
+    # 3b. cip-engine delivers LLM guidance as A2A message
     repair_guidance = new_message(
         parts=[
-            new_text_part(
-                f"REPAIR_GUIDANCE → agent-beta: Hard stop. "
-                f"Your last reply addressed {C_TIMELINE}, but the active grounding session "
-                f"is anchored on {C_SCOPE}. Please restate your belief strictly against "
-                f"deliverable scope. Confirm: what is your understanding of the agreed deliverables?"
-            ),
+            new_text_part(f"REPAIR_GUIDANCE → liability-agent: {guidance_text}"),
             new_data_part({"act": "repair_guidance", "repair_type": "repair_hard_stop",
                            "issued_by": "cip-engine",
-                           "target_agent": "agent-beta",
-                           "required_concept": C_SCOPE},
+                           "target_agent": "liability-agent",
+                           "required_concept": C_SCOPE,
+                           "required_doctrine": "contract_law"},
                           media_type="application/json"),
         ],
         role=Role.ROLE_AGENT, task_id=cip_task.id, context_id=ctx_id)
     bus.append_message(cip_task.id, repair_guidance)
-    rec("CIP", "3b · repair_guidance  (cip-engine issues repair)", "cip-engine", repair_guidance,
-        "cip-engine (future Cognition Engine) — repair_hard_stop → agent-beta")
+    rec("CIP", "3b · repair_guidance  (cip-engine issues hard-stop repair — LLM)", "cip-engine", repair_guidance,
+        "cip-engine (future Cognition Engine) — LLM repair_hard_stop → liability-agent")
 
-    # 3c. beta re-anchors on correct concept
+    # 3c. liability-agent re-anchors (A2A response on bus)
     beta_reanchor = new_message(
         parts=[
-            new_text_part(f"REVISED: Re-anchoring on {C_SCOPE}. "
-                          "Agreed deliverables: scope spec-v2 and acceptance criteria. Confirmed."),
+            new_text_part(f"REVISED: Re-anchoring on contract-law {C_SCOPE} standard. "
+                          "Confirmed: breach of SLA uptime clause 14.2 constitutes material breach "
+                          "as it goes to the root of the agreement. Tort doctrine set aside."),
             new_data_part({"act": "contingency_response", "concept": C_SCOPE,
                            "revision_cause": "repair_resolution",
-                           "belief": {"prior": 0.68, "posterior": 0.68},
-                           "addresses": [C_SCOPE, "concept:acceptance_criteria"]},
+                           "doctrine_corrected": "contract_law",
+                           "belief": {"prior": 0.68, "posterior": 0.75},
+                           "addresses": [C_SCOPE, "concept:sla_breach_threshold"]},
                           media_type="application/json"),
         ],
         role=Role.ROLE_AGENT, task_id=cip_task.id, context_id=ctx_id)
     bus.append_message(cip_task.id, beta_reanchor)
-    rec("CIP", "3c · contingency_response  (agent-beta re-anchors)", "agent-beta", beta_reanchor)
+    rec("CIP", "3c · contingency_response  (liability-agent re-anchors on contract law)", "liability-agent", beta_reanchor)
 
-    # 3d. cip-engine closes: commit:resolved
+    # Pass re-anchor to CIPProcessor → generates commit:resolved
+    reanchor_l9 = (
+        _cip_l9("liability-agent")
+        .contingency().grounding().revised().concept(C_SCOPE)
+        .payload(CIPPayload(
+            utterance=CIPUtterance(
+                text="Re-anchoring on contract-law material breach: breach of SLA uptime clause 14.2 constitutes material breach as it goes to the root of the agreement.",
+                evidence=[C_SCOPE, "concept:sla_breach_threshold"],
+                addresses_evidence=[C_SCOPE, "concept:sla_breach_threshold"],
+                turn_depth=1,
+            ),
+            belief=CIPBelief(prior=0.68, posterior=0.75,
+                             revision_cause=CIPRevisionCause.repair_resolution),
+        ))
+        .text("Re-anchoring on contract-law material breach.")
+        .build()
+    )
+    resolved_l9 = cip_proc.process(reanchor_l9)[0]
+    resolved_text = _cip_text(resolved_l9) or "Contingency closed. Epistemic alignment restored."
+
+    # 3d. cip-engine commits: resolved (A2A message on bus)
     cip_resolved = new_message(
         parts=[
-            new_text_part(f"COMMIT_RESOLVED: Contingency closed. "
-                          f"agent-beta re-anchored on {C_SCOPE}. Returning to SIEP."),
+            new_text_part(f"COMMIT_RESOLVED: {resolved_text}"),
             new_data_part({"act": "commit_resolved", "concept": C_SCOPE,
                            "issued_by": "cip-engine",
                            "resolution": "re_anchored"},
@@ -489,113 +587,96 @@ def run_demo() -> None:
         ],
         role=Role.ROLE_AGENT, task_id=cip_task.id, context_id=ctx_id)
     bus.complete(cip_task.id, cip_resolved)
-    rec("CIP", "3d · commit:resolved  (cip-engine closes branch)", "cip-engine", cip_resolved)
+    rec("CIP", "3d · commit:resolved  (cip-engine closes — alignment restored)", "cip-engine", cip_resolved)
 
-    # ── Step 4: SIEP — Commit ────────────────────────────────────────────────
+    # ── Step 4: SAB — Negotiate supply terms ─────────────────────────────────
     _hr("═")
-    print("  STEP 4 — SIEP  (Commit: epistemic alignment restored)")
-    _hr("═")
-
-    siep_commit = new_message(
-        parts=[
-            new_text_part(f"COMMIT_CONVERGED: All agents aligned on {C_SCOPE}. "
-                          "Proceeding to supply negotiation."),
-            new_data_part({"act": "commit_converged", "concept": C_SCOPE,
-                           "belief": {"prior": 0.80, "posterior": 0.85},
-                           "revision_cause": "grounded_argument"},
-                          media_type="application/json"),
-        ],
-        role=Role.ROLE_AGENT, task_id=siep_task.id, context_id=ctx_id)
-    bus.complete(siep_task.id, siep_commit)
-    rec("SIEP", "4a · commit:converged  (agent-alpha confirms alignment)", "agent-alpha", siep_commit)
-
-    # ── Step 5: SAB — Negotiate supply terms ─────────────────────────────────
-    _hr("═")
-    print("  STEP 5 — SAB   (Negotiation: price × delivery_speed)")
+    print("  STEP 4 — SAB   (Semantic Negotiation: consequential damages clause)")
     _hr("═")
 
     sab_task_id = str(uuid.uuid4())
-    issues = {"price": ["low", "medium", "high"], "delivery_speed": ["express", "standard", "deferred"]}
+    issues = {"governing_interpretation": ["us_standard", "uk_standard", "hybrid"],
+              "damages_cap": ["6_months_fees", "12_months_fees", "24_months_fees"]}
 
-    # 5a. alpha opens SAB session
+    # 4a. alpha opens SAB session
     sab_open = new_message(
         parts=[
-            new_text_part("SAB_OPEN: Opening negotiation on price and delivery_speed."),
+            new_text_part("SAB_OPEN: Opening semantic negotiation on consequential damages clause — governing_interpretation and damages_cap."),
             new_data_part({"act": "negotiate_open", "session_id": sab_task_id,
-                           "issues": issues, "subprotocol": "SAB"},
+                           "issues": {"governing_interpretation": ["us_standard","uk_standard","hybrid"], "damages_cap": ["6_months_fees","12_months_fees","24_months_fees"]}, "subprotocol": "SAB"},
                           media_type="application/json"),
         ],
         role=Role.ROLE_USER, task_id=sab_task_id, context_id=ctx_id)
     sab_task = bus.submit(new_task_from_user_message(sab_open))
-    rec("SAB", "5a · negotiate_open  (agent-alpha opens SAB)", "agent-alpha", sab_open,
-        "agent-alpha opens SAB session")
+    rec("SAB", "4a · negotiate_open  (commercial-agent opens SAB)", "commercial-agent", sab_open,
+        "commercial-agent opens SAB — consequential damages clause")
 
-    # 5b. alpha offers high/express
+    # 4b. alpha offers high/express
     alpha_offer1 = new_message(
         parts=[
-            new_text_part("OFFER: price=high, delivery_speed=express."),
-            new_data_part({"act": "offer", "proposer": "agent-alpha", "step": 0,
-                           "offer": {"price": "high", "delivery_speed": "express"}},
+            new_text_part("OFFER: governing_interpretation=us_standard, damages_cap=6_months_fees."),
+            new_data_part({"act": "offer", "proposer": "commercial-agent", "step": 0,
+                           "offer": {"governing_interpretation": "us_standard", "damages_cap": "6_months_fees"}},
                           media_type="application/json"),
         ],
         role=Role.ROLE_AGENT, task_id=sab_task.id, context_id=ctx_id)
     bus.append_message(sab_task.id, alpha_offer1)
-    rec("SAB", "5b · offer  (agent-alpha offers high/express)", "agent-alpha", alpha_offer1,
-        "alpha→beta: price=high, delivery=express")
+    rec("SAB", "4b · offer  (commercial-agent proposes us_standard/6_months_fees)", "commercial-agent", alpha_offer1,
+        "commercial→liability: us_standard / 6_months_fees")
 
-    # 5c. beta counters low/deferred
+    # 4c. beta counters low/deferred
     beta_offer = new_message(
         parts=[
-            new_text_part("COUNTER: price=low, delivery_speed=deferred."),
-            new_data_part({"act": "offer", "proposer": "agent-beta", "step": 1,
-                           "offer": {"price": "low", "delivery_speed": "deferred"}},
+            new_text_part("COUNTER: governing_interpretation=uk_standard, damages_cap=24_months_fees."),
+            new_data_part({"act": "offer", "proposer": "liability-agent", "step": 1,
+                           "offer": {"governing_interpretation": "uk_standard", "damages_cap": "24_months_fees"}},
                           media_type="application/json"),
         ],
         role=Role.ROLE_AGENT, task_id=sab_task.id, context_id=ctx_id)
     bus.append_message(sab_task.id, beta_offer)
-    rec("SAB", "5c · offer  (agent-beta counters low/deferred)", "agent-beta", beta_offer,
-        "beta→alpha: price=low, delivery=deferred")
+    rec("SAB", "4c · offer  (liability-agent counters uk_standard/24_months_fees)", "liability-agent", beta_offer,
+        "liability→commercial: uk_standard / 24_months_fees")
 
-    # 5d. alpha concedes medium/standard
+    # 4d. alpha concedes medium/standard
     alpha_offer2 = new_message(
         parts=[
-            new_text_part("CONCEDE: price=medium, delivery_speed=standard. Final offer."),
-            new_data_part({"act": "offer", "proposer": "agent-alpha", "step": 2,
-                           "offer": {"price": "medium", "delivery_speed": "standard"}},
+            new_text_part("CONCEDE: governing_interpretation=hybrid, damages_cap=12_months_fees. Final offer."),
+            new_data_part({"act": "offer", "proposer": "commercial-agent", "step": 2,
+                           "offer": {"governing_interpretation": "hybrid", "damages_cap": "12_months_fees"}},
                           media_type="application/json"),
         ],
         role=Role.ROLE_AGENT, task_id=sab_task.id, context_id=ctx_id)
     bus.append_message(sab_task.id, alpha_offer2)
-    rec("SAB", "5d · offer  (agent-alpha concedes medium/standard)", "agent-alpha", alpha_offer2,
-        "alpha→beta: price=medium, delivery=standard")
+    rec("SAB", "4d · offer  (commercial-agent concedes hybrid/12_months_fees)", "commercial-agent", alpha_offer2,
+        "commercial→liability: hybrid / 12_months_fees")
 
-    # 5e. beta accepts
+    # 4e. beta accepts
     beta_accept_sab = new_message(
         parts=[
-            new_text_part("ACCEPT: price=medium, delivery_speed=standard. Agreement reached."),
-            new_data_part({"act": "accept",  "proposer": "agent-beta", "step": 3,
-                           "accepted_offer": {"price": "medium", "delivery_speed": "standard"}},
+            new_text_part("ACCEPT: governing_interpretation=hybrid, damages_cap=12_months_fees. Damages clause agreed."),
+            new_data_part({"act": "accept",  "proposer": "liability-agent", "step": 3,
+                           "accepted_offer": {"governing_interpretation": "hybrid", "damages_cap": "12_months_fees"}},
                           media_type="application/json"),
         ],
         role=Role.ROLE_AGENT, task_id=sab_task.id, context_id=ctx_id)
     bus.append_message(sab_task.id, beta_accept_sab)
-    rec("SAB", "5e · accept  (agent-beta accepts ✓)", "agent-beta", beta_accept_sab,
-        "beta accepts ✓")
+    rec("SAB", "4e · accept  (agent-liability-agent accepts ✓)", "liability-agent", beta_accept_sab,
+        "liability-agent accepts ✓")
 
-    # 5f. alpha commits: converged
+    # 4f. alpha commits: converged
     sab_commit = new_message(
         parts=[
             new_text_part("COMMIT_CONVERGED: price=medium, delivery_speed=standard. "
                           "Supply terms agreed."),
             new_data_part({"act": "commit_converged",
-                           "final_agreement": {"price": "medium", "delivery_speed": "standard"},
-                           "agents": ["agent-alpha", "agent-beta"]},
+                           "final_agreement": {"governing_interpretation": "hybrid", "damages_cap": "12_months_fees"},
+                           "agents": ["commercial-agent", "liability-agent"]},
                           media_type="application/json"),
         ],
         role=Role.ROLE_AGENT, task_id=sab_task.id, context_id=ctx_id)
     bus.complete(sab_task.id, sab_commit)
-    rec("SAB", "5f · commit:converged  (supply terms agreed)", "agent-alpha", sab_commit,
-        "commit:converged — price=medium, delivery=standard")
+    rec("SAB", "4f · commit:converged  (damages clause agreed)", "commercial-agent", sab_commit,
+        "commit:converged — governing=hybrid, cap=12_months_fees")
 
     # ── Summary ────────────────────────────────────────────────────────────────
     _print_summary(log)
