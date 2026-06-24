@@ -170,7 +170,7 @@ class CIPMessageBuilder:
                 kind=self._kind.value,
                 subkind=self._subkind,
                 participants=ParticipantSet(actors=[Actor(id=self._sender, role="sender")], groups=None),
-                message={"id": msg_id, "parents": json.dumps(list(self._parents)), "episode": self._ep},
+                message={"id": msg_id, "parents": list(self._parents), "episode": self._ep},
                 attributes=attributes,
                 context=Context(
                     topic=self._concept or "",
