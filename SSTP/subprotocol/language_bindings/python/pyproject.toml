@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "ai-outshift-subprotocols"
-version = "0.1.0"
+version = "0.0.1"
 description = "SSTP subprotocol public API: SIEP, CIP, SAB (re-exports from SSTP.subprotocol.*)"
 authors = []
 packages = [{include = "ai"}]
