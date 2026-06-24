@@ -9,6 +9,9 @@ from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 
 from SSTP.subprotocol.siep.src.tomcore.llm import LLMClient
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block
+from SSTP.subprotocol.siep.src.epistemic.stores import (
+    AgentBeliefStore, AgentEpistemicStore, PeerInteractionStore, TaskworkStore,
+)
 from SSTP.examples.hcpanel.domain import (
     ClinicalAssessment,
     DoctorAssessment,
@@ -19,6 +22,7 @@ from SSTP.examples.hcpanel.domain import (
     SpecialistProvider,
 )
 from SSTP.examples.hcpanel.interaction_semantics import concept_uri_for_interaction
+from SSTP.examples.hcpanel.llm_backends import extract_findings, SimulatedHealthcareLLMClient
 
 if TYPE_CHECKING:
     from SSTP.examples.hcpanel.agent_bus import HealthcareAgentBus
@@ -495,7 +499,6 @@ class DiagnosticsController:
         }
 
         # ── Layer 7: extract structured findings once per episode ─────────────
-        from SSTP.examples.hcpanel.llm_backends import extract_findings
         episode_findings = extract_findings(
             symptoms=patient.symptoms,
             health_history=patient.health_history,
@@ -1673,6 +1676,7 @@ class SpecialistAgent:
         thought_summary = ""
         if likelihood_table is not None and findings:
             from SSTP.subprotocol.siep.src.epistemic.bayes import compute_posterior, normalize_posteriors
+            from SSTP.examples.hcpanel.memory import compute_prior
             hypotheses = ["drug_interaction", "new_disease"]
             unnorm = {
                 h: compute_posterior(
