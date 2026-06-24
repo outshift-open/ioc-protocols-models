@@ -1,4 +1,4 @@
-# IOC Protocols Models
+# Internet of Cognition (IOC) Protocols Models
 
 Protocol definitions, language bindings, and tooling for the IOC L9 / SSTP protocol stack.
 
@@ -294,3 +294,7 @@ VERSION=$(make -s print-version)
 ## Skills
 
 Skills live in `SSTP/skills/` and are **hand-authored**. They must be updated manually whenever the schema or bindings change.
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
