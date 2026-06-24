@@ -207,9 +207,23 @@ class AgentTOM:
         return verdict
 
     def assess_task_alignment(self, task_goal: str = "", utterance: str = "") -> Dict[str, Any]:
-        """Deprecated. epistemic_state in L9 header carries phase classification."""
-        return {"actor": self.agent_id, "task_goal": task_goal,
-                "aligned": True, "alignment_score": 0.5, "rationale": "structural"}
+        if not utterance:
+            return {"actor": self.agent_id, "task_goal": task_goal,
+                    "aligned": True, "alignment_score": 1.0, "rationale": "empty-utterance"}
+        result = self._llm.complete_json("assess_task_alignment", {
+            "agent_id": self.agent_id,
+            "task_goal": task_goal,
+            "utterance": utterance,
+        })
+        alignment_score = round(max(0.0, min(1.0, float(
+            result.get("alignment_score", 0.65)))), 4)
+        return {
+            "actor": self.agent_id,
+            "task_goal": task_goal,
+            "aligned": bool(result.get("aligned", alignment_score >= 0.5)),
+            "alignment_score": alignment_score,
+            "rationale": str(result.get("rationale", "")),
+        }
 
     def detect_ambiguity(self, utterance: str = "", task_goal: str = "") -> Dict[str, Any]:
         if not utterance:
@@ -294,10 +308,8 @@ class AgentTOM:
 
         self._peer_beliefs[peer_id] = updated_peer
 
-        # Alignment score used for both prediction error and peer EMA
-        alignment_score = float(
-            self.assess_task_alignment(task_goal, utterance).get("alignment_score", 0.5)
-        )
+        # Use the alignment_score passed in by the caller (from assess_utterance),
+        # not the stub assess_task_alignment() which always returned 0.5.
         self._peer_ema[peer_id] = round(
             _EMA_ALPHA * alignment_score + (1 - _EMA_ALPHA) * self._peer_ema.get(peer_id, 1.0),
             4,
@@ -526,9 +538,11 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
 
     def assess_task_alignment(self, actor: str, task_goal: str, utterance: str,
                                schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Deprecated. epistemic_state in L9 header carries phase classification."""
-        return {"actor": actor, "task_goal": task_goal,
-                "aligned": True, "alignment_score": 0.5, "rationale": "structural"}
+        _id = actor if actor in self._agent_toms else next(iter(self._agent_toms), None)
+        if _id is None:
+            return {"actor": actor, "task_goal": task_goal,
+                    "aligned": True, "alignment_score": 0.65, "rationale": "no-agents"}
+        return self.agent(_id).assess_task_alignment(task_goal=task_goal, utterance=utterance)
 
     def ie_utterance_judge(
         self,
