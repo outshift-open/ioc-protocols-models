@@ -255,7 +255,7 @@ class SIEPMessageBuilder:
                 kind=self._kind.value,
                 subkind=self._subkind.value if self._subkind else None,
                 participants=ParticipantSet(actors=[Actor(id=self._sender, role="sender")], groups=None).model_dump(),
-                message=Message(id=msg_id, parents=json.dumps(list(self._parents)), episode=self._ep),
+                message=Message(id=msg_id, parents=list(self._parents), episode=self._ep),
                 attributes=attributes,
                 context=Context(
                     topic=self._concept or "",

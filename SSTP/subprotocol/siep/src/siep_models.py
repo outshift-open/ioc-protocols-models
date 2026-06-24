@@ -14,7 +14,6 @@ This module provides:
 
 from __future__ import annotations
 
-import json
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -43,15 +42,11 @@ class SIEPEpistemic(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def siep_parents(msg: L9) -> List[str]:
-    """Return the parents list from a received L9 message (decodes JSON string)."""
-    raw = msg.header.message.parents if msg.header.message else None
-    if not raw:
+    """Return the parents list from a received L9 message."""
+    parents = msg.header.message.parents if msg.header.message else None
+    if not parents:
         return []
-    try:
-        result = json.loads(raw)
-        return result if isinstance(result, list) else []
-    except (ValueError, TypeError):
-        return []
+    return list(parents) if isinstance(parents, (list, tuple)) else []
 
 
 def siep_epistemic(msg: L9) -> Optional[SIEPEpistemic]:

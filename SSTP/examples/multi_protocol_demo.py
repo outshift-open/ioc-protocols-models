@@ -154,7 +154,7 @@ def _tfp_emit(episode: str, sender: str, receivers: List[str],
             participants=ParticipantSet(actors=actors, groups=None),
             message=Message(
                 id=str(uuid.uuid4()),
-                parents=json.dumps([parent_id] if parent_id else []),
+                parents=[parent_id] if parent_id else [],
                 episode=episode,
             ),
             context=Context(topic=ctx_topic),
@@ -496,7 +496,7 @@ def run_demo() -> None:
             protocol="SSTP", subprotocol="SAB", version="0",
             kind=kind, subkind=subkind,
             participants=_sab_actors(sender, receiver),
-            message=Message(id=msg_id, parents=json.dumps(parents),
+            message=Message(id=msg_id, parents=parents,
                             episode=sab_episode),
             policy=None, context=_sab_ctx(), attributes=attrs)
 
