@@ -12,25 +12,25 @@ Scenario: Supply-chain coordination — from team assembly to agreed delivery te
   Agents: agent-alpha (leads TFP + SIEP), agent-beta (participant).
   cip-engine is a protocol-internal component (future: Cognition Engine).
 
-  Phase 1 — TFP  (Team Formation via Polling)
+  Step 1 — TFP  (Team Formation via Polling)
     agent-alpha opens a poll; agent-beta bids.
     agent-alpha bids (scope-analysis + negotiation skills).
     Both accept — team commits: converged.
 
-  Phase 2 — SIEP (Epistemic Grounding)
+  Step 2 — SIEP (Epistemic Grounding)
     Formed team aligns on the deliverable scope concept.
     agent-alpha exchanges correctly on deliverable scope.
     agent-beta  drifts to timeline scope — mismatch detected.
 
-  Phase 3 — CIP  (Contingency Repair)
+  Step 3 — CIP  (Contingency Repair)
     cip-engine (future Cognition Engine) emits LLM-powered guidance to re-anchor agent-beta.
     agent-beta re-attempts on the correct concept.
     CIP closes the branch: commit:resolved.
 
-  Phase 4 — SIEP (Commit)
+  Step 4 — SIEP (Commit)
     Epistemic alignment restored — agent-alpha commits: converged.
 
-  Phase 5 — SAB  (Negotiation)
+  Step 5 — SAB  (Negotiation)
     Team negotiates supply terms: price × delivery_speed.
     Two offer rounds → agreement → commit:converged.
 """
@@ -229,9 +229,9 @@ def run_demo() -> None:
         log.append((phase, label, msg))
         return msg
 
-    # ── Phase 1: TFP — Team Formation ─────────────────────────────────────────
+    # ── Step 1: TFP — Team Formation ─────────────────────────────────────────
     _hr("═")
-    print("  PHASE 1 — TFP   (Team Formation via Polling)")
+    print("  STEP 1 — TFP   (Team Formation via Polling)")
     _hr("═")
 
     poll_id  = f"urn:ioc:tfp:poll:{uuid.uuid4().hex[:8]}"
@@ -333,9 +333,9 @@ def run_demo() -> None:
                   parent_id=poll_parent, topic=tf_topic))
     _print_l9("TFP", "1g", log[-1][2])
 
-    # ── Phase 2: SIEP — Epistemic Grounding ───────────────────────────────────
+    # ── Step 2: SIEP — Epistemic Grounding ───────────────────────────────────
     _hr("═")
-    print("  PHASE 2 — SIEP  (Epistemic Grounding)")
+    print("  STEP 2 — SIEP  (Epistemic Grounding)")
     _hr("═")
 
     siep_engine = SIEPEngine("agent-alpha", episode)
@@ -374,9 +374,9 @@ def run_demo() -> None:
     print(f"  ⚠  scope mismatch: beta replied on '{C_TIMELINE}', "
           f"expected '{C_SCOPE}' → escalate to CIP")
 
-    # ── Phase 3: CIP — Contingency Repair ─────────────────────────────────────
+    # ── Step 3: CIP — Contingency Repair ─────────────────────────────────────
     _hr("═")
-    print("  PHASE 3 — CIP   (Contingency Repair: scope mismatch on agent-beta)")
+    print("  STEP 3 — CIP   (Contingency Repair: scope mismatch on agent-beta)")
     _hr("═")
 
     cip_config = CIPEngineConfig(
@@ -441,9 +441,9 @@ def run_demo() -> None:
         cip.process(beta_reanchor)[0])
     _print_l9("CIP", "3d", resolved)
 
-    # ── Phase 4: SIEP — Commit ────────────────────────────────────────────────
+    # ── Step 4: SIEP — Commit ────────────────────────────────────────────────
     _hr("═")
-    print("  PHASE 4 — SIEP  (Commit: epistemic alignment restored)")
+    print("  STEP 4 — SIEP  (Commit: epistemic alignment restored)")
     _hr("═")
 
     siep_commit = record("SIEP", "4a · commit      (agent-alpha confirms alignment)",
@@ -461,9 +461,9 @@ def run_demo() -> None:
     siep_engine.process(siep_commit)
     _print_l9("SIEP", "4a", siep_commit)
 
-    # ── Phase 5: SAB — Negotiate supply terms ─────────────────────────────────
+    # ── Step 5: SAB — Negotiate supply terms ─────────────────────────────────
     _hr("═")
-    print("  PHASE 5 — SAB   (Negotiation: price × delivery_speed)")
+    print("  STEP 5 — SAB   (Negotiation: price × delivery_speed)")
     _hr("═")
 
     sab_episode = f"urn:ioc:episode:sab:{uuid.uuid4()}"
