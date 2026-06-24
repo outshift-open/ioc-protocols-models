@@ -212,9 +212,21 @@ class AgentTOM:
                 "aligned": True, "alignment_score": 0.5, "rationale": "structural"}
 
     def detect_ambiguity(self, utterance: str = "", task_goal: str = "") -> Dict[str, Any]:
-        """Deprecated. diagnose_repair_reason() in grounding.py covers this."""
-        return {"ambiguous": False, "ambiguity_score": 0.0,
-                "ambiguous_spans": [], "plausible_interpretations": []}
+        if not utterance:
+            return {"ambiguous": False, "ambiguity_score": 0.0,
+                    "ambiguous_spans": [], "plausible_interpretations": []}
+        result = self._llm.complete_json("detect_ambiguity", {
+            "utterance": utterance,
+            "task_goal": task_goal,
+            "agent_id": self.agent_id,
+        })
+        return {
+            "ambiguous": bool(result.get("ambiguous", False)),
+            "ambiguity_score": round(max(0.0, min(1.0, float(
+                result.get("ambiguity_score", 0.0)))), 4),
+            "ambiguous_spans": result.get("ambiguous_spans", []),
+            "plausible_interpretations": result.get("plausible_interpretations", []),
+        }
 
     def peer_alignment(self, peer_id: str = "", task_goal: str = "",
                        peer_belief_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -488,9 +500,11 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
 
     def detect_ambiguity(self, utterance: str, task_goal: str,
                          agent_id: Optional[str] = None) -> Dict[str, Any]:
-        """Deprecated. diagnose_repair_reason() in grounding.py covers this."""
-        return {"ambiguous": False, "ambiguity_score": 0.0,
-                "ambiguous_spans": [], "plausible_interpretations": []}
+        _id = agent_id or next(iter(self._agent_toms), None)
+        if _id is None:
+            return {"ambiguous": False, "ambiguity_score": 0.0,
+                    "ambiguous_spans": [], "plausible_interpretations": []}
+        return self.agent(_id).detect_ambiguity(utterance, task_goal)
 
     def update(self, view: Dict[str, Any], utterance: str,
                task_goal: str, actor: str = "agent") -> Dict[str, Any]:
