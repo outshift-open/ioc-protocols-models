@@ -23,11 +23,11 @@ from ai.outshift.data_model import L9, L9Header, L9Payload, Message, Actor, Part
 # Create an L9 message
 msg = L9(
     header=L9Header(
-        protocol="L9",
-        subprotocol="SSTP",
+        protocol="SSTP",
+        subprotocol="TFP",
         version="1.0",
         kind=Kind.intent,
-        subkind="chat",
+        subkind="",
         participants=ParticipantSet(
             actors=[Actor(id="actor-1", role="analyst")],
             groups={"team_alpha": ["actor-1"]},
