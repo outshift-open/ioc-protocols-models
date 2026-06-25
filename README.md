@@ -13,6 +13,9 @@ Before anything else, make sure you have these installed:
 ## Quick Start
 
 ```bash
+# After cloning or pulling latest changes, build the wheel files first:
+make build_wheels             # Build Python wheels (required for tests)
+
 # Generate all bindings + docs + run tests (one command does everything)
 make all
 
@@ -21,6 +24,8 @@ make generate_bindings        # Python + Go bindings from schema
 make generate_docs            # HTML documentation
 make test_bindings            # Validate generated code
 ```
+
+> **⚠️ Important:** Python wheel files (`.whl`) are not tracked in git. After `git pull` or cloning the repo, run `make build_wheels` to regenerate them before running tests.
 
 ---
 
@@ -77,8 +82,32 @@ You edit the schema, then run the tooling to regenerate everything else.
 | `make test_bindings` | Run binding tests (or `LANGUAGE=python\|golang`) |
 | `make publish_docs` | Finalize docs (create index.html + version metadata) |
 | `make publish_bindings` | Validate bindings (use script with `--tag` for git tagging) |
+| `make build_wheels` | Build all Python wheel packages (required after git pull) |
 | `make clean` | Remove all generated files |
 | `make print-version` | Print current schema version |
+
+---
+
+## Python Wheel Files
+
+Python wheel files (`.whl`) are **not tracked in git** per OSPO compliance requirements. These files are:
+- Generated from language bindings
+- Required for running tests
+- Automatically ignored by `.gitignore`
+
+### After Git Pull or Clone
+
+```bash
+# Regenerate wheel files (required before running tests)
+make build_wheels
+```
+
+This will build:
+- `SSTP/language_bindings/python/ai_outshift_data_model-*.whl`
+- `SSTP/subprotocol/sab/language_bindings/python/ai_outshift_sab_data_model-*.whl`
+- `SSTP/subprotocol/tfp/language_bindings/python/ai_outshift_tfp_data_model-*.whl`
+
+The CI pipeline automatically builds these wheels before running tests.
 
 ---
 
