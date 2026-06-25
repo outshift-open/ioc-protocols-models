@@ -10,9 +10,7 @@ build-backend = "poetry.core.masonry.api"
 name = "ioc-l9-all-models"
 version = "9.9.9a"
 description = "IOC L9 Protocol Package"
-authors = [
-    {name = "Outshift by Cisco", email = "outshiftbycisco@cisco.com"}
-]
+authors = ["Outshift Open <oss@cisco.com>"]
 readme = "README.md"
 license = "Apache-2.0"
 keywords = ["ioc", "l9", "protocols", "ai"]
