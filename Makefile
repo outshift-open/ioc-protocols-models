@@ -8,7 +8,7 @@ PROJECT_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCHEMA_FILE := $(PROJECT_ROOT)/SSTP/spec/l9_schema.json
 ARTIFACT_PUBLISH_FOLDER := $(PROJECT_ROOT)/SSTP/documentation
 
-.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder build_wheel build_sab_wheel build_tfp_wheel build_siep_wheel build_cip_wheel build_wheels
+.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder build_wheel build_sab_wheel build_tfp_wheel build_siep_wheel build_cip_wheel build_wheels pkg_model
 
 help:
 	@echo "Available targets:"
@@ -27,6 +27,7 @@ help:
 	@echo "  build_siep_wheel          - Build Python wheel (ai-outshift-subprotocols-siep)"
 	@echo "  build_cip_wheel           - Build Python wheel (ai-outshift-subprotocols-cip)"
 	@echo "  build_wheels              - Build all Python wheels (required after git pull)"
+	@echo "  pkg_model                 - Build distributable wheel (calls package_models.sh --all)"
 	@echo "  clean                     - Clean all generated files"
 	@echo "  print-version             - Print schema version"
 	@echo "  print-artifact-folder     - Print artifact publish folder path"
@@ -241,3 +242,7 @@ build_cip_wheel:
 build_wheels:
 	@echo "Building all Python wheels..."
 	@cd "$(PROJECT_ROOT)" && ./scripts/build_wheels.sh
+
+pkg_model:
+	@echo "Building distributable wheel..."
+	@cd "$(PROJECT_ROOT)" && bash scripts/package_models.sh --all

@@ -7,11 +7,11 @@ requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "ioc-l9"
-version = "0.1.0"
+name = "ioc-l9-all-models"
+version = "0.0.1"
 description = "IOC L9 Protocol Package"
 authors = []
-packages = [{include = "SSTP"}]
+packages = [{include = "ai"}]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
