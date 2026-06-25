@@ -1,3 +1,6 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
 # IOC Protocols Models - Root Makefile
 # Automation for schema generation, language bindings, and documentation
 
@@ -5,7 +8,7 @@ PROJECT_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCHEMA_FILE := $(PROJECT_ROOT)/SSTP/spec/l9_schema.json
 ARTIFACT_PUBLISH_FOLDER := $(PROJECT_ROOT)/SSTP/documentation
 
-.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder build_wheel build_sab_wheel build_tfp_wheel
+.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder build_wheel build_sab_wheel build_tfp_wheel build_wheels
 
 help:
 	@echo "Available targets:"
@@ -21,6 +24,7 @@ help:
 	@echo "  build_wheel               - Build Python wheel (ai-outshift-data-model)"
 	@echo "  build_sab_wheel           - Build Python wheel (ai-outshift-sab-data-model)"
 	@echo "  build_tfp_wheel           - Build Python wheel (ai-outshift-tfp-data-model)"
+	@echo "  build_wheels              - Build all Python wheels (required after git pull)"
 	@echo "  clean                     - Clean all generated files"
 	@echo "  print-version             - Print schema version"
 	@echo "  print-artifact-folder     - Print artifact publish folder path"
@@ -205,3 +209,7 @@ build_tfp_wheel:
 	mv "$(TFP_WHEEL_DIR)/dist/"*.whl "$(TFP_WHEEL_DIR)/"; \
 	rm -rf "$(TFP_WHEEL_DIR)/dist"; \
 	echo "Wheel built: SSTP/subprotocol/tfp/language_bindings/python/ai_outshift_tfp_data_model-$$VERSION-py3-none-any.whl"
+
+build_wheels:
+	@echo "Building all Python wheels..."
+	@cd "$(PROJECT_ROOT)" && ./scripts/build_wheels.sh

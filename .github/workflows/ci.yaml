@@ -64,6 +64,11 @@ jobs:
       - name: Install go-jsonschema
         run: go install github.com/atombender/go-jsonschema@latest
 
+      - name: Build Python Wheels
+        run: |
+          echo "Building wheels required for tests..."
+          make build_wheels
+
   ################################## Unit Test ##################################
   ###############################################################################
 
