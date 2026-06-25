@@ -22,7 +22,7 @@ echo "Building wheel with --all mode..."
 bash "$PROJECT_ROOT/scripts/package_models.sh" --all
 
 # Find the built wheel
-WHEEL=$(ls "$PROJECT_ROOT/dist"/ai_outshift_all_models-*.whl 2>/dev/null | tail -1)
+WHEEL=$(ls "$PROJECT_ROOT/dist"/ioc_l9_all_models-*.whl 2>/dev/null | tail -1)
 if [ -z "$WHEEL" ]; then
     echo "Error: Wheel not found in dist/ after build"
     exit 1

@@ -7,7 +7,7 @@ requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "ai-outshift-all-models"
+name = "ioc-l9-all-models"
 version = "0.0.1"
 description = "IOC L9 Protocol Package"
 authors = []

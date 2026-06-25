@@ -8,35 +8,35 @@ This repo publishes three packages to PyPI:
 
 | Package | Install | Contents |
 |---------|---------|----------|
-| `ai-outshift-all-models` | `pip install ai-outshift-all-models` | SSTP root L9 + all subprotocols (SAB, TFP, SIEP, CIP) |
-| `ai-outshift-sstp-models` | `pip install ai-outshift-sstp-models` | Only SSTP root L9 models |
-| `ai-outshift-subprotocols` | `pip install ai-outshift-subprotocols` | Only subprotocols (SAB, TFP, SIEP, CIP) |
+| `ioc-l9-all-models` | `pip install ioc-l9-all-models` | SSTP root L9 + all subprotocols (SAB, TFP, SIEP, CIP) |
+| `ioc-l9-sstp-models` | `pip install ioc-l9-sstp-models` | Only SSTP root L9 models |
+| `ioc-l9-subprotocols` | `pip install ioc-l9-subprotocols` | Only subprotocols (SAB, TFP, SIEP, CIP) |
 
 ### Dependencies Between Packages
 
 ```
-ai-outshift-all-models          ← everything in one package (recommended)
+ioc-l9-all-models          ← everything in one package (recommended)
 
-ai-outshift-subprotocols        ← SAB + TFP + SIEP + CIP subprotocols
-  └── requires: ai-outshift-sstp-models   (SAB imports L9Header, L9Payload, Actor, Context)
+ioc-l9-subprotocols        ← SAB + TFP + SIEP + CIP subprotocols
+  └── requires: ioc-l9-sstp-models   (SAB imports L9Header, L9Payload, Actor, Context)
 
-ai-outshift-sstp-models         ← standalone SSTP root L9 models
+ioc-l9-sstp-models         ← standalone SSTP root L9 models
 ```
 
 > **Note:** The SAB subprotocol imports from the root L9 models (`ai.outshift.data_model`).
-> If you install `ai-outshift-subprotocols`, you must also install `ai-outshift-sstp-models`:
+> If you install `ioc-l9-subprotocols`, you must also install `ioc-l9-sstp-models`:
 > ```bash
-> pip install ai-outshift-sstp-models ai-outshift-subprotocols
+> pip install ioc-l9-sstp-models ioc-l9-subprotocols
 > ```
-> Or just use `ai-outshift-all-models` which bundles everything.
+> Or just use `ioc-l9-all-models` which bundles everything.
 > TFP has no dependency on the root models and works standalone.
 
-> **Warning:** Do NOT install `ai-outshift-all-models` alongside `ai-outshift-subprotocols` or
-> `ai-outshift-sstp-models`. They ship overlapping files and uninstalling one may break the other.
+> **Warning:** Do NOT install `ioc-l9-all-models` alongside `ioc-l9-subprotocols` or
+> `ioc-l9-sstp-models`. They ship overlapping files and uninstalling one may break the other.
 >
 > Pick one approach:
-> - `pip install ai-outshift-all-models` — everything in one package (simplest)
-> - `pip install ai-outshift-sstp-models ai-outshift-subprotocols` — separate packages
+> - `pip install ioc-l9-all-models` — everything in one package (simplest)
+> - `pip install ioc-l9-sstp-models ioc-l9-subprotocols` — separate packages
 
 ## How to Release
 
@@ -46,7 +46,7 @@ Edit `pyproject.toml` and update the version:
 
 ```toml
 [tool.poetry]
-name = "ai-outshift-all-models"
+name = "ioc-l9-all-models"
 version = "0.2.0"  # ← bump this
 ```
 
@@ -72,8 +72,8 @@ This triggers the publish workflow which builds and uploads both packages to PyP
 Check the workflow run at: `https://github.com/outshift-open/ioc-protocols-models/actions/workflows/publish.yaml`
 
 Once complete, verify on PyPI:
-- https://pypi.org/project/ai-outshift-all-models/
-- https://pypi.org/project/ai-outshift-subprotocols/
+- https://pypi.org/project/ioc-l9-all-models/
+- https://pypi.org/project/ioc-l9-subprotocols/
 
 ## Build Script (`scripts/package_models.sh`)
 
@@ -93,9 +93,9 @@ Each mode produces a differently-named wheel by temporarily patching `pyproject.
 
 | Mode | Package Name | Wheel File |
 |------|-------------|------------|
-| `--all` | `ai-outshift-all-models` | `dist/ai_outshift_all_models-<ver>-py3-none-any.whl` |
-| `--sstp` | `ai-outshift-sstp-models` | `dist/ai_outshift_sstp_models-<ver>-py3-none-any.whl` |
-| `--subprotocol` | `ai-outshift-subprotocols` | `dist/ai_outshift_subprotocols-<ver>-py3-none-any.whl` |
+| `--all` | `ioc-l9-all-models` | `dist/ioc_l9_all_models-<ver>-py3-none-any.whl` |
+| `--sstp` | `ioc-l9-sstp-models` | `dist/ioc_l9_sstp_models-<ver>-py3-none-any.whl` |
+| `--subprotocol` | `ioc-l9-subprotocols` | `dist/ioc_l9_subprotocols-<ver>-py3-none-any.whl` |
 
 ### How It Works
 
@@ -184,7 +184,7 @@ Before the first release, register both packages as pending publishers on PyPI:
 
 | Field | Value |
 |-------|-------|
-| Package name | `ai-outshift-all-models` (then repeat for `ai-outshift-subprotocols`) |
+| Package name | `ioc-l9-all-models` (then repeat for `ioc-l9-subprotocols`) |
 | Owner | `outshift-open` |
 | Repository | `ioc-protocols-models` |
 | Workflow name | `publish.yaml` |
@@ -193,14 +193,14 @@ Before the first release, register both packages as pending publishers on PyPI:
 ## Usage After Install
 
 ```python
-# With ai-outshift-all-models (full package):
+# With ioc-l9-all-models (full package):
 from ai.outshift.data_model import L9, L9Header, L9Payload
 from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind
 from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
 from ai.outshift.siep.data_model import SIEPPayload
 from ai.outshift.cip.data_model import CIPPayload
 
-# With ai-outshift-subprotocols (subprotocols only):
+# With ioc-l9-subprotocols (subprotocols only):
 from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind
 from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
 from ai.outshift.siep.data_model import SIEPPayload
@@ -229,7 +229,7 @@ from ai.outshift.cip.data_model import CIPPayload
 ```bash
 # Build and install locally for testing:
 bash scripts/package_models.sh --all
-pip install dist/ai_outshift_all_models-*.whl
+pip install dist/ioc_l9_all_models-*.whl
 
 # Run tests (builds wheel + runs pytest):
 bash tests/language_bindings/python/run_tests.sh

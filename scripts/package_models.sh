@@ -49,7 +49,7 @@
 #   ./scripts/package_models.sh --subprotocol
 #
 #   # Install the built wheel:
-#   pip install dist/ai_outshift_all_models-*.whl
+#   pip install dist/ioc_l9_all_models-*.whl
 #
 # -----------------------------------------------------------------------------
 # PACKAGE STRUCTURE & IMPORTS PER MODE
@@ -185,7 +185,7 @@ usage() {
     echo "  $0 --subprotocol # Only ai.outshift.{sab,tfp,siep,cip}"
     echo ""
     echo "Install:"
-    echo "  pip install dist/ai_outshift_all_models-*.whl"
+    echo "  pip install dist/ioc_l9_all_models-*.whl"
     echo ""
     echo "Imports after install:"
     echo "  # --sstp or --all:"
@@ -197,7 +197,7 @@ usage() {
     echo "  from ai.outshift.siep.data_model import SIEPPayload"
     echo "  from ai.outshift.cip.data_model import CIPPayload"
     echo ""
-    echo "Output: dist/ai_outshift_all_models-<version>-py3-none-any.whl"
+    echo "Output: dist/ioc_l9_all_models-<version>-py3-none-any.whl"
     exit 1
 }
 
@@ -213,7 +213,7 @@ esac
 # in pyproject.toml before building, then restores the original on exit.
 #
 # Mode → Package name mapping:
-#   --all          → ai-outshift-all-models      (default, no patch needed)
+#   --all          → ioc-l9-all-models      (default, no patch needed)
 #   --subprotocol  → ai-outshift-subprotocols
 #   --sstp         → ai-outshift-sstp-models
 #
@@ -222,9 +222,9 @@ esac
 # ready for PyPI upload.
 ORIGINAL_NAME=$(grep '^name = ' "$REPO_ROOT/pyproject.toml" | head -1)
 if [[ "$MODE" == "--subprotocol" ]]; then
-    sed -i.bak 's/^name = .*/name = "ai-outshift-subprotocols"/' "$REPO_ROOT/pyproject.toml"
+    sed -i.bak 's/^name = .*/name = "ioc-l9-subprotocols"/' "$REPO_ROOT/pyproject.toml"
 elif [[ "$MODE" == "--sstp" ]]; then
-    sed -i.bak 's/^name = .*/name = "ai-outshift-sstp-models"/' "$REPO_ROOT/pyproject.toml"
+    sed -i.bak 's/^name = .*/name = "ioc-l9-sstp-models"/' "$REPO_ROOT/pyproject.toml"
 fi
 
 # Cleanup runs on exit (success or failure):

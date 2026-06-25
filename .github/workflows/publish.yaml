@@ -2,7 +2,7 @@
 # Publish to PyPI — Triggered on version tags (e.g. v0.0.1)
 # =============================================================================
 #
-# This workflow builds and publishes the ai-outshift-all-models wheel to PyPI.
+# This workflow builds and publishes the ioc-l9-all-models wheel to PyPI.
 #
 # HOW TO RELEASE:
 #   1. Bump version in pyproject.toml (e.g. version = "0.0.2")
@@ -13,14 +13,14 @@
 #
 # PYPI SETUP (one-time):
 #   Go to https://pypi.org → Your Account → Publishing → Add a new pending publisher
-#     - Package name:    ai-outshift-all-models
+#     - Package name:    ioc-l9-all-models
 #     - Owner:           outshift-open
 #     - Repository:      ioc-protocols-models
 #     - Workflow name:   publish.yaml
 #     - Environment:     (leave blank)
 #
 # AFTER PUBLISH, users install with:
-#   pip install ai-outshift-all-models   # Full package (L9 + SAB + TFP + SIEP + CIP)
+#   pip install ioc-l9-all-models   # Full package (L9 + SAB + TFP + SIEP + CIP)
 #
 # =============================================================================
 
@@ -103,7 +103,7 @@ jobs:
           EOF
 
       # Build the --all wheel into dist/:
-      #   --all → dist/ai_outshift_all_models-<version>-py3-none-any.whl  (L9 + SAB + TFP + SIEP + CIP)
+      #   --all → dist/ioc_l9_all_models-<version>-py3-none-any.whl  (L9 + SAB + TFP + SIEP + CIP)
       - name: Build wheel (--all)
         run: |
           bash scripts/package_models.sh --all
