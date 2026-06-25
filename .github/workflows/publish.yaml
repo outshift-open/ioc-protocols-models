@@ -1,0 +1,130 @@
+# =============================================================================
+# Publish to PyPI — Triggered on version tags (e.g. v0.1.0)
+# =============================================================================
+#
+# This workflow builds two separate wheels and publishes them to PyPI:
+#
+#   1. ai-outshift-all-models      (SSTP root L9 + all subprotocols)
+#   2. ai-outshift-subprotocols    (only SAB + TFP subprotocols)
+#
+# HOW TO RELEASE:
+#   1. Bump version in pyproject.toml (e.g. version = "0.2.0")
+#   2. Commit and push to main
+#   3. Tag the commit:  git tag v0.2.0
+#   4. Push the tag:    git push origin v0.2.0
+#   5. This workflow runs automatically and publishes both packages
+#
+# PYPI SETUP (one-time, per package):
+#   Go to https://pypi.org → Your Account → Publishing → Add a new pending publisher
+#   Fill in for EACH package:
+#     - Package name:    ai-outshift-all-models (or ai-outshift-subprotocols)
+#     - Owner:           outshift-open
+#     - Repository:      ioc-protocols-models
+#     - Workflow name:   publish.yaml
+#     - Environment:     (leave blank)
+#
+# AFTER PUBLISH, users install with:
+#   pip install ai-outshift-all-models       # Full package (L9 + SAB + TFP)
+#   pip install ai-outshift-subprotocols     # Subprotocols only (SAB + TFP)
+#
+# =============================================================================
+
+name: Publish to PyPI
+
+# Trigger on version tags and PRs to main (PR runs are skipped by the job-level if)
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - "main"
+
+jobs:
+  publish:
+    name: Publish Package to PyPI
+    # Only run the publish job on tag pushes, not on PRs
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      # id-token: write is required for PyPI trusted publishing (OIDC)
+      # This allows GitHub to mint a token that PyPI trusts — no API key needed.
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: |
+          python3 -m pip install --upgrade pip || python -m pip install --upgrade pip
+          python3 -m pip install --force-reinstall poetry==2.3.2 || python -m pip install --force-reinstall poetry==2.3.2
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Verify Poetry installation
+        run: poetry --version
+
+      # Safety check: ensures you don't accidentally publish a version that
+      # doesn't match the tag. e.g. tag v0.2.0 must match pyproject version 0.2.0
+      - name: Validate tag matches pyproject version
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          TAG_VERSION="${TAG_NAME#v}"
+
+          echo "Git tag: $TAG_NAME"
+          echo "Normalized tag version: $TAG_VERSION"
+
+          export TAG_VERSION
+
+          python << 'EOF'
+          import os
+          import sys
+          import tomllib
+
+          tag_version = os.environ["TAG_VERSION"]
+
+          with open("pyproject.toml", "rb") as f:
+              data = tomllib.load(f)
+
+          pyproject_version = data["tool"]["poetry"]["version"]
+
+          print(f"pyproject.toml version: {pyproject_version}")
+          print(f"tag version: {tag_version}")
+
+          if pyproject_version != tag_version:
+              print(
+                  f"Version mismatch: pyproject.toml has '{pyproject_version}' but Git tag is '{tag_version}'",
+                  file=sys.stderr
+              )
+              sys.exit(1)
+
+          print("Version validation passed.")
+          EOF
+
+      # Build both wheels into dist/:
+      #   --all          → dist/ai_outshift_all_models-<version>-py3-none-any.whl
+      #   --subprotocol  → dist/ai_outshift_subprotocols-<version>-py3-none-any.whl
+      #
+      # The build script temporarily patches pyproject.toml name per mode
+      # and restores it after each build (safe for sequential runs).
+      - name: Build wheels (--all and --subprotocol)
+        run: |
+          bash scripts/build_wheel.sh --all
+          bash scripts/build_wheel.sh --subprotocol
+
+      - name: List built wheels
+        run: ls -la dist/*.whl
+
+      # Publishes ALL .whl files in dist/ to PyPI.
+      # Uses OIDC trusted publishing — no PYPI_API_TOKEN secret needed.
+      # Both packages must be registered on PyPI with this repo's trusted publisher.
+      - name: Publish packages to PyPI (Trusted Publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true

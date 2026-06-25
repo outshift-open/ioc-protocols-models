@@ -183,9 +183,35 @@ case "$MODE" in
     *) usage ;;
 esac
 
-# Temporary package tree is removed on exit regardless of success/failure
+# --- Set package name based on mode ---
+#
+# Each mode produces a differently-named wheel so they can be published as
+# separate packages on PyPI. The script temporarily patches the "name" field
+# in pyproject.toml before building, then restores the original on exit.
+#
+# Mode → Package name mapping:
+#   --all          → ai-outshift-all-models      (default, no patch needed)
+#   --subprotocol  → ai-outshift-subprotocols
+#   --sstp         → ai-outshift-sstp-models
+#
+# This allows the publish workflow to run the script twice (--all + --subprotocol)
+# and end up with two distinct wheels in dist/ ready for PyPI upload.
+ORIGINAL_NAME=$(grep '^name = ' "$REPO_ROOT/pyproject.toml" | head -1)
+if [[ "$MODE" == "--subprotocol" ]]; then
+    sed -i.bak 's/^name = .*/name = "ai-outshift-subprotocols"/' "$REPO_ROOT/pyproject.toml"
+elif [[ "$MODE" == "--sstp" ]]; then
+    sed -i.bak 's/^name = .*/name = "ai-outshift-sstp-models"/' "$REPO_ROOT/pyproject.toml"
+fi
+
+# Cleanup runs on exit (success or failure):
+# - Removes the temporary ai/ package tree created for the build
+# - Restores pyproject.toml from .bak if it was patched (--subprotocol/--sstp)
+# This ensures pyproject.toml is never left in a modified state.
 cleanup() {
     rm -rf "$PKG_DIR"
+    if [[ -f "$REPO_ROOT/pyproject.toml.bak" ]]; then
+        mv "$REPO_ROOT/pyproject.toml.bak" "$REPO_ROOT/pyproject.toml"
+    fi
 }
 trap cleanup EXIT
 
