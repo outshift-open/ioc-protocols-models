@@ -26,8 +26,8 @@ help:
 	@echo "  build_tfp_wheel           - Build Python wheel (ai-outshift-tfp-data-model)"
 	@echo "  build_siep_wheel          - Build Python wheel (ai-outshift-subprotocols-siep)"
 	@echo "  build_cip_wheel           - Build Python wheel (ai-outshift-subprotocols-cip)"
-	@echo "  build_wheels              - Build all Python wheels (calls package_models.sh --all)"
-	@echo "  pkg_model                 - Build all Python wheels (calls package_models.sh --all)"
+	@echo "  build_wheels              - Build all Python wheels (required after git pull)"
+	@echo "  pkg_model                 - Build distributable wheel (calls package_models.sh --all)"
 	@echo "  clean                     - Clean all generated files"
 	@echo "  print-version             - Print schema version"
 	@echo "  print-artifact-folder     - Print artifact publish folder path"
@@ -241,8 +241,8 @@ build_cip_wheel:
 
 build_wheels:
 	@echo "Building all Python wheels..."
-	@cd "$(PROJECT_ROOT)" && bash scripts/package_models.sh --all
+	@cd "$(PROJECT_ROOT)" && ./scripts/build_wheels.sh
 
 pkg_model:
-	@echo "Building all Python wheels..."
+	@echo "Building distributable wheel..."
 	@cd "$(PROJECT_ROOT)" && bash scripts/package_models.sh --all
