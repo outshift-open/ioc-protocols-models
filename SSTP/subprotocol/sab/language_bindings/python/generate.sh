@@ -113,6 +113,15 @@ content = re.sub(r"\bpayload:\s+Payload\b", "payload: SABPayload", content)
 # Collapse 3+ consecutive blank lines to 2.
 content = re.sub(r"\n{3,}", "\n\n", content)
 
+COPYRIGHT = (
+    "# Copyright 2026 Cisco Systems, Inc. and its affiliates\n"
+    "#\n"
+    "# SPDX-License-Identifier: Apache-2.0\n"
+    "\n"
+)
+if not content.startswith("# Copyright"):
+    content = COPYRIGHT + content
+
 with open(output_file, "w") as f:
     f.write(content.strip() + "\n")
 
