@@ -1,8 +1,4 @@
 # IOC L9 Protocol Models
-
-[![PyPI](https://img.shields.io/pypi/v/ioc-l9-all-models)](https://pypi.org/project/ioc-l9-all-models/)
-[![Python](https://img.shields.io/pypi/pyversions/ioc-l9-all-models)](https://pypi.org/project/ioc-l9-all-models/)
-
 Pydantic models and protocol definitions for the Internet of Cognition (IoC) Layer 9 protocol stack.
 
 ## Installation
