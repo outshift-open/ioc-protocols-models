@@ -1,33 +1,26 @@
 # =============================================================================
-# Publish to PyPI — Triggered on version tags (e.g. v0.1.0)
+# Publish to PyPI — Triggered on version tags (e.g. v0.0.1)
 # =============================================================================
 #
-# This workflow builds three wheels and publishes them to PyPI:
-#
-#   1. ai-outshift-all-models      (SSTP root L9 + all subprotocols)
-#   2. ai-outshift-sstp-models     (only SSTP root L9 models)
-#   3. ai-outshift-subprotocols    (only SAB + TFP + SIEP + CIP subprotocols)
+# This workflow builds and publishes the ai-outshift-all-models wheel to PyPI.
 #
 # HOW TO RELEASE:
-#   1. Bump version in pyproject.toml (e.g. version = "0.2.0")
+#   1. Bump version in pyproject.toml (e.g. version = "0.0.2")
 #   2. Commit and push to main
-#   3. Tag the commit:  git tag v0.2.0
-#   4. Push the tag:    git push origin v0.2.0
-#   5. This workflow runs automatically and publishes both packages
+#   3. Tag the commit:  git tag v0.0.2
+#   4. Push the tag:    git push origin v0.0.2
+#   5. This workflow runs automatically and publishes the package
 #
-# PYPI SETUP (one-time, per package):
+# PYPI SETUP (one-time):
 #   Go to https://pypi.org → Your Account → Publishing → Add a new pending publisher
-#   Fill in for EACH of the three packages:
-#     - Package name:    ai-outshift-all-models / ai-outshift-sstp-models / ai-outshift-subprotocols
+#     - Package name:    ai-outshift-all-models
 #     - Owner:           outshift-open
 #     - Repository:      ioc-protocols-models
 #     - Workflow name:   publish.yaml
 #     - Environment:     (leave blank)
 #
 # AFTER PUBLISH, users install with:
-#   pip install ai-outshift-all-models       # Full package (L9 + SAB + TFP + SIEP + CIP)
-#   pip install ai-outshift-sstp-models      # SSTP root L9 only
-#   pip install ai-outshift-subprotocols     # Subprotocols only (SAB + TFP + SIEP + CIP) — needs sstp-models for SAB
+#   pip install ai-outshift-all-models   # Full package (L9 + SAB + TFP + SIEP + CIP)
 #
 # =============================================================================
 
@@ -118,9 +111,8 @@ jobs:
       - name: List built wheels
         run: ls -la dist/*.whl
 
-      # Publishes ALL .whl files in dist/ to PyPI.
+      # Publishes the .whl in dist/ to PyPI.
       # Uses OIDC trusted publishing — no PYPI_API_TOKEN secret needed.
-      # Both packages must be registered on PyPI with this repo's trusted publisher.
       - name: Publish packages to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
