@@ -15,6 +15,7 @@ pydantic = ">=2.0"
 json-schema-for-humans = ">=0.47.0"
 litellm = ">=1.89.3"
 urllib3 = ">=2.7.0"
+a2a-sdk = "^1.1.0"
 
 [tool.poetry.group.dev.dependencies]
 datamodel-code-generator = ">=0.25.0"
