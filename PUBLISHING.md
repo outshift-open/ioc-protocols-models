@@ -8,16 +8,16 @@ This repo publishes three packages to PyPI:
 
 | Package | Install | Contents |
 |---------|---------|----------|
-| `ai-outshift-all-models` | `pip install ai-outshift-all-models` | SSTP root L9 + all subprotocols (SAB, TFP) |
+| `ai-outshift-all-models` | `pip install ai-outshift-all-models` | SSTP root L9 + all subprotocols (SAB, TFP, SIEP, CIP) |
 | `ai-outshift-sstp-models` | `pip install ai-outshift-sstp-models` | Only SSTP root L9 models |
-| `ai-outshift-subprotocols` | `pip install ai-outshift-subprotocols` | Only subprotocols (SAB, TFP) |
+| `ai-outshift-subprotocols` | `pip install ai-outshift-subprotocols` | Only subprotocols (SAB, TFP, SIEP, CIP) |
 
 ### Dependencies Between Packages
 
 ```
 ai-outshift-all-models          ← everything in one package (recommended)
 
-ai-outshift-subprotocols        ← SAB + TFP subprotocols
+ai-outshift-subprotocols        ← SAB + TFP + SIEP + CIP subprotocols
   └── requires: ai-outshift-sstp-models   (SAB imports L9Header, L9Payload, Actor, Context)
 
 ai-outshift-sstp-models         ← standalone SSTP root L9 models
@@ -82,9 +82,9 @@ The build script assembles a temporary `ai/` namespace package tree from source 
 ### Modes
 
 ```bash
-./scripts/package_models.sh --all          # Default: L9 root + SAB + TFP
+./scripts/package_models.sh --all          # Default: L9 root + SAB + TFP + SIEP + CIP
 ./scripts/package_models.sh --sstp         # Only SSTP root L9 models
-./scripts/package_models.sh --subprotocol  # Only subprotocols (SAB, TFP)
+./scripts/package_models.sh --subprotocol  # Only subprotocols (SAB, TFP, SIEP, CIP)
 ```
 
 ### Package Name Per Mode
@@ -117,9 +117,15 @@ ai/
     ├── sab/
     │   ├── __init__.py
     │   └── data_model.py      ← SAB subprotocol
-    └── tfp/
+    ├── tfp/
+    │   ├── __init__.py
+    │   └── data_model.py      ← TFP subprotocol
+    ├── siep/
+    │   ├── __init__.py
+    │   └── data_model.py      ← SIEP subprotocol
+    └── cip/
         ├── __init__.py
-        └── data_model.py      ← TFP subprotocol
+        └── data_model.py      ← CIP subprotocol
 ```
 
 **--sstp**
@@ -140,9 +146,15 @@ ai/
     ├── sab/
     │   ├── __init__.py
     │   └── data_model.py      ← SAB subprotocol
-    └── tfp/
+    ├── tfp/
+    │   ├── __init__.py
+    │   └── data_model.py      ← TFP subprotocol
+    ├── siep/
+    │   ├── __init__.py
+    │   └── data_model.py      ← SIEP subprotocol
+    └── cip/
         ├── __init__.py
-        └── data_model.py      ← TFP subprotocol
+        └── data_model.py      ← CIP subprotocol
 ```
 
 ## Publish Workflow (`.github/workflows/publish.yaml`)
@@ -156,7 +168,7 @@ Runs on `v*` tag pushes (e.g. `v0.1.0`, `v1.2.3`). Also triggers on PRs to main 
 1. **Checkout** — clones the repo at the tagged commit
 2. **Setup Python + Poetry** — installs Python 3.11 and Poetry 2.3.2
 3. **Version validation** — ensures git tag (e.g. `v0.2.0`) matches `pyproject.toml` version (`0.2.0`). Fails fast if mismatched.
-4. **Build wheels** — runs `package_models.sh --all` then `package_models.sh --subprotocol`, producing two wheels in `dist/`
+4. **Build wheels** — runs `package_models.sh --all`, `--sstp`, and `--subprotocol`, producing three wheels in `dist/`
 5. **Publish** — uploads all wheels in `dist/` to PyPI using OIDC trusted publishing
 
 ### Authentication
@@ -185,10 +197,14 @@ Before the first release, register both packages as pending publishers on PyPI:
 from ai.outshift.data_model import L9, L9Header, L9Payload
 from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind
 from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
+from ai.outshift.siep.data_model import SIEPPayload
+from ai.outshift.cip.data_model import CIPPayload
 
 # With ai-outshift-subprotocols (subprotocols only):
 from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind
 from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
+from ai.outshift.siep.data_model import SIEPPayload
+from ai.outshift.cip.data_model import CIPPayload
 ```
 
 ## Adding a New Subprotocol

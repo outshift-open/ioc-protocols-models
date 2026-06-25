@@ -20,8 +20,9 @@
 #
 # --all (default)
 #     Builds the complete package including both the SSTP root L9 protocol
-#     models and all subprotocol models (SAB, TFP). Use this for the standard
-#     published wheel that gives consumers access to the full model set.
+#     models and all subprotocol models (SAB, TFP, SIEP, CIP). Use this for
+#     the standard published wheel that gives consumers access to the full
+#     model set.
 #
 # --sstp
 #     Builds only the SSTP root L9 protocol models under ai.outshift.
@@ -29,9 +30,9 @@
 #     without any subprotocol dependencies.
 #
 # --subprotocol
-#     Builds only the subprotocol models (SAB, TFP) under ai.outshift.sab
-#     and ai.outshift.tfp. Use this when you only need the subprotocol-specific
-#     data models without the root L9 definitions.
+#     Builds only the subprotocol models (SAB, TFP, SIEP, CIP) under
+#     ai.outshift.{sab,tfp,siep,cip}. Use this when you only need the
+#     subprotocol-specific data models without the root L9 definitions.
 #
 # -----------------------------------------------------------------------------
 # USAGE
@@ -44,7 +45,7 @@
 #   # Build only the SSTP root L9 models:
 #   ./scripts/package_models.sh --sstp
 #
-#   # Build only subprotocol models (SAB, TFP):
+#   # Build only subprotocol models (SAB, TFP, SIEP, CIP):
 #   ./scripts/package_models.sh --subprotocol
 #
 #   # Install the built wheel:
@@ -68,15 +69,23 @@
 # │        ├── sab/                                                             │
 # │        │   ├── __init__.py                                                  │
 # │        │   └── data_model.py    ← SAB subprotocol                          │
-# │        └── tfp/                                                             │
+# │        ├── tfp/                                                             │
+# │        │   ├── __init__.py                                                  │
+# │        │   └── data_model.py    ← TFP subprotocol                          │
+# │        ├── siep/                                                            │
+# │        │   ├── __init__.py                                                  │
+# │        │   └── data_model.py    ← SIEP subprotocol                         │
+# │        └── cip/                                                             │
 # │            ├── __init__.py                                                  │
-# │            └── data_model.py    ← TFP subprotocol                          │
+# │            └── data_model.py    ← CIP subprotocol                          │
 # │                                                                             │
 # │  Python usage:                                                              │
 # │                                                                             │
 # │    from ai.outshift.data_model import L9, L9Header, L9Payload              │
 # │    from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind      │
 # │    from ai.outshift.tfp.data_model import TFPOperation, TFPPayload         │
+# │    from ai.outshift.siep.data_model import SIEPPayload                     │
+# │    from ai.outshift.cip.data_model import CIPPayload                       │
 # │                                                                             │
 # └─────────────────────────────────────────────────────────────────────────────┘
 #
@@ -111,14 +120,22 @@
 # │        ├── sab/                                                             │
 # │        │   ├── __init__.py                                                  │
 # │        │   └── data_model.py    ← SAB subprotocol                          │
-# │        └── tfp/                                                             │
+# │        ├── tfp/                                                             │
+# │        │   ├── __init__.py                                                  │
+# │        │   └── data_model.py    ← TFP subprotocol                          │
+# │        ├── siep/                                                            │
+# │        │   ├── __init__.py                                                  │
+# │        │   └── data_model.py    ← SIEP subprotocol                         │
+# │        └── cip/                                                             │
 # │            ├── __init__.py                                                  │
-# │            └── data_model.py    ← TFP subprotocol                          │
+# │            └── data_model.py    ← CIP subprotocol                          │
 # │                                                                             │
 # │  Python usage:                                                              │
 # │                                                                             │
 # │    from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind      │
 # │    from ai.outshift.tfp.data_model import TFPOperation, TFPPayload         │
+# │    from ai.outshift.siep.data_model import SIEPPayload                     │
+# │    from ai.outshift.cip.data_model import CIPPayload                       │
 # │                                                                             │
 # └─────────────────────────────────────────────────────────────────────────────┘
 #
@@ -159,13 +176,13 @@ usage() {
     echo "Build modes:"
     echo "  --all           Build SSTP root L9 + all subprotocols (default)"
     echo "  --sstp          Build only SSTP root L9 models (ai.outshift.data_model)"
-    echo "  --subprotocol   Build only subprotocols (ai.outshift.sab, ai.outshift.tfp)"
+    echo "  --subprotocol   Build only subprotocols (ai.outshift.{sab,tfp,siep,cip})"
     echo ""
     echo "Examples:"
     echo "  $0              # Builds everything (same as --all)"
-    echo "  $0 --all        # SSTP root L9 + SAB + TFP subprotocols"
+    echo "  $0 --all        # SSTP root L9 + SAB + TFP + SIEP + CIP subprotocols"
     echo "  $0 --sstp       # Only ai.outshift.data_model (L9, L9Header, L9Payload)"
-    echo "  $0 --subprotocol # Only ai.outshift.sab + ai.outshift.tfp"
+    echo "  $0 --subprotocol # Only ai.outshift.{sab,tfp,siep,cip}"
     echo ""
     echo "Install:"
     echo "  pip install dist/ai_outshift_all_models-*.whl"
@@ -177,6 +194,8 @@ usage() {
     echo "  # --subprotocol or --all:"
     echo "  from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind"
     echo "  from ai.outshift.tfp.data_model import TFPOperation, TFPPayload"
+    echo "  from ai.outshift.siep.data_model import SIEPPayload"
+    echo "  from ai.outshift.cip.data_model import CIPPayload"
     echo ""
     echo "Output: dist/ai_outshift_all_models-<version>-py3-none-any.whl"
     exit 1
@@ -245,6 +264,18 @@ if [[ "$MODE" == "--all" || "$MODE" == "--subprotocol" ]]; then
     touch "$PKG_DIR/outshift/tfp/__init__.py"
     cp "$REPO_ROOT/SSTP/subprotocol/tfp/language_bindings/python/ai/outshift/tfp/data_model.py" \
        "$PKG_DIR/outshift/tfp/data_model.py"
+
+    # SIEP subprotocol
+    mkdir -p "$PKG_DIR/outshift/siep"
+    touch "$PKG_DIR/outshift/siep/__init__.py"
+    cp "$REPO_ROOT/SSTP/subprotocol/siep/language_bindings/python/ai/outshift/siep/data_model.py" \
+       "$PKG_DIR/outshift/siep/data_model.py"
+
+    # CIP subprotocol
+    mkdir -p "$PKG_DIR/outshift/cip"
+    touch "$PKG_DIR/outshift/cip/__init__.py"
+    cp "$REPO_ROOT/SSTP/subprotocol/cip/language_bindings/python/ai/outshift/cip/data_model.py" \
+       "$PKG_DIR/outshift/cip/data_model.py"
 fi
 
 # --- Build wheel ---

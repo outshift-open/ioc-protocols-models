@@ -6,7 +6,7 @@
 #
 #   1. ai-outshift-all-models      (SSTP root L9 + all subprotocols)
 #   2. ai-outshift-sstp-models     (only SSTP root L9 models)
-#   3. ai-outshift-subprotocols    (only SAB + TFP subprotocols)
+#   3. ai-outshift-subprotocols    (only SAB + TFP + SIEP + CIP subprotocols)
 #
 # HOW TO RELEASE:
 #   1. Bump version in pyproject.toml (e.g. version = "0.2.0")
@@ -25,9 +25,9 @@
 #     - Environment:     (leave blank)
 #
 # AFTER PUBLISH, users install with:
-#   pip install ai-outshift-all-models       # Full package (L9 + SAB + TFP)
+#   pip install ai-outshift-all-models       # Full package (L9 + SAB + TFP + SIEP + CIP)
 #   pip install ai-outshift-sstp-models      # SSTP root L9 only
-#   pip install ai-outshift-subprotocols     # Subprotocols only (SAB + TFP) — needs sstp-models for SAB
+#   pip install ai-outshift-subprotocols     # Subprotocols only (SAB + TFP + SIEP + CIP) — needs sstp-models for SAB
 #
 # =============================================================================
 
@@ -110,9 +110,9 @@ jobs:
           EOF
 
       # Build all three wheels into dist/:
-      #   --all          → dist/ai_outshift_all_models-<version>-py3-none-any.whl
-      #   --sstp         → dist/ai_outshift_sstp_models-<version>-py3-none-any.whl
-      #   --subprotocol  → dist/ai_outshift_subprotocols-<version>-py3-none-any.whl
+      #   --all          → dist/ai_outshift_all_models-<version>-py3-none-any.whl  (L9 + SAB + TFP + SIEP + CIP)
+      #   --sstp         → dist/ai_outshift_sstp_models-<version>-py3-none-any.whl (L9 only)
+      #   --subprotocol  → dist/ai_outshift_subprotocols-<version>-py3-none-any.whl (SAB + TFP + SIEP + CIP)
       #
       # The build script temporarily patches pyproject.toml name per mode
       # and restores it after each build (safe for sequential runs).
