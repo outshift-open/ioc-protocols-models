@@ -7,9 +7,13 @@ requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "ai-outshift-subprotocols"
+name = "ai-outshift-subprotocols-all"
+# NOTE: This is the umbrella meta-package version. It increments independently
+# of individual subprotocol packages. Bump this when adding a new subprotocol
+# or making a cross-protocol release. Individual subprotocol versions are
+# tracked via their own dependencies below.
 version = "0.0.1"
-description = "SSTP subprotocol public API: SIEP, CIP, SAB (re-exports from SSTP.subprotocol.*)"
+description = "SSTP subprotocol bundle: umbrella package re-exporting SAB, TFP, SIEP, and CIP. Install this to get all subprotocols at compatible versions."
 authors = []
 packages = [{include = "ai"}]
 
@@ -17,3 +21,9 @@ packages = [{include = "ai"}]
 python = ">=3.10,<4.0"
 pydantic = ">=2.0"
 ai-outshift-data-model = ">=0.0.4"
+# Individual subprotocol packages — each versioned independently.
+# Pin the minimum version here whenever a subprotocol makes a breaking change.
+ai-outshift-sab-data-model = ">=0.0.1"
+ai-outshift-tfp-data-model = ">=0.0.1"
+ai-outshift-subprotocols-siep = ">=0.0.1"
+ai-outshift-subprotocols-cip = ">=0.0.1"
