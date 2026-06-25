@@ -78,6 +78,28 @@ if [ -f "$PROJECT_ROOT/SSTP/subprotocol/tfp/spec/tfp_schema.json" ]; then
     fi
 fi
 
+# Build SIEP subprotocol wheel (if it exists)
+if [ -f "$PROJECT_ROOT/SSTP/subprotocol/siep/spec/siep_schema.json" ]; then
+    log_info "Building SIEP subprotocol wheel (ai-outshift-subprotocols-siep)..."
+    if make build_siep_wheel; then
+        log_success "Built: SSTP/subprotocol/siep/language_bindings/python/ai_outshift_subprotocols_siep-*.whl"
+    else
+        log_error "Failed to build SIEP wheel"
+        exit 1
+    fi
+fi
+
+# Build CIP subprotocol wheel (if it exists)
+if [ -f "$PROJECT_ROOT/SSTP/subprotocol/cip/schema/cip_payload.schema.json" ]; then
+    log_info "Building CIP subprotocol wheel (ai-outshift-subprotocols-cip)..."
+    if make build_cip_wheel; then
+        log_success "Built: SSTP/subprotocol/cip/language_bindings/python/ai_outshift_subprotocols_cip-*.whl"
+    else
+        log_error "Failed to build CIP wheel"
+        exit 1
+    fi
+fi
+
 log_step "All Wheels Built Successfully"
 log_success "Wheels are now available for local testing"
 log_info "Note: These .whl files are gitignored and won't be committed to VCS"
