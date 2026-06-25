@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Python Language Bindings Test Runner
-# Builds the wheel using build_wheel.sh --all, installs it, and runs tests.
+# Builds the wheel using package_models.sh --all, installs it, and runs tests.
 
 set -e
 
@@ -19,7 +19,7 @@ cd "$PROJECT_ROOT"
 
 # Build the wheel (--all includes SSTP root + all subprotocols)
 echo "Building wheel with --all mode..."
-bash "$PROJECT_ROOT/scripts/build_wheel.sh" --all
+bash "$PROJECT_ROOT/scripts/package_models.sh" --all
 
 # Find the built wheel
 WHEEL=$(ls "$PROJECT_ROOT/dist"/ai_outshift_all_models-*.whl 2>/dev/null | tail -1)

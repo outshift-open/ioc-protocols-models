@@ -75,16 +75,16 @@ Once complete, verify on PyPI:
 - https://pypi.org/project/ai-outshift-all-models/
 - https://pypi.org/project/ai-outshift-subprotocols/
 
-## Build Script (`scripts/build_wheel.sh`)
+## Build Script (`scripts/package_models.sh`)
 
 The build script assembles a temporary `ai/` namespace package tree from source protocol definitions, builds a wheel using Poetry, then cleans up.
 
 ### Modes
 
 ```bash
-./scripts/build_wheel.sh --all          # Default: L9 root + SAB + TFP
-./scripts/build_wheel.sh --sstp         # Only SSTP root L9 models
-./scripts/build_wheel.sh --subprotocol  # Only subprotocols (SAB, TFP)
+./scripts/package_models.sh --all          # Default: L9 root + SAB + TFP
+./scripts/package_models.sh --sstp         # Only SSTP root L9 models
+./scripts/package_models.sh --subprotocol  # Only subprotocols (SAB, TFP)
 ```
 
 ### Package Name Per Mode
@@ -156,7 +156,7 @@ Runs on `v*` tag pushes (e.g. `v0.1.0`, `v1.2.3`). Also triggers on PRs to main 
 1. **Checkout** — clones the repo at the tagged commit
 2. **Setup Python + Poetry** — installs Python 3.11 and Poetry 2.3.2
 3. **Version validation** — ensures git tag (e.g. `v0.2.0`) matches `pyproject.toml` version (`0.2.0`). Fails fast if mismatched.
-4. **Build wheels** — runs `build_wheel.sh --all` then `build_wheel.sh --subprotocol`, producing two wheels in `dist/`
+4. **Build wheels** — runs `package_models.sh --all` then `package_models.sh --subprotocol`, producing two wheels in `dist/`
 5. **Publish** — uploads all wheels in `dist/` to PyPI using OIDC trusted publishing
 
 ### Authentication
@@ -198,7 +198,7 @@ from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
    SSTP/subprotocol/<name>/language_bindings/python/ai/outshift/<name>/data_model.py
    ```
 
-2. Add a new block in `scripts/build_wheel.sh` inside the `--subprotocol` section:
+2. Add a new block in `scripts/package_models.sh` inside the `--subprotocol` section:
    ```bash
    mkdir -p "$PKG_DIR/outshift/<name>"
    touch "$PKG_DIR/outshift/<name>/__init__.py"
@@ -212,7 +212,7 @@ from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
 
 ```bash
 # Build and install locally for testing:
-bash scripts/build_wheel.sh --all
+bash scripts/package_models.sh --all
 pip install dist/ai_outshift_all_models-*.whl
 
 # Run tests (builds wheel + runs pytest):

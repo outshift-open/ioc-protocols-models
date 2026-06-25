@@ -118,9 +118,9 @@ jobs:
       # and restores it after each build (safe for sequential runs).
       - name: Build wheels (--all, --sstp, --subprotocol)
         run: |
-          bash scripts/build_wheel.sh --all
-          bash scripts/build_wheel.sh --sstp
-          bash scripts/build_wheel.sh --subprotocol
+          bash scripts/package_models.sh --all
+          bash scripts/package_models.sh --sstp
+          bash scripts/package_models.sh --subprotocol
 
       - name: List built wheels
         run: ls -la dist/*.whl

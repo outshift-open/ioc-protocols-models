@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# build_wheel.sh — Build distributable wheel for ai.outshift namespace packages
+# package_models.sh — Build distributable wheel for ai.outshift namespace packages
 # =============================================================================
 #
 # This script assembles the ai.outshift Python namespace package tree from the
@@ -34,14 +34,14 @@
 # -----------------------------------------------------------------------------
 #
 #   # Build everything (SSTP root + all subprotocols):
-#   ./scripts/build_wheel.sh
-#   ./scripts/build_wheel.sh --all
+#   ./scripts/package_models.sh
+#   ./scripts/package_models.sh --all
 #
 #   # Build only the SSTP root L9 models:
-#   ./scripts/build_wheel.sh --sstp
+#   ./scripts/package_models.sh --sstp
 #
 #   # Build only subprotocol models (SAB, TFP):
-#   ./scripts/build_wheel.sh --subprotocol
+#   ./scripts/package_models.sh --subprotocol
 #
 #   # Install the built wheel:
 #   pip install dist/ai_outshift_all_models-*.whl
