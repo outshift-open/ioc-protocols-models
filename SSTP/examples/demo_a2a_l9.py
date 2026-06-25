@@ -309,8 +309,22 @@ def _print_pipeline(phase: str, step: str, a2a: A2AMessage, note: str = "") -> N
     l9_part  = _find_part(a2a, MEDIA_L9)
     sab_part = _find_part(a2a, MEDIA_SAB)
 
+    # Extract kind/subkind/sender up front for the header line
+    _kind_str = "—"
+    _sender   = "—"
+    if l9_part:
+        _l9 = unpack_l9(l9_part)
+        _h  = _l9.header
+        _kind_str = _h.kind.value + (f":{_h.subkind}" if _h.subkind else "")
+        _sender   = _h.participants.actors[0].id if (_h.participants and _h.participants.actors) else "?"
+    elif sab_part:
+        _sab = unpack_sab(sab_part)
+        _h   = _sab.header
+        _kind_str = _h.kind.value + (f":{_h.subkind.value}" if _h.subkind else "")
+        _sender   = _h.participants.actors[0].id if (_h.participants and _h.participants.actors) else "?"
+
     _hr()
-    print(f"  [{phase}]  {step}")
+    print(f"  [{phase}]  {step}  kind={_kind_str}  actor={_sender}")
     if note:
         print(f"  note : {note}")
 
