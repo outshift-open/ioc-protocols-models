@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # generate.sh — Generate Go types for the IOC L9 schema.
 #
 # Uses go-jsonschema to produce typed Go structs from the
