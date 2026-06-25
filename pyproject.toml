@@ -8,7 +8,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "ai-outshift-all-models"
-version = "0.1.0"
+version = "0.0.1"
 description = "IOC L9 Protocol Package"
 authors = []
 packages = [{include = "ai"}]

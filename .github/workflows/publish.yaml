@@ -109,18 +109,11 @@ jobs:
           print("Version validation passed.")
           EOF
 
-      # Build all three wheels into dist/:
-      #   --all          → dist/ai_outshift_all_models-<version>-py3-none-any.whl  (L9 + SAB + TFP + SIEP + CIP)
-      #   --sstp         → dist/ai_outshift_sstp_models-<version>-py3-none-any.whl (L9 only)
-      #   --subprotocol  → dist/ai_outshift_subprotocols-<version>-py3-none-any.whl (SAB + TFP + SIEP + CIP)
-      #
-      # The build script temporarily patches pyproject.toml name per mode
-      # and restores it after each build (safe for sequential runs).
-      - name: Build wheels (--all, --sstp, --subprotocol)
+      # Build the --all wheel into dist/:
+      #   --all → dist/ai_outshift_all_models-<version>-py3-none-any.whl  (L9 + SAB + TFP + SIEP + CIP)
+      - name: Build wheel (--all)
         run: |
           bash scripts/package_models.sh --all
-          bash scripts/package_models.sh --sstp
-          bash scripts/package_models.sh --subprotocol
 
       - name: List built wheels
         run: ls -la dist/*.whl
