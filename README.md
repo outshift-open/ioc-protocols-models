@@ -1,6 +1,24 @@
 # Internet of Cognition (IOC) Protocols Models
 
+[![Contributor-Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-fbab2c.svg)](CODE_OF_CONDUCT.md)
+[![Maintainer](https://img.shields.io/badge/Maintainer-Cisco-00bceb.svg)](https://opensource.cisco.com)
+
 Protocol definitions, language bindings, and tooling for the IOC L9 / SSTP protocol stack.
+
+## About The Project
+
+Cisco Outshift is releasing the Internet of Cognition (IoC) software stack. Since the advent of agentic AI and multi-agentic systems, standard protocols like A2A/MCP have been defined to run on top of Layer 7 protocols such as HTTP. These protocols are referred to as Layer 8.
+
+One of the key hypotheses within the IoC initiative is that a new protocol layer is required on top of the existing Layer 8 protocols to deal with the semantic and cognition aspects of multi-agentic systems. This new protocol layer is named Layer 9 (L9).
+
+This repository contains:
+- L9 protocol JSON schema specifications
+- Language bindings for Python and Go
+- Documentation and examples
+- Subprotocols: SIEP (Semantic Interoperability and Epistemic Protocol), CIP (Cognition and Interoperability Protocol), SAB (Semantic Alignment Broadcast), TFP (Team Formation via Polling)
+- SKILL file representations for autonomous agentic frameworks (OpenClaw, Claude, Codex)
+
+## Getting Started
 
 ## Prerequisites
 
@@ -324,6 +342,14 @@ VERSION=$(make -s print-version)
 
 Skills live in `SSTP/skills/` and are **hand-authored**. They must be updated manually whenever the schema or bindings change.
 
+## Contributing
+
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**. For detailed contributing guidelines, please see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+Distributed under the Apache License 2.0. See [LICENSE.md](LICENSE.md) for more information.
+
+## Contact
+
+Project Link: [https://github.com/outshift-open/ioc-protocols-models](https://github.com/outshift-open/ioc-protocols-models)
