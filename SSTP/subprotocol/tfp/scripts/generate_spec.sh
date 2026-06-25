@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Generate the TFP JSON Schema from the source-of-truth Pydantic models.
 # This script dumps the JSON Schema of src/tfp_models.py:TFPPayload and applies
 # a small normalization pass so the schema (and the downstream language

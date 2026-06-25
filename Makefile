@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright (c) Cisco Systems, Inc. and its affiliates
+# SPDX-License-Identifier: Apache-2.0
+#
 # IOC Protocols Models - Root Makefile
 # Automation for schema generation, language bindings, and documentation
 
