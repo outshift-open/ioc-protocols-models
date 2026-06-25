@@ -2,10 +2,11 @@
 # Publish to PyPI — Triggered on version tags (e.g. v0.1.0)
 # =============================================================================
 #
-# This workflow builds two separate wheels and publishes them to PyPI:
+# This workflow builds three wheels and publishes them to PyPI:
 #
 #   1. ai-outshift-all-models      (SSTP root L9 + all subprotocols)
-#   2. ai-outshift-subprotocols    (only SAB + TFP subprotocols)
+#   2. ai-outshift-sstp-models     (only SSTP root L9 models)
+#   3. ai-outshift-subprotocols    (only SAB + TFP subprotocols)
 #
 # HOW TO RELEASE:
 #   1. Bump version in pyproject.toml (e.g. version = "0.2.0")
@@ -16,8 +17,8 @@
 #
 # PYPI SETUP (one-time, per package):
 #   Go to https://pypi.org → Your Account → Publishing → Add a new pending publisher
-#   Fill in for EACH package:
-#     - Package name:    ai-outshift-all-models (or ai-outshift-subprotocols)
+#   Fill in for EACH of the three packages:
+#     - Package name:    ai-outshift-all-models / ai-outshift-sstp-models / ai-outshift-subprotocols
 #     - Owner:           outshift-open
 #     - Repository:      ioc-protocols-models
 #     - Workflow name:   publish.yaml
@@ -25,7 +26,8 @@
 #
 # AFTER PUBLISH, users install with:
 #   pip install ai-outshift-all-models       # Full package (L9 + SAB + TFP)
-#   pip install ai-outshift-subprotocols     # Subprotocols only (SAB + TFP)
+#   pip install ai-outshift-sstp-models      # SSTP root L9 only
+#   pip install ai-outshift-subprotocols     # Subprotocols only (SAB + TFP) — needs sstp-models for SAB
 #
 # =============================================================================
 
@@ -107,15 +109,17 @@ jobs:
           print("Version validation passed.")
           EOF
 
-      # Build both wheels into dist/:
+      # Build all three wheels into dist/:
       #   --all          → dist/ai_outshift_all_models-<version>-py3-none-any.whl
+      #   --sstp         → dist/ai_outshift_sstp_models-<version>-py3-none-any.whl
       #   --subprotocol  → dist/ai_outshift_subprotocols-<version>-py3-none-any.whl
       #
       # The build script temporarily patches pyproject.toml name per mode
       # and restores it after each build (safe for sequential runs).
-      - name: Build wheels (--all and --subprotocol)
+      - name: Build wheels (--all, --sstp, --subprotocol)
         run: |
           bash scripts/build_wheel.sh --all
+          bash scripts/build_wheel.sh --sstp
           bash scripts/build_wheel.sh --subprotocol
 
       - name: List built wheels

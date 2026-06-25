@@ -194,8 +194,9 @@ esac
 #   --subprotocol  → ai-outshift-subprotocols
 #   --sstp         → ai-outshift-sstp-models
 #
-# This allows the publish workflow to run the script twice (--all + --subprotocol)
-# and end up with two distinct wheels in dist/ ready for PyPI upload.
+# This allows the publish workflow to run the script three times
+# (--all, --sstp, --subprotocol) and end up with three distinct wheels in dist/
+# ready for PyPI upload.
 ORIGINAL_NAME=$(grep '^name = ' "$REPO_ROOT/pyproject.toml" | head -1)
 if [[ "$MODE" == "--subprotocol" ]]; then
     sed -i.bak 's/^name = .*/name = "ai-outshift-subprotocols"/' "$REPO_ROOT/pyproject.toml"

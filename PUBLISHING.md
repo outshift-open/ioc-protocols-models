@@ -4,12 +4,39 @@ This document covers how the build and publish pipeline works for the ai.outshif
 
 ## Overview
 
-This repo publishes two separate Python packages to PyPI:
+This repo publishes three packages to PyPI:
 
 | Package | Install | Contents |
 |---------|---------|----------|
 | `ai-outshift-all-models` | `pip install ai-outshift-all-models` | SSTP root L9 + all subprotocols (SAB, TFP) |
+| `ai-outshift-sstp-models` | `pip install ai-outshift-sstp-models` | Only SSTP root L9 models |
 | `ai-outshift-subprotocols` | `pip install ai-outshift-subprotocols` | Only subprotocols (SAB, TFP) |
+
+### Dependencies Between Packages
+
+```
+ai-outshift-all-models          ← everything in one package (recommended)
+
+ai-outshift-subprotocols        ← SAB + TFP subprotocols
+  └── requires: ai-outshift-sstp-models   (SAB imports L9Header, L9Payload, Actor, Context)
+
+ai-outshift-sstp-models         ← standalone SSTP root L9 models
+```
+
+> **Note:** The SAB subprotocol imports from the root L9 models (`ai.outshift.data_model`).
+> If you install `ai-outshift-subprotocols`, you must also install `ai-outshift-sstp-models`:
+> ```bash
+> pip install ai-outshift-sstp-models ai-outshift-subprotocols
+> ```
+> Or just use `ai-outshift-all-models` which bundles everything.
+> TFP has no dependency on the root models and works standalone.
+
+> **Warning:** Do NOT install `ai-outshift-all-models` alongside `ai-outshift-subprotocols` or
+> `ai-outshift-sstp-models`. They ship overlapping files and uninstalling one may break the other.
+>
+> Pick one approach:
+> - `pip install ai-outshift-all-models` — everything in one package (simplest)
+> - `pip install ai-outshift-sstp-models ai-outshift-subprotocols` — separate packages
 
 ## How to Release
 
