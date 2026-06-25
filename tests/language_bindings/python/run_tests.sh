@@ -28,9 +28,9 @@ if [ -z "$WHEEL" ]; then
     exit 1
 fi
 
-# Install dependencies and wheel
+# Install dependencies (--no-root: skip project install since ai/ is transient)
 echo "Installing dependencies..."
-poetry install --with dev
+poetry install --no-root --with dev
 echo "Installing wheel: $WHEEL"
 poetry run pip install "$WHEEL" --force-reinstall --quiet
 
