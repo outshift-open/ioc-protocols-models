@@ -8,7 +8,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "ioc-l9-all-models"
-version = "9.9.9a"
+version = "9.9.9b"
 description = "IOC L9 Protocol Package"
 authors = ["Outshift Open <oss@cisco.com>"]
 readme = "PACKAGE.md"
