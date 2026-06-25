@@ -15,7 +15,7 @@ src/tfp_models.py          (edit here — source of truth)
 spec/tfp_schema.json       (generated)
     │  language_bindings/python/generate.sh
     ▼
-language_bindings/python/data_model.py   (generated)
+language_bindings/python/ai/outshift/tfp/data_model.py   (generated)
 ```
 
 ```bash

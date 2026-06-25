@@ -1,3 +1,7 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """TFP — Team Formation via Polling: source-of-truth models.
 
 These hand-authored Pydantic models are the **source of truth** for the TFP
@@ -9,7 +13,7 @@ subprotocol payload. The pipeline is:
     spec/tfp_schema.json         (generated JSON Schema)
         │  language_bindings/python/generate.sh
         ▼
-    language_bindings/python/data_model.py   (generated bindings)
+    language_bindings/python/ai/outshift/tfp/data_model.py   (generated bindings)
 
 Do NOT hand-edit ``tfp_schema.json`` or ``data_model.py``. Change these
 models and re-run the generators.

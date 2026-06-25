@@ -1,3 +1,6 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
 # IOC Protocols Models - Root Makefile
 # Automation for schema generation, language bindings, and documentation
 
@@ -5,7 +8,7 @@ PROJECT_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SCHEMA_FILE := $(PROJECT_ROOT)/SSTP/spec/l9_schema.json
 ARTIFACT_PUBLISH_FOLDER := $(PROJECT_ROOT)/SSTP/documentation
 
-.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder build_wheel build_sab_wheel
+.PHONY: help all generate_bindings generate_docs publish_docs publish_bindings test_bindings clean_bindings clean_docs clean clean_pycache print-version print-artifact-folder build_wheel build_sab_wheel build_tfp_wheel build_siep_wheel build_cip_wheel build_wheels
 
 help:
 	@echo "Available targets:"
@@ -20,6 +23,10 @@ help:
 	@echo "  clean_pycache             - Clean all __pycache__ directories and .pyc files"
 	@echo "  build_wheel               - Build Python wheel (ai-outshift-data-model)"
 	@echo "  build_sab_wheel           - Build Python wheel (ai-outshift-sab-data-model)"
+	@echo "  build_tfp_wheel           - Build Python wheel (ai-outshift-tfp-data-model)"
+	@echo "  build_siep_wheel          - Build Python wheel (ai-outshift-subprotocols-siep)"
+	@echo "  build_cip_wheel           - Build Python wheel (ai-outshift-subprotocols-cip)"
+	@echo "  build_wheels              - Build all Python wheels (required after git pull)"
 	@echo "  clean                     - Clean all generated files"
 	@echo "  print-version             - Print schema version"
 	@echo "  print-artifact-folder     - Print artifact publish folder path"
@@ -191,3 +198,46 @@ build_sab_wheel:
 	mv "$(SAB_WHEEL_DIR)/dist/"*.whl "$(SAB_WHEEL_DIR)/"; \
 	rm -rf "$(SAB_WHEEL_DIR)/dist"; \
 	echo "Wheel built: SSTP/subprotocol/sab/language_bindings/python/ai_outshift_sab_data_model-$$VERSION-py3-none-any.whl"
+
+TFP_SCHEMA_FILE := $(PROJECT_ROOT)/SSTP/subprotocol/tfp/spec/tfp_schema.json
+TFP_WHEEL_DIR   := $(PROJECT_ROOT)/SSTP/subprotocol/tfp/language_bindings/python
+
+build_tfp_wheel:
+	@echo "Building TFP Python wheel..."
+	@VERSION=$$(python3 -c "import json; f=open('$(TFP_SCHEMA_FILE)'); print(json.load(f)['version']); f.close()"); \
+	sed "s/^version = .*/version = \"$$VERSION\"/" "$(TFP_WHEEL_DIR)/pyproject.toml" > "$(TFP_WHEEL_DIR)/pyproject.toml.tmp" && mv "$(TFP_WHEEL_DIR)/pyproject.toml.tmp" "$(TFP_WHEEL_DIR)/pyproject.toml"; \
+	rm -f "$(TFP_WHEEL_DIR)"/ai_outshift_tfp_data_model-*.whl; \
+	cd "$(TFP_WHEEL_DIR)" && poetry build -f wheel; \
+	mv "$(TFP_WHEEL_DIR)/dist/"*.whl "$(TFP_WHEEL_DIR)/"; \
+	rm -rf "$(TFP_WHEEL_DIR)/dist"; \
+	echo "Wheel built: SSTP/subprotocol/tfp/language_bindings/python/ai_outshift_tfp_data_model-$$VERSION-py3-none-any.whl"
+
+SIEP_SCHEMA_FILE := $(PROJECT_ROOT)/SSTP/subprotocol/siep/spec/siep_schema.json
+SIEP_WHEEL_DIR   := $(PROJECT_ROOT)/SSTP/subprotocol/siep/language_bindings/python
+
+build_siep_wheel:
+	@echo "Building SIEP Python wheel..."
+	@VERSION=$$(python3 -c "import json; d=json.load(open('$(SIEP_SCHEMA_FILE)')); print(d.get('version', '0.0.1'))"); \
+	sed "s/^version = .*/version = \"$$VERSION\"/" "$(SIEP_WHEEL_DIR)/pyproject.toml" > "$(SIEP_WHEEL_DIR)/pyproject.toml.tmp" && mv "$(SIEP_WHEEL_DIR)/pyproject.toml.tmp" "$(SIEP_WHEEL_DIR)/pyproject.toml"; \
+	rm -f "$(SIEP_WHEEL_DIR)"/ai_outshift_subprotocols_siep-*.whl; \
+	cd "$(SIEP_WHEEL_DIR)" && poetry build -f wheel; \
+	mv "$(SIEP_WHEEL_DIR)/dist/"*.whl "$(SIEP_WHEEL_DIR)/"; \
+	rm -rf "$(SIEP_WHEEL_DIR)/dist"; \
+	echo "Wheel built: SSTP/subprotocol/siep/language_bindings/python/ai_outshift_subprotocols_siep-$$VERSION-py3-none-any.whl"
+
+CIP_SCHEMA_FILE := $(PROJECT_ROOT)/SSTP/subprotocol/cip/schema/cip_payload.schema.json
+CIP_WHEEL_DIR   := $(PROJECT_ROOT)/SSTP/subprotocol/cip/language_bindings/python
+
+build_cip_wheel:
+	@echo "Building CIP Python wheel..."
+	@VERSION=$$(python3 -c "import json; d=json.load(open('$(CIP_SCHEMA_FILE)')); print(d.get('version', '0.0.1'))"); \
+	sed "s/^version = .*/version = \"$$VERSION\"/" "$(CIP_WHEEL_DIR)/pyproject.toml" > "$(CIP_WHEEL_DIR)/pyproject.toml.tmp" && mv "$(CIP_WHEEL_DIR)/pyproject.toml.tmp" "$(CIP_WHEEL_DIR)/pyproject.toml"; \
+	rm -f "$(CIP_WHEEL_DIR)"/ai_outshift_subprotocols_cip-*.whl; \
+	cd "$(CIP_WHEEL_DIR)" && poetry build -f wheel; \
+	mv "$(CIP_WHEEL_DIR)/dist/"*.whl "$(CIP_WHEEL_DIR)/"; \
+	rm -rf "$(CIP_WHEEL_DIR)/dist"; \
+	echo "Wheel built: SSTP/subprotocol/cip/language_bindings/python/ai_outshift_subprotocols_cip-$$VERSION-py3-none-any.whl"
+
+build_wheels:
+	@echo "Building all Python wheels..."
+	@cd "$(PROJECT_ROOT)" && ./scripts/build_wheels.sh

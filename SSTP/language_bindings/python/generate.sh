@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Generate Python Pydantic models from JSON Schema
 # This script uses datamodel-codegen to convert the IOC L9 JSON schema
 # to equivalent Pydantic models with built-in validations
