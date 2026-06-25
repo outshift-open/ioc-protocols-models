@@ -67,6 +67,14 @@ poetry run datamodel-codegen \
 echo "Generated Python CIP bindings successfully!"
 echo "Output written to: $OUTPUT_FILE"
 
+# Prepend copyright header
+LICENSE_HEADER="# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"
+echo "${LICENSE_HEADER}$(cat "$OUTPUT_FILE")" > "$OUTPUT_FILE"
+
 # Optional: Format the generated code
 if poetry run black --version &> /dev/null; then
     echo "Formatting generated code with black..."
