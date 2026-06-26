@@ -14,7 +14,7 @@ The L9 header is the envelope every message carries. Sub-protocol-specific conte
 | `participants` | `{"actors": [Actor+], "groups": object \| null}` | All actors in this message — sender, recipients, and observers. Exactly one actor must have `participant_type="sender"`. `groups` reserved for pub-sub group membership. |
 | — Actor | `{"id": string, "role": string, "participant_type": ParticipantType, "attestation": string \| null}` | `id`: stable agent identity. `role`: functional role. `participant_type`: message-level send/receive/observe designation. `attestation`: signing authority or `null`. |
 | — ParticipantType | `"sender" \| "recipient" \| "observer"` | `sender`: exactly one per message — the agent emitting this message. `recipient`: agents this message is addressed to. `observer`: agents receiving a copy (audit, logging). |
-| `message` | `{"id": UUIDv5, "parents": [UUIDv5*], "episode": URN}` | `id`: content-addressed message key. `parents`: messages this message causally depends on. `episode`: URN scoping all messages in this coordination cycle. |
+| `message` | `{"id": UUIDv4, "parents": [UUIDv4*], "episode": URN}` | `id`: random UUID (UUIDv4), unique per message. `parents`: messages this message causally depends on. `episode`: URN scoping all messages in this coordination cycle. |
 | `context \| null` | `{"topic": URI \| null, "epistemic": Epistemic \| null, "semantic": Semantic \| null}` | Semantic and epistemic context of the message. All three sub-fields are optional. |
 | — `context.topic` | `URI \| null` | The concept this message is about. Absent on session-lifecycle messages with no concept. |
 | — `context.epistemic` | `{"message_act": "assertion"\|"challenge"\|"compliance"\|null, "state": "taskwork"\|"grounding"\|"team_process"\|null, "belief_status": "asserted"\|"deferred"\|"challenged"\|"revised"\|"retracted"\|"unresolved"\|null, "uncertainty": float [0..1]}` | Sender's communicative act, epistemic phase, and belief stance. |
@@ -103,7 +103,7 @@ The payload is a list of typed parts. Each part has:
 
 | Field | Values | Description |
 |---|---|---|
-| `type` | `"utterance" \| "cip" \| "siep" \| "process" \| "knowledge" \| "team_prior" \| "query" \| …` | The type of content in this part. |
+| `type` | `"utterance" \| "cip" \| "siep" \| "cip-repair" \| "team_process" \| "knowledge" \| "team_prior" \| "query" \| …` | The type of content in this part. |
 | `location` | `"inline" \| "external"` | Whether content is embedded or referenced. |
 | `content` | string or dict or null | The payload content. Type-dependent. |
 | `rationale` | string or null | *(type=utterance only)* Why this claim — clinical or operational reasoning. |

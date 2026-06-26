@@ -27,10 +27,10 @@ class ProtocolViolation(RuntimeError):
     """Raised when application code attempts to emit a lifecycle kind directly."""
 
 
-def get_ie_repair(header: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Return the ie-repair payload content from an L9 header, or None."""
+def get_cip_repair(header: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Return the cip-repair payload content from an L9 header, or None."""
     for part in header.get("payload") or []:
-        if part.get("type") == "ie-repair":
+        if part.get("type") == "cip-repair":
             return part.get("content")
     return None
 
@@ -127,7 +127,7 @@ class AgentBus:
         _payload_parts: List[Dict[str, Any]] = [_utt_part]
         if ie_payload is not None:
             _payload_parts.append(
-                {"type": "ie", "location": "inline", "content": ie_payload.to_dict()}
+                {"type": "cip", "location": "inline", "content": ie_payload.to_dict()}
             )
         _recipients = recipients if recipients is not None else (
             [receiver] if receiver and receiver != sender else []
@@ -215,7 +215,7 @@ class AgentBus:
             ],
         )
         header["payload"].append({
-            "type": "ie-repair",
+            "type": "cip-repair",
             "location": "inline",
             "content": {
                 "target_message_id": target_message_id,
@@ -322,7 +322,7 @@ class AgentBus:
             epistemic=make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK),
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
-                {"type": "ie", "location": "inline", "content": payload.to_dict()},
+                {"type": "cip", "location": "inline", "content": payload.to_dict()},
             ],
         )
         self.messages.append(header)
@@ -394,7 +394,7 @@ class AgentBus:
         from SSTP.subprotocol.cip.src.message import get_part
 
         header = {k: v for k, v in envelope.items() if k != "payload"}
-        ie_content = get_part(envelope, "ie")
+        ie_content = get_part(envelope, "cip")
         grounding = ie_content.get("grounding") or {}
         utterance = ie_content.get("utterance") or {}
         belief = ie_content.get("belief") or {}
@@ -788,7 +788,7 @@ class HCPanelAgentBus(AgentBus):
         )
 
 
-__all__ = ["AgentBus", "HCPanelAgentBus", "ProtocolViolation", "get_ie_repair"]
+__all__ = ["AgentBus", "HCPanelAgentBus", "ProtocolViolation", "get_cip_repair"]
 
 class HealthcareAgentBus(AgentBus):
     def __init__(self, run_id: str, conversation_id: str) -> None:
