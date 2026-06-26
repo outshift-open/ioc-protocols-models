@@ -393,6 +393,11 @@ class DebateOrchestrator:
             subject=patient.patient_id,
             episode_id=episode_tw,
             recipients=all_ids,
+            patient_complaint={
+                "symptoms": patient.symptoms,
+                "medications": patient.current_medications,
+                "chat_history": patient.chat_history,
+            },
         )
 
         for agent in all_specialists:
