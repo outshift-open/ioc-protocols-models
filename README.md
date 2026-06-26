@@ -7,7 +7,7 @@
 
 Protocol definitions, language bindings, and tooling for the IOC L9 / SSTP protocol stack.
 
-## About The Project
+## About The Project 
 
 Cisco Outshift is releasing the Internet of Cognition (IoC) software stack. Since the advent of agentic AI and multi-agentic systems, standard protocols like A2A/MCP have been defined to run on top of Layer 7 protocols such as HTTP. These protocols are referred to as Layer 8.
 
