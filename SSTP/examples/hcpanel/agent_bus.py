@@ -515,7 +515,8 @@ class AgentBus:
 
     def _emit_episode_open(self, *, coordinator: str, subject: str, episode_id: "str | None" = None,
                             rationale: str = "", thought_summary: str = "",
-                            team_process: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
+                            team_process: "Dict[str, Any] | None" = None,
+                            recipients: "List[str] | None" = None) -> Dict[str, Any]:
         _utterance = f"session:open subject={subject}"
         _utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": _utterance}
         if rationale:
@@ -533,6 +534,7 @@ class AgentBus:
                 sensitivity=self.sensitivity, utterance=_utterance,
                 episode_id=episode_id, kind_override="intent",
                 epistemic=_epistemic, payload_parts=_payload_parts,
+                recipients=recipients or [],
             )
         self.messages.append(header)
         return header
@@ -540,7 +542,8 @@ class AgentBus:
     def _emit_episode_close(self, *, coordinator: str, subject: str, accepted: bool,
                              episode_id: "str | None" = None, rationale: str = "",
                              thought_summary: str = "",
-                             summary: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
+                             summary: "Dict[str, Any] | None" = None,
+                             recipients: "List[str] | None" = None) -> Dict[str, Any]:
         _outcome = "commit:converged" if accepted else "commit:rejected"
         _utterance = f"session:close subject={subject} accepted={accepted}"
         payload_parts: List[Dict[str, Any]] = [{"type": "utterance", "location": "inline", "content": _utterance}]
@@ -558,6 +561,7 @@ class AgentBus:
                 sensitivity=self.sensitivity, utterance=_utterance,
                 episode_id=episode_id, kind_override=_outcome,
                 epistemic=_epistemic, payload_parts=payload_parts,
+                recipients=recipients or [],
             )
         self.messages.append(header)
         return header
@@ -572,13 +576,14 @@ class AgentBus:
                                        kind_override="commit:ready", episode_id=episode_id, epistemic=epistemic)
 
     def emit_grounding_phase_converged(self, *, coordinator: str, episode_id: "str | None" = None,
-                                        coordination_summary: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
+                                        coordination_summary: "Dict[str, Any] | None" = None,
+                                        recipients: "List[str] | None" = None) -> Dict[str, Any]:
         _status = (coordination_summary or {}).get("coordination_status", "aligned")
         _utterance = f"grounding:converged status={_status}"
         payload_parts: List[Dict[str, Any]] = [{"type": "utterance", "location": "inline", "content": _utterance}]
         if coordination_summary:
             payload_parts.append({"type": "team_process", "location": "inline", "content": coordination_summary})
-        _epistemic = make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
+        _epistemic = make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS,
                                           belief_status=BeliefStatus.ASSERTED, uncertainty=0.0)
         with self._lifecycle_emit():
             header = build_l9_header(
@@ -587,6 +592,7 @@ class AgentBus:
                 sensitivity=self.sensitivity, utterance=_utterance,
                 episode_id=episode_id, kind_override="commit:converged",
                 epistemic=_epistemic, payload_parts=payload_parts,
+                recipients=recipients or [],
             )
         self.messages.append(header)
         return header
@@ -877,27 +883,34 @@ class BeliefStoreProxy:
 class HCPanelAgentBus(HealthcareAgentBus):
     """HCPanel bus — adds public lifecycle wrappers for the two-phase episode structure."""
 
-    def emit_episode_open(self, *, coordinator: str, subject: str, episode_id: str) -> Dict[str, Any]:
+    def emit_episode_open(self, *, coordinator: str, subject: str, episode_id: str,
+                           recipients: "List[str] | None" = None) -> Dict[str, Any]:
         """kind=intent team_process — opens an episode (team-process or outer session)."""
-        return self._emit_episode_open(coordinator=coordinator, subject=subject, episode_id=episode_id)
+        return self._emit_episode_open(coordinator=coordinator, subject=subject, episode_id=episode_id,
+                                       recipients=recipients)
 
     def emit_episode_close(self, *, coordinator: str, subject: str, episode_id: str,
-                            accepted: bool = True) -> Dict[str, Any]:
+                            accepted: bool = True,
+                            recipients: "List[str] | None" = None) -> Dict[str, Any]:
         """kind=commit:converged — closes an episode."""
         return self._emit_episode_close(coordinator=coordinator, subject=subject,
-                                        episode_id=episode_id, accepted=accepted)
+                                        episode_id=episode_id, accepted=accepted,
+                                        recipients=recipients)
 
-    def emit_taskwork_open(self, *, coordinator: str, subject: str, episode_id: str) -> Dict[str, Any]:
+    def emit_taskwork_open(self, *, coordinator: str, subject: str, episode_id: str,
+                            recipients: "List[str] | None" = None) -> Dict[str, Any]:
         """kind=intent taskwork — opens the taskwork assessment episode."""
         return self.emit_taskwork_phase_intent(coordinator=coordinator, subject=subject,
-                                               episode_id=episode_id)
+                                               episode_id=episode_id, recipients=recipients)
 
     def emit_team_process_close(self, *, coordinator: str, episode_id: str,
-                                 role_count: int = 0) -> Dict[str, Any]:
-        """kind=commit:converged grounding — closes the team-process episode."""
+                                 role_count: int = 0,
+                                 recipients: "List[str] | None" = None) -> Dict[str, Any]:
+        """kind=commit:converged team_process — closes the team-process episode."""
         return self.emit_grounding_phase_converged(
             coordinator=coordinator, episode_id=episode_id,
             coordination_summary={"coordination_status": "aligned", "role_count": role_count},
+            recipients=recipients,
         )
 
 
