@@ -142,7 +142,7 @@ M := {
 }
 
 PayloadPart := {
-  type     ∈ { utterance, cip, siep, cip-repair, team_process, knowledge, team_prior, query, snp-convergence, … }
+  type     ∈ { utterance, cip, siep, process, knowledge, team_prior, query, snp-convergence, … }
   location ∈ { inline, external }
   content  : string | dict | ⊥
   ref      : URN | ⊥
