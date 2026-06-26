@@ -430,6 +430,104 @@ individual task assignment messages.
       "type": "utterance",
       "location": "inline",
       "content": "taskwork:open subject=pt-1008"
+    },
+    {
+      "type": "utterance",
+      "location": "inline",
+      "content": "patient:pt-1008 symptoms=[nausea, fatigue, dizzy] medications=[warfarin, aspirin] complaint: I have been getting nosebleeds and bruise very easily.; I take both blood thinners as prescribed.; Can we review this soon?",
+      "rationale": "Patient intake establishing the clinical question for this episode.",
+      "thought_summary": "Case pt-1008: nausea, fatigue, dizzy on warfarin, aspirin."
+    }
+  ]
+}
+```
+
+### Taskwork — `CIP exchange` (specialist prior declaration)
+
+Each specialist independently declares a prior before any peer exchange.
+This message is from `physician-clinical-pharmacology` — their independent
+assessment of the pt-1008 case. `rationale` carries the clinical reasoning;
+`thought_summary` states in one sentence what shaped this position.
+The CIP payload records the prior and posterior (equal at declaration),
+the supporting evidence, and empty `addresses_evidence` (no prior turn to
+engage yet).
+
+```json
+{
+  "protocol": "SSTP",
+  "version": "0.0.5",
+  "kind": "exchange",
+  "subprotocol": "CIP",
+  "subkind": null,
+  "participants": {
+    "actors": [
+      {
+        "id": "physician-clinical-pharmacology",
+        "role": "physician-clinical-pharmacology",
+        "participant_type": "sender",
+        "attestation": "self_attested_local"
+      },
+      {
+        "id": "diagnostics-controller",
+        "role": "diagnostics-controller",
+        "participant_type": "recipient",
+        "attestation": null
+      }
+    ],
+    "groups": null
+  },
+  "message": {
+    "id": "a3f2c1d0-7e4b-4a19-b8c2-1d5e6f7a8b9c",
+    "parents": ["0c58a10f-63da-44af-9b45-f6205c4f74b4"],
+    "episode": "urn:ioc:hcpanel:episode:pt-1008:fa94b5ef-f985-4b14-ad80-fa7e2d20e20f:tw"
+  },
+  "context": {
+    "topic": "urn:concept:healthcare:drug_interaction",
+    "epistemic": {
+      "message_act": "assertion",
+      "state": "taskwork",
+      "belief_status": "asserted",
+      "uncertainty": 0.24
+    },
+    "semantic": {
+      "schema_id": "urn:ioc:draft:healthcare:coordination:peer_message:v0.1",
+      "ontology_ref": null
+    }
+  },
+  "payload": [
+    {
+      "type": "utterance",
+      "location": "inline",
+      "content": "Warfarin and aspirin together create a dual-pathway bleeding risk — anticoagulant plus antiplatelet. Nosebleeds and easy bruising in a patient on both agents are classic signs of excessive anticoagulation, not a new disease process.",
+      "rationale": "Warfarin inhibits vitamin K clotting factors; aspirin irreversibly inhibits platelet aggregation. Combined use elevates haemorrhagic risk substantially. Symptom triad (nausea, fatigue, easy bruising, nosebleeds) is consistent with supratherapeutic anticoagulation.",
+      "thought_summary": "Dual anticoagulant/antiplatelet regimen with bleeding symptoms points strongly to drug interaction rather than new disease."
+    },
+    {
+      "type": "cip",
+      "location": "inline",
+      "content": {
+        "utterance": {
+          "evidence": [
+            "urn:concept:healthcare:drug_interaction:warfarin+aspirin",
+            "urn:concept:healthcare:symptom:nosebleed",
+            "urn:concept:healthcare:symptom:bruising"
+          ],
+          "addresses_evidence": [],
+          "ring_round": 0,
+          "repair_depth": 0
+        },
+        "grounding": {
+          "contingency_verified": null,
+          "contingency_score": null,
+          "repair_reason": null,
+          "challenges": []
+        },
+        "belief": {
+          "prior": 0.76,
+          "posterior": 0.76,
+          "revision_cause": "semantic_memory"
+        }
+      }
     }
   ]
 }
@@ -658,6 +756,164 @@ ID is a flat UUID (no `:tp`/`:tw` suffix) distinct from the CIP episode.
       "type": "utterance",
       "location": "inline",
       "content": "panel:open concept=new_disease participants=['diagnostics-controller', 'physician-internal-medicine', 'physician-clinical-pharmacology', 'physician-cardiology', 'physician-neurology', 'physician-immunology', 'pharmacologist-pharmacokinetics', 'pharmacologist-pharmacodynamics', 'pharmacologist-clinical-pharmacy', 'pharmacologist-drug-safety', 'pharmacologist-clinical-toxicology']"
+    }
+  ]
+}
+```
+
+### Task (SIEP panel) — `SIEP exchange` (specialist counter-proposal)
+
+The coordinator proposes `new_disease`; `physician-clinical-pharmacology`
+counter-proposes `drug_interaction`. The `rationale` carries the clinical
+argument; `thought_summary` states what shaped this response. The SIEP
+payload records the operation, the counter-proposal's posterior and evidence,
+and the `addresses_evidence` list that feeds the CIP contingency check —
+the specialist is engaging the coordinator's evidence directly.
+
+```json
+{
+  "protocol": "SSTP",
+  "version": "0.0.5",
+  "kind": "exchange",
+  "subprotocol": "SIEP",
+  "subkind": null,
+  "participants": {
+    "actors": [
+      {
+        "id": "physician-clinical-pharmacology",
+        "role": "physician-clinical-pharmacology",
+        "participant_type": "sender",
+        "attestation": "self_attested_local"
+      },
+      {
+        "id": "diagnostics-controller",
+        "role": "diagnostics-controller",
+        "participant_type": "recipient",
+        "attestation": null
+      }
+    ],
+    "groups": null
+  },
+  "message": {
+    "id": "c7d8e9f0-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
+    "parents": ["6f5ba398-7126-4591-b5c4-b46c61d92b92"],
+    "episode": "urn:ioc:healthcare:panel:hcpanel:dd73a4e4-39db-4e57-ae26-30e8b3eabfee"
+  },
+  "context": {
+    "topic": "urn:concept:healthcare:drug_interaction",
+    "epistemic": {
+      "message_act": "challenge",
+      "state": "team_process",
+      "belief_status": "asserted",
+      "uncertainty": 0.24
+    },
+    "semantic": {
+      "schema_id": "urn:ioc:draft:healthcare:coordination:peer_turn:v0.1",
+      "ontology_ref": "protocol/ontology/snp_ontology.ttl"
+    }
+  },
+  "payload": [
+    {
+      "type": "utterance",
+      "location": "inline",
+      "content": "physician-clinical-pharmacology counter-proposes drug_interaction confidence=0.76",
+      "rationale": "The coordinator's new_disease hypothesis does not account for the concurrent warfarin-aspirin regimen. Nosebleeds and easy bruising in this context are haemostatic, not disease-onset symptoms. INR should be checked before attributing symptoms to a new pathology.",
+      "thought_summary": "Prior taskwork established drug_interaction with 0.76 confidence; coordinator's new_disease proposal does not engage the anticoagulant evidence."
+    },
+    {
+      "type": "siep",
+      "location": "inline",
+      "content": {
+        "profile": "semantic_negotiation",
+        "operation": "counter_proposal",
+        "proposal_id": "panel-hcpanel-dd73a4e4-t0-physician-clinical-pharmacology",
+        "content": "drug_interaction",
+        "status": "pending",
+        "negotiation_id": "dd73a4e4-39db-4e57-ae26-30e8b3eabfee",
+        "proposal_payload": {
+          "posterior": 0.76,
+          "supporting_evidence": [
+            "urn:concept:healthcare:drug_interaction:warfarin+aspirin",
+            "urn:concept:healthcare:symptom:nosebleed",
+            "urn:concept:healthcare:symptom:bruising"
+          ],
+          "against_evidence": [],
+          "addresses_evidence": [
+            "urn:concept:healthcare:drug_interaction:warfarin+aspirin"
+          ],
+          "reasoning_summary": "Warfarin+aspirin dual-pathway bleeding risk; symptom triad consistent with supratherapeutic anticoagulation.",
+          "deferred_to": null
+        }
+      }
+    }
+  ]
+}
+```
+
+### Task (SIEP panel) — `CIP contingency` (grounding failure during panel)
+
+When a specialist's response fails to engage the prior turn's evidence
+(contingency score below θ_c = 0.40), the listener raises a `contingency`.
+The `cip-repair` payload names the target message and the failure reason.
+The listener owns this branch until it emits `commit:resolved`.
+
+```json
+{
+  "protocol": "SSTP",
+  "version": "0.0.5",
+  "kind": "contingency",
+  "subprotocol": "CIP",
+  "subkind": null,
+  "participants": {
+    "actors": [
+      {
+        "id": "diagnostics-controller",
+        "role": "diagnostics-controller",
+        "participant_type": "sender",
+        "attestation": "self_attested_local"
+      },
+      {
+        "id": "physician-internal-medicine",
+        "role": "physician-internal-medicine",
+        "participant_type": "recipient",
+        "attestation": null
+      }
+    ],
+    "groups": null
+  },
+  "message": {
+    "id": "e1f2a3b4-c5d6-4e7f-9081-a2b3c4d5e6f7",
+    "parents": ["a3f2c1d0-7e4b-4a19-b8c2-1d5e6f7a8b9c"],
+    "episode": "urn:ioc:hcpanel:episode:pt-1008:fa94b5ef-f985-4b14-ad80-fa7e2d20e20f:tw:ie:1"
+  },
+  "context": {
+    "topic": "urn:concept:healthcare:drug_interaction",
+    "epistemic": {
+      "message_act": "assertion",
+      "state": "grounding",
+      "belief_status": "challenged",
+      "uncertainty": 0.0
+    },
+    "semantic": {
+      "schema_id": "urn:ioc:draft:healthcare:coordination:peer_message:v0.1",
+      "ontology_ref": null
+    }
+  },
+  "payload": [
+    {
+      "type": "utterance",
+      "location": "inline",
+      "content": "repair_required: reason=grounding_failure, target=a3f2c1d0-7e4b-4a19-b8c2-1d5e6f7a8b9c",
+      "rationale": "Response did not reference any evidence from the prior turn — contingency score 0.08, below threshold 0.40.",
+      "thought_summary": "Physician-internal-medicine's assertion was self-contained; no engagement with the coordinator's evidence list."
+    },
+    {
+      "type": "cip-repair",
+      "location": "inline",
+      "content": {
+        "target_message_id": "a3f2c1d0-7e4b-4a19-b8c2-1d5e6f7a8b9c",
+        "repair_reason": "grounding_failure"
+      }
     }
   ]
 }

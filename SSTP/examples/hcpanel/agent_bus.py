@@ -601,9 +601,25 @@ class AgentBus:
                                     episode_id: "str | None" = None,
                                     coordination_summary: "Dict[str, Any] | None" = None,
                                     role: "str | None" = None,
-                                    recipients: "List[str] | None" = None) -> Dict[str, Any]:
+                                    recipients: "List[str] | None" = None,
+                                    patient_complaint: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
         _utterance = f"taskwork:open subject={subject}"
         payload_parts: List[Dict[str, Any]] = [{"type": "utterance", "location": "inline", "content": _utterance}]
+        if patient_complaint:
+            _complaint_text = "; ".join(patient_complaint.get("chat_history") or [])
+            _symptoms = ", ".join(patient_complaint.get("symptoms") or [])
+            _meds = ", ".join(patient_complaint.get("medications") or [])
+            _complaint_utterance = (
+                f"patient:{subject} symptoms=[{_symptoms}] medications=[{_meds}]"
+                + (f" complaint: {_complaint_text}" if _complaint_text else "")
+            )
+            payload_parts.append({
+                "type": "utterance",
+                "location": "inline",
+                "content": _complaint_utterance,
+                "rationale": "Patient intake establishing the clinical question for this episode.",
+                "thought_summary": f"Case {subject}: {_symptoms or 'see complaint'} on {_meds or 'current medications'}.",
+            })
         if coordination_summary:
             payload_parts.append({"type": "team_process", "location": "inline", "content": coordination_summary})
         _epistemic = make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS,
@@ -898,10 +914,12 @@ class HCPanelAgentBus(HealthcareAgentBus):
                                         recipients=recipients)
 
     def emit_taskwork_open(self, *, coordinator: str, subject: str, episode_id: str,
-                            recipients: "List[str] | None" = None) -> Dict[str, Any]:
+                            recipients: "List[str] | None" = None,
+                            patient_complaint: "Dict[str, Any] | None" = None) -> Dict[str, Any]:
         """kind=intent taskwork — opens the taskwork assessment episode."""
         return self.emit_taskwork_phase_intent(coordinator=coordinator, subject=subject,
-                                               episode_id=episode_id, recipients=recipients)
+                                               episode_id=episode_id, recipients=recipients,
+                                               patient_complaint=patient_complaint)
 
     def emit_team_process_close(self, *, coordinator: str, episode_id: str,
                                  role_count: int = 0,
