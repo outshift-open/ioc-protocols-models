@@ -11,8 +11,9 @@ The L9 header is the envelope every message carries. Sub-protocol-specific conte
 | `version` | `"0.0.5"` | Protocol schema version. Receivers reject or downgrade on unknown versions. |
 | `kind` | `"intent" \| "exchange" \| "contingency" \| "commit" \| "knowledge"` | Role of this message in the episode flow. See [§kind](#kind) below. |
 | `subkind` | `"converged" \| "rejected" \| "resolved" \| "ready" \| null` | Qualifies `commit` and `exchange`. See [§subkind](#subkind) below. |
-| `participants` | `{"actors": [Actor+], "groups": object \| null}` | All actors in this message. Exactly one actor must have `participant_type = "sender"`. `groups` reserved for pub-sub group membership. |
-| — Actor | `{"id": string, "role": string, "participant_type": "sender"\|"recipient"\|"observer", "attestation": string \| null}` | `id`: stable agent identity. `role`: functional role. `participant_type`: whether this actor is sending, receiving, or observing. Exactly one per message must be `"sender"`. `attestation`: signing authority or `null`. |
+| `participants` | `{"actors": [Actor+], "groups": object \| null}` | All actors in this message — sender, recipients, and observers. Exactly one actor must have `participant_type="sender"`. `groups` reserved for pub-sub group membership. |
+| — Actor | `{"id": string, "role": string, "participant_type": ParticipantType, "attestation": string \| null}` | `id`: stable agent identity. `role`: functional role. `participant_type`: message-level send/receive/observe designation. `attestation`: signing authority or `null`. |
+| — ParticipantType | `"sender" \| "recipient" \| "observer"` | `sender`: exactly one per message — the agent emitting this message. `recipient`: agents this message is addressed to. `observer`: agents receiving a copy (audit, logging). |
 | `message` | `{"id": UUIDv5, "parents": [UUIDv5*], "episode": URN}` | `id`: content-addressed message key. `parents`: messages this message causally depends on. `episode`: URN scoping all messages in this coordination cycle. |
 | `context \| null` | `{"topic": URI \| null, "epistemic": Epistemic \| null, "semantic": Semantic \| null}` | Semantic and epistemic context of the message. All three sub-fields are optional. |
 | — `context.topic` | `URI \| null` | The concept this message is about. Absent on session-lifecycle messages with no concept. |
@@ -109,7 +110,7 @@ The payload is a list of typed parts. Each part has:
 | `thought_summary` | string or null | *(type=utterance only)* One sentence: what belief state or prior turn shaped this response. |
 | `ref` | `"urn:ioc:payload:{message_id}" \| null` | Reference to external payload. |
 
-**type=utterance** carries the natural-language text, rationale, and thought_summary. This is always present alongside any `cip` or `siep` part — the text and the structured protocol data travel together.
+**type=utterance** carries the natural-language text, rationale, and thought_summary. This is always present alongside any `cip` or `siep` part — the text and the structured protocol data travel together. Task intake (e.g. a patient complaint) is also an utterance — included as a second `type=utterance` part in the taskwork `intent` payload, with `rationale` carrying the clinical or operational context and `thought_summary` stating what the intake establishes for the episode.
 
 **type=cip** carries the CIPPayload (grounding, belief, utterance evidence). See [CIP.md](../../subprotocol/cip/docs/CIP.md).
 

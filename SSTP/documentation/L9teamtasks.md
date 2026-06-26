@@ -58,14 +58,13 @@ subprotocols.
   persuasion are trusted more than answers reached through one agent
   caving to another.  This is the task. 
 
-
 If anything breaks down during domain work — agents keep failing to
 ground their arguments, or the group is converging through pressure
 rather than reasoning — the system sends the team back to the
 coordination layer to re-establish shared understanding before
 continuing. The flow is not a one-way pipeline. It cycles.
 
-The underlying insight, drawn from decades of organizational
+The underlying insight, drawn from earlier work on organizational
 psychology research, is that taskwork and teamwork are
 inseparable. You cannot get a good clinical answer from a group that
 has not first agreed on who knows what, what each person believes, and
@@ -83,7 +82,7 @@ position is established, before any real task work begins.
 
 Messages below are taken from a real hcpanel run against the Anthropic
 backend (2026-06-26, pt-1008, episode
-`urn:ioc:hcpanel:episode:pt-1008:f10851fe-ba0e-4d84-85a5-8968db2d6507`).
+`urn:ioc:hcpanel:episode:pt-1008:fa94b5ef-f985-4b14-ad80-fa7e2d20e20f`)...
 Message IDs and episode UUIDs vary per run; the structure is invariant.
 
 ---
@@ -109,14 +108,74 @@ this is a session-lifecycle message.
         "role": "diagnostics-controller",
         "participant_type": "sender",
         "attestation": "self_attested_local"
+      },
+      {
+        "id": "physician-internal-medicine",
+        "role": "physician-internal-medicine",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-clinical-pharmacology",
+        "role": "physician-clinical-pharmacology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-cardiology",
+        "role": "physician-cardiology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-neurology",
+        "role": "physician-neurology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-immunology",
+        "role": "physician-immunology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacokinetics",
+        "role": "pharmacologist-pharmacokinetics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacodynamics",
+        "role": "pharmacologist-pharmacodynamics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-pharmacy",
+        "role": "pharmacologist-clinical-pharmacy",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-drug-safety",
+        "role": "pharmacologist-drug-safety",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-toxicology",
+        "role": "pharmacologist-clinical-toxicology",
+        "participant_type": "recipient",
+        "attestation": null
       }
     ],
     "groups": null
   },
   "message": {
-    "id": "60c23036-4dc1-49cc-bb82-323df22217ff",
+    "id": "622021c7-8b3b-4646-a7c8-8e2d369b4a3b",
     "parents": [],
-    "episode": "urn:ioc:hcpanel:episode:pt-1008:f10851fe-ba0e-4d84-85a5-8968db2d6507:tp"
+    "episode": "urn:ioc:hcpanel:episode:pt-1008:fa94b5ef-f985-4b14-ad80-fa7e2d20e20f:tp"
   },
   "context": {
     "topic": null,
@@ -132,7 +191,11 @@ this is a session-lifecycle message.
     }
   },
   "payload": [
-    { "type": "utterance", "location": "inline", "content": "session:open subject=pt-1008" }
+    {
+      "type": "utterance",
+      "location": "inline",
+      "content": "session:open subject=pt-1008"
+    }
   ]
 }
 ```
@@ -157,20 +220,80 @@ the team-process episode. The `team_process` payload records that all
         "role": "diagnostics-controller",
         "participant_type": "sender",
         "attestation": "self_attested_local"
+      },
+      {
+        "id": "physician-internal-medicine",
+        "role": "physician-internal-medicine",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-clinical-pharmacology",
+        "role": "physician-clinical-pharmacology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-cardiology",
+        "role": "physician-cardiology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-neurology",
+        "role": "physician-neurology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-immunology",
+        "role": "physician-immunology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacokinetics",
+        "role": "pharmacologist-pharmacokinetics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacodynamics",
+        "role": "pharmacologist-pharmacodynamics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-pharmacy",
+        "role": "pharmacologist-clinical-pharmacy",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-drug-safety",
+        "role": "pharmacologist-drug-safety",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-toxicology",
+        "role": "pharmacologist-clinical-toxicology",
+        "participant_type": "recipient",
+        "attestation": null
       }
     ],
     "groups": null
   },
   "message": {
-    "id": "23e93d7d-2800-431e-89f8-3b2a4d2df08b",
+    "id": "02fab4f2-ade1-4298-94f2-723d09288343",
     "parents": [],
-    "episode": "urn:ioc:hcpanel:episode:pt-1008:f10851fe-ba0e-4d84-85a5-8968db2d6507:tp"
+    "episode": "urn:ioc:hcpanel:episode:pt-1008:fa94b5ef-f985-4b14-ad80-fa7e2d20e20f:tp"
   },
   "context": {
     "topic": null,
     "epistemic": {
       "message_act": "assertion",
-      "state": "grounding",
+      "state": "team_process",
       "belief_status": "asserted",
       "uncertainty": 0.0
     },
@@ -180,8 +303,19 @@ the team-process episode. The `team_process` payload records that all
     }
   },
   "payload": [
-    { "type": "utterance", "location": "inline", "content": "grounding:converged status=aligned" },
-    { "type": "team_process", "location": "inline", "content": { "coordination_status": "aligned", "role_count": 10 } }
+    {
+      "type": "utterance",
+      "location": "inline",
+      "content": "grounding:converged status=aligned"
+    },
+    {
+      "type": "team_process",
+      "location": "inline",
+      "content": {
+        "coordination_status": "aligned",
+        "role_count": 10
+      }
+    }
   ]
 }
 ```
@@ -209,14 +343,74 @@ individual task assignment messages.
         "role": "diagnostics-controller",
         "participant_type": "sender",
         "attestation": "self_attested_local"
+      },
+      {
+        "id": "physician-internal-medicine",
+        "role": "physician-internal-medicine",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-clinical-pharmacology",
+        "role": "physician-clinical-pharmacology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-cardiology",
+        "role": "physician-cardiology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-neurology",
+        "role": "physician-neurology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-immunology",
+        "role": "physician-immunology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacokinetics",
+        "role": "pharmacologist-pharmacokinetics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacodynamics",
+        "role": "pharmacologist-pharmacodynamics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-pharmacy",
+        "role": "pharmacologist-clinical-pharmacy",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-drug-safety",
+        "role": "pharmacologist-drug-safety",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-toxicology",
+        "role": "pharmacologist-clinical-toxicology",
+        "participant_type": "recipient",
+        "attestation": null
       }
     ],
     "groups": null
   },
   "message": {
-    "id": "ae01d345-3739-4377-b8a4-b0799348f81b",
+    "id": "0c58a10f-63da-44af-9b45-f6205c4f74b4",
     "parents": [],
-    "episode": "urn:ioc:hcpanel:episode:pt-1008:f10851fe-ba0e-4d84-85a5-8968db2d6507:tw"
+    "episode": "urn:ioc:hcpanel:episode:pt-1008:fa94b5ef-f985-4b14-ad80-fa7e2d20e20f:tw"
   },
   "context": {
     "topic": null,
@@ -256,14 +450,79 @@ and the panel debate can begin.
   "subkind": "converged",
   "participants": {
     "actors": [
-      { "id": "diagnostics-controller", "role": "diagnostics-controller", "participant_type": "sender", "attestation": "self_attested_local" }
+      {
+        "id": "diagnostics-controller",
+        "role": "diagnostics-controller",
+        "participant_type": "sender",
+        "attestation": "self_attested_local"
+      },
+      {
+        "id": "physician-internal-medicine",
+        "role": "physician-internal-medicine",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-clinical-pharmacology",
+        "role": "physician-clinical-pharmacology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-cardiology",
+        "role": "physician-cardiology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-neurology",
+        "role": "physician-neurology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-immunology",
+        "role": "physician-immunology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacokinetics",
+        "role": "pharmacologist-pharmacokinetics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacodynamics",
+        "role": "pharmacologist-pharmacodynamics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-pharmacy",
+        "role": "pharmacologist-clinical-pharmacy",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-drug-safety",
+        "role": "pharmacologist-drug-safety",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-toxicology",
+        "role": "pharmacologist-clinical-toxicology",
+        "participant_type": "recipient",
+        "attestation": null
+      }
     ],
     "groups": null
   },
   "message": {
-    "id": "92f4cbda-0d82-4ebf-a451-f17bfcd0ba35",
+    "id": "b0ff3eb4-dcf5-4ca8-a422-b4228f059192",
     "parents": [],
-    "episode": "urn:ioc:hcpanel:episode:pt-1008:f10851fe-ba0e-4d84-85a5-8968db2d6507:tw"
+    "episode": "urn:ioc:hcpanel:episode:pt-1008:fa94b5ef-f985-4b14-ad80-fa7e2d20e20f:tw"
   },
   "context": {
     "topic": null,
@@ -279,7 +538,11 @@ and the panel debate can begin.
     }
   },
   "payload": [
-    { "type": "utterance", "location": "inline", "content": "session:close subject=pt-1008 accepted=True" }
+    {
+      "type": "utterance",
+      "location": "inline",
+      "content": "session:close subject=pt-1008 accepted=True"
+    }
   ]
 }
 ```
@@ -308,14 +571,74 @@ ID is a flat UUID (no `:tp`/`:tw` suffix) distinct from the CIP episode.
         "role": "diagnostics-controller",
         "participant_type": "sender",
         "attestation": "self_attested_local"
+      },
+      {
+        "id": "physician-internal-medicine",
+        "role": "physician-internal-medicine",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-clinical-pharmacology",
+        "role": "physician-clinical-pharmacology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-cardiology",
+        "role": "physician-cardiology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-neurology",
+        "role": "physician-neurology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-immunology",
+        "role": "physician-immunology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacokinetics",
+        "role": "pharmacologist-pharmacokinetics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacodynamics",
+        "role": "pharmacologist-pharmacodynamics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-pharmacy",
+        "role": "pharmacologist-clinical-pharmacy",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-drug-safety",
+        "role": "pharmacologist-drug-safety",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-toxicology",
+        "role": "pharmacologist-clinical-toxicology",
+        "participant_type": "recipient",
+        "attestation": null
       }
     ],
     "groups": null
   },
   "message": {
-    "id": "e58102ba-9515-4ce5-b266-b2cb7998c70b",
+    "id": "6f5ba398-7126-4591-b5c4-b46c61d92b92",
     "parents": [],
-    "episode": "urn:ioc:healthcare:panel:hcpanel:3680c5bf-5a79-4262-9af0-048e11c86c87"
+    "episode": "urn:ioc:healthcare:panel:hcpanel:dd73a4e4-39db-4e57-ae26-30e8b3eabfee"
   },
   "context": {
     "topic": null,
@@ -354,14 +677,79 @@ carries the final MPC, GAR, and SCR for this episode.
   "subkind": "converged",
   "participants": {
     "actors": [
-      { "id": "diagnostics-controller", "role": "diagnostics-controller", "participant_type": "sender", "attestation": "self_attested_local" }
+      {
+        "id": "diagnostics-controller",
+        "role": "diagnostics-controller",
+        "participant_type": "sender",
+        "attestation": "self_attested_local"
+      },
+      {
+        "id": "physician-internal-medicine",
+        "role": "physician-internal-medicine",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-clinical-pharmacology",
+        "role": "physician-clinical-pharmacology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-cardiology",
+        "role": "physician-cardiology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-neurology",
+        "role": "physician-neurology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "physician-immunology",
+        "role": "physician-immunology",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacokinetics",
+        "role": "pharmacologist-pharmacokinetics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-pharmacodynamics",
+        "role": "pharmacologist-pharmacodynamics",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-pharmacy",
+        "role": "pharmacologist-clinical-pharmacy",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-drug-safety",
+        "role": "pharmacologist-drug-safety",
+        "participant_type": "recipient",
+        "attestation": null
+      },
+      {
+        "id": "pharmacologist-clinical-toxicology",
+        "role": "pharmacologist-clinical-toxicology",
+        "participant_type": "recipient",
+        "attestation": null
+      }
     ],
     "groups": null
   },
   "message": {
-    "id": "dda709f8-915f-4083-bf16-41d64c81382c",
+    "id": "441c8b6c-1069-497e-9387-11b1b2ab37fe",
     "parents": [],
-    "episode": "urn:ioc:healthcare:panel:hcpanel:3680c5bf-5a79-4262-9af0-048e11c86c87"
+    "episode": "urn:ioc:healthcare:panel:hcpanel:dd73a4e4-39db-4e57-ae26-30e8b3eabfee"
   },
   "context": {
     "topic": null,
@@ -380,7 +768,7 @@ carries the final MPC, GAR, and SCR for this episode.
     {
       "type": "utterance",
       "location": "inline",
-      "content": "SIEP convergence: drug_interaction → accept posterior=0.7564 gar=1.0000 scr=0.0000"
+      "content": "SIEP convergence: drug_interaction → accept posterior=0.7368 gar=0.8182 scr=0.0000"
     },
     {
       "type": "snp-convergence",
@@ -401,10 +789,10 @@ carries the final MPC, GAR, and SCR for this episode.
           "pharmacologist-drug-safety",
           "pharmacologist-clinical-toxicology"
         ],
-        "mpc": 0.7564,
-        "gar": 1.0,
+        "mpc": 0.7368,
+        "gar": 0.8182,
         "scr": 0.0,
-        "episode_id": "urn:ioc:healthcare:panel:hcpanel:3680c5bf-5a79-4262-9af0-048e11c86c87"
+        "episode_id": "urn:ioc:healthcare:panel:hcpanel:dd73a4e4-39db-4e57-ae26-30e8b3eabfee"
       }
     }
   ]
