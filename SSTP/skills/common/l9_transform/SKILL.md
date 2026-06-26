@@ -35,6 +35,7 @@ Derive all structural fields from the fetched schema. The only user input is the
 ## Constraints
 
 - `L9Header.protocol` is always `"SSTP"`.
+- `L9Header.subprotocol` must be one of: `SIEP`, `CIP`, `TFP`, `SAB`.
 - All structural rules MUST come from the fetched schema/model files, not hardcoded assumptions.
 - You MUST fetch the remote files every time — do not assume schema content from memory.
 - Output valid JSON only.
