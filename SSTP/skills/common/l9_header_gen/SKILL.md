@@ -20,7 +20,13 @@ You can `curl` or `fetch` the data from those URLs. Do not rely on cached or mem
 
 ## Input Parameters
 
-Derive all input parameters from the fetched schema (`$defs.L9Header` required fields).
+The user must provide:
+
+- `kind` — one of the `Kind` enum values from the schema (e.g. `intent`, `contingency`, `exchange`, `commit`, `knowledge`)
+- `subprotocol` — the subprotocol identifier (e.g. `SIEP`, `CIP`, `TFP`, `SAB`)
+- `sender_id` — unique ID of the sending actor
+
+Derive all other fields and their types from the fetched schema (`$defs.L9Header`).
 
 ## Instructions
 
@@ -31,6 +37,7 @@ Derive all input parameters from the fetched schema (`$defs.L9Header` required f
 
 ## Constraints
 
+- `L9Header.protocol` is always `"SSTP"`.
 - All validation rules MUST come from the fetched schema/model files, not hardcoded assumptions.
 - You MUST fetch the remote files every time — do not assume schema content from memory.
 - Output valid JSON only.

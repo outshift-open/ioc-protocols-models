@@ -32,6 +32,7 @@ The only input is the L9 JSON message to validate. Derive all validation rules f
 
 ## Constraints
 
+- `L9Header.protocol` is always `"SSTP"`.
 - ALL validation rules MUST be derived from the fetched schema/model files, not hardcoded assumptions.
 - You MUST fetch the remote files every time — do not assume schema content from memory.
 - Report ALL errors found, not just the first.
