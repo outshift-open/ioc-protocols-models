@@ -126,39 +126,29 @@ taskwork episode in the next node.
 This is where the L9 protocol runs.  Three episode phases execute in
 sequence:
 
-- **Team process episode** — the controller calls
-  `ctrl_l9.open_team_process(group, agreement, task_goal=...)` which emits
-  `kind=intent`, then `tp_ep.run()` which drives the proposal/acceptance
-  loop for all 10 specialists internally (including ToM assessment per
-  exchange).  The controller closes with `tp_ep.close(...)` which emits
-  `kind=commit:converged`.  The orchestrator only sees
-  `open_team_process → run → close`.
+- **Team process episode** — the diagnostics controller sends a
+  `kind=intent` to all 10 specialists naming the task goal and
+  assigning each specialist their role.  Each specialist acknowledges.
+  The controller closes with `kind=commit:converged`.  This creates the
+  shared team structure that the rest of the session operates under.
 
-- **Taskwork episode** — the controller builds a list of
-  `TaskworkParticipant` structs (agent id, utterance, posterior,
-  belief store) from the priors formed in the orchestrate node, then
-  calls `ctrl_l9.open_taskwork(group, participants, ...)`.  Inside
-  `tw_ep.run()`, for each participant: the belief store is seeded if
-  empty, a `kind=exchange` is emitted, ToM assessment is called, and if
-  the assessment flags ambiguity or a grounding failure a
-  `kind=contingency` repair cycle is driven — all internal to the
-  package.  The controller closes with `tw_ep.close(...)`.  The
-  orchestrator only sees `open_taskwork → run → close`.
+- **Taskwork episode** — the controller opens a new episode with the
+  patient complaint as the second `type=utterance` payload part.  Each
+  specialist declares their independent prior — the belief they formed
+  in the orchestrate node — as a `kind=exchange` with a `type=cip`
+  payload carrying prior, posterior, and supporting evidence.  The
+  controller closes with `kind=commit:converged`.
 
-- **SIEP panel** — the controller opens a `TaskEpisode` via
-  `ctrl_l9.open_task(...)` and calls `task_ep.run(...)`.  Inside
-  `run()`, `StarNegotiation` emits a `kind=intent` to the full panel,
-  then in each round proposes the controller's position to each
-  specialist.  Specialists respond with accepts or counter-proposals.
-  Each response passes through CIP contingency checking: if a response
+- **SIEP panel** — the controller proposes the most likely diagnosis as
+  a starting concept and opens a `kind=intent` to the full panel.
+  Specialists respond with counter-proposals, evidence, and uncertainty.
+  Each exchange passes through CIP contingency checking: if a response
   does not genuinely engage the prior turn's argument, a
   `kind=contingency` is raised and a repair branch opens.  The panel
   iterates until convergence metrics (GAR, SCR, MPC) meet the threshold
-  or the step budget is exhausted.  `run()` closes the episode with
-  `kind=commit:converged` and records a `SemanticRule`.  The
-  orchestrator then calls `task_ep.announce(...)` which emits
-  `kind=knowledge` to TeamEpistemicMemory.  The orchestrator only sees
-  `open_task → run → announce`.
+  or the step budget is exhausted.  The controller closes with
+  `kind=commit:converged` and emits a `kind=knowledge` to
+  TeamEpistemicMemory.
 
 **3. coordination**
 
@@ -205,128 +195,6 @@ main.py
 | `llm_backends.py` | `SimulatedHealthcareLLMClient`, `AzureOpenAIHealthcareLLMClient`, `AnthropicHealthcareLLMClient` |
 | `interaction_semantics.py` | Concept URI helpers |
 
-### The L9 message API
-
-The full API reference — `L9`, `Episode`, `build_l9_header`,
-`build_snp_l9_header`, `L9HeaderBuilder`, and all prior helpers — is in
-[L9api.md](./L9api.md).
-
-**How hcpanel uses the API**
-
-Application code (orchestrator and specialists) uses the `L9` / `Episode`
-application API.  Bus implementations (`agent_bus.py`, `panel_bus.py`) call the
-wire-level builders.  Application agents never call the builders directly.
-
-```
-DebateOrchestrator
-  ├── Episode A — team process
-  │     L9.open_team_process(concept_id, group, agreement, ...) → TeamProcessEpisode
-  │       └── HCPanelAgentBus._emit_intent(...)
-  │     tp_ep.run()
-  │       └── emit_process_proposal / emit_process_acceptance per specialist
-  │           + ToM assess per exchange (internal)
-  │     tp_ep.close(rationale=...) → commit_message_id
-  │
-  ├── Episode B — taskwork
-  │     L9.open_taskwork(concept_id, group, participants, ...) → TaskworkEpisode
-  │       └── HCPanelAgentBus._emit_intent(...)
-  │     tw_ep.run()
-  │       └── per participant: belief seed → Episode.say() → ToM assess → repair if needed
-  │           (all internal)
-  │     tw_ep.close(rationale=...) → commit_message_id
-  │
-  └── Episode C — SIEP panel
-        L9.open_task(concept_id, group, convergence_store=..., ...) → TaskEpisode
-        task_ep.run(controller_position=..., specialist_positions=...) → None
-          └── PanelBus + StarNegotiation (internal to package)
-                └── build_snp_l9_header(kind_override="intent", ...)
-                └── build_snp_l9_header(operation=PROPOSE, ...)     # per specialist
-                └── build_snp_l9_header(kind_override="contingency", ...)   # if needed
-                └── build_snp_l9_header(kind_override="commit:converged", ...)
-                └── build_snp_l9_header(kind_override="knowledge", ...)
-        task_ep.announce(concept_id=..., posterior=..., gar=..., scr=...)
-```
-
-Every emitted header goes into `HCPanelAgentBus.messages`, the
-append-only list that becomes `ie_trace` in the output.
-
-**Opening an episode**
-
-```python
-from SSTP.l9 import L9, Episode
-
-ctrl_l9 = L9(bus, agent_id="diagnostics-controller",
-              belief_store=belief_store,
-              team_epistemic_agent=team_epistemic)
-
-episode = ctrl_l9.open(
-    concept_id="urn:concept:healthcare:drug_interaction",
-    group=all_specialist_ids,
-    episode_id=episode_urn,
-    rationale="Opening team process to establish roles and task scope.",
-    thought_summary="Patient shows signs of statin myopathy; need specialist alignment.",
-)
-# episode.prior is the blended prior from agent + team stores
-```
-
-**Specialist joining and saying**
-
-```python
-# On the specialist side — using on_intent decorator
-specialist_l9 = L9(bus, agent_id=specialist_id)
-
-@specialist_l9.on_intent
-def handle(ep: Episode) -> None:
-    ep.say(
-        "I assess drug interaction risk as high based on atorvastatin + metformin.",
-        posterior=0.82,
-        evidence=["elevated_liver_enzymes", "statin_dose"],
-        rationale="Elevated liver enzymes in a patient on dual statin/biguanide therapy.",
-        thought_summary="Prior exchange established high-risk pattern; I'm confirming.",
-    )
-
-# Or directly when the episode_id is already known:
-agent_ep = Episode(
-    bus=bus,
-    agent_id=specialist_id,
-    concept_id="urn:concept:healthcare:drug_interaction",
-    episode_id=episode_urn,
-    initiator=False,
-)
-msg_id = agent_ep.say(utterance, posterior=0.74, rationale="...", thought_summary="...")
-```
-
-**Handling a contingency**
-
-```python
-# Listener detects grounding failure:
-contingency_id = episode.dispute(
-    message_id=prior_msg_id,
-    reason="grounding_failure",
-)
-
-# After the offending agent re-asserts, the listener closes the branch:
-episode.resolve(contingency_id)
-```
-
-**Closing and announcing**
-
-```python
-# All group members have called done() or say(final=True)
-commit_id = episode.close(
-    rationale="All specialists have declared their priors; MPC above threshold.",
-    thought_summary="Team process closed; proceeding to taskwork.",
-)
-
-# Optionally write to TeamEpistemicMemory:
-episode.announce(
-    concept_id="urn:concept:healthcare:drug_interaction",
-    posterior=episode.mpc,
-    gar=episode.gar,
-    scr=episode.scr,
-)
-```
-
 ### The bus layer
 
 The bus layer is the only component that emits L9 wire-format messages.
@@ -357,17 +225,6 @@ side.  `StarNegotiation.run()` drives one full panel:
 3. After all specialists respond, computes convergence metrics (GAR,
    SCR, MPC), emits `commit:converged` with `type=snp-convergence`
    payload and a `kind=knowledge` message.
-
-> **Note — AgentBus and PanelBus are placeholders.**  Both buses are
-> application-internal scaffolding: they exist to emit L9 messages and
-> accumulate them in a list.  They will be replaced once the A2A /
-> Cognition Fabric integration is in place.  In the target architecture
-> (described in [L9A2A.md](./L9A2A.md)), CIP runs inside a `CIP-CE`
-> cognitive engine and SIEP inside a `SIEP-CE` cognitive engine, both
-> exposed as agent-visible skills on the Cognition Fabric.  The
-> `HCPanelAgentBus` and `PanelBus`/`StarNegotiation` classes are the
-> seam that will be replaced by `A2AAgentBus`; everything above them
-> (orchestration, specialists, stores) stays unchanged.
 
 ### Specialist agents
 
@@ -460,7 +317,6 @@ full L9 envelope with header + typed payload parts.
 ## Where to go next
 
 - [L9.md](./L9.md) — why L9 exists and what it is
-- [L9api.md](./L9api.md) — full API reference for `L9`, `Episode`, and the wire-level builders
 - [L9teamtasks.md](./L9teamtasks.md) — annotated wire examples for
   every message kind used in hcpanel
 - [L9header.md](./L9header.md) — full field reference for the L9 header
