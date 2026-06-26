@@ -577,10 +577,17 @@ class AgentBus:
 
     def emit_grounding_phase_converged(self, *, coordinator: str, episode_id: "str | None" = None,
                                         coordination_summary: "Dict[str, Any] | None" = None,
-                                        recipients: "List[str] | None" = None) -> Dict[str, Any]:
+                                        recipients: "List[str] | None" = None,
+                                        rationale: str = "",
+                                        thought_summary: str = "") -> Dict[str, Any]:
         _status = (coordination_summary or {}).get("coordination_status", "aligned")
         _utterance = f"grounding:converged status={_status}"
-        payload_parts: List[Dict[str, Any]] = [{"type": "utterance", "location": "inline", "content": _utterance}]
+        _utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": _utterance}
+        if rationale:
+            _utt_part["rationale"] = rationale
+        if thought_summary:
+            _utt_part["thought_summary"] = thought_summary
+        payload_parts: List[Dict[str, Any]] = [_utt_part]
         if coordination_summary:
             payload_parts.append({"type": "team_process", "location": "inline", "content": coordination_summary})
         _epistemic = make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS,
@@ -923,12 +930,16 @@ class HCPanelAgentBus(HealthcareAgentBus):
 
     def emit_team_process_close(self, *, coordinator: str, episode_id: str,
                                  role_count: int = 0,
-                                 recipients: "List[str] | None" = None) -> Dict[str, Any]:
+                                 recipients: "List[str] | None" = None,
+                                 rationale: str = "",
+                                 thought_summary: str = "") -> Dict[str, Any]:
         """kind=commit:converged team_process — closes the team-process episode."""
         return self.emit_grounding_phase_converged(
             coordinator=coordinator, episode_id=episode_id,
             coordination_summary={"coordination_status": "aligned", "role_count": role_count},
             recipients=recipients,
+            rationale=rationale,
+            thought_summary=thought_summary,
         )
 
 

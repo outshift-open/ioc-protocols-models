@@ -306,7 +306,9 @@ the team-process episode. The `team_process` payload records that all
     {
       "type": "utterance",
       "location": "inline",
-      "content": "grounding:converged status=aligned"
+      "content": "grounding:converged status=aligned",
+      "rationale": "All 10 specialists acknowledged their role assignments. Team structure is confirmed — taskwork gate is now open.",
+      "thought_summary": "10 role assignments accepted; team process converged, proceeding to taskwork."
     },
     {
       "type": "team_process",
@@ -639,7 +641,9 @@ and the panel debate can begin.
     {
       "type": "utterance",
       "location": "inline",
-      "content": "session:close subject=pt-1008 accepted=True"
+      "content": "session:close subject=pt-1008 accepted=True",
+      "rationale": "Independent priors declared by all 10 specialists for patient pt-1008. Each agent has stated its position before peer exchange — baseline beliefs are on record.",
+      "thought_summary": "All 10 prior declarations received; taskwork baseline established, proceeding to panel debate."
     }
   ]
 }
