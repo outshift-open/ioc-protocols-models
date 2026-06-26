@@ -24,11 +24,10 @@ The user must provide:
 
 - `kind` — one of the `Kind` enum values from the schema (e.g. `intent`, `contingency`, `exchange`, `commit`, `knowledge`)
 - `subprotocol` — the subprotocol identifier (e.g. `SIEP`, `CIP`, `TFP`, `SAB`)
-- `sender_id` — unique ID of the sending actor
 - `payload_type` — string describing the payload format (e.g. `text`, `task_proposal`)
 - `payload_data` — object containing the payload content
 
-Derive all other fields and their types from the fetched schema (`$defs.L9`, `$defs.L9Header`, `$defs.L9Payload`).
+Auto-generate `sender_id` as a UUID (v4). Derive all other fields and their types from the fetched schema (`$defs.L9`, `$defs.L9Header`, `$defs.L9Payload`).
 
 ## Instructions
 

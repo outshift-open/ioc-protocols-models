@@ -24,9 +24,8 @@ The user must provide:
 
 - `kind` — one of the `Kind` enum values from the schema (e.g. `intent`, `contingency`, `exchange`, `commit`, `knowledge`)
 - `subprotocol` — the subprotocol identifier (e.g. `SIEP`, `CIP`, `TFP`, `SAB`)
-- `sender_id` — unique ID of the sending actor
 
-Derive all other fields and their types from the fetched schema (`$defs.L9Header`).
+Auto-generate `sender_id` as a UUID (v4). Derive all other fields and their types from the fetched schema (`$defs.L9Header`).
 
 ## Instructions
 
