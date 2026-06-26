@@ -1,0 +1,602 @@
+[
+  {
+    "patient_id": "pt-1001",
+    "locality": "Amsterdam",
+    "symptoms": ["dizzy", "nausea", "fatigue"],
+    "health_history": ["atrial_fibrillation", "chronic_pain"],
+    "current_medications": ["warfarin", "ibuprofen"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I have been dizzy and bruising easily for a week.",
+      "I started a painkiller recently and feel worse.",
+      "Can we sort this out quickly?"
+    ],
+    "calendar_slots_day_offsets": [1, 2, 4, 7]
+  },
+  {
+    "patient_id": "pt-1002",
+    "locality": "Rotterdam",
+    "symptoms": ["agitation", "nausea", "fatigue"],
+    "health_history": ["depression", "chronic_pain"],
+    "current_medications": ["ssri", "tramadol"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I feel restless and confused since starting the new painkiller.",
+      "My antidepressant was already prescribed and now I feel worse.",
+      "I need urgent advice."
+    ],
+    "calendar_slots_day_offsets": [0, 1, 3, 5]
+  },
+  {
+    "patient_id": "pt-1003",
+    "locality": "Eindhoven",
+    "symptoms": ["fatigue", "cough", "nausea"],
+    "health_history": ["heart_failure", "hypertension"],
+    "current_medications": ["ace_inhibitor", "spironolactone"],
+    "medication_allergies": ["ibuprofen"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I have been coughing and feeling very tired.",
+      "Could this be from my heart medications?",
+      "I can do appointments next week."
+    ],
+    "calendar_slots_day_offsets": [2, 6, 8]
+  },
+  {
+    "patient_id": "pt-1004",
+    "locality": "Utrecht",
+    "symptoms": ["rash", "palpitations", "fatigue"],
+    "health_history": ["hyperlipidemia", "respiratory_infection"],
+    "current_medications": ["statin", "clarithromycin"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I developed a rash and palpitations after starting the antibiotic.",
+      "My cholesterol medication was already prescribed.",
+      "Please keep it in-network."
+    ],
+    "calendar_slots_day_offsets": [0, 1, 3, 5]
+  },
+  {
+    "patient_id": "pt-1005",
+    "locality": "Groningen",
+    "symptoms": ["nausea", "fatigue", "dizzy"],
+    "health_history": ["type2_diabetes", "cardiovascular_disease"],
+    "current_medications": ["metformin", "contrast_agent"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I feel nauseous and exhausted after my scan.",
+      "I take metformin daily for diabetes.",
+      "Can we review this as soon as possible?"
+    ],
+    "calendar_slots_day_offsets": [0, 2, 5]
+  },
+  {
+    "patient_id": "pt-1006",
+    "locality": "Den Haag",
+    "symptoms": ["nausea", "dizzy", "fatigue"],
+    "health_history": ["bipolar_disorder", "chronic_pain"],
+    "current_medications": ["lithium", "nsaid"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I feel confused and dizzy since adding the painkiller.",
+      "My lithium levels were stable last month.",
+      "I need this checked urgently."
+    ],
+    "calendar_slots_day_offsets": [1, 3, 5]
+  },
+  {
+    "patient_id": "pt-1007",
+    "locality": "Tilburg",
+    "symptoms": ["nausea", "dizzy", "rash"],
+    "health_history": ["depression", "anxiety"],
+    "current_medications": ["maoi", "ssri"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I started a new antidepressant on top of my existing one.",
+      "I feel agitated, sweaty, and have a rash.",
+      "This started two days ago and is getting worse."
+    ],
+    "calendar_slots_day_offsets": [0, 1, 4]
+  },
+  {
+    "patient_id": "pt-1008",
+    "locality": "Almere",
+    "symptoms": ["nausea", "fatigue", "dizzy"],
+    "health_history": ["atrial_fibrillation", "coronary_artery_disease"],
+    "current_medications": ["warfarin", "aspirin"],
+    "medication_allergies": ["sulfa"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have been getting nosebleeds and bruise very easily.",
+      "I take both blood thinners as prescribed.",
+      "Can we review this soon?"
+    ],
+    "calendar_slots_day_offsets": [2, 6, 8]
+  },
+  {
+    "patient_id": "pt-1009",
+    "locality": "Breda",
+    "symptoms": ["nausea", "palpitations", "fatigue"],
+    "health_history": ["heart_failure", "arrhythmia"],
+    "current_medications": ["digoxin", "amiodarone"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I feel nauseous and my heart is beating very slowly.",
+      "Both medications were prescribed by my cardiologist.",
+      "I am worried about my heart."
+    ],
+    "calendar_slots_day_offsets": [0, 3, 7]
+  },
+  {
+    "patient_id": "pt-1010",
+    "locality": "Nijmegen",
+    "symptoms": ["fatigue", "nausea", "dizzy"],
+    "health_history": ["organ_transplant", "chronic_pain"],
+    "current_medications": ["cyclosporine", "nsaid"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I am a transplant patient and started a painkiller for joint pain.",
+      "My kidney function has been declining.",
+      "Please review my medications urgently."
+    ],
+    "calendar_slots_day_offsets": [1, 4, 6]
+  },
+  {
+    "patient_id": "pt-1011",
+    "locality": "Enschede",
+    "symptoms": ["nausea", "fatigue", "rash"],
+    "health_history": ["rheumatoid_arthritis", "chronic_pain"],
+    "current_medications": ["methotrexate", "nsaid"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "My mouth is sore and I feel constantly tired.",
+      "I take methotrexate and added a painkiller last week.",
+      "Could the combination be the problem?"
+    ],
+    "calendar_slots_day_offsets": [0, 2, 4, 6]
+  },
+  {
+    "patient_id": "pt-1012",
+    "locality": "Haarlem",
+    "symptoms": ["fatigue", "palpitations", "nausea"],
+    "health_history": ["coronary_artery_disease", "acid_reflux"],
+    "current_medications": ["clopidogrel", "omeprazole"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have chest tightness and feel very tired lately.",
+      "Both medications were prescribed after my cardiac event.",
+      "I want to make sure they work well together."
+    ],
+    "calendar_slots_day_offsets": [1, 5, 9]
+  },
+  {
+    "patient_id": "pt-1013",
+    "locality": "Arnhem",
+    "symptoms": ["dizzy", "palpitations", "fatigue"],
+    "health_history": ["hypertension", "angina"],
+    "current_medications": ["beta_blocker", "verapamil"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I have been very dizzy and my heart rate is very slow.",
+      "I take a beta blocker and a calcium channel blocker.",
+      "I am concerned about my blood pressure control."
+    ],
+    "calendar_slots_day_offsets": [0, 1, 3]
+  },
+  {
+    "patient_id": "pt-1014",
+    "locality": "Zaandam",
+    "symptoms": ["palpitations", "nausea", "fatigue"],
+    "health_history": ["asthma", "respiratory_infection"],
+    "current_medications": ["theophylline", "ciprofloxacin"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have palpitations and feel sick since starting the antibiotic.",
+      "I use theophylline for my asthma.",
+      "Could these interact?"
+    ],
+    "calendar_slots_day_offsets": [2, 5, 7]
+  },
+  {
+    "patient_id": "pt-1015",
+    "locality": "Amersfoort",
+    "symptoms": ["nausea", "palpitations", "fatigue"],
+    "health_history": ["atrial_fibrillation", "heart_failure"],
+    "current_medications": ["digoxin", "quinidine"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I feel very nauseous and have irregular heartbeats.",
+      "I take digoxin and quinidine for my heart condition.",
+      "I need to see a specialist."
+    ],
+    "calendar_slots_day_offsets": [0, 4, 8]
+  },
+  {
+    "patient_id": "pt-1016",
+    "locality": "Apeldoorn",
+    "symptoms": ["dizzy", "nausea", "fatigue"],
+    "health_history": ["epilepsy", "atrial_fibrillation"],
+    "current_medications": ["phenytoin", "warfarin"],
+    "medication_allergies": ["codeine"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I feel unsteady and dizzy most of the day.",
+      "I take seizure medication and a blood thinner.",
+      "My INR levels have been unpredictable."
+    ],
+    "calendar_slots_day_offsets": [1, 2, 5]
+  },
+  {
+    "patient_id": "pt-1017",
+    "locality": "Maastricht",
+    "symptoms": ["dizzy", "nausea", "fatigue"],
+    "health_history": ["erectile_dysfunction", "angina"],
+    "current_medications": ["sildenafil", "nitrate"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I felt extremely dizzy and nearly fainted after taking both medications.",
+      "My doctor prescribed sildenafil and I already take nitrates.",
+      "I need urgent advice."
+    ],
+    "calendar_slots_day_offsets": [0, 3, 6]
+  },
+  {
+    "patient_id": "pt-1018",
+    "locality": "Leiden",
+    "symptoms": ["nausea", "dizzy", "rash"],
+    "health_history": ["depression", "anxiety_disorder"],
+    "current_medications": ["fluoxetine", "maoi"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I feel agitated, sweaty, and confused since combining these medications.",
+      "My GP added fluoxetine to my existing MAOI treatment.",
+      "I feel very unwell."
+    ],
+    "calendar_slots_day_offsets": [1, 4, 7]
+  },
+  {
+    "patient_id": "pt-1019",
+    "locality": "Delft",
+    "symptoms": ["nausea", "fatigue", "rash"],
+    "health_history": ["kidney_transplant", "fungal_infection"],
+    "current_medications": ["tacrolimus", "fluconazole"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I have been treated for a fungal infection after my transplant.",
+      "My tacrolimus levels may be too high.",
+      "I need a specialist review urgently."
+    ],
+    "calendar_slots_day_offsets": [2, 3, 5]
+  },
+  {
+    "patient_id": "pt-1020",
+    "locality": "Deventer",
+    "symptoms": ["fatigue", "nausea", "rash"],
+    "health_history": ["gout", "autoimmune_disease"],
+    "current_medications": ["allopurinol", "azathioprine"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I feel persistently tired and have a low-grade fever.",
+      "I take allopurinol for gout and azathioprine for my immune condition.",
+      "My blood counts have been off."
+    ],
+    "calendar_slots_day_offsets": [0, 6, 9]
+  },
+  {
+    "patient_id": "pt-1021",
+    "locality": "Helmond",
+    "symptoms": ["fatigue", "palpitations", "nausea"],
+    "health_history": ["hyperlipidemia", "arrhythmia"],
+    "current_medications": ["simvastatin", "amiodarone"],
+    "medication_allergies": ["ibuprofen"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "My muscles are aching and I feel generally unwell.",
+      "I take simvastatin for cholesterol and amiodarone for my heart.",
+      "Could they be interacting?"
+    ],
+    "calendar_slots_day_offsets": [1, 2, 4]
+  },
+  {
+    "patient_id": "pt-1022",
+    "locality": "Alkmaar",
+    "symptoms": ["nausea", "fatigue", "dizzy"],
+    "health_history": ["depression", "arthritis"],
+    "current_medications": ["ssri", "nsaid"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have stomach pain and dark stools since starting the painkiller.",
+      "I also take an antidepressant.",
+      "I am worried about GI bleeding."
+    ],
+    "calendar_slots_day_offsets": [0, 5, 7]
+  },
+  {
+    "patient_id": "pt-1023",
+    "locality": "Venlo",
+    "symptoms": ["fatigue", "palpitations", "nausea"],
+    "health_history": ["hypertension", "electrolyte_imbalance"],
+    "current_medications": ["ace_inhibitor", "potassium_supplement"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "My muscles feel weak and I have heart palpitations.",
+      "I take a blood pressure medication and potassium supplements.",
+      "Could the potassium be too high?"
+    ],
+    "calendar_slots_day_offsets": [2, 4, 8]
+  },
+  {
+    "patient_id": "pt-1024",
+    "locality": "Zoetermeer",
+    "symptoms": ["dizzy", "nausea", "fatigue"],
+    "health_history": ["anxiety", "chronic_pain"],
+    "current_medications": ["benzodiazepine", "opioid"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I feel extremely drowsy and have trouble breathing deeply.",
+      "I take a benzodiazepine for anxiety and a painkiller for chronic pain.",
+      "This combination makes me very sleepy."
+    ],
+    "calendar_slots_day_offsets": [1, 3, 6]
+  },
+  {
+    "patient_id": "pt-1025",
+    "locality": "Zwolle",
+    "symptoms": ["nausea", "fatigue", "dizzy"],
+    "health_history": ["urinary_tract_infection", "acid_reflux"],
+    "current_medications": ["ciprofloxacin", "antacid"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "My infection does not seem to be clearing up after the antibiotic.",
+      "I take antacids regularly for acid reflux.",
+      "Could they reduce the antibiotic effectiveness?"
+    ],
+    "calendar_slots_day_offsets": [0, 2, 6]
+  },
+  {
+    "patient_id": "pt-1026",
+    "locality": "Leeuwarden",
+    "symptoms": ["nausea", "fatigue", "dizzy"],
+    "health_history": ["tuberculosis", "hormonal_contraception"],
+    "current_medications": ["rifampin", "oral_contraceptive"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I started TB treatment and am concerned about my contraceptive.",
+      "I have been experiencing breakthrough spotting.",
+      "I need advice on alternative contraception."
+    ],
+    "calendar_slots_day_offsets": [1, 5, 8]
+  },
+  {
+    "patient_id": "pt-1027",
+    "locality": "Middelburg",
+    "symptoms": ["nausea", "dizzy", "fatigue"],
+    "health_history": ["hypertension", "bipolar_disorder"],
+    "current_medications": ["hydrochlorothiazide", "lithium"],
+    "medication_allergies": ["codeine"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I feel very confused and my hands are trembling.",
+      "I take a water pill for blood pressure and lithium for mood.",
+      "My lithium level was checked last month."
+    ],
+    "calendar_slots_day_offsets": [0, 3, 5]
+  },
+  {
+    "patient_id": "pt-1028",
+    "locality": "Gouda",
+    "symptoms": ["nausea", "fatigue", "rash"],
+    "health_history": ["rheumatoid_arthritis", "urinary_tract_infection"],
+    "current_medications": ["methotrexate", "trimethoprim"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have mouth sores and feel feverish since starting the antibiotic.",
+      "I take methotrexate for my arthritis.",
+      "Could they interfere with each other?"
+    ],
+    "calendar_slots_day_offsets": [2, 4, 7]
+  },
+  {
+    "patient_id": "pt-1029",
+    "locality": "Dordrecht",
+    "symptoms": ["nausea", "dizzy", "palpitations"],
+    "health_history": ["depression", "migraines"],
+    "current_medications": ["ssri", "triptan"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I took a migraine medication on top of my antidepressant.",
+      "I felt agitated and had muscle twitching shortly after.",
+      "Is this a drug interaction?"
+    ],
+    "calendar_slots_day_offsets": [0, 1, 6]
+  },
+  {
+    "patient_id": "pt-1030",
+    "locality": "Sittard",
+    "symptoms": ["fatigue", "nausea", "palpitations"],
+    "health_history": ["dyslipidemia", "cardiovascular_risk"],
+    "current_medications": ["fibrate", "statin"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "My muscles are very painful and I have dark urine.",
+      "I recently started a fibrate alongside my statin.",
+      "I am worried about my kidneys."
+    ],
+    "calendar_slots_day_offsets": [1, 3, 7]
+  },
+  {
+    "patient_id": "pt-1031",
+    "locality": "Hilversum",
+    "symptoms": ["dizzy", "nausea", "fatigue"],
+    "health_history": ["type1_diabetes", "social_alcohol_use"],
+    "current_medications": ["insulin", "alcohol"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I had a severe low blood sugar episode after drinking last night.",
+      "I take insulin daily for my diabetes.",
+      "I need guidance on managing this combination."
+    ],
+    "calendar_slots_day_offsets": [0, 2, 5]
+  },
+  {
+    "patient_id": "pt-1032",
+    "locality": "Emmen",
+    "symptoms": ["nausea", "fatigue", "dizzy"],
+    "health_history": ["atrial_fibrillation", "peptic_ulcer"],
+    "current_medications": ["warfarin", "cimetidine"],
+    "medication_allergies": ["sulfa"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have been bruising easily and feel nauseous.",
+      "I take warfarin and cimetidine for my ulcer.",
+      "My anticoagulation may be too strong."
+    ],
+    "calendar_slots_day_offsets": [0, 4, 7]
+  },
+  {
+    "patient_id": "pt-1033",
+    "locality": "Ede",
+    "symptoms": ["nausea", "fatigue", "palpitations"],
+    "health_history": ["heart_failure", "fluid_retention"],
+    "current_medications": ["digoxin", "furosemide"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I feel nauseous and my heart rate is very slow.",
+      "I take digoxin and a diuretic for my heart.",
+      "My potassium level has been low."
+    ],
+    "calendar_slots_day_offsets": [1, 3, 5]
+  },
+  {
+    "patient_id": "pt-1034",
+    "locality": "Schiedam",
+    "symptoms": ["dizzy", "nausea", "fatigue"],
+    "health_history": ["respiratory_infection", "chronic_pain"],
+    "current_medications": ["quinolone", "nsaid"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have been dizzy and had a brief blackout.",
+      "I started a quinolone antibiotic and take a painkiller.",
+      "Is there a seizure risk?"
+    ],
+    "calendar_slots_day_offsets": [0, 2, 4]
+  },
+  {
+    "patient_id": "pt-1035",
+    "locality": "Vlaardingen",
+    "symptoms": ["fatigue", "nausea", "dizzy"],
+    "health_history": ["deep_vein_thrombosis", "cardiovascular_disease"],
+    "current_medications": ["heparin", "aspirin"],
+    "medication_allergies": ["ibuprofen"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I have bleeding gums and easy bruising.",
+      "I am on heparin for my clot and aspirin for the heart.",
+      "I am worried about excessive bleeding."
+    ],
+    "calendar_slots_day_offsets": [1, 4, 8]
+  },
+  {
+    "patient_id": "pt-1036",
+    "locality": "Roosendaal",
+    "symptoms": ["dizzy", "nausea", "fatigue"],
+    "health_history": ["epilepsy", "hormonal_contraception"],
+    "current_medications": ["carbamazepine", "oral_contraceptive"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have been experiencing spotting and breakthrough bleeding.",
+      "I take carbamazepine for epilepsy and am on the pill.",
+      "Is my contraceptive still effective?"
+    ],
+    "calendar_slots_day_offsets": [0, 3, 9]
+  },
+  {
+    "patient_id": "pt-1037",
+    "locality": "Hoogeveen",
+    "symptoms": ["rash", "nausea", "fatigue"],
+    "health_history": ["depression", "mrsa_infection"],
+    "current_medications": ["ssri", "linezolid"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I started an antibiotic for MRSA and feel very agitated and feverish.",
+      "I have been on an antidepressant for months.",
+      "Could this be serotonin syndrome?"
+    ],
+    "calendar_slots_day_offsets": [2, 6, 7]
+  },
+  {
+    "patient_id": "pt-1038",
+    "locality": "Veenendaal",
+    "symptoms": ["nausea", "fatigue", "dizzy"],
+    "health_history": ["atrial_fibrillation", "fungal_infection"],
+    "current_medications": ["warfarin", "fluconazole"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have excessive bruising since starting the antifungal.",
+      "I take warfarin to prevent clots.",
+      "My INR has been elevated."
+    ],
+    "calendar_slots_day_offsets": [0, 1, 5]
+  },
+  {
+    "patient_id": "pt-1039",
+    "locality": "Oss",
+    "symptoms": ["nausea", "dizzy", "fatigue"],
+    "health_history": ["type2_diabetes", "social_alcohol_use"],
+    "current_medications": ["metformin", "alcohol"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "Aetna-NL-Prime",
+    "chat_history": [
+      "I feel very weak and nauseated after drinking alcohol.",
+      "I take metformin for my diabetes.",
+      "Is this a dangerous combination?"
+    ],
+    "calendar_slots_day_offsets": [1, 4, 6]
+  },
+  {
+    "patient_id": "pt-1040",
+    "locality": "Purmerend",
+    "symptoms": ["dizzy", "nausea", "fatigue"],
+    "health_history": ["hypertension", "type2_diabetes"],
+    "current_medications": ["beta_blocker", "insulin"],
+    "medication_allergies": ["penicillin"],
+    "insurance_plan": "CZ-NL-Select",
+    "chat_history": [
+      "I have been sweating and feeling confused without my usual low blood sugar symptoms.",
+      "I take a beta blocker for blood pressure and insulin for diabetes.",
+      "My hypoglycemia symptoms seem masked."
+    ],
+    "calendar_slots_day_offsets": [0, 3, 6]
+  }
+]

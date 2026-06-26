@@ -323,6 +323,7 @@ class DebateOrchestrator:
             coordinator=_CONTROLLER_ID,
             subject=patient.patient_id,
             episode_id=episode_tp,
+            recipients=all_ids,
         )
 
         role_assignments = _build_role_assignments(all_specialists)
@@ -383,6 +384,7 @@ class DebateOrchestrator:
             coordinator=_CONTROLLER_ID,
             episode_id=episode_tp,
             role_count=len(all_ids),
+            recipients=all_ids,
         )
 
         # ── EPISODE B: taskwork assessments ─────────────────────────────
@@ -390,6 +392,7 @@ class DebateOrchestrator:
             coordinator=_CONTROLLER_ID,
             subject=patient.patient_id,
             episode_id=episode_tw,
+            recipients=all_ids,
         )
 
         for agent in all_specialists:
@@ -460,6 +463,7 @@ class DebateOrchestrator:
             subject=patient.patient_id,
             episode_id=episode_tw,
             accepted=True,
+            recipients=all_ids,
         )
 
         # ── EPISODE C: SNP panel negotiation (PanelBus-managed URN) ─────

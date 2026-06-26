@@ -140,7 +140,8 @@ def schema_id_for(use_case: str, event_type: str, kind: str, schema_trust_level:
 
 def get_topic(header: Dict[str, Any]) -> "str | None":
     """Return the topic concept_id from an L9 header."""
-    return header.get("topic") or (header.get("epistemic") or {}).get("concept_id")
+    ctx = header.get("context") or {}
+    return ctx.get("topic") or (ctx.get("epistemic") or {}).get("concept_id")
 
 
 # ── CIPL9HeaderBuilder ────────────────────────────────────────────────────────

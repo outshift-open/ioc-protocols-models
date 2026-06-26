@@ -1138,7 +1138,8 @@ class StarNegotiation:
 
         # Panel session open — emit intent on the panel episode
         _panel_episode_id = self.panel_bus._episode_id()
-        _intent_utterance = f"panel:open concept={ctrl_key_init} participants={[controller_id]+list(member_ids)}"
+        _all_panel_ids = [controller_id] + list(member_ids)
+        _intent_utterance = f"panel:open concept={ctrl_key_init} participants={_all_panel_ids}"
         _intent_header = build_snp_l9_header(
             operation=NegotiationOperation.PROPOSE,
             use_case=self.panel_bus.use_case,
@@ -1150,6 +1151,7 @@ class StarNegotiation:
             episode_id=_panel_episode_id,
             kind_override="intent",
             payload_parts=[{"type": "utterance", "location": "inline", "content": _intent_utterance}],
+            recipients=_all_panel_ids,
         )
         self.panel_bus.ie_bus.messages.append(_intent_header)
 
@@ -1500,6 +1502,7 @@ class StarNegotiation:
                     {"type": "utterance", "location": "inline", "content": _conv_utterance},
                     {"type": "snp-convergence", "location": "inline", "content": _snp_convergence},
                 ],
+                recipients=list(truth.participant_ids),
             )
             self.panel_bus.ie_bus.messages.append(convergence_header)
 

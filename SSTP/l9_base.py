@@ -33,7 +33,7 @@ import uuid as _uuid
 
 
 L9_PROTOCOL: str = "SSTP"
-L9_VERSION: str = "0"
+L9_VERSION: str = "0.0.5"
 
 # ── Shared utilities ──────────────────────────────────────────────────────────
 
@@ -140,9 +140,15 @@ class L9HeaderBuilder:
 
         sender_id = str(sender or "unknown")
         sender_role = role or sender_id
+        # Build the full recipient set: explicit recipients list takes precedence;
+        # if omitted but a single receiver is named, auto-include it so the actors
+        # list always reflects the actual addressees of the message.
+        _recipient_ids = list(recipients) if recipients is not None else (
+            [str(receiver)] if receiver and str(receiver) != sender_id else []
+        )
         recipient_actors = [
-            {"id": r, "role": r, "attestation": None}
-            for r in (recipients or [])
+            {"id": r, "role": r, "participant_type": "recipient", "attestation": None}
+            for r in _recipient_ids
             if r != sender_id
         ]
 
@@ -152,10 +158,9 @@ class L9HeaderBuilder:
             "kind":        kind,
             "subprotocol": effective_subprotocol,
             "subkind":     subkind,
-            "topic":       topic or None,
             "participants": {
                 "actors": [
-                    {"id": sender_id, "role": sender_role, "attestation": "self_attested_local"},
+                    {"id": sender_id, "role": sender_role, "participant_type": "sender", "attestation": "self_attested_local"},
                     *recipient_actors,
                 ],
                 "groups": None,
@@ -165,11 +170,15 @@ class L9HeaderBuilder:
                 "parents": parent_id_list,
                 "episode": episode_id or f"urn:ioc:{normalized_use_case}:state:shared_dialogue",
             },
-            "semantic": {
-                "schema_id":    self.schema_id_for(
-                    normalized_use_case, canonical_type, kind, trust_level
-                ),
-                "ontology_ref": ontology_ref,
+            "context": {
+                "topic":    topic or None,
+                "epistemic": epistemic,
+                "semantic": {
+                    "schema_id":    self.schema_id_for(
+                        normalized_use_case, canonical_type, kind, trust_level
+                    ),
+                    "ontology_ref": ontology_ref,
+                },
             },
             "policy": {
                 "sensitivity":      sensitivity,
@@ -182,7 +191,6 @@ class L9HeaderBuilder:
                 "msg_created":    _iso8601_from_timestamp_ms(timestamp_ms),
                 "msg_expiry":     provenance_expiry,
             },
-            "epistemic": epistemic,
             "payload":   list(payload_parts) if payload_parts is not None else [],
         }
 
