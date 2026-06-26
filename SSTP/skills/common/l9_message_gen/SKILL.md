@@ -1,15 +1,13 @@
 ---
-name: l9-transform
-description: Converts plain-text input into a valid L9 exchange message.
+name: l9-message-gen
+description: Generates a complete L9 message (header + payload) as valid JSON.
 ---
 
-# L9 Transform
+# L9 Message Generator
 
 ## Context / Trigger Requirements
 
-Use this skill when the input is a human-readable message that needs to be converted into a valid L9 message. Input pattern: `<sender_name>: <message>`.
-
-If no sender name is provided (no colon separator), default sender to "User".
+Use this skill when you need to produce a complete L9 message (header + payload) as valid JSON on stdout.
 
 ## Schema Reference
 
@@ -22,18 +20,17 @@ You can `curl` or `fetch` the data from those URLs. Do not rely on cached or mem
 
 ## Input Parameters
 
-Derive all structural fields from the fetched schema. The only user input is the plain-text message.
+Derive all input parameters from the fetched schema (`$defs.L9` required fields: `header` and `payload`).
 
 ## Instructions
 
 1. **Fetch** the schema and model files from the URLs above.
-2. **Parse** input to extract `sender_name` and `message`. No colon → sender is `"User"`.
-3. Derive sender actor `id`: lowercase, replace spaces with dashes.
-4. **Generate** an `L9` envelope conforming to the fetched schema with `kind` = `"exchange"`.
-5. **Output** ONLY valid JSON. No explanation, no markdown fences.
+2. **Parse** the fetched content to extract field requirements, types, and enum values.
+3. **Generate** an `L9` envelope conforming to the schema.
+4. **Output** ONLY valid JSON. No explanation, no markdown fences.
 
 ## Constraints
 
-- All structural rules MUST come from the fetched schema/model files, not hardcoded assumptions.
+- All validation rules MUST come from the fetched schema/model files, not hardcoded assumptions.
 - You MUST fetch the remote files every time — do not assume schema content from memory.
 - Output valid JSON only.
