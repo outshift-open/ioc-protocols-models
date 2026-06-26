@@ -197,6 +197,13 @@ main.py
 
 ### The L9 message API
 
+> **Note — Python wheel not yet in use.**  The functions described here
+> import directly from the `SSTP.*` source tree inside this repository.
+> A packaged Python wheel for the SSTP language bindings is planned; once
+> it is available, import paths and some call signatures are expected to
+> change.  Treat the API described below as current-state, not as a stable
+> public interface.
+
 Every L9 wire message is produced by one of two module-level builder
 functions.  They are the only place in the codebase that constructs the
 L9 envelope.
