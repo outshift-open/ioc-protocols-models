@@ -195,6 +195,113 @@ main.py
 | `llm_backends.py` | `SimulatedHealthcareLLMClient`, `AzureOpenAIHealthcareLLMClient`, `AnthropicHealthcareLLMClient` |
 | `interaction_semantics.py` | Concept URI helpers |
 
+### The L9 message API
+
+Every L9 wire message is produced by one of two module-level builder
+functions.  They are the only place in the codebase that constructs the
+L9 envelope.
+
+**`build_l9_header`** — CIP messages  
+(`SSTP/subprotocol/cip/src/l9.py`)
+
+Takes a semantic `event_type` string and maps it to the L9 `kind`:
+
+| `event_type` | `kind` |
+|---|---|
+| `peer_turn`, `initial_prior`, `outcome_reported` | `exchange` |
+| `repair_required`, `epistemic_clarification`, `process_challenged` | `contingency` |
+| `repair_applied`, `decision_emitted`, `process_accepted`, `episode_persisted` | `commit` |
+| `rule_update` | `knowledge` |
+
+The function also resolves the default `epistemic` block (speech act +
+epistemic state) from the event type, fills `message.id` with a fresh
+UUIDv4, and assembles the full header dict.
+
+```python
+from SSTP.subprotocol.cip.src.l9 import build_l9_header
+
+header = build_l9_header(
+    use_case="healthcare",
+    event_type="peer_turn",           # → kind=exchange, subprotocol=CIP
+    sender="physician-cardiology",
+    receiver="diagnostics-controller",
+    timestamp_ms=int(time.time() * 1000),
+    episode_id="urn:ioc:hcpanel:episode:PT001:...",
+    topic="urn:concept:healthcare:drug_interaction",
+    parent_ids=[prior_message_id],
+    payload_parts=[
+        {"type": "utterance", "location": "inline", "content": "...",
+         "rationale": "...", "thought_summary": "..."},
+        {"type": "cip",       "location": "inline", "content": cip_payload},
+    ],
+)
+```
+
+**`build_snp_l9_header`** — SIEP messages  
+(`SSTP/subprotocol/siep/src/l9.py`)
+
+Takes an `operation` from `NegotiationOperation` and maps it to `kind`:
+
+| `operation` | `kind` |
+|---|---|
+| `propose`, `consider_proposal`, `evaluate_proposal`, `review_proposal`, `negotiate`, `counter_proposal` | `exchange` |
+| `accept`, `reject` | `commit` |
+
+`kind_override` bypasses the mapping — used by PanelBus to force
+`intent`, `commit:converged`, and `knowledge` kinds that have no
+corresponding operation.
+
+```python
+from SSTP.subprotocol.siep.src.l9 import build_snp_l9_header, NegotiationOperation
+
+header = build_snp_l9_header(
+    operation=NegotiationOperation.PROPOSE,
+    use_case="healthcare",
+    sender="diagnostics-controller",
+    receiver=None,
+    timestamp_ms=int(time.time() * 1000),
+    proposal_id="intent-abc123",
+    episode_id=panel_episode_id,
+    kind_override="intent",           # force kind=intent
+    recipients=all_panel_ids,
+    payload_parts=[intent_utt_part],
+)
+```
+
+**Common base — `L9HeaderBuilder`**  
+(`SSTP/l9_base.py`)
+
+Both builders subclass `L9HeaderBuilder` and call its `build()` method.
+`build()` assembles the header dict from the resolved kind, participants
+list, message linkage, context block, policy, attributes, and payload.
+To add a new sub-protocol, subclass `L9HeaderBuilder`, implement
+`kind_for_event_type` and `schema_id_for`, and expose a module-level
+convenience function.
+
+**How hcpanel uses the API**
+
+Application code never calls the builders directly.  The call chain is:
+
+```
+DebateOrchestrator
+  └── HCPanelAgentBus.emit_team_process_open()
+  │     └── build_l9_header(event_type="process_proposed", kind_override="intent", ...)
+  └── HCPanelAgentBus.emit_cip_exchange()
+  │     └── build_l9_header(event_type="peer_turn", ...)
+  └── HCPanelAgentBus.emit_team_process_close()
+        └── build_l9_header(event_type="process_accepted", kind_override="commit:converged", ...)
+
+StarNegotiation.run()
+  └── build_snp_l9_header(kind_override="intent",         ...)   # panel:open
+  └── build_snp_l9_header(operation=PROPOSE,              ...)   # specialist exchange
+  └── build_snp_l9_header(kind_override="contingency",    ...)   # CIP repair branch
+  └── build_snp_l9_header(kind_override="commit:converged", ...) # panel close
+  └── build_snp_l9_header(kind_override="knowledge",      ...)   # knowledge emit
+```
+
+Every emitted header goes into `HCPanelAgentBus.messages`, the
+append-only list that becomes `ie_trace` in the output.
+
 ### The bus layer
 
 The bus layer is the only component that emits L9 wire-format messages.
@@ -225,6 +332,17 @@ side.  `StarNegotiation.run()` drives one full panel:
 3. After all specialists respond, computes convergence metrics (GAR,
    SCR, MPC), emits `commit:converged` with `type=snp-convergence`
    payload and a `kind=knowledge` message.
+
+> **Note — AgentBus and PanelBus are placeholders.**  Both buses are
+> application-internal scaffolding: they exist to emit L9 messages and
+> accumulate them in a list.  They will be replaced once the A2A /
+> Cognition Fabric integration is in place.  In the target architecture
+> (described in [L9A2A.md](./L9A2A.md)), CIP runs inside a `CIP-CE`
+> cognitive engine and SIEP inside a `SIEP-CE` cognitive engine, both
+> exposed as agent-visible skills on the Cognition Fabric.  The
+> `HCPanelAgentBus` and `PanelBus`/`StarNegotiation` classes are the
+> seam that will be replaced by `A2AAgentBus`; everything above them
+> (orchestration, specialists, stores) stays unchanged.
 
 ### Specialist agents
 
