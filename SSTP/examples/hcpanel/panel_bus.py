@@ -1140,6 +1140,19 @@ class StarNegotiation:
         _panel_episode_id = self.panel_bus._episode_id()
         _all_panel_ids = [controller_id] + list(member_ids)
         _intent_utterance = f"panel:open concept={ctrl_key_init} participants={_all_panel_ids}"
+        _ctrl_conf = self._confidence(controller_position)
+        _intent_rationale = (
+            f"Opening SIEP panel on concept '{ctrl_key_init}' with {len(member_ids)} specialists. "
+            f"Controller's opening position: '{ctrl_key_init}' at confidence {_ctrl_conf:.2f}. "
+            f"Each specialist will respond with their taskwork-declared prior."
+        )
+        _intent_thought = (
+            f"Panel opened on '{ctrl_key_init}'; {len(member_ids)} specialists will now state or challenge this position."
+        )
+        _intent_utt_part: Dict[str, Any] = {
+            "type": "utterance", "location": "inline", "content": _intent_utterance,
+            "rationale": _intent_rationale, "thought_summary": _intent_thought,
+        }
         _intent_header = build_snp_l9_header(
             operation=NegotiationOperation.PROPOSE,
             use_case=self.panel_bus.use_case,
@@ -1150,7 +1163,7 @@ class StarNegotiation:
             utterance=_intent_utterance,
             episode_id=_panel_episode_id,
             kind_override="intent",
-            payload_parts=[{"type": "utterance", "location": "inline", "content": _intent_utterance}],
+            payload_parts=[_intent_utt_part],
             recipients=_all_panel_ids,
         )
         self.panel_bus.ie_bus.messages.append(_intent_header)
@@ -1479,6 +1492,29 @@ class StarNegotiation:
                 f" gar={truth.genuine_agreement_ratio:.4f}"
                 f" scr={truth.social_compliance_ratio:.4f}"
             )
+            _gar_interp = (
+                "unanimous genuine agreement" if truth.genuine_agreement_ratio >= 0.99
+                else f"genuine agreement ratio {truth.genuine_agreement_ratio:.2f}"
+            )
+            _scr_interp = (
+                "no social compliance detected" if truth.social_compliance_ratio < 0.05
+                else f"social compliance ratio {truth.social_compliance_ratio:.2f} — some deference present"
+            )
+            _conv_rationale = (
+                f"SIEP panel converged on '{win_key}' (outcome: {truth.outcome}) with "
+                f"posterior={truth.consensus_posterior:.4f} across {len(truth.participant_ids)} participants. "
+                f"GAR={truth.genuine_agreement_ratio:.4f} ({_gar_interp}); "
+                f"SCR={truth.social_compliance_ratio:.4f} ({_scr_interp}). "
+                f"This becomes the team-grounded consensus posterior for this concept."
+            )
+            _conv_thought = (
+                f"Panel closed: '{win_key}' accepted at posterior {truth.consensus_posterior:.4f} "
+                f"with GAR={truth.genuine_agreement_ratio:.4f}, SCR={truth.social_compliance_ratio:.4f}."
+            )
+            _conv_utt_part: Dict[str, Any] = {
+                "type": "utterance", "location": "inline", "content": _conv_utterance,
+                "rationale": _conv_rationale, "thought_summary": _conv_thought,
+            }
             _snp_convergence = {
                 "profile": "semantic_negotiation",
                 "operation": NegotiationOperation.ACCEPT,
@@ -1499,7 +1535,7 @@ class StarNegotiation:
                 episode_id=truth.episode_id,
                 kind_override="commit:converged",
                 payload_parts=[
-                    {"type": "utterance", "location": "inline", "content": _conv_utterance},
+                    _conv_utt_part,
                     {"type": "snp-convergence", "location": "inline", "content": _snp_convergence},
                 ],
                 recipients=list(truth.participant_ids),

@@ -759,7 +759,9 @@ ID is a flat UUID (no `:tp`/`:tw` suffix) distinct from the CIP episode.
     {
       "type": "utterance",
       "location": "inline",
-      "content": "panel:open concept=new_disease participants=['diagnostics-controller', 'physician-internal-medicine', 'physician-clinical-pharmacology', 'physician-cardiology', 'physician-neurology', 'physician-immunology', 'pharmacologist-pharmacokinetics', 'pharmacologist-pharmacodynamics', 'pharmacologist-clinical-pharmacy', 'pharmacologist-drug-safety', 'pharmacologist-clinical-toxicology']"
+      "content": "panel:open concept=new_disease participants=['diagnostics-controller', 'physician-internal-medicine', 'physician-clinical-pharmacology', 'physician-cardiology', 'physician-neurology', 'physician-immunology', 'pharmacologist-pharmacokinetics', 'pharmacologist-pharmacodynamics', 'pharmacologist-clinical-pharmacy', 'pharmacologist-drug-safety', 'pharmacologist-clinical-toxicology']",
+      "rationale": "Opening SIEP panel on concept 'new_disease' with 10 specialists. Controller's opening position: 'new_disease' at confidence 0.60. Each specialist will respond with their taskwork-declared prior.",
+      "thought_summary": "Panel opened on 'new_disease'; 10 specialists will now state or challenge this position."
     }
   ]
 }
@@ -1028,7 +1030,9 @@ carries the final MPC, GAR, and SCR for this episode.
     {
       "type": "utterance",
       "location": "inline",
-      "content": "SIEP convergence: drug_interaction → accept posterior=0.7368 gar=0.8182 scr=0.0000"
+      "content": "SIEP convergence: drug_interaction → accept posterior=0.7368 gar=0.8182 scr=0.0000",
+      "rationale": "SIEP panel converged on 'drug_interaction' (outcome: accept) with posterior=0.7368 across 11 participants. GAR=0.8182 (genuine agreement ratio 0.82); SCR=0.0000 (no social compliance detected). This becomes the team-grounded consensus posterior for this concept.",
+      "thought_summary": "Panel closed: 'drug_interaction' accepted at posterior 0.7368 with GAR=0.8182, SCR=0.0000."
     },
     {
       "type": "snp-convergence",
