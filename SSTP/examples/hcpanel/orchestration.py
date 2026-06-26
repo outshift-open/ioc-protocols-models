@@ -385,6 +385,13 @@ class DebateOrchestrator:
             episode_id=episode_tp,
             role_count=len(all_ids),
             recipients=all_ids,
+            rationale=(
+                f"All {len(all_ids)} specialists acknowledged their role assignments. "
+                f"Team structure is confirmed — taskwork gate is now open."
+            ),
+            thought_summary=(
+                f"{len(all_ids)} role assignments accepted; team process converged, proceeding to taskwork."
+            ),
         )
 
         # ── EPISODE B: taskwork assessments ─────────────────────────────
@@ -469,6 +476,14 @@ class DebateOrchestrator:
             episode_id=episode_tw,
             accepted=True,
             recipients=all_ids,
+            rationale=(
+                f"Independent priors declared by all {len(all_ids)} specialists for patient "
+                f"{patient.patient_id}. Each agent has stated its position before peer exchange — "
+                f"baseline beliefs are on record."
+            ),
+            thought_summary=(
+                f"All {len(all_ids)} prior declarations received; taskwork baseline established, proceeding to panel debate."
+            ),
         )
 
         # ── EPISODE C: SNP panel negotiation (PanelBus-managed URN) ─────
