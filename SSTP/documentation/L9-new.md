@@ -216,3 +216,137 @@ application, and with what the research community learns about how
 agents actually fail. The envelope must outlast any particular version
 of the sub-protocols it carries.
 
+## The L9 header and payload
+
+Every L9 message regardless of phase, sub-protocol, or content carries
+the same L9 structure: a fixed header that is always present, and a
+typed payload list that varies by sub-protocol and message kind.
+
+### Header
+
+The header carries what every receiver needs to route, contextualize,
+and act on any message without opening the payload:
+
+- **Protocol identity**: `protocol` (always `"SSTP"`), `subprotocol`
+  (which sub-protocol produced this message: `"CIP"` or `"SIEP"`), and
+  `version`. 
+- **Episode and message linkage**: `message.id` (content-addressed,
+  UUIDv5), `message.parents` (the messages this message depends on —
+  enables the full causal chain to be traced), and `message.episode`
+  (the URN scoping all messages in this coordination cycle). 
+- **Participants**: the `actors` list, where every agent involved in
+  the message is listed with a `participant_type` — exactly one
+  `"sender"`, any number of `"recipient"` agents this message is
+  addressed to, and optionally `"observer"` agents receiving a copy
+  for audit or logging purposes.
+- **Context**: the concept under discussion (`context.topic`), the
+  sender's epistemic stance (`context.epistemic` — the phase of
+  reasoning, the communicative act, the belief status, and the
+  uncertainty), and a semantic reference (`context.semantic`) pointing
+  at the domain schema and shared ontology in use.
+- **Kind and subkind**: together these tell the receiver the
+  structural role of the message in the episode flow. `kind` is one of
+  `intent` (opens an episode), `exchange` (substantive contribution),
+  `contingency` (grounding failure raised by the listener), `commit`
+  (closes an episode or contingency branch), or `knowledge`
+  (degenerate single-message episode announcing a new rule). `subkind`
+  qualifies `commit` and `exchange` — for example `commit:converged`
+  means the episode closed with group agreement, while
+  `commit:rejected` means it closed without one. 
+
+The full field reference, including all values for
+`context.epistemic.state`, `context.epistemic.belief_status`,
+`context.epistemic.message_act`, and the episode grammar, is in
+[L9header.md](./L9header.md).
+
+### Payload
+
+The payload is a list of typed elements. A single message can carry more
+than one element: for example, an exchange message typically carries a
+`type=utterance` part (the natural-language text and rationale)
+alongside a `type=cip` part (the structured grounding and belief
+data).  Both travel together so that a receiver always has both the
+human-readable content and the machine-processable epistemic data.
+
+The defined payload types are:
+
+- `type=utterance`: the natural-language text, rationale, and a
+  one-sentence thought summary explaining what belief state or prior
+  turn shaped this response. Always present alongside any `cip` or
+  `siep` part. 
+- `type=cip`: the CIP grounding payload: belief priors and
+  posteriors, supporting evidence, addresses-evidence list, and
+  contingency verification data. See
+  [CIP.md](../subprotocol/cip/docs/CIP.md). 
+- `type=siep`: the SIEP negotiation payload: the operation
+  (propose/counter/accept/reject), the proposal content, and the
+  reasoning chain. See [SIEP.md](../subprotocol/siep/docs/SIEP.md).
+- `type=knowledge`: the knowledge rule content emitted after
+  `commit:converged`: posterior, GAR, SCR, provenance weight, and
+  revision cause.
+- `type=team_prior`: the team prior from TeamEpistemicMemory, carried
+  in `intent` messages at episode open so all participants start with
+  the same shared baseline.
+- `type=process`: role assignment and team agreement content used in
+  team process episodes.
+
+New payload types can be added as new sub-protocols are defined,
+without changing the header structure.
+
+### Episode lifecycle
+
+Every operation with L9, whether a team process negotiation, a
+taskwork prior-formation round, or a full SIEP panel debate, follows
+the same episode structure.  An episode opens with a single `intent`
+message.  The initiator sends this to the whole group. It names the
+concept being discussed, lists all participants, and optionally
+carries the team's existing prior on that concept from shared
+memory. Nothing is decided yet — the `intent` just establishes the
+shared context that all subsequent messages in this cycle will
+reference.
+
+One or more `exchange` messages carry the actual work. Exchanges are
+contributions: assertions, counter-proposals, prior declarations,
+challenges.  Each exchange names the concept in `topic`, states the
+sender's epistemic stance (the phase, the communicative act, the
+belief status, and a numeric uncertainty), and carries both a
+natural-language utterance and structured sub-protocol data in the
+payload. Exchanges are not binding — they are moves in a debate.
+
+When a listener detects that an exchange did not actually engage with
+the prior turn, e.g., the sender talked past the question, or asserted
+without grounding, it raises a `contingency`.  This opens a child
+episode with a deeper URI.  The offending agent re-asserts; if the
+repair is accepted, the listener closes the branch with
+`commit:resolved` and the parent exchange resumes. Multiple repairs
+can nest, each adding one more suffix level, but the maximum depth is
+bounded.  The listener owns this repair branch from open to close. 
+
+When all participants have signalled they are done by tagging their
+final exchange with `subkind=ready`, or by sending a standalone
+`commit:ready`, the initiator closes the episode with a `commit`.  The
+subkind records how it ended: `converged` (genuine agreement),
+`rejected` (no agreement), or `resolved` (a contingency branch
+closed). No further exchanges are valid on that episode URI after the
+commit. 
+
+
+If the commit was `converged`, the initiator immediately may send a
+`knowledge` message to update a group (e.g., a memory agent) of newly
+formed memory.  This is not part of an L9 debate itself, it is the 
+side-effect of a successful convergence.  It writes the agreed
+posterior, the GAR and SCR quality metrics, and a provenance weight to
+the team's shared memory, so future episodes on the same concept can
+use this as a starting prior. 
+
+The four elements that make every episode traceable are the
+`message.id` (content-addressed), the `message.parents` list (the
+messages this one causally depends on), the `message.episode` URN
+(shared by all messages in the cycle), and the `kind`/`subkind` pair
+(the structural role of the message). Together they let any observer
+reconstruct the full argument graph — who said what, in response to
+what, and whether each response actually engaged the prior turn. 
+
+The full message kind descriptions, episode grammar, nested episode
+model, and an annotated three-episode trace from a real hcpanel run
+are in [L9lifecycle.md](./L9lifecycle.md).
