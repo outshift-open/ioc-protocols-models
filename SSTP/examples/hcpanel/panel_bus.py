@@ -956,7 +956,7 @@ class StarNegotiation:
             epistemic=epistemic_block,
             payload_parts=[
                 _ctrl_utt_part,
-                {"type": "snp", "location": "inline", "content": _snp_payload},
+                {"type": "siep", "location": "inline", "content": _snp_payload},
             ],
         )
         if self.panel_bus.proposal_store is not None:
@@ -1063,7 +1063,7 @@ class StarNegotiation:
             kind_override="exchange",
             payload_parts=[
                 _spec_utt_part,
-                {"type": "snp", "location": "inline", "content": _snp_payload},
+                {"type": "siep", "location": "inline", "content": _snp_payload},
             ],
         )
         self.panel_bus.ie_bus.messages.append(snp_header)
@@ -1244,7 +1244,7 @@ class StarNegotiation:
 
             for member_id in member_ids:
                 snp_hdr = self._emit_propose(controller_id, member_id, ctrl_pos, round_idx)
-                _prop_id = _get_part(snp_hdr, "snp").get("proposal_id") or snp_hdr["message"]["id"]
+                _prop_id = _get_part(snp_hdr, "siep").get("proposal_id") or snp_hdr["message"]["id"]
                 _prop_msg = NegotiationMessage(
                     negotiation_id=self.panel_bus._negotiation_id,
                     proposal_id=_prop_id,
