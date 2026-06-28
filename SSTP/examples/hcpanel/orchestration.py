@@ -393,5 +393,5 @@ class DebateOrchestrator:
             resolution_label=resolution_label,
             specialist_opinions=opinions,
             snp_trace=snp_trace,
-            task_episode_id=task_episode_id,
+            panel_episode_id=task_episode_id,
         )

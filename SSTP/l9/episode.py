@@ -643,7 +643,7 @@ class TaskEpisode(Episode):
         from SSTP.examples.hcpanel.panel_bus import PanelBus, StarNegotiation
 
         panel_bus = PanelBus(
-            task_name=self._task_name,
+            panel_name=self._task_name,
             ie_bus=self._bus,
             use_case=self._bus.use_case,
             tom_engine=self._tom_engine,
@@ -654,7 +654,7 @@ class TaskEpisode(Episode):
             peer_interaction_store=self._peer_interaction_store,
         )
 
-        star = StarNegotiation(panel_bus, task_name=self._task_name)
+        star = StarNegotiation(panel_bus, panel_name=self._task_name)
         winning_position, resolution_label, snp_trace = star.run(
             controller_id=self._agent_id,
             member_ids=list(self._group),
