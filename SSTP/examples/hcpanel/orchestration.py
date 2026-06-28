@@ -22,6 +22,7 @@ from SSTP.subprotocol.siep.src.epistemic.stores import AgentBeliefStore, BeliefR
 
 from SSTP.examples.hcpanel.agent_bus import BeliefStoreProxy
 from SSTP.examples.hcpanel.domain import ClinicalDebateOutcome, SpecialistOpinion
+from SSTP.l9.episode import L9, Episode as L9Episode
 
 if TYPE_CHECKING:
     from SSTP.examples.hcpanel.specialists import PharmacologyController, PhysicianController, SpecialistAgent
@@ -318,14 +319,10 @@ class DebateOrchestrator:
         episode_tp = f"{episode_id}:tp"
         episode_tw = f"{episode_id}:tw"
 
-        # ── EPISODE A: team process ──────────────────────────────────────
-        self.ie_bus.emit_episode_open(
-            coordinator=_CONTROLLER_ID,
-            subject=patient.patient_id,
-            episode_id=episode_tp,
-            recipients=all_ids,
-        )
+        # L9 entry point for the controller — wraps the bus for episode A and B.
+        ctrl_l9 = L9(self.ie_bus, agent_id=_CONTROLLER_ID)
 
+        # ── EPISODE A: team process ──────────────────────────────────────
         role_assignments = _build_role_assignments(all_specialists)
         agreement = TeamProcessAgreement(
             episode_id=episode_tp,
@@ -344,6 +341,15 @@ class DebateOrchestrator:
             ],
             formed_at_ms=int(time.time() * 1000),
         )
+
+        tp_episode = ctrl_l9.open(
+            concept_id=patient.patient_id,
+            group=all_ids,
+            episode_id=episode_tp,
+            rationale=f"Opening team process for patient {patient.patient_id}: assigning roles to {len(all_ids)} specialists.",
+            thought_summary=f"Initiating team formation before taskwork; {len(all_ids)} specialists need role assignments.",
+        )
+
         for specialist_id in all_ids:
             prop_hdr = self.ie_bus.emit_process_proposal(
                 sender=_CONTROLLER_ID,
@@ -355,7 +361,6 @@ class DebateOrchestrator:
                 (prop_hdr.get("payload") or [{}])[0].get("content", "")
                 or prop_hdr.get("utterance", "")
             )
-            # ToM: specialist assesses the coordinator's proposal
             self._tom_assess(
                 utterance=prop_utterance,
                 speaker=_CONTROLLER_ID,
@@ -372,19 +377,15 @@ class DebateOrchestrator:
                 (acc_hdr.get("payload") or [{}])[0].get("content", "")
                 or acc_hdr.get("utterance", "")
             )
-            # ToM: coordinator assesses the specialist's acceptance
             self._tom_assess(
                 utterance=acc_utterance,
                 speaker=specialist_id,
                 listener=_CONTROLLER_ID,
                 prior_utterance=prop_utterance,
             )
+            tp_episode._record_done(specialist_id, 1.0)
 
-        self.ie_bus.emit_team_process_close(
-            coordinator=_CONTROLLER_ID,
-            episode_id=episode_tp,
-            role_count=len(all_ids),
-            recipients=all_ids,
+        tp_episode.close(
             rationale=(
                 f"All {len(all_ids)} specialists acknowledged their role assignments. "
                 f"Team structure is confirmed — taskwork gate is now open."
@@ -395,16 +396,17 @@ class DebateOrchestrator:
         )
 
         # ── EPISODE B: taskwork assessments ─────────────────────────────
-        self.ie_bus.emit_taskwork_open(
-            coordinator=_CONTROLLER_ID,
-            subject=patient.patient_id,
+        tw_episode = ctrl_l9.open(
+            concept_id=patient.patient_id,
+            group=all_ids,
             episode_id=episode_tw,
-            recipients=all_ids,
-            patient_complaint={
+            team_process={
                 "symptoms": patient.symptoms,
                 "medications": patient.current_medications,
                 "chat_history": patient.chat_history,
             },
+            rationale=f"Opening taskwork for patient {patient.patient_id}: collecting independent priors from {len(all_ids)} specialists.",
+            thought_summary=f"Each specialist must declare their prior before peer exchange begins.",
         )
 
         for agent in all_specialists:
@@ -414,8 +416,7 @@ class DebateOrchestrator:
             concept_id = f"urn:concept:healthcare:{pos.get('likely_cause', '?')}"
             posterior = float(pos.get("posterior") or pos.get("confidence") or 0.5)
 
-            # Seed agent's prior into their own belief_store before ToM assessment
-            # so listener_belief carries the specialist's held prior.
+            # Seed agent's prior into their own belief_store before ToM assessment.
             if not agent.belief_store.current_belief(agent.agent_id, concept_id, "healthcare"):
                 agent.belief_store.set_prior(agent.agent_id, concept_id, "healthcare",
                                              posterior, 1.0)
@@ -437,19 +438,21 @@ class DebateOrchestrator:
                     new_public_confidence=posterior,
                 )
 
-            tw_hdr = self.ie_bus.emit_taskwork_result(
-                sender=agent.agent_id,
-                receiver=_CONTROLLER_ID,
-                utterance=utterance,
+            # Each specialist uses Episode directly to say() their prior.
+            agent_episode = L9Episode(
+                bus=self.ie_bus,
+                agent_id=agent.agent_id,
                 concept_id=concept_id,
-                posterior=posterior,
                 episode_id=episode_tw,
+                initiator=False,
+            )
+            tw_msg_id = agent_episode.say(
+                utterance=utterance,
+                posterior=posterior,
                 rationale=utterance,
                 thought_summary=thought,
             )
 
-            # ToM: coordinator assesses the specialist's taskwork assertion
-            # belief_store=agent.belief_store now has a seeded prior for context
             assessment = self._tom_assess(
                 utterance=utterance,
                 speaker=agent.agent_id,
@@ -458,24 +461,19 @@ class DebateOrchestrator:
                 concept_id=concept_id,
             )
 
-            # Open contingency sub-episode when ToM detects ambiguity or grounding failure
             if assessment.get("ambiguous") or assessment.get("grounding_failure"):
-                original_msg_id = (tw_hdr.get("message") or {}).get("id", "")
                 self._handle_taskwork_contingency(
                     agent=agent,
                     pos=pos,
                     assessment=assessment,
-                    original_msg_id=original_msg_id,
+                    original_msg_id=tw_msg_id,
                     episode_id=episode_tw,
                     concept_id=concept_id,
                 )
 
-        self.ie_bus.emit_episode_close(
-            coordinator=_CONTROLLER_ID,
-            subject=patient.patient_id,
-            episode_id=episode_tw,
-            accepted=True,
-            recipients=all_ids,
+            tw_episode._record_done(agent.agent_id, posterior)
+
+        tw_episode.close(
             rationale=(
                 f"Independent priors declared by all {len(all_ids)} specialists for patient "
                 f"{patient.patient_id}. Each agent has stated its position before peer exchange — "

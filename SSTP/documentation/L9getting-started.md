@@ -197,117 +197,115 @@ main.py
 
 ### The L9 message API
 
-> **Note — Python wheel not yet in use.**  The functions described here
-> import directly from the `SSTP.*` source tree inside this repository.
-> A packaged Python wheel for the SSTP language bindings is planned; once
-> it is available, import paths and some call signatures are expected to
-> change.  Treat the API described below as current-state, not as a stable
-> public interface.
-
-Every L9 wire message is produced by one of two module-level builder
-functions.  They are the only place in the codebase that constructs the
-L9 envelope.
-
-**`build_l9_header`** — CIP messages  
-(`SSTP/subprotocol/cip/src/l9.py`)
-
-Takes a semantic `event_type` string and maps it to the L9 `kind`:
-
-| `event_type` | `kind` |
-|---|---|
-| `peer_turn`, `initial_prior`, `outcome_reported` | `exchange` |
-| `repair_required`, `epistemic_clarification`, `process_challenged` | `contingency` |
-| `repair_applied`, `decision_emitted`, `process_accepted`, `episode_persisted` | `commit` |
-| `rule_update` | `knowledge` |
-
-The function also resolves the default `epistemic` block (speech act +
-epistemic state) from the event type, fills `message.id` with a fresh
-UUIDv4, and assembles the full header dict.
-
-```python
-from SSTP.subprotocol.cip.src.l9 import build_l9_header
-
-header = build_l9_header(
-    use_case="healthcare",
-    event_type="peer_turn",           # → kind=exchange, subprotocol=CIP
-    sender="physician-cardiology",
-    receiver="diagnostics-controller",
-    timestamp_ms=int(time.time() * 1000),
-    episode_id="urn:ioc:hcpanel:episode:PT001:...",
-    topic="urn:concept:healthcare:drug_interaction",
-    parent_ids=[prior_message_id],
-    payload_parts=[
-        {"type": "utterance", "location": "inline", "content": "...",
-         "rationale": "...", "thought_summary": "..."},
-        {"type": "cip",       "location": "inline", "content": cip_payload},
-    ],
-)
-```
-
-**`build_snp_l9_header`** — SIEP messages  
-(`SSTP/subprotocol/siep/src/l9.py`)
-
-Takes an `operation` from `NegotiationOperation` and maps it to `kind`:
-
-| `operation` | `kind` |
-|---|---|
-| `propose`, `consider_proposal`, `evaluate_proposal`, `review_proposal`, `negotiate`, `counter_proposal` | `exchange` |
-| `accept`, `reject` | `commit` |
-
-`kind_override` bypasses the mapping — used by PanelBus to force
-`intent`, `commit:converged`, and `knowledge` kinds that have no
-corresponding operation.
-
-```python
-from SSTP.subprotocol.siep.src.l9 import build_snp_l9_header, NegotiationOperation
-
-header = build_snp_l9_header(
-    operation=NegotiationOperation.PROPOSE,
-    use_case="healthcare",
-    sender="diagnostics-controller",
-    receiver=None,
-    timestamp_ms=int(time.time() * 1000),
-    proposal_id="intent-abc123",
-    episode_id=panel_episode_id,
-    kind_override="intent",           # force kind=intent
-    recipients=all_panel_ids,
-    payload_parts=[intent_utt_part],
-)
-```
-
-**Common base — `L9HeaderBuilder`**  
-(`SSTP/l9_base.py`)
-
-Both builders subclass `L9HeaderBuilder` and call its `build()` method.
-`build()` assembles the header dict from the resolved kind, participants
-list, message linkage, context block, policy, attributes, and payload.
-To add a new sub-protocol, subclass `L9HeaderBuilder`, implement
-`kind_for_event_type` and `schema_id_for`, and expose a module-level
-convenience function.
+The full API reference — `L9`, `Episode`, `build_l9_header`,
+`build_snp_l9_header`, `L9HeaderBuilder`, and all prior helpers — is in
+[L9api.md](./L9api.md).
 
 **How hcpanel uses the API**
 
-Application code never calls the builders directly.  The call chain is:
+Application code (orchestrator and specialists) uses the `L9` / `Episode`
+application API.  Bus implementations (`agent_bus.py`, `panel_bus.py`) call the
+wire-level builders.  Application agents never call the builders directly.
 
 ```
 DebateOrchestrator
-  └── HCPanelAgentBus.emit_team_process_open()
-  │     └── build_l9_header(event_type="process_proposed", kind_override="intent", ...)
-  └── HCPanelAgentBus.emit_cip_exchange()
-  │     └── build_l9_header(event_type="peer_turn", ...)
-  └── HCPanelAgentBus.emit_team_process_close()
-        └── build_l9_header(event_type="process_accepted", kind_override="commit:converged", ...)
+  └── L9.open(concept_id, group, rationale=...) → Episode
+  │     └── HCPanelAgentBus._emit_intent(...)
+  │           └── build_l9_header(kind_override="intent", ...)
+  └── agent_episode.say(utterance, posterior, rationale=...) → message_id
+  │     └── HCPanelAgentBus.emit_grounding_turn(...)
+  │           └── build_l9_header(event_type="peer_turn", ...)
+  └── episode.close(rationale=...) → commit_message_id
+        └── HCPanelAgentBus._emit_episode_close(...)
+              └── build_l9_header(kind_override="commit:converged", ...)
 
 StarNegotiation.run()
-  └── build_snp_l9_header(kind_override="intent",         ...)   # panel:open
-  └── build_snp_l9_header(operation=PROPOSE,              ...)   # specialist exchange
-  └── build_snp_l9_header(kind_override="contingency",    ...)   # CIP repair branch
-  └── build_snp_l9_header(kind_override="commit:converged", ...) # panel close
-  └── build_snp_l9_header(kind_override="knowledge",      ...)   # knowledge emit
+  └── build_snp_l9_header(kind_override="intent",           ...)   # panel:open
+  └── build_snp_l9_header(operation=PROPOSE,                ...)   # specialist exchange
+  └── build_snp_l9_header(kind_override="contingency",      ...)   # CIP repair branch
+  └── build_snp_l9_header(kind_override="commit:converged", ...)   # panel close
+  └── build_snp_l9_header(kind_override="knowledge",        ...)   # knowledge emit
 ```
 
 Every emitted header goes into `HCPanelAgentBus.messages`, the
 append-only list that becomes `ie_trace` in the output.
+
+**Opening an episode**
+
+```python
+from SSTP.l9 import L9, Episode
+
+ctrl_l9 = L9(bus, agent_id="diagnostics-controller",
+              belief_store=belief_store,
+              team_epistemic_agent=team_epistemic)
+
+episode = ctrl_l9.open(
+    concept_id="urn:concept:healthcare:drug_interaction",
+    group=all_specialist_ids,
+    episode_id=episode_urn,
+    rationale="Opening team process to establish roles and task scope.",
+    thought_summary="Patient shows signs of statin myopathy; need specialist alignment.",
+)
+# episode.prior is the blended prior from agent + team stores
+```
+
+**Specialist joining and saying**
+
+```python
+# On the specialist side — using on_intent decorator
+specialist_l9 = L9(bus, agent_id=specialist_id)
+
+@specialist_l9.on_intent
+def handle(ep: Episode) -> None:
+    ep.say(
+        "I assess drug interaction risk as high based on atorvastatin + metformin.",
+        posterior=0.82,
+        evidence=["elevated_liver_enzymes", "statin_dose"],
+        rationale="Elevated liver enzymes in a patient on dual statin/biguanide therapy.",
+        thought_summary="Prior exchange established high-risk pattern; I'm confirming.",
+    )
+
+# Or directly when the episode_id is already known:
+agent_ep = Episode(
+    bus=bus,
+    agent_id=specialist_id,
+    concept_id="urn:concept:healthcare:drug_interaction",
+    episode_id=episode_urn,
+    initiator=False,
+)
+msg_id = agent_ep.say(utterance, posterior=0.74, rationale="...", thought_summary="...")
+```
+
+**Handling a contingency**
+
+```python
+# Listener detects grounding failure:
+contingency_id = episode.dispute(
+    message_id=prior_msg_id,
+    reason="grounding_failure",
+)
+
+# After the offending agent re-asserts, the listener closes the branch:
+episode.resolve(contingency_id)
+```
+
+**Closing and announcing**
+
+```python
+# All group members have called done() or say(final=True)
+commit_id = episode.close(
+    rationale="All specialists have declared their priors; MPC above threshold.",
+    thought_summary="Team process closed; proceeding to taskwork.",
+)
+
+# Optionally write to TeamEpistemicMemory:
+episode.announce(
+    concept_id="urn:concept:healthcare:drug_interaction",
+    posterior=episode.mpc,
+    gar=episode.gar,
+    scr=episode.scr,
+)
+```
 
 ### The bus layer
 
@@ -442,6 +440,7 @@ full L9 envelope with header + typed payload parts.
 ## Where to go next
 
 - [L9.md](./L9.md) — why L9 exists and what it is
+- [L9api.md](./L9api.md) — full API reference for `L9`, `Episode`, and the wire-level builders
 - [L9teamtasks.md](./L9teamtasks.md) — annotated wire examples for
   every message kind used in hcpanel
 - [L9header.md](./L9header.md) — full field reference for the L9 header
