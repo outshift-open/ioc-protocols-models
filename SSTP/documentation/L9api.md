@@ -9,8 +9,7 @@
 
 L9 exposes two API layers:
 
-- **Application API** (`SSTP.l9`) — `L9`, `Episode`, `TeamProcessEpisode`,
-  `TaskworkEpisode`, `TaskEpisode`, `TaskworkParticipant`, and prior helpers.
+- **Application API** (`SSTP.l9`) — `L9`, `Episode`, and prior helpers.
   Application agents use this layer exclusively.  They never call builders or
   bus methods directly.
 - **Wire-level builders** (`SSTP.subprotocol.cip.src.l9`,
@@ -23,10 +22,7 @@ L9 exposes two API layers:
 ## Application API — `SSTP.l9`
 
 ```python
-from SSTP.l9 import (
-    L9, Episode, TeamProcessEpisode, TaskworkEpisode, TaskEpisode,
-    TaskworkParticipant, AgentPrior, TeamPrior, blend_prior,
-)
+from SSTP.l9 import L9, Episode, AgentPrior, TeamPrior, blend_prior
 ```
 
 ### Prior helpers
@@ -81,27 +77,6 @@ Falls back to `0.5` when both are absent.
 
 ---
 
-### `TaskworkParticipant`
-
-```python
-@dataclass
-class TaskworkParticipant:
-    agent_id: str
-    utterance: str
-    posterior: float
-    concept_id: str
-    belief_store: Any = None
-    thought_summary: str = ""
-    evidence: Optional[List[str]] = None
-```
-
-Data carrier for one specialist's contribution to a taskwork episode.  Built
-by the orchestrator from domain position dicts and passed to
-`L9.open_taskwork`.  `TaskworkEpisode.run()` uses these fields to drive belief
-seeding, exchange emission, ToM assessment, and contingency repair internally.
-
----
-
 ### `L9`
 
 ```python
@@ -112,100 +87,11 @@ class L9:
         agent_id: str,
         belief_store: Any = None,
         team_epistemic_agent: Any = None,
-        tom_engine: Any = None,
-        task_goal: str = "",
     ) -> None
 ```
 
 Entry point for application agents.  Wraps the bus and belief stores.
-`tom_engine` and `task_goal` are injected once at construction and forwarded
-automatically to all episode subclasses.
-
-Application agents call one of the typed `open_*` methods or register
-`on_intent` handlers.  They never call bus or builder methods directly.
-
-#### `L9.open_team_process`
-
-```python
-def open_team_process(
-    self,
-    concept_id: str,
-    group: List[str],
-    agreement: Any,
-    episode_id: Optional[str] = None,
-    task_goal: str = "",
-    rationale: str = "",
-    thought_summary: str = "",
-) -> TeamProcessEpisode
-```
-
-Open a team-process episode as initiator.  Emits `kind=intent`.  Returns a
-`TeamProcessEpisode`; call `run()` to execute the proposal/acceptance loop,
-then `close()`.
-
-```python
-tp_ep = ctrl_l9.open_team_process(
-    concept_id=patient_id,
-    group=all_ids,
-    agreement=agreement,
-    task_goal=_TASK_GOAL,
-    rationale="Opening team process...",
-    thought_summary="...",
-)
-tp_ep.run()
-tp_ep.close(rationale="...", thought_summary="...")
-```
-
-#### `L9.open_taskwork`
-
-```python
-def open_taskwork(
-    self,
-    concept_id: str,
-    group: List[str],
-    participants: List[TaskworkParticipant],
-    episode_id: Optional[str] = None,
-    task_goal: str = "",
-    coordinator_id: Optional[str] = None,
-    team_process: Optional[Dict[str, Any]] = None,
-    rationale: str = "",
-    thought_summary: str = "",
-) -> TaskworkEpisode
-```
-
-Open a taskwork episode as initiator.  Emits `kind=intent` with optional
-`team_process` payload.  Returns a `TaskworkEpisode`; call `run()` to execute
-belief seeding, exchange emission, ToM assessment, and contingency repair for
-each participant, then `close()`.
-
-`coordinator_id` identifies the listener for ToM assessment; defaults to the
-calling agent.  `team_process` carries the patient complaint or other context
-embedded in the intent payload.
-
-```python
-participants = [
-    TaskworkParticipant(
-        agent_id=agent.agent_id,
-        utterance=utterance,
-        posterior=posterior,
-        concept_id=concept_id,
-        belief_store=agent.belief_store,
-        thought_summary=thought,
-    )
-    for agent in all_specialists
-]
-tw_ep = ctrl_l9.open_taskwork(
-    concept_id=patient_id,
-    group=all_ids,
-    participants=participants,
-    task_goal=_TASK_GOAL,
-    coordinator_id=_CONTROLLER_ID,
-    team_process={"symptoms": ..., "medications": ..., "chat_history": ...},
-    rationale="...",
-)
-tw_ep.run()
-tw_ep.close(rationale="...", thought_summary="...")
-```
+Application agents call `open`, `join`, or register `on_intent` handlers.
 
 #### `L9.open`
 
@@ -274,58 +160,6 @@ def dispatch_intent(self, envelope: Dict[str, Any]) -> None
 
 Dispatch an incoming intent envelope to the registered handler.  Calls `join`
 internally then invokes the handler.  No-op if no handler is registered.
-
-#### `L9.open_task`
-
-```python
-def open_task(
-    self,
-    concept_id: str,
-    group: List[str],
-    episode_id: Optional[str] = None,
-    convergence_store: Any = None,
-    semantic_rule_store: Any = None,
-    peer_interaction_store: Any = None,
-    belief_store: Any = None,
-    tom_engine: Any = None,
-    repair_fn: Any = None,
-    task_name: str = "panel",
-) -> TaskEpisode
-```
-
-Open a SIEP panel episode as initiator.  Returns a `TaskEpisode`.  The
-`kind=intent` for the panel is emitted inside `TaskEpisode.run()` by
-`StarNegotiation`, which owns the SIEP wire format for the panel open.
-
-The SIEP-specific stores are passed through to `PanelBus` inside `run()`.
-Application code never constructs `PanelBus` or `StarNegotiation` directly.
-
-```python
-task_ep = ctrl_l9.open_task(
-    concept_id="urn:concept:healthcare:drug_interaction",
-    group=all_specialist_ids,
-    convergence_store=memory.convergence_store,
-    semantic_rule_store=memory.semantic_rule_store,
-    peer_interaction_store=memory.peer_interaction_store,
-    belief_store=belief_proxy,
-    tom_engine=tom_engine,
-    repair_fn=repair_fn,
-    task_name="hcpanel",
-)
-task_ep.run(
-    controller_position=controller_position,
-    specialist_positions=all_positions,
-    task_goal=task_goal,
-    accept_threshold=0.1,
-    max_rounds=2,
-)
-task_ep.announce(
-    concept_id=task_ep.winning_position_key,
-    posterior=task_ep.mpc,
-    gar=task_ep.gar,
-    scr=task_ep.scr,
-)
-```
 
 ---
 
@@ -470,113 +304,6 @@ Specialists do not call this; the orchestrator does.
 
 ---
 
-### `TeamProcessEpisode`
-
-Subclass of `Episode` returned by `L9.open_team_process`.  Extends the base
-class with `run()` which executes the proposal/acceptance loop and ToM
-assessments inside the package boundary.  `say()` and `done()` are disabled.
-`close()` is inherited from `Episode`.
-
-#### `TeamProcessEpisode.run`
-
-```python
-def run(self) -> None
-```
-
-Emits `process_proposal` / `process_acceptance` pairs for each group member
-and calls `_record_done` on each specialist.  ToM assessment is called per
-exchange (but is a no-op for the protocol coordination tokens emitted here).
-
-After `run()`, `close()` can be called immediately.
-
----
-
-### `TaskworkEpisode`
-
-Subclass of `Episode` returned by `L9.open_taskwork`.  Extends the base class
-with `run()` which iterates over the `TaskworkParticipant` list and for each
-participant: seeds the belief store, emits a `kind=exchange`, calls ToM
-assessment, and drives a repair cycle if the assessment flags a grounding
-failure or ambiguity — all inside the package boundary.
-
-`say()` and `done()` are disabled.  `close()` is inherited from `Episode`.
-
-#### `TaskworkEpisode.run`
-
-```python
-def run(self) -> None
-```
-
-For each participant:
-
-1. If `belief_store` is set and no prior exists for `(agent_id, concept_id)`,
-   calls `set_prior` and `record_revision` with `cause="semantic_memory"`.
-2. Emits `kind=exchange` via `Episode.say()`.
-3. Calls `assess_utterance` on the coordinator's ToM agent.
-4. If `grounding_failure` or `ambiguous`: drives
-   `epistemic_clarification → taskwork_result → re-assess → repair_resolved`.
-5. Calls `_record_done(agent_id, posterior)`.
-
-After `run()`, `close()` can be called immediately.
-
----
-
-### `TaskEpisode`
-
-Subclass of `Episode` returned by `L9.open_task`.  Extends the base class with
-`run()` and panel-specific read-only properties.  `say()`, `done()`, and
-`close()` are disabled — the negotiation loop manages all exchanges internally.
-
-`announce()` is inherited from `Episode` unchanged.
-
-#### Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `prior` | `float` | Blended prior at panel open. |
-| `concept_id` | `str` | Concept this panel is about. |
-| `episode_id` | `str` | URN scoping all panel messages. |
-| `mpc` | `Optional[float]` | Mean position confidence.  Available after `run()`. |
-| `gar` | `Optional[float]` | Genuine agreement ratio.  Available after `run()`. |
-| `scr` | `Optional[float]` | Social compliance ratio.  Available after `run()`. |
-| `winning_position` | `Any` | Winning position dict.  Available after `run()`. |
-| `winning_position_key` | `str` | Concept key string from winning position.  Available after `run()`. |
-| `resolution_label` | `Optional[str]` | `"consensus"`, `"majority"`, `"timeout_majority"`, etc.  Available after `run()`. |
-| `snp_trace` | `List[Dict]` | SIEP messages from this panel.  Available after `run()`. |
-
-#### `TaskEpisode.run`
-
-```python
-def run(
-    self,
-    controller_position: Dict[str, Any],
-    specialist_positions: Dict[str, Any],
-    task_goal: str = "",
-    accept_threshold: float = 0.1,
-    max_rounds: int = 2,
-) -> None
-```
-
-Execute the full SIEP star negotiation loop inside the package boundary.
-
-Internally constructs `PanelBus` and `StarNegotiation`, runs the negotiation
-(including ToM predictions, bilateral grounding verification, CIP repair
-branches, Bayesian belief revision, GAR/SCR/MPC computation, `SemanticRule`
-recording, and `commit:converged` + `kind=knowledge` emit), and stores the
-results on the episode.
-
-After `run()` returns, all properties are set and `announce()` can be called.
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `controller_position` | `Dict` | — | Controller's opening position with `likely_cause`, `confidence`, `supporting_evidence`. |
-| `specialist_positions` | `Dict[str, Dict]` | — | Per-specialist position dicts keyed by agent id. |
-| `task_goal` | `str` | `""` | Task goal string passed to ToM utterance assessment. |
-| `accept_threshold` | `float` | `0.1` | Confidence gap below which a specialist accepts the controller's position. |
-| `max_rounds` | `int` | `2` | Maximum negotiation rounds before timeout resolution. |
-
----
-
 ## Wire-level builders
 
 Application agents do not call these directly.  Bus implementations
@@ -699,7 +426,7 @@ header = build_snp_l9_header(
     receiver=None,
     timestamp_ms=int(time.time() * 1000),
     proposal_id="intent-abc123",
-    episode_id=task_episode_id,
+    episode_id=panel_episode_id,
     kind_override="intent",           # force kind=intent
     recipients=all_panel_ids,
     payload_parts=[intent_utt_part],
