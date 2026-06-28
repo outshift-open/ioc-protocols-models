@@ -145,8 +145,8 @@ sequence:
   package.  The controller closes with `tw_ep.close(...)`.  The
   orchestrator only sees `open_taskwork → run → close`.
 
-- **SIEP panel** — the controller opens a `PanelEpisode` via
-  `ctrl_l9.open_panel(...)` and calls `panel_ep.run(...)`.  Inside
+- **SIEP panel** — the controller opens a `TaskEpisode` via
+  `ctrl_l9.open_task(...)` and calls `task_ep.run(...)`.  Inside
   `run()`, `StarNegotiation` emits a `kind=intent` to the full panel,
   then in each round proposes the controller's position to each
   specialist.  Specialists respond with accepts or counter-proposals.
@@ -156,9 +156,9 @@ sequence:
   iterates until convergence metrics (GAR, SCR, MPC) meet the threshold
   or the step budget is exhausted.  `run()` closes the episode with
   `kind=commit:converged` and records a `SemanticRule`.  The
-  orchestrator then calls `panel_ep.announce(...)` which emits
+  orchestrator then calls `task_ep.announce(...)` which emits
   `kind=knowledge` to TeamEpistemicMemory.  The orchestrator only sees
-  `open_panel → run → announce`.
+  `open_task → run → announce`.
 
 **3. coordination**
 
@@ -236,15 +236,15 @@ DebateOrchestrator
   │     tw_ep.close(rationale=...) → commit_message_id
   │
   └── Episode C — SIEP panel
-        L9.open_panel(concept_id, group, convergence_store=..., ...) → PanelEpisode
-        panel_ep.run(controller_position=..., specialist_positions=...) → None
+        L9.open_task(concept_id, group, convergence_store=..., ...) → TaskEpisode
+        task_ep.run(controller_position=..., specialist_positions=...) → None
           └── PanelBus + StarNegotiation (internal to package)
                 └── build_snp_l9_header(kind_override="intent", ...)
                 └── build_snp_l9_header(operation=PROPOSE, ...)     # per specialist
                 └── build_snp_l9_header(kind_override="contingency", ...)   # if needed
                 └── build_snp_l9_header(kind_override="commit:converged", ...)
                 └── build_snp_l9_header(kind_override="knowledge", ...)
-        panel_ep.announce(concept_id=..., posterior=..., gar=..., scr=...)
+        task_ep.announce(concept_id=..., posterior=..., gar=..., scr=...)
 ```
 
 Every emitted header goes into `HCPanelAgentBus.messages`, the
