@@ -5,44 +5,48 @@
 """
 SSTP/l9/episode.py — Application-facing L9 Episode API.
 
-Application writers import :class:`L9` and :class:`Episode`. They never
-call ``AgentBus`` or any ``emit_*`` method directly.
+Application writers import :class:`L9` and the relevant Episode subclass.
+They never call ``AgentBus`` or any ``emit_*`` method directly.
 
-Usage::
+Three episode kinds, each fully encapsulating its protocol mechanics::
 
-    l9 = L9(bus, agent_id="pharmacologist")
-    episode = l9.open(concept_id="concept:drug_interaction", group=["cardiologist", "neurologist"])
-    episode.say("I see a high-risk interaction.", posterior=0.82)
-    episode.done(posterior=0.82)
-    episode.close()
-    episode.announce(concept_id="concept:drug_interaction", posterior=0.82, gar=0.9, scr=0.1)
+    # Episode A — team process
+    tp_ep = ctrl_l9.open_team_process(
+        concept_id=patient_id, group=all_ids, agreement=agreement, task_goal=...
+    )
+    tp_ep.run()
+    tp_ep.close(rationale=..., thought_summary=...)
 
-For SIEP panel episodes::
+    # Episode B — taskwork
+    participants = [
+        TaskworkParticipant(agent_id=..., utterance=..., posterior=...,
+                            concept_id=..., belief_store=agent.belief_store),
+        ...
+    ]
+    tw_ep = ctrl_l9.open_taskwork(
+        concept_id=patient_id, group=all_ids, participants=participants, task_goal=...
+    )
+    tw_ep.run()
+    tw_ep.close(rationale=..., thought_summary=...)
 
+    # Episode C — SIEP panel
     panel_ep = ctrl_l9.open_panel(
         concept_id="concept:drug_interaction",
         group=all_ids,
-        episode_id=panel_episode_id,
-        convergence_store=convergence_store,
-        semantic_rule_store=semantic_rule_store,
-        peer_interaction_store=peer_interaction_store,
-        belief_store=belief_store,
-        tom_engine=tom_engine,
-        repair_fn=repair_fn,
+        convergence_store=..., semantic_rule_store=...,
+        peer_interaction_store=..., belief_store=...,
+        tom_engine=..., repair_fn=...,
     )
     panel_ep.run(
-        controller_position=controller_position,
-        specialist_positions=all_positions,
-        task_goal=task_goal,
-        accept_threshold=0.1,
-        max_rounds=2,
+        controller_position=..., specialist_positions=...,
+        task_goal=..., accept_threshold=0.1, max_rounds=2,
     )
     panel_ep.announce(
         concept_id=panel_ep.winning_position_key,
         posterior=panel_ep.mpc, gar=panel_ep.gar, scr=panel_ep.scr,
     )
 
-For receiving agents::
+For receiving agents (generic CIP)::
 
     @l9.on_intent
     def handle_intent(episode: Episode) -> None:
@@ -54,11 +58,15 @@ call signatures are expected to change once the SSTP Python wheel is available.
 
 from __future__ import annotations
 
+import logging
 import time
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from SSTP.examples.hcpanel.agent_bus import AgentBus
+
+_LOGGER = logging.getLogger("sstp.l9")
 
 
 # ── Prior representation ──────────────────────────────────────────────────────
@@ -102,6 +110,139 @@ def blend_prior(
     agent_conf = agent.confidence if agent else 0.5
     team_conf = team.confidence if team else 0.5
     return (w_agent * agent_conf + w_team * team_conf) / total
+
+
+# ── Taskwork participant ──────────────────────────────────────────────────────
+
+
+@dataclass
+class TaskworkParticipant:
+    """Data carrier for one specialist's contribution to a taskwork episode.
+
+    Built by the orchestrator from domain position dicts. Passed to
+    :meth:`L9.open_taskwork`; the resulting :class:`TaskworkEpisode` uses
+    these fields inside :meth:`TaskworkEpisode.run`.
+    """
+    agent_id: str
+    utterance: str
+    posterior: float
+    concept_id: str
+    belief_store: Any = None
+    thought_summary: str = ""
+    evidence: Optional[List[str]] = field(default=None)
+
+
+# ── Module-level protocol helpers ─────────────────────────────────────────────
+
+
+def _safe_tom_assess(
+    tom_engine: Any,
+    utterance: str,
+    speaker: str,
+    listener: str,
+    task_goal: str,
+    use_case: str,
+    prior_utterance: str = "",
+    belief_store: Any = None,
+    concept_id: str = "",
+) -> Dict[str, Any]:
+    """Call assess_utterance on the listener's ToM agent; return {} on failure or skip."""
+    if tom_engine is None:
+        return {}
+    # Protocol coordination tokens carry no clinical content — skip assessment.
+    if utterance.startswith(("process_proposal:", "process_accepted:", "process_challenged:")):
+        return {}
+    try:
+        listener_tom = tom_engine.agent(listener)
+        return listener_tom.assess_utterance(
+            utterance=utterance,
+            task_goal=task_goal,
+            speaker=speaker,
+            listener=listener,
+            listener_prior_utterance=prior_utterance or None,
+            belief_store=belief_store,
+            concept_id=concept_id,
+            use_case=use_case,
+        )
+    except Exception as exc:
+        _LOGGER.warning(
+            "tom.assess_utterance failed speaker=%s listener=%s err=%s", speaker, listener, exc
+        )
+        return {}
+
+
+def _handle_contingency(
+    bus: Any,
+    tom_engine: Any,
+    coordinator_id: str,
+    agent_id: str,
+    episode_id: str,
+    concept_id: str,
+    utterance: str,
+    posterior: float,
+    evidence: Optional[List[str]],
+    task_goal: str,
+    original_msg_id: str,
+    assessment: Dict[str, Any],
+    belief_store: Any = None,
+) -> None:
+    """Drive epistemic_clarification → taskwork_result → re-assess → repair_resolved."""
+    ambiguity_score = float(assessment.get("ambiguity_score", 0.0))
+    critique = str(assessment.get("critique", ""))
+    clarification_request = (
+        f"Clarification requested for {agent_id} assertion on {concept_id}: "
+        f"ambiguity_score={ambiguity_score:.2f} critique={critique or 'grounding_failure'}"
+    )
+
+    clarif_hdr = bus.emit_epistemic_clarification(
+        sender=coordinator_id,
+        receiver=agent_id,
+        target_message_id=original_msg_id,
+        reason=f"ambiguous_taskwork:score={ambiguity_score:.2f}",
+        episode_id=episode_id,
+    )
+
+    _evidence = evidence or []
+    clarification_text = (
+        str(utterance)
+        + (f" Supporting evidence: {', '.join(str(e) for e in _evidence[:3])}." if _evidence else "")
+    ).strip()
+    if not clarification_text:
+        clarification_text = f"Reaffirming: {concept_id} posterior={posterior:.2f}"
+
+    bus.emit_taskwork_result(
+        sender=agent_id,
+        receiver=coordinator_id,
+        utterance=clarification_text,
+        concept_id=concept_id,
+        posterior=posterior,
+        episode_id=episode_id,
+    )
+
+    clarif_assessment = _safe_tom_assess(
+        tom_engine, clarification_text, agent_id, coordinator_id,
+        task_goal, bus.use_case,
+        prior_utterance=clarification_request,
+        belief_store=belief_store,
+        concept_id=concept_id,
+    )
+
+    resolution = (
+        "resolved"
+        if clarif_assessment.get("aligned") or not clarif_assessment.get("grounding_failure")
+        else "partial"
+    )
+    bus.emit_repair_resolved(
+        sender=coordinator_id,
+        receiver=agent_id,
+        utterance=f"contingency_resolved:{concept_id}:{resolution}",
+        parent_id=clarif_hdr["message"]["id"],
+        episode_id=episode_id,
+    )
+    _LOGGER.debug(
+        "taskwork.contingency_resolved agent=%s concept=%s resolution=%s",
+        agent_id, concept_id, resolution,
+    )
 
 
 # ── Episode ───────────────────────────────────────────────────────────────────
@@ -387,7 +528,7 @@ class Episode:
 
 
 class PanelEpisode(Episode):
-    """Application-facing handle for a SIEP panel episode.
+    """Application-facing handle for a SIEP panel episode (Episode C).
 
     Returned by :meth:`L9.open_panel`. Extends :class:`Episode` with
     :meth:`run` which executes the full SIEP star negotiation loop
@@ -400,13 +541,9 @@ class PanelEpisode(Episode):
         panel_ep = ctrl_l9.open_panel(
             concept_id="urn:concept:healthcare:drug_interaction",
             group=all_specialist_ids,
-            episode_id=panel_episode_id,
-            convergence_store=...,
-            semantic_rule_store=...,
-            peer_interaction_store=...,
-            belief_store=...,
-            tom_engine=...,
-            repair_fn=...,
+            convergence_store=..., semantic_rule_store=...,
+            peer_interaction_store=..., belief_store=...,
+            tom_engine=..., repair_fn=...,
         )
         panel_ep.run(
             controller_position=controller_position,
@@ -436,7 +573,6 @@ class PanelEpisode(Episode):
         episode_id: str,
         group: Optional[List[str]] = None,
         prior: float = 0.5,
-        # SIEP-specific stores (passed through to PanelBus)
         convergence_store: Any = None,
         semantic_rule_store: Any = None,
         peer_interaction_store: Any = None,
@@ -533,15 +669,12 @@ class PanelEpisode(Episode):
         self._resolution_label = resolution_label
         self._snp_trace = snp_trace
 
-        # Harvest the commit:converged message that StarNegotiation already emitted
-        # so that announce() has a parent id to parent the knowledge message on.
         commit_id: Optional[str] = None
         for msg in reversed(self._bus.messages):
             if msg.get("kind") == "commit" and msg.get("subkind") == "converged":
                 commit_id = msg.get("message", {}).get("id")
                 break
 
-        # Harvest GAR/SCR/MPC from the snp-convergence payload part
         mpc, gar, scr = 0.5, 1.0, 0.0
         for msg in reversed(self._bus.messages):
             for part in msg.get("payload") or []:
@@ -558,7 +691,6 @@ class PanelEpisode(Episode):
         if commit_id:
             self._set_commit(commit_id, mpc, gar, scr)
         else:
-            # StarNegotiation had no convergence_store — set metrics manually
             self._mpc = mpc
             self._gar = gar
             self._scr = scr
@@ -576,6 +708,236 @@ class PanelEpisode(Episode):
         raise RuntimeError("PanelEpisode does not support done() — use run() instead.")
 
 
+# ── TeamProcessEpisode ────────────────────────────────────────────────────────
+
+
+class TeamProcessEpisode(Episode):
+    """Application-facing handle for a team-process episode (Episode A).
+
+    Returned by :meth:`L9.open_team_process`. Extends :class:`Episode` with
+    :meth:`run` which executes the proposal/acceptance loop and ToM
+    assessments for all group members inside the package boundary.
+
+    The orchestrator's view::
+
+        tp_ep = ctrl_l9.open_team_process(
+            concept_id=patient_id,
+            group=all_ids,
+            agreement=agreement,
+            task_goal=task_goal,
+        )
+        tp_ep.run()
+        tp_ep.close(rationale=..., thought_summary=...)
+    """
+
+    def __init__(
+        self,
+        bus: AgentBus,
+        agent_id: str,
+        concept_id: str,
+        episode_id: str,
+        group: Optional[List[str]] = None,
+        prior: float = 0.5,
+        agreement: Any = None,
+        tom_engine: Any = None,
+        task_goal: str = "",
+    ) -> None:
+        super().__init__(
+            bus=bus,
+            agent_id=agent_id,
+            concept_id=concept_id,
+            episode_id=episode_id,
+            initiator=True,
+            group=group,
+            prior=prior,
+        )
+        self._agreement = agreement
+        self._tom_engine = tom_engine
+        self._task_goal = task_goal
+
+    def run(self) -> None:
+        """Emit process proposals and collect acceptances for all group members.
+
+        ToM assessment is called per exchange but is a no-op for
+        process_proposal:/process_accepted: prefixed utterances.
+        """
+        for specialist_id in self._group:
+            prop_hdr = self._bus.emit_process_proposal(
+                sender=self._agent_id,
+                receiver=specialist_id,
+                agreement=self._agreement,
+                episode_id=self._episode_id,
+            )
+            prop_utterance = (prop_hdr.get("payload") or [{}])[0].get("content", "")
+            _safe_tom_assess(
+                self._tom_engine, prop_utterance,
+                self._agent_id, specialist_id,
+                self._task_goal, self._bus.use_case,
+            )
+            acc_hdr = self._bus.emit_process_acceptance(
+                sender=specialist_id,
+                receiver=self._agent_id,
+                parent_id=prop_hdr["message"]["id"],
+                episode_id=self._episode_id,
+            )
+            acc_utterance = (acc_hdr.get("payload") or [{}])[0].get("content", "")
+            _safe_tom_assess(
+                self._tom_engine, acc_utterance,
+                specialist_id, self._agent_id,
+                self._task_goal, self._bus.use_case,
+                prior_utterance=prop_utterance,
+            )
+            self._record_done(specialist_id, 1.0)
+
+    def say(self, *args: Any, **kwargs: Any) -> str:
+        raise RuntimeError("TeamProcessEpisode does not support say() — use run() instead.")
+
+    def done(self, *args: Any, **kwargs: Any) -> str:
+        raise RuntimeError("TeamProcessEpisode does not support done() — use run() instead.")
+
+
+# ── TaskworkEpisode ───────────────────────────────────────────────────────────
+
+
+class TaskworkEpisode(Episode):
+    """Application-facing handle for a taskwork episode (Episode B).
+
+    Returned by :meth:`L9.open_taskwork`. Extends :class:`Episode` with
+    :meth:`run` which executes belief seeding, exchange emission, ToM
+    assessment, and contingency repair for each participant inside the
+    package boundary.
+
+    The orchestrator's view::
+
+        participants = [
+            TaskworkParticipant(
+                agent_id=agent.agent_id,
+                utterance=utterance,
+                posterior=posterior,
+                concept_id=concept_id,
+                belief_store=agent.belief_store,
+                thought_summary=thought,
+            )
+            for agent in all_specialists
+        ]
+        tw_ep = ctrl_l9.open_taskwork(
+            concept_id=patient_id,
+            group=all_ids,
+            participants=participants,
+            task_goal=task_goal,
+        )
+        tw_ep.run()
+        tw_ep.close(rationale=..., thought_summary=...)
+    """
+
+    def __init__(
+        self,
+        bus: AgentBus,
+        agent_id: str,
+        concept_id: str,
+        episode_id: str,
+        group: Optional[List[str]] = None,
+        prior: float = 0.5,
+        participants: Optional[List[TaskworkParticipant]] = None,
+        tom_engine: Any = None,
+        coordinator_id: Optional[str] = None,
+        task_goal: str = "",
+    ) -> None:
+        super().__init__(
+            bus=bus,
+            agent_id=agent_id,
+            concept_id=concept_id,
+            episode_id=episode_id,
+            initiator=True,
+            group=group,
+            prior=prior,
+        )
+        self._participants = participants or []
+        self._tom_engine = tom_engine
+        self._coordinator_id = coordinator_id or agent_id
+        self._task_goal = task_goal
+
+    def run(self) -> None:
+        """Seed beliefs, emit exchanges, assess via ToM, repair if needed."""
+        from SSTP.subprotocol.siep.src.epistemic.stores import BeliefRevision
+
+        for p in self._participants:
+            # Seed belief store with prior if not already populated
+            if p.belief_store is not None:
+                if not p.belief_store.current_belief(p.agent_id, p.concept_id, self._bus.use_case):
+                    p.belief_store.set_prior(
+                        p.agent_id, p.concept_id, self._bus.use_case, p.posterior, 1.0
+                    )
+                    p.belief_store.record_revision(
+                        p.agent_id, p.concept_id, self._bus.use_case,
+                        self._episode_id,
+                        BeliefRevision(
+                            revision_id=str(uuid.uuid4()),
+                            timestamp_ms=int(time.time() * 1000),
+                            episode_id=self._episode_id,
+                            message_id=None,
+                            confidence_before=p.posterior,
+                            confidence_after=p.posterior,
+                            cause="semantic_memory",
+                            caused_by_agent=None,
+                            argument_concept_ids=[p.concept_id],
+                        ),
+                        new_status="held",
+                        new_public_confidence=p.posterior,
+                    )
+
+            # Emit exchange
+            agent_ep = Episode(
+                bus=self._bus,
+                agent_id=p.agent_id,
+                concept_id=p.concept_id,
+                episode_id=self._episode_id,
+                initiator=False,
+            )
+            msg_id = agent_ep.say(
+                p.utterance,
+                posterior=p.posterior,
+                rationale=p.utterance,
+                thought_summary=p.thought_summary,
+                evidence=p.evidence,
+            )
+
+            # ToM assessment
+            assessment = _safe_tom_assess(
+                self._tom_engine, p.utterance,
+                p.agent_id, self._coordinator_id,
+                self._task_goal, self._bus.use_case,
+                belief_store=p.belief_store,
+                concept_id=p.concept_id,
+            )
+
+            # Contingency repair if grounding failed or utterance was ambiguous
+            if assessment.get("ambiguous") or assessment.get("grounding_failure"):
+                _handle_contingency(
+                    bus=self._bus,
+                    tom_engine=self._tom_engine,
+                    coordinator_id=self._coordinator_id,
+                    agent_id=p.agent_id,
+                    episode_id=self._episode_id,
+                    concept_id=p.concept_id,
+                    utterance=p.utterance,
+                    posterior=p.posterior,
+                    evidence=p.evidence,
+                    task_goal=self._task_goal,
+                    original_msg_id=msg_id,
+                    assessment=assessment,
+                    belief_store=p.belief_store,
+                )
+
+            self._record_done(p.agent_id, p.posterior)
+
+    def say(self, *args: Any, **kwargs: Any) -> str:
+        raise RuntimeError("TaskworkEpisode does not support say() — use run() instead.")
+
+    def done(self, *args: Any, **kwargs: Any) -> str:
+        raise RuntimeError("TaskworkEpisode does not support done() — use run() instead.")
+
+
 # ── L9 ────────────────────────────────────────────────────────────────────────
 
 
@@ -583,8 +945,12 @@ class L9:
     """Entry point for application agents.
 
     Encapsulates AgentBus and TeamEpistemicMemory access. Application agents
-    call :meth:`open`, :meth:`join`, :meth:`open_panel`, or register
-    :meth:`on_intent` handlers. They never interact with the bus directly.
+    call :meth:`open_team_process`, :meth:`open_taskwork`, :meth:`open_panel`,
+    :meth:`open` (generic CIP), or register :meth:`on_intent` handlers.
+    They never interact with the bus directly.
+
+    ``tom_engine`` and ``task_goal`` are injected once at construction and
+    forwarded to all episode subclasses automatically.
     """
 
     def __init__(
@@ -593,14 +959,137 @@ class L9:
         agent_id: str,
         belief_store: Any = None,
         team_epistemic_agent: Any = None,
+        tom_engine: Any = None,
+        task_goal: str = "",
     ) -> None:
         self._bus = bus
         self._agent_id = agent_id
         self._belief_store = belief_store
         self._team_epistemic = team_epistemic_agent
+        self._tom_engine = tom_engine
+        self._task_goal = task_goal
         self._intent_handler: Optional[Callable] = None
 
     # ── Episode lifecycle ──────────────────────────────────────────────────
+
+    def open_team_process(
+        self,
+        concept_id: str,
+        group: List[str],
+        agreement: Any,
+        episode_id: Optional[str] = None,
+        task_goal: str = "",
+        rationale: str = "",
+        thought_summary: str = "",
+    ) -> TeamProcessEpisode:
+        """Open a team-process episode as initiator.
+
+        Emits kind=intent. Returns a :class:`TeamProcessEpisode`; call
+        :meth:`TeamProcessEpisode.run` to execute the proposal/acceptance
+        loop, then :meth:`Episode.close`.
+        """
+        team_prior_obj = self._get_team_prior(concept_id)
+        agent_prior_obj = self._get_agent_prior(concept_id)
+        blended = blend_prior(agent_prior_obj, team_prior_obj)
+
+        eid = episode_id or (
+            f"urn:ioc:{self._bus.use_case}:tp"
+            f":{concept_id.replace(':', '-')}:{int(time.time() * 1000)}"
+        )
+
+        team_prior_payload: Optional[Dict[str, Any]] = None
+        if team_prior_obj:
+            team_prior_payload = {
+                "concept_id": concept_id,
+                "confidence": team_prior_obj.confidence,
+                "provenance_weight": team_prior_obj.provenance_weight,
+                "episode_count": team_prior_obj.episode_count,
+            }
+
+        self._bus._emit_intent(
+            sender=self._agent_id,
+            receiver=None,
+            subject=concept_id,
+            episode_id=eid,
+            team_prior=team_prior_payload,
+            rationale=rationale,
+            thought_summary=thought_summary,
+            recipients=group,
+        )
+
+        return TeamProcessEpisode(
+            bus=self._bus,
+            agent_id=self._agent_id,
+            concept_id=concept_id,
+            episode_id=eid,
+            group=group,
+            prior=blended,
+            agreement=agreement,
+            tom_engine=self._tom_engine,
+            task_goal=task_goal or self._task_goal,
+        )
+
+    def open_taskwork(
+        self,
+        concept_id: str,
+        group: List[str],
+        participants: List[TaskworkParticipant],
+        episode_id: Optional[str] = None,
+        task_goal: str = "",
+        coordinator_id: Optional[str] = None,
+        team_process: Optional[Dict[str, Any]] = None,
+        rationale: str = "",
+        thought_summary: str = "",
+    ) -> TaskworkEpisode:
+        """Open a taskwork episode as initiator.
+
+        Emits kind=intent with optional team_process payload. Returns a
+        :class:`TaskworkEpisode`; call :meth:`TaskworkEpisode.run` to execute
+        belief seeding, exchange emission, ToM assessment, and contingency
+        repair for each participant, then :meth:`Episode.close`.
+        """
+        team_prior_obj = self._get_team_prior(concept_id)
+        agent_prior_obj = self._get_agent_prior(concept_id)
+        blended = blend_prior(agent_prior_obj, team_prior_obj)
+
+        eid = episode_id or (
+            f"urn:ioc:{self._bus.use_case}:tw"
+            f":{concept_id.replace(':', '-')}:{int(time.time() * 1000)}"
+        )
+
+        team_prior_payload: Optional[Dict[str, Any]] = None
+        if team_prior_obj:
+            team_prior_payload = {
+                "concept_id": concept_id,
+                "confidence": team_prior_obj.confidence,
+                "provenance_weight": team_prior_obj.provenance_weight,
+                "episode_count": team_prior_obj.episode_count,
+            }
+
+        self._bus._emit_intent(
+            sender=self._agent_id,
+            receiver=None,
+            subject=concept_id,
+            episode_id=eid,
+            team_prior=team_prior_payload,
+            team_process=team_process,
+            rationale=rationale,
+            thought_summary=thought_summary,
+            recipients=group,
+        )
+
+        return TaskworkEpisode(
+            bus=self._bus,
+            agent_id=self._agent_id,
+            concept_id=concept_id,
+            episode_id=eid,
+            group=group,
+            prior=blended,
+            participants=participants,
+            tom_engine=self._tom_engine,
+            coordinator_id=coordinator_id or self._agent_id,
+            task_goal=task_goal or self._task_goal,
+        )
 
     def open(
         self,
@@ -611,7 +1100,7 @@ class L9:
         rationale: str = "",
         thought_summary: str = "",
     ) -> Episode:
-        """Open a new coordination episode as initiator.
+        """Open a generic CIP coordination episode as initiator.
 
         1. Looks up team prior from TeamEpistemicMemory.
         2. Reads agent prior from belief_store.
@@ -705,7 +1194,7 @@ class L9:
             semantic_rule_store=semantic_rule_store,
             peer_interaction_store=peer_interaction_store,
             belief_store=belief_store,
-            tom_engine=tom_engine,
+            tom_engine=tom_engine or self._tom_engine,
             repair_fn=repair_fn,
             panel_name=panel_name,
         )
@@ -801,4 +1290,7 @@ class L9:
             return None
 
 
-__all__ = ["Episode", "PanelEpisode", "L9", "blend_prior", "AgentPrior", "TeamPrior"]
+__all__ = [
+    "Episode", "PanelEpisode", "TeamProcessEpisode", "TaskworkEpisode",
+    "TaskworkParticipant", "L9", "blend_prior", "AgentPrior", "TeamPrior",
+]

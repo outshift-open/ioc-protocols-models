@@ -126,18 +126,24 @@ taskwork episode in the next node.
 This is where the L9 protocol runs.  Three episode phases execute in
 sequence:
 
-- **Team process episode** — the diagnostics controller sends a
-  `kind=intent` to all 10 specialists naming the task goal and
-  assigning each specialist their role.  Each specialist acknowledges.
-  The controller closes with `kind=commit:converged`.  This creates the
-  shared team structure that the rest of the session operates under.
+- **Team process episode** — the controller calls
+  `ctrl_l9.open_team_process(group, agreement, task_goal=...)` which emits
+  `kind=intent`, then `tp_ep.run()` which drives the proposal/acceptance
+  loop for all 10 specialists internally (including ToM assessment per
+  exchange).  The controller closes with `tp_ep.close(...)` which emits
+  `kind=commit:converged`.  The orchestrator only sees
+  `open_team_process → run → close`.
 
-- **Taskwork episode** — the controller opens a new episode with the
-  patient complaint as the second `type=utterance` payload part.  Each
-  specialist declares their independent prior — the belief they formed
-  in the orchestrate node — as a `kind=exchange` with a `type=cip`
-  payload carrying prior, posterior, and supporting evidence.  The
-  controller closes with `kind=commit:converged`.
+- **Taskwork episode** — the controller builds a list of
+  `TaskworkParticipant` structs (agent id, utterance, posterior,
+  belief store) from the priors formed in the orchestrate node, then
+  calls `ctrl_l9.open_taskwork(group, participants, ...)`.  Inside
+  `tw_ep.run()`, for each participant: the belief store is seeded if
+  empty, a `kind=exchange` is emitted, ToM assessment is called, and if
+  the assessment flags ambiguity or a grounding failure a
+  `kind=contingency` repair cycle is driven — all internal to the
+  package.  The controller closes with `tw_ep.close(...)`.  The
+  orchestrator only sees `open_taskwork → run → close`.
 
 - **SIEP panel** — the controller opens a `PanelEpisode` via
   `ctrl_l9.open_panel(...)` and calls `panel_ep.run(...)`.  Inside
@@ -151,8 +157,8 @@ sequence:
   or the step budget is exhausted.  `run()` closes the episode with
   `kind=commit:converged` and records a `SemanticRule`.  The
   orchestrator then calls `panel_ep.announce(...)` which emits
-  `kind=knowledge` to TeamEpistemicMemory.  All of this is internal to
-  the package — the orchestrator only sees `open_panel → run → announce`.
+  `kind=knowledge` to TeamEpistemicMemory.  The orchestrator only sees
+  `open_panel → run → announce`.
 
 **3. coordination**
 
@@ -214,16 +220,20 @@ wire-level builders.  Application agents never call the builders directly.
 ```
 DebateOrchestrator
   ├── Episode A — team process
-  │     L9.open(concept_id, group, rationale=...) → Episode
+  │     L9.open_team_process(concept_id, group, agreement, ...) → TeamProcessEpisode
   │       └── HCPanelAgentBus._emit_intent(...)
-  │     episode.close(rationale=...) → commit_message_id
-  │       └── HCPanelAgentBus._emit_episode_close(...)
+  │     tp_ep.run()
+  │       └── emit_process_proposal / emit_process_acceptance per specialist
+  │           + ToM assess per exchange (internal)
+  │     tp_ep.close(rationale=...) → commit_message_id
   │
   ├── Episode B — taskwork
-  │     L9.open(concept_id, group, team_process=...) → Episode
-  │     agent_episode.say(utterance, posterior, ...) → message_id
-  │       └── HCPanelAgentBus.emit_grounding_turn(...)
-  │     episode.close(rationale=...) → commit_message_id
+  │     L9.open_taskwork(concept_id, group, participants, ...) → TaskworkEpisode
+  │       └── HCPanelAgentBus._emit_intent(...)
+  │     tw_ep.run()
+  │       └── per participant: belief seed → Episode.say() → ToM assess → repair if needed
+  │           (all internal)
+  │     tw_ep.close(rationale=...) → commit_message_id
   │
   └── Episode C — SIEP panel
         L9.open_panel(concept_id, group, convergence_store=..., ...) → PanelEpisode

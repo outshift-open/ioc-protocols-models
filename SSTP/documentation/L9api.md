@@ -9,7 +9,8 @@
 
 L9 exposes two API layers:
 
-- **Application API** (`SSTP.l9`) — `L9`, `Episode`, `PanelEpisode`, and prior helpers.
+- **Application API** (`SSTP.l9`) — `L9`, `Episode`, `TeamProcessEpisode`,
+  `TaskworkEpisode`, `PanelEpisode`, `TaskworkParticipant`, and prior helpers.
   Application agents use this layer exclusively.  They never call builders or
   bus methods directly.
 - **Wire-level builders** (`SSTP.subprotocol.cip.src.l9`,
@@ -22,7 +23,10 @@ L9 exposes two API layers:
 ## Application API — `SSTP.l9`
 
 ```python
-from SSTP.l9 import L9, Episode, PanelEpisode, AgentPrior, TeamPrior, blend_prior
+from SSTP.l9 import (
+    L9, Episode, TeamProcessEpisode, TaskworkEpisode, PanelEpisode,
+    TaskworkParticipant, AgentPrior, TeamPrior, blend_prior,
+)
 ```
 
 ### Prior helpers
@@ -77,6 +81,27 @@ Falls back to `0.5` when both are absent.
 
 ---
 
+### `TaskworkParticipant`
+
+```python
+@dataclass
+class TaskworkParticipant:
+    agent_id: str
+    utterance: str
+    posterior: float
+    concept_id: str
+    belief_store: Any = None
+    thought_summary: str = ""
+    evidence: Optional[List[str]] = None
+```
+
+Data carrier for one specialist's contribution to a taskwork episode.  Built
+by the orchestrator from domain position dicts and passed to
+`L9.open_taskwork`.  `TaskworkEpisode.run()` uses these fields to drive belief
+seeding, exchange emission, ToM assessment, and contingency repair internally.
+
+---
+
 ### `L9`
 
 ```python
@@ -87,11 +112,100 @@ class L9:
         agent_id: str,
         belief_store: Any = None,
         team_epistemic_agent: Any = None,
+        tom_engine: Any = None,
+        task_goal: str = "",
     ) -> None
 ```
 
 Entry point for application agents.  Wraps the bus and belief stores.
-Application agents call `open`, `join`, or register `on_intent` handlers.
+`tom_engine` and `task_goal` are injected once at construction and forwarded
+automatically to all episode subclasses.
+
+Application agents call one of the typed `open_*` methods or register
+`on_intent` handlers.  They never call bus or builder methods directly.
+
+#### `L9.open_team_process`
+
+```python
+def open_team_process(
+    self,
+    concept_id: str,
+    group: List[str],
+    agreement: Any,
+    episode_id: Optional[str] = None,
+    task_goal: str = "",
+    rationale: str = "",
+    thought_summary: str = "",
+) -> TeamProcessEpisode
+```
+
+Open a team-process episode as initiator.  Emits `kind=intent`.  Returns a
+`TeamProcessEpisode`; call `run()` to execute the proposal/acceptance loop,
+then `close()`.
+
+```python
+tp_ep = ctrl_l9.open_team_process(
+    concept_id=patient_id,
+    group=all_ids,
+    agreement=agreement,
+    task_goal=_TASK_GOAL,
+    rationale="Opening team process...",
+    thought_summary="...",
+)
+tp_ep.run()
+tp_ep.close(rationale="...", thought_summary="...")
+```
+
+#### `L9.open_taskwork`
+
+```python
+def open_taskwork(
+    self,
+    concept_id: str,
+    group: List[str],
+    participants: List[TaskworkParticipant],
+    episode_id: Optional[str] = None,
+    task_goal: str = "",
+    coordinator_id: Optional[str] = None,
+    team_process: Optional[Dict[str, Any]] = None,
+    rationale: str = "",
+    thought_summary: str = "",
+) -> TaskworkEpisode
+```
+
+Open a taskwork episode as initiator.  Emits `kind=intent` with optional
+`team_process` payload.  Returns a `TaskworkEpisode`; call `run()` to execute
+belief seeding, exchange emission, ToM assessment, and contingency repair for
+each participant, then `close()`.
+
+`coordinator_id` identifies the listener for ToM assessment; defaults to the
+calling agent.  `team_process` carries the patient complaint or other context
+embedded in the intent payload.
+
+```python
+participants = [
+    TaskworkParticipant(
+        agent_id=agent.agent_id,
+        utterance=utterance,
+        posterior=posterior,
+        concept_id=concept_id,
+        belief_store=agent.belief_store,
+        thought_summary=thought,
+    )
+    for agent in all_specialists
+]
+tw_ep = ctrl_l9.open_taskwork(
+    concept_id=patient_id,
+    group=all_ids,
+    participants=participants,
+    task_goal=_TASK_GOAL,
+    coordinator_id=_CONTROLLER_ID,
+    team_process={"symptoms": ..., "medications": ..., "chat_history": ...},
+    rationale="...",
+)
+tw_ep.run()
+tw_ep.close(rationale="...", thought_summary="...")
+```
 
 #### `L9.open`
 
@@ -353,6 +467,57 @@ def _record_done(self, agent_id: str, posterior: float) -> None
 Called externally when a done signal arrives from a group member.  Used by the
 orchestrator to track per-agent posteriors for the MPC calculation at `close()`.
 Specialists do not call this; the orchestrator does.
+
+---
+
+### `TeamProcessEpisode`
+
+Subclass of `Episode` returned by `L9.open_team_process`.  Extends the base
+class with `run()` which executes the proposal/acceptance loop and ToM
+assessments inside the package boundary.  `say()` and `done()` are disabled.
+`close()` is inherited from `Episode`.
+
+#### `TeamProcessEpisode.run`
+
+```python
+def run(self) -> None
+```
+
+Emits `process_proposal` / `process_acceptance` pairs for each group member
+and calls `_record_done` on each specialist.  ToM assessment is called per
+exchange (but is a no-op for the protocol coordination tokens emitted here).
+
+After `run()`, `close()` can be called immediately.
+
+---
+
+### `TaskworkEpisode`
+
+Subclass of `Episode` returned by `L9.open_taskwork`.  Extends the base class
+with `run()` which iterates over the `TaskworkParticipant` list and for each
+participant: seeds the belief store, emits a `kind=exchange`, calls ToM
+assessment, and drives a repair cycle if the assessment flags a grounding
+failure or ambiguity — all inside the package boundary.
+
+`say()` and `done()` are disabled.  `close()` is inherited from `Episode`.
+
+#### `TaskworkEpisode.run`
+
+```python
+def run(self) -> None
+```
+
+For each participant:
+
+1. If `belief_store` is set and no prior exists for `(agent_id, concept_id)`,
+   calls `set_prior` and `record_revision` with `cause="semantic_memory"`.
+2. Emits `kind=exchange` via `Episode.say()`.
+3. Calls `assess_utterance` on the coordinator's ToM agent.
+4. If `grounding_failure` or `ambiguous`: drives
+   `epistemic_clarification → taskwork_result → re-assess → repair_resolved`.
+5. Calls `_record_done(agent_id, posterior)`.
+
+After `run()`, `close()` can be called immediately.
 
 ---
 
