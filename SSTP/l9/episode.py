@@ -30,20 +30,20 @@ Three episode kinds, each fully encapsulating its protocol mechanics::
     tw_ep.close(rationale=..., thought_summary=...)
 
     # Episode C — SIEP panel
-    panel_ep = ctrl_l9.open_panel(
+    task_ep = ctrl_l9.open_task(
         concept_id="concept:drug_interaction",
         group=all_ids,
         convergence_store=..., semantic_rule_store=...,
         peer_interaction_store=..., belief_store=...,
         tom_engine=..., repair_fn=...,
     )
-    panel_ep.run(
+    task_ep.run(
         controller_position=..., specialist_positions=...,
         task_goal=..., accept_threshold=0.1, max_rounds=2,
     )
-    panel_ep.announce(
-        concept_id=panel_ep.winning_position_key,
-        posterior=panel_ep.mpc, gar=panel_ep.gar, scr=panel_ep.scr,
+    task_ep.announce(
+        concept_id=task_ep.winning_position_key,
+        posterior=task_ep.mpc, gar=task_ep.gar, scr=task_ep.scr,
     )
 
 For receiving agents (generic CIP)::
@@ -513,10 +513,10 @@ class Episode:
         """Called externally when a done signal arrives from a group member."""
         self._done_agents[agent_id] = posterior
 
-    # ── Internal — set by PanelEpisode after negotiation ──────────────────
+    # ── Internal — set by TaskEpisode after negotiation ──────────────────
 
     def _set_commit(self, commit_message_id: str, mpc: float, gar: float, scr: float) -> None:
-        """Record commit result without emitting — used by PanelEpisode after StarNegotiation."""
+        """Record commit result without emitting — used by TaskEpisode after StarNegotiation."""
         self._commit_message_id = commit_message_id
         self._mpc = mpc
         self._gar = gar
@@ -524,13 +524,13 @@ class Episode:
         self._last_message_id = commit_message_id
 
 
-# ── PanelEpisode ──────────────────────────────────────────────────────────────
+# ── TaskEpisode (SIEP) ───────────────────────────────────────────────────────
 
 
-class PanelEpisode(Episode):
-    """Application-facing handle for a SIEP panel episode (Episode C).
+class TaskEpisode(Episode):
+    """Application-facing handle for a SIEP task episode (Episode C).
 
-    Returned by :meth:`L9.open_panel`. Extends :class:`Episode` with
+    Returned by :meth:`L9.open_task`. Extends :class:`Episode` with
     :meth:`run` which executes the full SIEP star negotiation loop
     (including CIP grounding gates, ToM predictions, Bayesian belief
     revision, GAR/SCR/MPC computation, and convergence/knowledge emit)
@@ -538,23 +538,23 @@ class PanelEpisode(Episode):
 
     The orchestrator's view::
 
-        panel_ep = ctrl_l9.open_panel(
+        task_ep = ctrl_l9.open_task(
             concept_id="urn:concept:healthcare:drug_interaction",
             group=all_specialist_ids,
             convergence_store=..., semantic_rule_store=...,
             peer_interaction_store=..., belief_store=...,
             tom_engine=..., repair_fn=...,
         )
-        panel_ep.run(
+        task_ep.run(
             controller_position=controller_position,
             specialist_positions=all_positions,
             task_goal=task_goal,
             accept_threshold=0.1,
             max_rounds=2,
         )
-        panel_ep.announce(
-            concept_id=panel_ep.winning_position_key,
-            posterior=panel_ep.mpc, gar=panel_ep.gar, scr=panel_ep.scr,
+        task_ep.announce(
+            concept_id=task_ep.winning_position_key,
+            posterior=task_ep.mpc, gar=task_ep.gar, scr=task_ep.scr,
         )
 
     After :meth:`run`:
@@ -562,7 +562,7 @@ class PanelEpisode(Episode):
     - :attr:`winning_position` — the winning position dict
     - :attr:`winning_position_key` — ``str`` concept key from the winning position
     - :attr:`resolution_label` — ``"consensus"``, ``"majority"``, etc.
-    - :attr:`snp_trace` — SIEP messages from this panel
+    - :attr:`snp_trace` — SIEP messages from this task episode
     """
 
     def __init__(
@@ -579,7 +579,7 @@ class PanelEpisode(Episode):
         belief_store: Any = None,
         tom_engine: Any = None,
         repair_fn: Any = None,
-        panel_name: str = "panel",
+        task_name: str = "task",
     ) -> None:
         super().__init__(
             bus=bus,
@@ -596,7 +596,7 @@ class PanelEpisode(Episode):
         self._siep_belief_store = belief_store
         self._tom_engine = tom_engine
         self._repair_fn = repair_fn
-        self._panel_name = panel_name
+        self._task_name = task_name
         self._winning_position: Any = None
         self._resolution_label: Optional[str] = None
         self._snp_trace: List[Dict[str, Any]] = []
@@ -619,7 +619,7 @@ class PanelEpisode(Episode):
 
     @property
     def snp_trace(self) -> List[Dict[str, Any]]:
-        """SIEP messages from this panel — available after run()."""
+        """SIEP messages from this task episode — available after run()."""
         return self._snp_trace
 
     def run(
@@ -643,7 +643,7 @@ class PanelEpisode(Episode):
         from SSTP.examples.hcpanel.panel_bus import PanelBus, StarNegotiation
 
         panel_bus = PanelBus(
-            panel_name=self._panel_name,
+            task_name=self._task_name,
             ie_bus=self._bus,
             use_case=self._bus.use_case,
             tom_engine=self._tom_engine,
@@ -654,7 +654,7 @@ class PanelEpisode(Episode):
             peer_interaction_store=self._peer_interaction_store,
         )
 
-        star = StarNegotiation(panel_bus, panel_name=self._panel_name)
+        star = StarNegotiation(panel_bus, task_name=self._task_name)
         winning_position, resolution_label, snp_trace = star.run(
             controller_id=self._agent_id,
             member_ids=list(self._group),
@@ -697,15 +697,15 @@ class PanelEpisode(Episode):
 
     def close(self, **kwargs: Any) -> str:
         raise RuntimeError(
-            "PanelEpisode does not support close() — the panel loop calls it internally. "
+            "TaskEpisode does not support close() — the task loop calls it internally. "
             "Call run() then announce()."
         )
 
     def say(self, *args: Any, **kwargs: Any) -> str:
-        raise RuntimeError("PanelEpisode does not support say() — use run() instead.")
+        raise RuntimeError("TaskEpisode does not support say() — use run() instead.")
 
     def done(self, *args: Any, **kwargs: Any) -> str:
-        raise RuntimeError("PanelEpisode does not support done() — use run() instead.")
+        raise RuntimeError("TaskEpisode does not support done() — use run() instead.")
 
 
 # ── TeamProcessEpisode ────────────────────────────────────────────────────────
@@ -945,7 +945,7 @@ class L9:
     """Entry point for application agents.
 
     Encapsulates AgentBus and TeamEpistemicMemory access. Application agents
-    call :meth:`open_team_process`, :meth:`open_taskwork`, :meth:`open_panel`,
+    call :meth:`open_team_process`, :meth:`open_taskwork`, :meth:`open_task`,
     :meth:`open` (generic CIP), or register :meth:`on_intent` handlers.
     They never interact with the bus directly.
 
@@ -1151,7 +1151,7 @@ class L9:
             prior=blended,
         )
 
-    def open_panel(
+    def open_task(
         self,
         concept_id: str,
         group: List[str],
@@ -1162,28 +1162,28 @@ class L9:
         belief_store: Any = None,
         tom_engine: Any = None,
         repair_fn: Any = None,
-        panel_name: str = "panel",
-    ) -> "PanelEpisode":
-        """Open a SIEP panel episode as initiator.
+        task_name: str = "task",
+    ) -> "TaskEpisode":
+        """Open a SIEP task episode as initiator.
 
-        Returns a :class:`PanelEpisode`. Call :meth:`PanelEpisode.run` to
+        Returns a :class:`TaskEpisode`. Call :meth:`TaskEpisode.run` to
         execute the negotiation, then :meth:`Episode.announce` to write the
         knowledge outcome.
 
-        The kind=intent for the panel is emitted inside
-        ``PanelEpisode.run()`` by ``StarNegotiation``, which owns the
-        SIEP wire format for the panel open.
+        The kind=intent for the task is emitted inside
+        ``TaskEpisode.run()`` by ``StarNegotiation``, which owns the
+        SIEP wire format for the task open.
         """
         team_prior_obj = self._get_team_prior(concept_id)
         agent_prior_obj = self._get_agent_prior(concept_id)
         blended = blend_prior(agent_prior_obj, team_prior_obj)
 
         eid = episode_id or (
-            f"urn:ioc:{self._bus.use_case}:panel"
+            f"urn:ioc:{self._bus.use_case}:task"
             f":{concept_id.replace(':', '-')}:{int(time.time() * 1000)}"
         )
 
-        return PanelEpisode(
+        return TaskEpisode(
             bus=self._bus,
             agent_id=self._agent_id,
             concept_id=concept_id,
@@ -1196,7 +1196,7 @@ class L9:
             belief_store=belief_store,
             tom_engine=tom_engine or self._tom_engine,
             repair_fn=repair_fn,
-            panel_name=panel_name,
+            task_name=task_name,
         )
 
     def join(self, intent_envelope: Dict[str, Any]) -> Episode:
@@ -1291,6 +1291,6 @@ class L9:
 
 
 __all__ = [
-    "Episode", "PanelEpisode", "TeamProcessEpisode", "TaskworkEpisode",
+    "Episode", "TaskEpisode", "TeamProcessEpisode", "TaskworkEpisode",
     "TaskworkParticipant", "L9", "blend_prior", "AgentPrior", "TeamPrior",
 ]

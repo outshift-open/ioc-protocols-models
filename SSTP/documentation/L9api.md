@@ -10,7 +10,7 @@
 L9 exposes two API layers:
 
 - **Application API** (`SSTP.l9`) — `L9`, `Episode`, `TeamProcessEpisode`,
-  `TaskworkEpisode`, `PanelEpisode`, `TaskworkParticipant`, and prior helpers.
+  `TaskworkEpisode`, `TaskEpisode`, `TaskworkParticipant`, and prior helpers.
   Application agents use this layer exclusively.  They never call builders or
   bus methods directly.
 - **Wire-level builders** (`SSTP.subprotocol.cip.src.l9`,
@@ -24,7 +24,7 @@ L9 exposes two API layers:
 
 ```python
 from SSTP.l9 import (
-    L9, Episode, TeamProcessEpisode, TaskworkEpisode, PanelEpisode,
+    L9, Episode, TeamProcessEpisode, TaskworkEpisode, TaskEpisode,
     TaskworkParticipant, AgentPrior, TeamPrior, blend_prior,
 )
 ```
@@ -275,10 +275,10 @@ def dispatch_intent(self, envelope: Dict[str, Any]) -> None
 Dispatch an incoming intent envelope to the registered handler.  Calls `join`
 internally then invokes the handler.  No-op if no handler is registered.
 
-#### `L9.open_panel`
+#### `L9.open_task`
 
 ```python
-def open_panel(
+def open_task(
     self,
     concept_id: str,
     group: List[str],
@@ -289,19 +289,19 @@ def open_panel(
     belief_store: Any = None,
     tom_engine: Any = None,
     repair_fn: Any = None,
-    panel_name: str = "panel",
-) -> PanelEpisode
+    task_name: str = "panel",
+) -> TaskEpisode
 ```
 
-Open a SIEP panel episode as initiator.  Returns a `PanelEpisode`.  The
-`kind=intent` for the panel is emitted inside `PanelEpisode.run()` by
+Open a SIEP panel episode as initiator.  Returns a `TaskEpisode`.  The
+`kind=intent` for the panel is emitted inside `TaskEpisode.run()` by
 `StarNegotiation`, which owns the SIEP wire format for the panel open.
 
 The SIEP-specific stores are passed through to `PanelBus` inside `run()`.
 Application code never constructs `PanelBus` or `StarNegotiation` directly.
 
 ```python
-panel_ep = ctrl_l9.open_panel(
+task_ep = ctrl_l9.open_task(
     concept_id="urn:concept:healthcare:drug_interaction",
     group=all_specialist_ids,
     convergence_store=memory.convergence_store,
@@ -310,20 +310,20 @@ panel_ep = ctrl_l9.open_panel(
     belief_store=belief_proxy,
     tom_engine=tom_engine,
     repair_fn=repair_fn,
-    panel_name="hcpanel",
+    task_name="hcpanel",
 )
-panel_ep.run(
+task_ep.run(
     controller_position=controller_position,
     specialist_positions=all_positions,
     task_goal=task_goal,
     accept_threshold=0.1,
     max_rounds=2,
 )
-panel_ep.announce(
-    concept_id=panel_ep.winning_position_key,
-    posterior=panel_ep.mpc,
-    gar=panel_ep.gar,
-    scr=panel_ep.scr,
+task_ep.announce(
+    concept_id=task_ep.winning_position_key,
+    posterior=task_ep.mpc,
+    gar=task_ep.gar,
+    scr=task_ep.scr,
 )
 ```
 
@@ -521,9 +521,9 @@ After `run()`, `close()` can be called immediately.
 
 ---
 
-### `PanelEpisode`
+### `TaskEpisode`
 
-Subclass of `Episode` returned by `L9.open_panel`.  Extends the base class with
+Subclass of `Episode` returned by `L9.open_task`.  Extends the base class with
 `run()` and panel-specific read-only properties.  `say()`, `done()`, and
 `close()` are disabled — the negotiation loop manages all exchanges internally.
 
@@ -544,7 +544,7 @@ Subclass of `Episode` returned by `L9.open_panel`.  Extends the base class with
 | `resolution_label` | `Optional[str]` | `"consensus"`, `"majority"`, `"timeout_majority"`, etc.  Available after `run()`. |
 | `snp_trace` | `List[Dict]` | SIEP messages from this panel.  Available after `run()`. |
 
-#### `PanelEpisode.run`
+#### `TaskEpisode.run`
 
 ```python
 def run(
@@ -699,7 +699,7 @@ header = build_snp_l9_header(
     receiver=None,
     timestamp_ms=int(time.time() * 1000),
     proposal_id="intent-abc123",
-    episode_id=panel_episode_id,
+    episode_id=task_episode_id,
     kind_override="intent",           # force kind=intent
     recipients=all_panel_ids,
     payload_parts=[intent_utt_part],

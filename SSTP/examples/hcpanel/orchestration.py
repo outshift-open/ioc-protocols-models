@@ -8,7 +8,7 @@ app/hcpanel/orchestration.py — Joint clinical debate orchestrator.
 Runs three L9 episode phases in sequence:
   A. team process   — open_team_process → run → close
   B. taskwork       — open_taskwork     → run → close
-  C. SIEP panel     — open_panel        → run → announce
+  C. SIEP task      — open_task        → run → announce
 
 All protocol mechanics (belief seeding, ToM assessment, contingency repair,
 proposal/acceptance loops, SIEP star negotiation) are encapsulated inside
@@ -318,7 +318,7 @@ class DebateOrchestrator:
             episode_id, leading_cause, ctrl_confidence, len(all_ids),
         )
 
-        panel_ep = ctrl_l9.open_panel(
+        task_ep = ctrl_l9.open_task(
             concept_id=f"urn:concept:healthcare:{leading_cause}",
             group=all_ids,
             convergence_store=self.memory.convergence_store,
@@ -327,27 +327,27 @@ class DebateOrchestrator:
             belief_store=belief_proxy,
             tom_engine=self.tom_engine,
             repair_fn=self.repair_fn,
-            panel_name="hcpanel",
+            task_name="hcpanel",
         )
-        panel_ep.run(
+        task_ep.run(
             controller_position=controller_position,
             specialist_positions=all_positions,
             task_goal=_TASK_GOAL,
             accept_threshold=0.1,
             max_rounds=2,
         )
-        panel_ep.announce(
-            concept_id=panel_ep.winning_position_key,
-            posterior=panel_ep.mpc,
-            gar=panel_ep.gar,
-            scr=panel_ep.scr,
+        task_ep.announce(
+            concept_id=task_ep.winning_position_key,
+            posterior=task_ep.mpc,
+            gar=task_ep.gar,
+            scr=task_ep.scr,
         )
 
-        snp_trace = panel_ep.snp_trace
-        winning_position = panel_ep.winning_position
-        resolution_label = panel_ep.resolution_label or "timeout_majority"
-        panel_episode_id = panel_ep.episode_id
-        metrics = {"gar": panel_ep.gar, "scr": panel_ep.scr, "mpc": panel_ep.mpc}
+        snp_trace = task_ep.snp_trace
+        winning_position = task_ep.winning_position
+        resolution_label = task_ep.resolution_label or "timeout_majority"
+        task_episode_id = task_ep.episode_id
+        metrics = {"gar": task_ep.gar, "scr": task_ep.scr, "mpc": task_ep.mpc}
         opinions = _positions_to_opinions(all_positions, all_specialists)
 
         win_key = str(
@@ -393,5 +393,5 @@ class DebateOrchestrator:
             resolution_label=resolution_label,
             specialist_opinions=opinions,
             snp_trace=snp_trace,
-            panel_episode_id=panel_episode_id,
+            task_episode_id=task_episode_id,
         )
