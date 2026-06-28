@@ -9,7 +9,7 @@
 
 L9 exposes two API layers:
 
-- **Application API** (`SSTP.l9`) — `L9`, `Episode`, and prior helpers.
+- **Application API** (`SSTP.l9`) — `L9`, `Episode`, `PanelEpisode`, and prior helpers.
   Application agents use this layer exclusively.  They never call builders or
   bus methods directly.
 - **Wire-level builders** (`SSTP.subprotocol.cip.src.l9`,
@@ -22,7 +22,7 @@ L9 exposes two API layers:
 ## Application API — `SSTP.l9`
 
 ```python
-from SSTP.l9 import L9, Episode, AgentPrior, TeamPrior, blend_prior
+from SSTP.l9 import L9, Episode, PanelEpisode, AgentPrior, TeamPrior, blend_prior
 ```
 
 ### Prior helpers
@@ -160,6 +160,58 @@ def dispatch_intent(self, envelope: Dict[str, Any]) -> None
 
 Dispatch an incoming intent envelope to the registered handler.  Calls `join`
 internally then invokes the handler.  No-op if no handler is registered.
+
+#### `L9.open_panel`
+
+```python
+def open_panel(
+    self,
+    concept_id: str,
+    group: List[str],
+    episode_id: Optional[str] = None,
+    convergence_store: Any = None,
+    semantic_rule_store: Any = None,
+    peer_interaction_store: Any = None,
+    belief_store: Any = None,
+    tom_engine: Any = None,
+    repair_fn: Any = None,
+    panel_name: str = "panel",
+) -> PanelEpisode
+```
+
+Open a SIEP panel episode as initiator.  Returns a `PanelEpisode`.  The
+`kind=intent` for the panel is emitted inside `PanelEpisode.run()` by
+`StarNegotiation`, which owns the SIEP wire format for the panel open.
+
+The SIEP-specific stores are passed through to `PanelBus` inside `run()`.
+Application code never constructs `PanelBus` or `StarNegotiation` directly.
+
+```python
+panel_ep = ctrl_l9.open_panel(
+    concept_id="urn:concept:healthcare:drug_interaction",
+    group=all_specialist_ids,
+    convergence_store=memory.convergence_store,
+    semantic_rule_store=memory.semantic_rule_store,
+    peer_interaction_store=memory.peer_interaction_store,
+    belief_store=belief_proxy,
+    tom_engine=tom_engine,
+    repair_fn=repair_fn,
+    panel_name="hcpanel",
+)
+panel_ep.run(
+    controller_position=controller_position,
+    specialist_positions=all_positions,
+    task_goal=task_goal,
+    accept_threshold=0.1,
+    max_rounds=2,
+)
+panel_ep.announce(
+    concept_id=panel_ep.winning_position_key,
+    posterior=panel_ep.mpc,
+    gar=panel_ep.gar,
+    scr=panel_ep.scr,
+)
+```
 
 ---
 
@@ -301,6 +353,62 @@ def _record_done(self, agent_id: str, posterior: float) -> None
 Called externally when a done signal arrives from a group member.  Used by the
 orchestrator to track per-agent posteriors for the MPC calculation at `close()`.
 Specialists do not call this; the orchestrator does.
+
+---
+
+### `PanelEpisode`
+
+Subclass of `Episode` returned by `L9.open_panel`.  Extends the base class with
+`run()` and panel-specific read-only properties.  `say()`, `done()`, and
+`close()` are disabled — the negotiation loop manages all exchanges internally.
+
+`announce()` is inherited from `Episode` unchanged.
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `prior` | `float` | Blended prior at panel open. |
+| `concept_id` | `str` | Concept this panel is about. |
+| `episode_id` | `str` | URN scoping all panel messages. |
+| `mpc` | `Optional[float]` | Mean position confidence.  Available after `run()`. |
+| `gar` | `Optional[float]` | Genuine agreement ratio.  Available after `run()`. |
+| `scr` | `Optional[float]` | Social compliance ratio.  Available after `run()`. |
+| `winning_position` | `Any` | Winning position dict.  Available after `run()`. |
+| `winning_position_key` | `str` | Concept key string from winning position.  Available after `run()`. |
+| `resolution_label` | `Optional[str]` | `"consensus"`, `"majority"`, `"timeout_majority"`, etc.  Available after `run()`. |
+| `snp_trace` | `List[Dict]` | SIEP messages from this panel.  Available after `run()`. |
+
+#### `PanelEpisode.run`
+
+```python
+def run(
+    self,
+    controller_position: Dict[str, Any],
+    specialist_positions: Dict[str, Any],
+    task_goal: str = "",
+    accept_threshold: float = 0.1,
+    max_rounds: int = 2,
+) -> None
+```
+
+Execute the full SIEP star negotiation loop inside the package boundary.
+
+Internally constructs `PanelBus` and `StarNegotiation`, runs the negotiation
+(including ToM predictions, bilateral grounding verification, CIP repair
+branches, Bayesian belief revision, GAR/SCR/MPC computation, `SemanticRule`
+recording, and `commit:converged` + `kind=knowledge` emit), and stores the
+results on the episode.
+
+After `run()` returns, all properties are set and `announce()` can be called.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `controller_position` | `Dict` | — | Controller's opening position with `likely_cause`, `confidence`, `supporting_evidence`. |
+| `specialist_positions` | `Dict[str, Dict]` | — | Per-specialist position dicts keyed by agent id. |
+| `task_goal` | `str` | `""` | Task goal string passed to ToM utterance assessment. |
+| `accept_threshold` | `float` | `0.1` | Confidence gap below which a specialist accepts the controller's position. |
+| `max_rounds` | `int` | `2` | Maximum negotiation rounds before timeout resolution. |
 
 ---
 

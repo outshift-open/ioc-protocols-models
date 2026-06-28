@@ -17,7 +17,6 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from SSTP.examples.hcpanel.panel_bus import PanelBus, StarNegotiation
 from SSTP.subprotocol.siep.src.epistemic.stores import AgentBeliefStore, BeliefRevision
 
 from SSTP.examples.hcpanel.agent_bus import BeliefStoreProxy
@@ -484,19 +483,7 @@ class DebateOrchestrator:
             ),
         )
 
-        # ── EPISODE C: SNP panel negotiation (PanelBus-managed URN) ─────
-        panel_bus = PanelBus(
-            panel_name="hcpanel",
-            ie_bus=self.ie_bus,
-            use_case="healthcare",
-            tom_engine=self.tom_engine,
-            repair_fn=self.repair_fn,
-            convergence_store=self.memory.convergence_store,
-            semantic_rule_store=self.memory.semantic_rule_store,
-            belief_store=belief_proxy,
-            peer_interaction_store=self.memory.peer_interaction_store,
-        )
-
+        # ── EPISODE C: SIEP panel negotiation ───────────────────────────
         # Derive controller position from physician plurality
         cause_counts: Counter = Counter(
             str(pos.get("likely_cause", "drug_interaction"))
@@ -528,19 +515,36 @@ class DebateOrchestrator:
             episode_id, leading_cause, ctrl_confidence, len(all_ids),
         )
 
-        star = StarNegotiation(panel_bus, panel_name="hcpanel")
-        winning_position, resolution_label, snp_trace = star.run(
-            controller_id=_CONTROLLER_ID,
-            member_ids=all_ids,
+        panel_ep = ctrl_l9.open_panel(
+            concept_id=f"urn:concept:healthcare:{leading_cause}",
+            group=all_ids,
+            convergence_store=self.memory.convergence_store,
+            semantic_rule_store=self.memory.semantic_rule_store,
+            peer_interaction_store=self.memory.peer_interaction_store,
+            belief_store=belief_proxy,
+            tom_engine=self.tom_engine,
+            repair_fn=self.repair_fn,
+            panel_name="hcpanel",
+        )
+        panel_ep.run(
             controller_position=controller_position,
             specialist_positions=all_positions,
             task_goal=_TASK_GOAL,
             accept_threshold=0.1,
             max_rounds=2,
         )
+        panel_ep.announce(
+            concept_id=panel_ep.winning_position_key,
+            posterior=panel_ep.mpc,
+            gar=panel_ep.gar,
+            scr=panel_ep.scr,
+        )
 
-        panel_episode_id = panel_bus._episode_id()
-        metrics = _extract_convergence_metrics(snp_trace)
+        snp_trace = panel_ep.snp_trace
+        winning_position = panel_ep.winning_position
+        resolution_label = panel_ep.resolution_label or "timeout_majority"
+        panel_episode_id = panel_ep.episode_id
+        metrics = {"gar": panel_ep.gar, "scr": panel_ep.scr, "mpc": panel_ep.mpc}
         opinions = _positions_to_opinions(all_positions, all_specialists)
 
         win_key = str(

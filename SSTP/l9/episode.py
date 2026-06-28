@@ -17,7 +17,32 @@ Usage::
     episode.close()
     episode.announce(concept_id="concept:drug_interaction", posterior=0.82, gar=0.9, scr=0.1)
 
-Or for receiving agents::
+For SIEP panel episodes::
+
+    panel_ep = ctrl_l9.open_panel(
+        concept_id="concept:drug_interaction",
+        group=all_ids,
+        episode_id=panel_episode_id,
+        convergence_store=convergence_store,
+        semantic_rule_store=semantic_rule_store,
+        peer_interaction_store=peer_interaction_store,
+        belief_store=belief_store,
+        tom_engine=tom_engine,
+        repair_fn=repair_fn,
+    )
+    panel_ep.run(
+        controller_position=controller_position,
+        specialist_positions=all_positions,
+        task_goal=task_goal,
+        accept_threshold=0.1,
+        max_rounds=2,
+    )
+    panel_ep.announce(
+        concept_id=panel_ep.winning_position_key,
+        posterior=panel_ep.mpc, gar=panel_ep.gar, scr=panel_ep.scr,
+    )
+
+For receiving agents::
 
     @l9.on_intent
     def handle_intent(episode: Episode) -> None:
@@ -347,6 +372,209 @@ class Episode:
         """Called externally when a done signal arrives from a group member."""
         self._done_agents[agent_id] = posterior
 
+    # ── Internal — set by PanelEpisode after negotiation ──────────────────
+
+    def _set_commit(self, commit_message_id: str, mpc: float, gar: float, scr: float) -> None:
+        """Record commit result without emitting — used by PanelEpisode after StarNegotiation."""
+        self._commit_message_id = commit_message_id
+        self._mpc = mpc
+        self._gar = gar
+        self._scr = scr
+        self._last_message_id = commit_message_id
+
+
+# ── PanelEpisode ──────────────────────────────────────────────────────────────
+
+
+class PanelEpisode(Episode):
+    """Application-facing handle for a SIEP panel episode.
+
+    Returned by :meth:`L9.open_panel`. Extends :class:`Episode` with
+    :meth:`run` which executes the full SIEP star negotiation loop
+    (including CIP grounding gates, ToM predictions, Bayesian belief
+    revision, GAR/SCR/MPC computation, and convergence/knowledge emit)
+    inside the package boundary.
+
+    The orchestrator's view::
+
+        panel_ep = ctrl_l9.open_panel(
+            concept_id="urn:concept:healthcare:drug_interaction",
+            group=all_specialist_ids,
+            episode_id=panel_episode_id,
+            convergence_store=...,
+            semantic_rule_store=...,
+            peer_interaction_store=...,
+            belief_store=...,
+            tom_engine=...,
+            repair_fn=...,
+        )
+        panel_ep.run(
+            controller_position=controller_position,
+            specialist_positions=all_positions,
+            task_goal=task_goal,
+            accept_threshold=0.1,
+            max_rounds=2,
+        )
+        panel_ep.announce(
+            concept_id=panel_ep.winning_position_key,
+            posterior=panel_ep.mpc, gar=panel_ep.gar, scr=panel_ep.scr,
+        )
+
+    After :meth:`run`:
+    - :attr:`mpc`, :attr:`gar`, :attr:`scr` — convergence metrics
+    - :attr:`winning_position` — the winning position dict
+    - :attr:`winning_position_key` — ``str`` concept key from the winning position
+    - :attr:`resolution_label` — ``"consensus"``, ``"majority"``, etc.
+    - :attr:`snp_trace` — SIEP messages from this panel
+    """
+
+    def __init__(
+        self,
+        bus: AgentBus,
+        agent_id: str,
+        concept_id: str,
+        episode_id: str,
+        group: Optional[List[str]] = None,
+        prior: float = 0.5,
+        # SIEP-specific stores (passed through to PanelBus)
+        convergence_store: Any = None,
+        semantic_rule_store: Any = None,
+        peer_interaction_store: Any = None,
+        belief_store: Any = None,
+        tom_engine: Any = None,
+        repair_fn: Any = None,
+        panel_name: str = "panel",
+    ) -> None:
+        super().__init__(
+            bus=bus,
+            agent_id=agent_id,
+            concept_id=concept_id,
+            episode_id=episode_id,
+            initiator=True,
+            group=group,
+            prior=prior,
+        )
+        self._convergence_store = convergence_store
+        self._semantic_rule_store = semantic_rule_store
+        self._peer_interaction_store = peer_interaction_store
+        self._siep_belief_store = belief_store
+        self._tom_engine = tom_engine
+        self._repair_fn = repair_fn
+        self._panel_name = panel_name
+        self._winning_position: Any = None
+        self._resolution_label: Optional[str] = None
+        self._snp_trace: List[Dict[str, Any]] = []
+
+    @property
+    def winning_position(self) -> Any:
+        """Winning position dict — available after run()."""
+        return self._winning_position
+
+    @property
+    def winning_position_key(self) -> str:
+        """Concept key string from the winning position — available after run()."""
+        from SSTP.examples.hcpanel.panel_bus import StarNegotiation
+        return StarNegotiation._position_key(self._winning_position) if self._winning_position is not None else ""
+
+    @property
+    def resolution_label(self) -> Optional[str]:
+        """Resolution label — available after run()."""
+        return self._resolution_label
+
+    @property
+    def snp_trace(self) -> List[Dict[str, Any]]:
+        """SIEP messages from this panel — available after run()."""
+        return self._snp_trace
+
+    def run(
+        self,
+        controller_position: Dict[str, Any],
+        specialist_positions: Dict[str, Any],
+        task_goal: str = "",
+        accept_threshold: float = 0.1,
+        max_rounds: int = 2,
+    ) -> None:
+        """Execute the SIEP star negotiation and close the episode.
+
+        On return, :attr:`mpc`, :attr:`gar`, :attr:`scr`,
+        :attr:`winning_position`, :attr:`winning_position_key`,
+        :attr:`resolution_label`, and :attr:`snp_trace` are all set.
+
+        The commit:converged and SemanticRule recording are handled inside
+        StarNegotiation; this method records the results on the episode so
+        that announce() can be called immediately afterward.
+        """
+        from SSTP.examples.hcpanel.panel_bus import PanelBus, StarNegotiation
+
+        panel_bus = PanelBus(
+            panel_name=self._panel_name,
+            ie_bus=self._bus,
+            use_case=self._bus.use_case,
+            tom_engine=self._tom_engine,
+            repair_fn=self._repair_fn,
+            convergence_store=self._convergence_store,
+            belief_store=self._siep_belief_store,
+            semantic_rule_store=self._semantic_rule_store,
+            peer_interaction_store=self._peer_interaction_store,
+        )
+
+        star = StarNegotiation(panel_bus, panel_name=self._panel_name)
+        winning_position, resolution_label, snp_trace = star.run(
+            controller_id=self._agent_id,
+            member_ids=list(self._group),
+            controller_position=controller_position,
+            specialist_positions=specialist_positions,
+            task_goal=task_goal,
+            accept_threshold=accept_threshold,
+            max_rounds=max_rounds,
+        )
+
+        self._winning_position = winning_position
+        self._resolution_label = resolution_label
+        self._snp_trace = snp_trace
+
+        # Harvest the commit:converged message that StarNegotiation already emitted
+        # so that announce() has a parent id to parent the knowledge message on.
+        commit_id: Optional[str] = None
+        for msg in reversed(self._bus.messages):
+            if msg.get("kind") == "commit" and msg.get("subkind") == "converged":
+                commit_id = msg.get("message", {}).get("id")
+                break
+
+        # Harvest GAR/SCR/MPC from the snp-convergence payload part
+        mpc, gar, scr = 0.5, 1.0, 0.0
+        for msg in reversed(self._bus.messages):
+            for part in msg.get("payload") or []:
+                if part.get("type") == "snp-convergence":
+                    content = part.get("content") or {}
+                    mpc = float(content.get("mpc", 0.5))
+                    gar = float(content.get("gar", 1.0))
+                    scr = float(content.get("scr", 0.0))
+                    break
+            else:
+                continue
+            break
+
+        if commit_id:
+            self._set_commit(commit_id, mpc, gar, scr)
+        else:
+            # StarNegotiation had no convergence_store — set metrics manually
+            self._mpc = mpc
+            self._gar = gar
+            self._scr = scr
+
+    def close(self, **kwargs: Any) -> str:
+        raise RuntimeError(
+            "PanelEpisode does not support close() — the panel loop calls it internally. "
+            "Call run() then announce()."
+        )
+
+    def say(self, *args: Any, **kwargs: Any) -> str:
+        raise RuntimeError("PanelEpisode does not support say() — use run() instead.")
+
+    def done(self, *args: Any, **kwargs: Any) -> str:
+        raise RuntimeError("PanelEpisode does not support done() — use run() instead.")
+
 
 # ── L9 ────────────────────────────────────────────────────────────────────────
 
@@ -355,8 +583,8 @@ class L9:
     """Entry point for application agents.
 
     Encapsulates AgentBus and TeamEpistemicMemory access. Application agents
-    call :meth:`open`, :meth:`join`, or register :meth:`on_intent` handlers.
-    They never interact with the bus directly.
+    call :meth:`open`, :meth:`join`, :meth:`open_panel`, or register
+    :meth:`on_intent` handlers. They never interact with the bus directly.
     """
 
     def __init__(
@@ -432,6 +660,54 @@ class L9:
             initiator=True,
             group=group,
             prior=blended,
+        )
+
+    def open_panel(
+        self,
+        concept_id: str,
+        group: List[str],
+        episode_id: Optional[str] = None,
+        convergence_store: Any = None,
+        semantic_rule_store: Any = None,
+        peer_interaction_store: Any = None,
+        belief_store: Any = None,
+        tom_engine: Any = None,
+        repair_fn: Any = None,
+        panel_name: str = "panel",
+    ) -> "PanelEpisode":
+        """Open a SIEP panel episode as initiator.
+
+        Returns a :class:`PanelEpisode`. Call :meth:`PanelEpisode.run` to
+        execute the negotiation, then :meth:`Episode.announce` to write the
+        knowledge outcome.
+
+        The kind=intent for the panel is emitted inside
+        ``PanelEpisode.run()`` by ``StarNegotiation``, which owns the
+        SIEP wire format for the panel open.
+        """
+        team_prior_obj = self._get_team_prior(concept_id)
+        agent_prior_obj = self._get_agent_prior(concept_id)
+        blended = blend_prior(agent_prior_obj, team_prior_obj)
+
+        eid = episode_id or (
+            f"urn:ioc:{self._bus.use_case}:panel"
+            f":{concept_id.replace(':', '-')}:{int(time.time() * 1000)}"
+        )
+
+        return PanelEpisode(
+            bus=self._bus,
+            agent_id=self._agent_id,
+            concept_id=concept_id,
+            episode_id=eid,
+            group=group,
+            prior=blended,
+            convergence_store=convergence_store,
+            semantic_rule_store=semantic_rule_store,
+            peer_interaction_store=peer_interaction_store,
+            belief_store=belief_store,
+            tom_engine=tom_engine,
+            repair_fn=repair_fn,
+            panel_name=panel_name,
         )
 
     def join(self, intent_envelope: Dict[str, Any]) -> Episode:
@@ -525,4 +801,4 @@ class L9:
             return None
 
 
-__all__ = ["Episode", "L9", "blend_prior", "AgentPrior", "TeamPrior"]
+__all__ = ["Episode", "PanelEpisode", "L9", "blend_prior", "AgentPrior", "TeamPrior"]

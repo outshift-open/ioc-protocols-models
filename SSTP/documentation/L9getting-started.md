@@ -139,16 +139,20 @@ sequence:
   payload carrying prior, posterior, and supporting evidence.  The
   controller closes with `kind=commit:converged`.
 
-- **SIEP panel** — the controller proposes the most likely diagnosis as
-  a starting concept and opens a `kind=intent` to the full panel.
-  Specialists respond with counter-proposals, evidence, and uncertainty.
-  Each exchange passes through CIP contingency checking: if a response
+- **SIEP panel** — the controller opens a `PanelEpisode` via
+  `ctrl_l9.open_panel(...)` and calls `panel_ep.run(...)`.  Inside
+  `run()`, `StarNegotiation` emits a `kind=intent` to the full panel,
+  then in each round proposes the controller's position to each
+  specialist.  Specialists respond with accepts or counter-proposals.
+  Each response passes through CIP contingency checking: if a response
   does not genuinely engage the prior turn's argument, a
   `kind=contingency` is raised and a repair branch opens.  The panel
   iterates until convergence metrics (GAR, SCR, MPC) meet the threshold
-  or the step budget is exhausted.  The controller closes with
-  `kind=commit:converged` and emits a `kind=knowledge` to
-  TeamEpistemicMemory.
+  or the step budget is exhausted.  `run()` closes the episode with
+  `kind=commit:converged` and records a `SemanticRule`.  The
+  orchestrator then calls `panel_ep.announce(...)` which emits
+  `kind=knowledge` to TeamEpistemicMemory.  All of this is internal to
+  the package — the orchestrator only sees `open_panel → run → announce`.
 
 **3. coordination**
 
@@ -209,22 +213,28 @@ wire-level builders.  Application agents never call the builders directly.
 
 ```
 DebateOrchestrator
-  └── L9.open(concept_id, group, rationale=...) → Episode
-  │     └── HCPanelAgentBus._emit_intent(...)
-  │           └── build_l9_header(kind_override="intent", ...)
-  └── agent_episode.say(utterance, posterior, rationale=...) → message_id
-  │     └── HCPanelAgentBus.emit_grounding_turn(...)
-  │           └── build_l9_header(event_type="peer_turn", ...)
-  └── episode.close(rationale=...) → commit_message_id
-        └── HCPanelAgentBus._emit_episode_close(...)
-              └── build_l9_header(kind_override="commit:converged", ...)
-
-StarNegotiation.run()
-  └── build_snp_l9_header(kind_override="intent",           ...)   # panel:open
-  └── build_snp_l9_header(operation=PROPOSE,                ...)   # specialist exchange
-  └── build_snp_l9_header(kind_override="contingency",      ...)   # CIP repair branch
-  └── build_snp_l9_header(kind_override="commit:converged", ...)   # panel close
-  └── build_snp_l9_header(kind_override="knowledge",        ...)   # knowledge emit
+  ├── Episode A — team process
+  │     L9.open(concept_id, group, rationale=...) → Episode
+  │       └── HCPanelAgentBus._emit_intent(...)
+  │     episode.close(rationale=...) → commit_message_id
+  │       └── HCPanelAgentBus._emit_episode_close(...)
+  │
+  ├── Episode B — taskwork
+  │     L9.open(concept_id, group, team_process=...) → Episode
+  │     agent_episode.say(utterance, posterior, ...) → message_id
+  │       └── HCPanelAgentBus.emit_grounding_turn(...)
+  │     episode.close(rationale=...) → commit_message_id
+  │
+  └── Episode C — SIEP panel
+        L9.open_panel(concept_id, group, convergence_store=..., ...) → PanelEpisode
+        panel_ep.run(controller_position=..., specialist_positions=...) → None
+          └── PanelBus + StarNegotiation (internal to package)
+                └── build_snp_l9_header(kind_override="intent", ...)
+                └── build_snp_l9_header(operation=PROPOSE, ...)     # per specialist
+                └── build_snp_l9_header(kind_override="contingency", ...)   # if needed
+                └── build_snp_l9_header(kind_override="commit:converged", ...)
+                └── build_snp_l9_header(kind_override="knowledge", ...)
+        panel_ep.announce(concept_id=..., posterior=..., gar=..., scr=...)
 ```
 
 Every emitted header goes into `HCPanelAgentBus.messages`, the
