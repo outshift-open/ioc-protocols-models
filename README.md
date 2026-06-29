@@ -284,7 +284,7 @@ After this, two tags exist on the remote:
 
 ## Go Module Usage (Consumers)
 
-> ⚠️ **Important:** Versions v0.0.2 through v0.0.5 used an incorrect module path (`cisco-eti`) and will not work with the current repository. Please use v0.0.6 or later.
+> ⚠️ **Important:** Versions v0.0.2 through v0.0.5 are deprecated and will not work. Please use v0.0.6 or later.
 
 ### Install the module:
 
