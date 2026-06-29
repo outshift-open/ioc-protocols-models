@@ -284,10 +284,16 @@ After this, two tags exist on the remote:
 
 ## Go Module Usage (Consumers)
 
+> **Recommended:** Use v0.0.6 or later for Go module consumption.
+
 ### Install the module:
 
 ```bash
-go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v0.0.2
+# Latest version (recommended)
+go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@latest
+
+# Or specific version (v0.0.6+)
+go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v0.0.6
 ```
 
 > **Private repo:** You'll need `GOPRIVATE=github.com/outshift-open/*` and SSH git access configured.
