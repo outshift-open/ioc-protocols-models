@@ -95,17 +95,18 @@ _HTML = r"""<!DOCTYPE html>
     --sab:  #5b21b6; --sab-bg:  #f3e8ff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; overflow: hidden; }
+  html { font-size: 18px; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; overflow: hidden; font-size: 1rem; }
 
   /* ── Top header ── */
   header { background: var(--panel); border-bottom: 2px solid var(--border);
-    padding: .6rem 1.5rem; display: flex; align-items: center; gap: 1rem; height: 52px;
+    padding: .7rem 1.5rem; display: flex; align-items: center; gap: 1rem; height: 62px;
     box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-  header h1 { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
-  header .subtitle { color: var(--muted); font-size: 1rem; }
+  header h1 { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+  header .subtitle { color: var(--muted); font-size: 1.05rem; }
 
   /* ── Root layout ── */
-  .root { display: flex; height: calc(100vh - 52px); }
+  .root { display: flex; height: calc(100vh - 62px); }
 
   /* ── Sidebar ── */
   aside { width: 280px; flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border);
@@ -159,41 +160,40 @@ _HTML = r"""<!DOCTYPE html>
   /* Agent header row */
   .seq-head { display: flex; position: sticky; top: 0; z-index: 20; background: var(--panel);
     border-bottom: 2px solid var(--border); box-shadow: 0 2px 6px rgba(0,0,0,.06); }
-  .seq-head-gutter { width: 200px; flex-shrink: 0; padding: .75rem .75rem;
-    font-size: .95rem; color: var(--muted); border-right: 1px solid var(--border);
+  .seq-head-gutter { width: 240px; flex-shrink: 0; padding: .85rem .85rem;
+    font-size: 1rem; color: var(--muted); border-right: 1px solid var(--border);
     font-weight: 600; }
-  .agent-hdr { flex: 1; min-width: 180px; text-align: center; padding: .7rem .25rem;
+  .agent-hdr { flex: 1; min-width: 200px; text-align: center; padding: .85rem .25rem;
     border-right: 1px solid var(--border); }
-  .agent-hdr-name { font-weight: 700; font-size: 1.1rem; color: var(--accent); }
-  .agent-hdr-icon { font-size: 2rem; display: block; margin-bottom: .25rem; }
+  .agent-hdr-name { font-weight: 700; font-size: 1.2rem; color: var(--accent); }
+  .agent-hdr-icon { font-size: 2.2rem; display: block; margin-bottom: .3rem; }
 
   /* Phase separator */
   .phase-sep { display: flex; align-items: center;
     background: var(--panel); border-top: 2px solid var(--border);
     border-bottom: 1px solid var(--border); }
-  .phase-sep-gutter { width: 200px; flex-shrink: 0; padding: .5rem .75rem;
+  .phase-sep-gutter { width: 240px; flex-shrink: 0; padding: .6rem .85rem;
     border-right: 1px solid var(--border); }
   .phase-sep-line { flex: 1; height: 2px; opacity: .25; }
 
   /* ── Message row ── */
-  .seq-row { display: flex; align-items: stretch; min-height: 68px;
+  .seq-row { display: flex; align-items: stretch; min-height: 80px;
     border-bottom: 1px solid var(--border);
     cursor: pointer; transition: background .1s; position: relative; background: #fff; }
   .seq-row:nth-child(even) { background: #fafbff; }
   .seq-row:hover  { background: #eef0fd !important; }
-  .seq-row.active { background: #e8eaff !important; outline: 2px solid var(--accent); outline-offset: -2px; }
 
   /* left gutter */
-  .seq-gutter { width: 200px; flex-shrink: 0; padding: .5rem .75rem;
+  .seq-gutter { width: 240px; flex-shrink: 0; padding: .6rem .85rem;
     border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; gap: .25rem; justify-content: center; }
-  .seq-num { font-size: .9rem; color: var(--muted); font-family: monospace; font-weight: 600; }
-  .seq-step-label { font-size: 1rem; color: var(--text); line-height: 1.35; font-weight: 500; }
-  .seq-badges { display: flex; flex-wrap: wrap; gap: .2rem; margin-top: .25rem; }
+    display: flex; flex-direction: column; gap: .3rem; justify-content: center; }
+  .seq-num { font-size: 1rem; color: var(--muted); font-family: monospace; font-weight: 600; }
+  .seq-step-label { font-size: 1.05rem; color: var(--text); line-height: 1.4; font-weight: 500; }
+  .seq-badges { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .3rem; }
 
   /* agent columns (lifelines) */
   .seq-cols { flex: 1; display: flex; position: relative; min-width: 0; }
-  .seq-col { flex: 1; min-width: 180px; border-right: 1px solid #e8eaf5; position: relative;
+  .seq-col { flex: 1; min-width: 200px; border-right: 1px solid #e8eaf5; position: relative;
     display: flex; align-items: center; justify-content: center; }
   .seq-col::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%;
     width: 2px; background: #c8cde8; transform: translateX(-50%); z-index: 0; }
@@ -206,8 +206,8 @@ _HTML = r"""<!DOCTYPE html>
   .seq-arrow-inner { position: relative; display: flex; flex-direction: column;
     align-items: center; justify-content: center; width: 100%; }
   .arrow-label-row { display: flex; align-items: center; gap: .3rem; margin-bottom: .25rem; }
-  .arrow-kind { font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
-  .arrow-sub  { font-size: .88rem; color: var(--muted); }
+  .arrow-kind { font-size: 1.1rem; font-weight: 700; letter-spacing: .02em; }
+  .arrow-sub  { font-size: .95rem; color: var(--muted); }
   .arrow-line-row { display: flex; align-items: center; width: 100%; }
   .arrow-line { height: 2px; flex: 1; }
   .arrow-head { width: 0; height: 0; border-top: 6px solid transparent;
@@ -257,6 +257,32 @@ _HTML = r"""<!DOCTYPE html>
 
   .empty { text-align: center; color: var(--muted); padding: 5rem 2rem; }
   .empty .icon { font-size: 3rem; margin-bottom: .5rem; }
+
+  /* ── Routing hints (broadcast / self-send) ── */
+  .routing-hint { margin-top: .3rem; font-size: .82rem; font-weight: 600;
+    padding: .15rem .4rem; border-radius: .3rem; display: inline-flex; align-items: center; gap: .3rem; }
+  .broadcast-hint { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+  .self-hint      { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+  .self-arrow-box { border: 2.5px dashed; border-radius: 8px; padding: .3rem .7rem;
+    font-size: .95rem; white-space: nowrap; background: rgba(255,255,255,.7);
+    display: inline-flex; align-items: center; gap: .4rem; margin-top: .2rem; }
+
+  /* ── Playback ── */
+  .seq-row   { transition: opacity .35s ease, transform .35s ease; }
+  .phase-sep { transition: opacity .35s ease; }
+  .seq-row.pb-hidden, .phase-sep.pb-hidden { opacity: 0; pointer-events: none; transform: translateY(6px); }
+  .seq-row.active { box-shadow: inset 3px 0 0 var(--accent); background: #e8eaff !important; outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .pb-btn { padding: .4rem .75rem; border-radius: .4rem; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: .9rem; cursor: pointer; font-weight: 600;
+    transition: background .15s; }
+  .pb-btn:hover:not(:disabled) { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .pb-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .pb-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #pb-speed { padding: .35rem .5rem; border-radius: .4rem; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: .9rem; cursor: pointer; width: 100%; margin-top: .4rem; }
+  #pb-progress { height: 4px; background: var(--border); border-radius: 2px; margin-top: .5rem; overflow: hidden; }
+  #pb-progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
 </style>
 </head>
 <body>
@@ -286,7 +312,25 @@ _HTML = r"""<!DOCTYPE html>
     <div id="console"><span class="ln" style="color:var(--muted)">Output will appear here…</span></div>
   </div>
 
-  <div class="sidebar-section">
+  <div class="sidebar-section" id="playback-section" style="display:none">
+    <h2>▶ Playback</h2>
+    <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+      <button class="pb-btn" id="pb-prev"  onclick="pbPrev()"   title="Previous" disabled>◀</button>
+      <button class="pb-btn" id="pb-play"  onclick="pbToggle()" title="Play / Pause">▶ Play</button>
+      <button class="pb-btn" id="pb-next"  onclick="pbNext()"   title="Next" disabled>▶</button>
+      <button class="pb-btn" id="pb-reset" onclick="pbReset()"  title="Reset to start">↺</button>
+    </div>
+    <select id="pb-speed" onchange="pbSpeed=+this.value">
+      <option value="2000">🐢 Slow (2 s)</option>
+      <option value="900" selected>🚶 Medium (0.9 s)</option>
+      <option value="350">🏃 Fast (0.35 s)</option>
+      <option value="100">⚡ Turbo (0.1 s)</option>
+    </select>
+    <div id="pb-status" style="margin-top:.4rem;font-size:.88rem;color:var(--muted)">0 / 0</div>
+    <div id="pb-progress"><div id="pb-progress-bar" style="width:0%"></div></div>
+  </div>
+
+   <div class="sidebar-section">
     <h2>Kind colours</h2>
     <div class="legend-grid">
       <span class="badge" style="background:var(--intent-bg);color:var(--intent)">intent</span>
@@ -396,7 +440,7 @@ function runDemo() {
     statusDot.className = 'done';
     statusLbl.textContent = 'Completed ✓';
     runBtn.disabled = false;
-    loadMessages();
+    loadMessages(true);   // auto-play after demo run
   });
   es.addEventListener('error', e => {
     if (e.data) appendConsole('[ERROR] ' + e.data);
@@ -472,9 +516,9 @@ function dpSection(title, fields) {
 }
 
 function showDetail(idx, entry, info) {
-  if (_activeRow === idx) return;
-  // Highlight active row
-  if (_activeRow >= 0) document.getElementById('row-'+_activeRow)?.classList.remove('active');
+  // Clear ALL highlighted rows in one sweep — no stale state
+  document.querySelectorAll('#seq-body .seq-row.active')
+    .forEach(el => el.classList.remove('active'));
   _activeRow = idx;
   document.getElementById('row-'+idx)?.classList.add('active');
 
@@ -596,6 +640,108 @@ function showDetail(idx, entry, info) {
   dpBody.innerHTML = sections || `<div class="dp-empty">No payload data</div>`;
 }
 
+// ── Playback engine ───────────────────────────────────────────────────────────
+let pbSpeed  = 900;   // ms per step
+let _pbIdx   = -1;    // index of last revealed row (-1 = none shown)
+let _pbTotal = 0;
+let _pbTimer = null;
+let _pbPlaying = false;
+
+function _pbUpdateUI() {
+  const shown = _pbIdx + 1;
+  document.getElementById('pb-status').textContent = `${shown} / ${_pbTotal}`;
+  const pct = _pbTotal ? (shown / _pbTotal * 100) : 0;
+  document.getElementById('pb-progress-bar').style.width = pct + '%';
+  document.getElementById('pb-prev').disabled  = _pbIdx <= 0;
+  document.getElementById('pb-next').disabled  = _pbIdx >= _pbTotal - 1;
+  const playBtn = document.getElementById('pb-play');
+  playBtn.textContent = _pbPlaying ? '⏸ Pause' : '▶ Play';
+  playBtn.classList.toggle('active', _pbPlaying);
+}
+
+function _pbReveal(i) {
+  if (i < 0 || i >= _pbTotal) return;
+  const msgs  = window._msgs  || [];
+  const infos = window._infos || [];
+
+  // Reveal phase-sep if this is the first message of a new phase
+  const allRows    = document.querySelectorAll('#seq-body .seq-row');
+  const allSeps    = document.querySelectorAll('#seq-body .phase-sep');
+  const row = document.getElementById('row-' + i);
+  if (!row) return;
+
+  // Reveal preceding phase-sep if hidden
+  let prev = row.previousElementSibling;
+  while (prev) {
+    if (prev.classList.contains('phase-sep') && prev.classList.contains('pb-hidden')) {
+      prev.classList.remove('pb-hidden'); break;
+    }
+    if (prev.classList.contains('seq-row')) break;
+    prev = prev.previousElementSibling;
+  }
+
+  row.classList.remove('pb-hidden');
+  _pbIdx = i;
+
+  // Scroll into view
+  row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  // Auto-open detail panel
+  if (msgs[i] && infos[i] !== undefined) {
+    _activeRow = -1;   // force refresh
+    showDetail(i, msgs[i], infos[i]);
+  }
+  _pbUpdateUI();
+}
+
+function pbNext() {
+  if (_pbIdx < _pbTotal - 1) _pbReveal(_pbIdx + 1);
+  else pbPause();
+}
+function pbPrev() {
+  if (_pbIdx > 0) _pbReveal(_pbIdx - 1);
+}
+function pbPlay() {
+  if (_pbPlaying) return;
+  _pbPlaying = true;
+  _pbUpdateUI();
+  const tick = () => {
+    if (!_pbPlaying) return;
+    if (_pbIdx >= _pbTotal - 1) { pbPause(); return; }
+    pbNext();
+    _pbTimer = setTimeout(tick, pbSpeed);
+  };
+  _pbTimer = setTimeout(tick, _pbIdx < 0 ? 0 : pbSpeed);
+}
+function pbPause() {
+  _pbPlaying = false;
+  clearTimeout(_pbTimer);
+  _pbUpdateUI();
+}
+function pbToggle() { _pbPlaying ? pbPause() : pbPlay(); }
+function pbReset() {
+  pbPause();
+  // Re-hide all rows and phase-seps
+  document.querySelectorAll('#seq-body .seq-row, #seq-body .phase-sep')
+    .forEach(el => el.classList.add('pb-hidden'));
+  // Clear any active highlight
+  document.querySelectorAll('#seq-body .seq-row.active')
+    .forEach(el => el.classList.remove('active'));
+  _pbIdx = -1;
+  _activeRow = -1;
+  document.getElementById('dp-header').innerHTML = '<div class="dp-empty">Hover or use playback to inspect messages</div>';
+  document.getElementById('dp-body').innerHTML = '';
+}
+function pbInit(total, autoPlay) {
+  _pbTotal   = total;
+  _pbIdx     = -1;
+  _pbPlaying = false;
+  clearTimeout(_pbTimer);
+  document.getElementById('playback-section').style.display = '';
+  _pbUpdateUI();
+  if (autoPlay) setTimeout(pbPlay, 600);
+}
+
 function renderSeqRow(entry, idx, info, agents, colMap) {
   const N = agents.length;
   const phase = entry.phase;
@@ -623,21 +769,32 @@ function renderSeqRow(entry, idx, info, agents, colMap) {
 
   // Build arrow overlay
   let arrowHtml = '';
-  if (sCol >= 0) {
-    // Column width as percentage
-    const colW = 100 / N;
+  let gutterHint = '';   // extra annotation shown in the step gutter
 
-    if (rCol < 0 || rCol === sCol) {
-      // Self / broadcast — small loop indicator on sender column
+  if (sCol >= 0) {
+    const colW = 100 / N;
+    const isSelfSend = rCol === sCol;
+    const isBroadcast = rCol < 0;
+
+    if (isBroadcast || isSelfSend) {
+      // ── Broadcast or self-send ──
       const centerPct = (sCol + 0.5) * colW;
+      const label  = isBroadcast ? 'broadcast' : 'self';
+      const icon   = isBroadcast ? '📡' : '↩';
+      gutterHint = isBroadcast
+        ? `<div class="routing-hint broadcast-hint">${icon} broadcast · topic:tfp/polls</div>`
+        : `<div class="routing-hint self-hint">${icon} self-send</div>`;
       arrowHtml = `
-        <div class="seq-arrow-wrap" style="left:calc(${centerPct}% - 70px);width:140px;">
+        <div class="seq-arrow-wrap" style="left:calc(${centerPct}% - 90px);width:180px;">
           <div class="seq-arrow-inner">
             <div class="arrow-label-row">
               <span class="arrow-kind" style="color:${kColor}">${kind}${subkindText}</span>
-              <span class="arrow-sub">[broadcast]</span>
+              ${subBadge(sub)}
             </div>
-            <div style="border:2px dashed ${kColor};border-radius:6px;padding:.2rem .6rem;font-size:.9rem;color:${kColor};white-space:nowrap;background:rgba(255,255,255,.6)">⟳ ${senderAgent||'?'}</div>
+            <div class="self-arrow-box" style="border-color:${kColor};color:${kColor}">
+              ${icon} <strong>${senderAgent||'?'}</strong>
+              <span style="opacity:.7;font-size:.85em">${label}</span>
+            </div>
           </div>
         </div>`;
     } else {
@@ -666,13 +823,14 @@ function renderSeqRow(entry, idx, info, agents, colMap) {
 
   const id = idx;
   return `
-<div class="seq-row" id="row-${id}" onmouseenter="showDetail(${id}, _msgs[${id}], _infos[${id}])">
+<div class="seq-row pb-hidden" id="row-${id}" onmouseenter="showDetail(${id}, _msgs[${id}], _infos[${id}])">
   <div class="seq-gutter">
     <span class="seq-num">#${String(idx+1).padStart(2,'0')}</span>
     <span class="seq-step-label">${entry.label}</span>
     <div class="seq-badges">
       ${kindBadge(kind)}
     </div>
+    ${gutterHint}
   </div>
   <div class="seq-cols">
     ${colsHtml}
@@ -681,7 +839,7 @@ function renderSeqRow(entry, idx, info, agents, colMap) {
 </div>`;
 }
 
-function renderSequence(msgs) {
+function renderSequence(msgs, autoPlay) {
   const agents = collectAgents(msgs);
   const colMap = {};
   agents.forEach((a, i) => colMap[a] = i);
@@ -715,8 +873,8 @@ function renderSequence(msgs) {
     if (m.phase !== lastPhase) {
       lastPhase = m.phase;
       const pc = PHASE_COLOR[m.phase] || 'var(--muted)';
-      html += `<div class="phase-sep">
-        <div class="phase-sep-gutter" style="color:${pc};font-size:.9rem;font-weight:700">
+      html += `<div class="phase-sep pb-hidden">
+        <div class="phase-sep-gutter" style="color:${pc};font-size:1rem;font-weight:700">
           ${m.phase} — ${PHASE_NAMES[m.phase]||''}
         </div>
         <div class="phase-sep-line" style="background:${pc};opacity:.3"></div>
@@ -726,14 +884,15 @@ function renderSequence(msgs) {
   });
 
   document.getElementById('seq-body').innerHTML = html;
+  pbInit(msgs.length, autoPlay);
 }
 
-function loadMessages() {
+function loadMessages(autoPlay) {
   fetch('/messages')
     .then(r => r.json())
     .then(data => {
       const msgs = data.episode_messages || [];
-      if (msgs.length) renderSequence(msgs);
+      if (msgs.length) renderSequence(msgs, autoPlay);
     })
     .catch(err => appendConsole('[UI ERROR] ' + err));
 }
@@ -741,7 +900,7 @@ function loadMessages() {
 // Load existing messages on page load
 window.addEventListener('DOMContentLoaded', () => {
   fetch('/messages').then(r => r.ok ? r.json() : null)
-    .then(d => { if (d?.episode_messages?.length) loadMessages(); })
+    .then(d => { if (d?.episode_messages?.length) loadMessages(false); })
     .catch(() => {});
 
   // ── Resize handle drag logic ──
