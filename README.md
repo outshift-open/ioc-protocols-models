@@ -242,17 +242,17 @@ The wheel is output to `SSTP/language_bindings/python/` with the version from `m
 ### Install the module:
 
 ```bash
-go get github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang@v0.0.2
+go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v0.0.2
 ```
 
-> **Private repo:** You'll need `GOPRIVATE=github.com/cisco-eti/*` and SSH git access configured.
+> **Private repo:** You'll need `GOPRIVATE=github.com/outshift-open/*` and SSH git access configured.
 >
 > **Public repo:** No extra config needed — `go get` works out of the box.
 
 ### Use in your code:
 
 ```go
-import l9 "github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang"
+import l9 "github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang"
 
 msg := l9.L9SchemaJson{
     Header: l9.L9Header{
@@ -296,7 +296,7 @@ Tag format: `SSTP/language_bindings/golang/v{version}`
 Without tagging, local development uses `replace` directives in `go.mod`:
 
 ```go
-replace github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang => ../path/to/local/copy
+replace github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang => ../path/to/local/copy
 ```
 
 ---

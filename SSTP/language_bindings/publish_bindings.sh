@@ -148,7 +148,7 @@ create_go_module_tag() {
     git push origin "$go_module_tag"
 
     log_info "Verifying Go module accessibility..."
-    local module_path="github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang"
+    local module_path="github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang"
 
     if go list -m "$module_path@v$version" >/dev/null 2>&1; then
         log_success "Go module accessible at v$version"
@@ -184,10 +184,10 @@ Go Module Management:
   git ls-remote --tags origin | grep "SSTP/language_bindings/golang"
 
   # Check specific version availability
-  go list -m github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang@v1.0.0
+  go list -m github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v1.0.0
 
   # Install specific version
-  go get github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang@v1.0.0
+  go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v1.0.0
 
 Requirements:
   - Go: Git push permissions to repository (for --tag)
