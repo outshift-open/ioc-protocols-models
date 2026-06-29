@@ -744,7 +744,7 @@ def run_demo() -> None:  # noqa: C901
 
     # 2a  intent
     # ① BUILD
-    l9_intent = _siep("commercial-agent").intent().team_process().concept(C_SCOPE).build()
+    l9_intent = _siep("commercial-agent").to("liability-agent").intent().team_process().concept(C_SCOPE).build()
     # ②③ PACK + SEND
     siep_task_id, a2a = bus.open_l9_task(l9_intent, Role.ROLE_USER, ctx_id)
     rec("SIEP", "2a · intent  (commercial-agent opens alignment session)", a2a)
@@ -754,6 +754,7 @@ def run_demo() -> None:  # noqa: C901
     # 2b  commercial-agent aligns — LLM
     # ① BUILD L9 (with LLM-generated utterance)
     l9 = (_siep("commercial-agent")
+          .to("liability-agent")
           .exchange().taskwork().asserted().concept(C_SCOPE)
           .parents(l9_intent.header.message.id)
           .payload(SIEPPayload(
@@ -774,6 +775,7 @@ def run_demo() -> None:  # noqa: C901
     # 2c  liability-agent drifts — LLM
     # ① BUILD L9 (with LLM-generated drift utterance)
     l9_drift = (_siep("liability-agent")
+                .to("commercial-agent")
                 .exchange().taskwork().asserted().concept(C_TIMELINE)
                 .parents(l9_intent.header.message.id)
                 .payload(SIEPPayload(
@@ -823,6 +825,7 @@ def run_demo() -> None:  # noqa: C901
     # 3a  commercial-agent raises contingency
     # ① BUILD
     l9_req = (_cip("commercial-agent")
+              .to("liability-agent")
               .contingency().grounding().challenged().concept(C_SCOPE)
               .parents(l9_drift.header.message.id)
               .payload(CIPPayload(grounding=CIPGrounding(
@@ -850,6 +853,7 @@ def run_demo() -> None:  # noqa: C901
     # 3c  liability-agent re-anchors — LLM
     # ① BUILD L9 (informed by guidance_text from 3b)
     l9_reanchor = (_cip("liability-agent")
+                   .to("cip-engine")
                    .contingency().grounding().revised().concept(C_SCOPE)
                    .parents(l9_guidance.header.message.id)
                    .payload(CIPPayload(
@@ -860,7 +864,7 @@ def run_demo() -> None:  # noqa: C901
                                      f"Re-anchoring on {C_SCOPE}: SLA clause 14.2 breach is material breach under contract law. Tort doctrine set aside."),
                            evidence=[C_SCOPE, C_CRITERIA],
                            addresses_evidence=[C_SCOPE, C_CRITERIA],
-                           turn_depth=1),
+                           repair_depth=1),
                        belief=CIPBelief(prior=0.68, posterior=0.75,
                                         revision_cause=CIPRevisionCause.repair_resolution)))
                    .text("Re-anchoring on contract-law material breach.")

@@ -1,0 +1,882 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+demo_a2a_l9_ui.py — Browser UI for demo_a2a_l9.py
+
+Usage:
+    python3 SSTP/examples/demo_a2a_l9_ui.py
+    # Then open http://localhost:8765
+
+Features:
+  - Run the demo from the browser
+  - Live console output streamed via SSE
+  - Messages displayed as color-coded cards by L9 kind & subprotocol
+  - Agent roster with skills
+  - Expandable L9 payload details
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import queue
+import subprocess
+import sys
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from urllib.parse import urlparse
+
+_HERE    = Path(__file__).resolve().parent
+_REPO    = _HERE.parents[1]
+_MSG_JSON = _HERE / "demo_a2a_l9_messages.json"
+
+PORT = 8765
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Demo runner (subprocess, non-blocking)
+# ─────────────────────────────────────────────────────────────────────────────
+
+_run_lock   = threading.Lock()
+_demo_queue: queue.Queue[str | None] = queue.Queue()   # None = sentinel (done)
+_demo_running = False
+
+
+def _stream_demo() -> None:
+    global _demo_running
+    script = _HERE / "demo_a2a_l9.py"
+    env    = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONPATH": str(_REPO)}
+    try:
+        proc = subprocess.Popen(
+            ["poetry", "run", "python", str(script)],
+            cwd=str(_REPO),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+        )
+        for line in iter(proc.stdout.readline, ""):
+            _demo_queue.put(line.rstrip())
+        proc.wait()
+        if proc.returncode != 0:
+            _demo_queue.put(f"[exit code {proc.returncode}]")
+    except Exception as exc:
+        _demo_queue.put(f"[ERROR] {exc}")
+    finally:
+        _demo_queue.put(None)
+        _demo_running = False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HTML template
+# ─────────────────────────────────────────────────────────────────────────────
+
+_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>demo_a2a_l9 · L9 Sequence Diagram</title>
+<style>
+  :root {
+    --bg: #f0f2fa; --panel: #ffffff; --border: #dde1f0;
+    --text: #1e2240; --muted: #6b73a0; --accent: #4f46e5;
+    /* kinds */
+    --intent:      #1d4ed8; --intent-bg:      #dbeafe;
+    --exchange:    #6d28d9; --exchange-bg:    #ede9fe;
+    --commit:      #065f46; --commit-bg:      #d1fae5;
+    --contingency: #92400e; --contingency-bg: #fef3c7;
+    /* subprotocols */
+    --tfp:  #0f766e; --tfp-bg:  #ccfbf1;
+    --siep: #3730a3; --siep-bg: #e0e7ff;
+    --cip:  #c2410c; --cip-bg:  #ffedd5;
+    --sab:  #5b21b6; --sab-bg:  #f3e8ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; overflow: hidden; }
+
+  /* ── Top header ── */
+  header { background: var(--panel); border-bottom: 2px solid var(--border);
+    padding: .6rem 1.5rem; display: flex; align-items: center; gap: 1rem; height: 52px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  header h1 { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+  header .subtitle { color: var(--muted); font-size: 1rem; }
+
+  /* ── Root layout ── */
+  .root { display: flex; height: calc(100vh - 52px); }
+
+  /* ── Sidebar ── */
+  aside { width: 280px; flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border);
+    overflow-y: auto; display: flex; flex-direction: column; }
+  .sidebar-section { padding: .75rem 1rem; border-bottom: 1px solid var(--border); }
+  .sidebar-section h2 { font-size: .95rem; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); margin-bottom: .6rem; }
+
+  #run-btn { width: 100%; padding: .55rem 1rem; border-radius: .5rem; border: none;
+    background: var(--accent); color: #fff; font-weight: 600; cursor: pointer;
+    font-size: 1rem; transition: opacity .2s; }
+  #run-btn:disabled { opacity: .4; cursor: not-allowed; }
+  #run-btn:not(:disabled):hover { opacity: .85; }
+
+  #status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--muted); margin-right: .4rem; }
+  #status-dot.running { background: #16a34a; box-shadow: 0 0 6px #16a34a; animation: pulse 1s infinite; }
+  #status-dot.done    { background: #16a34a; }
+  #status-dot.error   { background: #dc2626; }
+  #status-label { font-size: 1rem; color: var(--muted); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .badge { display: inline-flex; align-items: center; padding: .22rem .5rem; border-radius: .3rem;
+    font-size: .9rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
+
+  #console { background: #1e2235; border-radius: .375rem; padding: .4rem;
+    font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: .88rem; color: #a8b4d0;
+    max-height: 180px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid #c8cde0; }
+  #console .ln { line-height: 1.5; }
+  #console .ln.llm  { color: #67e8f9; }
+  #console .ln.err  { color: #fca5a5; }
+  #console .ln.step { color: #fde68a; font-weight: 600; }
+  #console .ln.hr   { color: #364060; }
+
+  /* ── Sequence diagram main area ── */
+  .seq-main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* Stats bar */
+  #stats-bar { display: flex; gap: .6rem; padding: .6rem 1rem; background: var(--panel);
+    border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .stat { background: var(--bg); border: 1px solid var(--border); border-radius: .4rem;
+    padding: .3rem .7rem; text-align: center; }
+  .stat .n { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+  .stat .l { font-size: .9rem; color: var(--muted); text-transform: uppercase; }
+
+  /* Sequence diagram container */
+  .seq-wrap { flex: 1; overflow-y: auto; overflow-x: auto; position: relative; background: var(--bg); }
+
+  /* Agent header row */
+  .seq-head { display: flex; position: sticky; top: 0; z-index: 20; background: var(--panel);
+    border-bottom: 2px solid var(--border); box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+  .seq-head-gutter { width: 200px; flex-shrink: 0; padding: .75rem .75rem;
+    font-size: .95rem; color: var(--muted); border-right: 1px solid var(--border);
+    font-weight: 600; }
+  .agent-hdr { flex: 1; min-width: 180px; text-align: center; padding: .7rem .25rem;
+    border-right: 1px solid var(--border); }
+  .agent-hdr-name { font-weight: 700; font-size: 1.1rem; color: var(--accent); }
+  .agent-hdr-icon { font-size: 2rem; display: block; margin-bottom: .25rem; }
+
+  /* Phase separator */
+  .phase-sep { display: flex; align-items: center;
+    background: var(--panel); border-top: 2px solid var(--border);
+    border-bottom: 1px solid var(--border); }
+  .phase-sep-gutter { width: 200px; flex-shrink: 0; padding: .5rem .75rem;
+    border-right: 1px solid var(--border); }
+  .phase-sep-line { flex: 1; height: 2px; opacity: .25; }
+
+  /* ── Message row ── */
+  .seq-row { display: flex; align-items: stretch; min-height: 68px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background .1s; position: relative; background: #fff; }
+  .seq-row:nth-child(even) { background: #fafbff; }
+  .seq-row:hover  { background: #eef0fd !important; }
+  .seq-row.active { background: #e8eaff !important; outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* left gutter */
+  .seq-gutter { width: 200px; flex-shrink: 0; padding: .5rem .75rem;
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: .25rem; justify-content: center; }
+  .seq-num { font-size: .9rem; color: var(--muted); font-family: monospace; font-weight: 600; }
+  .seq-step-label { font-size: 1rem; color: var(--text); line-height: 1.35; font-weight: 500; }
+  .seq-badges { display: flex; flex-wrap: wrap; gap: .2rem; margin-top: .25rem; }
+
+  /* agent columns (lifelines) */
+  .seq-cols { flex: 1; display: flex; position: relative; min-width: 0; }
+  .seq-col { flex: 1; min-width: 180px; border-right: 1px solid #e8eaf5; position: relative;
+    display: flex; align-items: center; justify-content: center; }
+  .seq-col::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%;
+    width: 2px; background: #c8cde8; transform: translateX(-50%); z-index: 0; }
+  .seq-col.is-sender::before   { background: var(--accent); width: 3px; opacity: .5; }
+  .seq-col.is-receiver::before { background: var(--accent); width: 3px; opacity: .5; }
+
+  /* ── Arrow ── */
+  .seq-arrow-wrap { position: absolute; top: 0; bottom: 0; display: flex; align-items: center;
+    pointer-events: none; z-index: 5; }
+  .seq-arrow-inner { position: relative; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; width: 100%; }
+  .arrow-label-row { display: flex; align-items: center; gap: .3rem; margin-bottom: .25rem; }
+  .arrow-kind { font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
+  .arrow-sub  { font-size: .88rem; color: var(--muted); }
+  .arrow-line-row { display: flex; align-items: center; width: 100%; }
+  .arrow-line { height: 2px; flex: 1; }
+  .arrow-head { width: 0; height: 0; border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent; flex-shrink: 0; }
+  .arrow-head.right { border-left: 10px solid currentColor; }
+  .arrow-head.left  { border-right: 10px solid currentColor; }
+
+  /* ── Resize handle ── */
+  .resize-handle { width: 5px; flex-shrink: 0; cursor: col-resize; background: var(--border);
+    transition: background .15s; position: relative; }
+  .resize-handle:hover, .resize-handle.dragging { background: var(--accent); }
+  .resize-handle::after { content: '⋮'; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%); color: var(--muted); font-size: 1rem;
+    pointer-events: none; }
+
+  /* ── Right detail panel ── */
+  .detail-panel { width: 560px; flex-shrink: 0; background: var(--panel);
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: -2px 0 8px rgba(0,0,0,.06); }
+  .detail-panel-header { padding: .85rem 1rem; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; background: #fafbff; }
+  .detail-panel-header .dp-step { font-size: .92rem; color: var(--muted); margin-bottom: .35rem;
+    font-family: monospace; }
+  .detail-panel-header .dp-kind { font-size: 1.3rem; font-weight: 700; display: flex; align-items: center; gap: .5rem; }
+  .detail-panel-header .dp-agents { margin-top: .5rem; display: flex; align-items: center;
+    gap: .4rem; flex-wrap: wrap; font-size: 1rem; }
+  .detail-panel-body { flex: 1; overflow-y: auto; padding: .75rem; display: flex; flex-direction: column; gap: .6rem; }
+  .dp-empty { color: var(--muted); font-size: 1.05rem; text-align: center; padding: 3rem 1rem; }
+  .dp-section { background: #fff; border: 1px solid var(--border); border-radius: .5rem;
+    overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .dp-section-title { font-size: .9rem; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); padding: .4rem .7rem; border-bottom: 1px solid var(--border);
+    background: #f5f6ff; font-weight: 700; }
+  .dp-field { display: flex; border-bottom: 1px solid #eef0f8; }
+  .dp-field:last-child { border-bottom: none; }
+  .dp-field .dk { color: var(--muted); padding: .35rem .6rem; min-width: 130px; flex-shrink: 0;
+    border-right: 1px solid #eef0f8; background: #fafbff; font-size: .95rem; font-weight: 500; }
+  .dp-field .dv { color: var(--text); padding: .35rem .6rem; font-family: 'Cascadia Code', monospace;
+    word-break: break-all; font-size: .95rem; flex: 1; line-height: 1.5; }
+  .dp-raw-pre { background: #1e2235; padding: .6rem; font-family: 'Cascadia Code', monospace;
+    font-size: .88rem; color: #a8b4d0; overflow: auto; max-height: 280px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: .95rem;
+    padding: .4rem .7rem; user-select: none; }
+  details[open] summary { border-bottom: 1px solid var(--border); }
+  .agent-chip { display: inline-flex; align-items: center; gap: .3rem; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 9999px; padding: .2rem .6rem; font-size: .95rem; }
+
+  .empty { text-align: center; color: var(--muted); padding: 5rem 2rem; }
+  .empty .icon { font-size: 3rem; margin-bottom: .5rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚡ demo_a2a_l9 · Sequence Diagram</h1>
+    <div class="subtitle">TFP → SIEP → CIP → SAB · A2A transport · L9 messages between agents</div>
+  </div>
+</header>
+
+<div class="root">
+
+<!-- ── Sidebar ── -->
+<aside>
+  <div class="sidebar-section">
+    <h2>Demo control</h2>
+    <button id="run-btn" onclick="runDemo()">▶ Run Demo</button>
+    <div style="margin-top:.5rem">
+      <span id="status-dot"></span>
+      <span id="status-label">Idle — click Run to start</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <h2>Live console</h2>
+    <div id="console"><span class="ln" style="color:var(--muted)">Output will appear here…</span></div>
+  </div>
+
+  <div class="sidebar-section">
+    <h2>Kind colours</h2>
+    <div class="legend-grid">
+      <span class="badge" style="background:var(--intent-bg);color:var(--intent)">intent</span>
+      <span class="badge" style="background:var(--exchange-bg);color:var(--exchange)">exchange</span>
+      <span class="badge" style="background:var(--commit-bg);color:var(--commit)">commit</span>
+      <span class="badge" style="background:var(--contingency-bg);color:var(--contingency)">contingency</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <h2>Subprotocol colours</h2>
+    <div class="legend-grid">
+      <span class="badge" style="background:var(--tfp-bg);color:var(--tfp)">TFP</span>
+      <span class="badge" style="background:var(--siep-bg);color:var(--siep)">SIEP</span>
+      <span class="badge" style="background:var(--cip-bg);color:var(--cip)">CIP</span>
+      <span class="badge" style="background:var(--sab-bg);color:var(--sab)">SAB</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ── Sequence diagram ── -->
+<div class="seq-main">
+  <div id="stats-bar"></div>
+
+  <div class="seq-wrap" id="seq-wrap">
+    <!-- agent header row -->
+    <div class="seq-head" id="seq-head">
+      <div class="seq-head-gutter">Step / Label</div>
+    </div>
+    <!-- message rows -->
+    <div id="seq-body">
+      <div class="empty"><div class="icon">🔭</div><div>Run the demo to see the sequence diagram</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Detail side panel ── -->
+<div class="resize-handle" id="resize-handle"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-panel-header" id="dp-header">
+    <div class="dp-empty">Hover over a message to inspect its L9 envelope</div>
+  </div>
+  <div class="detail-panel-body" id="dp-body"></div>
+</div>
+
+</div><!-- .root -->
+
+<script>
+// ── colour helpers ────────────────────────────────────────────────────────────
+const KIND_COLOR = {
+  intent:      'var(--intent)',
+  exchange:    'var(--exchange)',
+  commit:      'var(--commit)',
+  contingency: 'var(--contingency)',
+};
+const KIND_BG = {
+  intent:      'var(--intent-bg)',
+  exchange:    'var(--exchange-bg)',
+  commit:      'var(--commit-bg)',
+  contingency: 'var(--contingency-bg)',
+};
+const SUB_COLOR = { TFP:'var(--tfp)', SIEP:'var(--siep)', CIP:'var(--cip)', SAB:'var(--sab)' };
+const SUB_BG    = { TFP:'var(--tfp-bg)', SIEP:'var(--siep-bg)', CIP:'var(--cip-bg)', SAB:'var(--sab-bg)' };
+const PHASE_COLOR = { TFP:'var(--tfp)', SIEP:'var(--siep)', CIP:'var(--cip)', SAB:'var(--sab)' };
+
+const AGENT_ICON = {
+  'commercial-agent': '⚖️',
+  'liability-agent':  '🛡️',
+  'cip-engine':       '🔧',
+};
+function agentIcon(id) { return AGENT_ICON[id] || '🤖'; }
+
+function badge(text, bg, fg) {
+  return `<span class="badge" style="background:${bg};color:${fg}">${text}</span>`;
+}
+function kindBadge(k) { return badge(k, KIND_BG[k]||'var(--border)', KIND_COLOR[k]||'var(--muted)'); }
+function subBadge(s)  { return badge(s, SUB_BG[s]||'var(--border)',  SUB_COLOR[s]||'var(--muted)'); }
+
+// ── Console ───────────────────────────────────────────────────────────────────
+const consoleEl = document.getElementById('console');
+const statusDot = document.getElementById('status-dot');
+const statusLbl = document.getElementById('status-label');
+const runBtn    = document.getElementById('run-btn');
+
+function appendConsole(line) {
+  let cls = 'ln';
+  if (line.includes('[LLM]'))      cls += ' llm';
+  else if (line.includes('ERROR') || line.includes('exit code')) cls += ' err';
+  else if (line.includes('STEP ')) cls += ' step';
+  else if (/^[═─]+$/.test(line.trim())) cls += ' hr';
+  const d = document.createElement('div');
+  d.className = cls; d.textContent = line;
+  consoleEl.appendChild(d);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+// ── Run demo (SSE) ────────────────────────────────────────────────────────────
+function runDemo() {
+  runBtn.disabled = true;
+  statusDot.className = 'running';
+  statusLbl.textContent = 'Running demo…';
+  consoleEl.innerHTML = '';
+  const es = new EventSource('/run');
+  es.addEventListener('line', e => appendConsole(e.data));
+  es.addEventListener('done', () => {
+    es.close();
+    statusDot.className = 'done';
+    statusLbl.textContent = 'Completed ✓';
+    runBtn.disabled = false;
+    loadMessages();
+  });
+  es.addEventListener('error', e => {
+    if (e.data) appendConsole('[ERROR] ' + e.data);
+    statusDot.className = 'error';
+    statusLbl.textContent = 'Error — check console';
+    runBtn.disabled = false;
+    es.close();
+  });
+}
+
+// ── Extract L9/SAB info from a message entry ─────────────────────────────────
+function extractL9Info(entry) {
+  const parts = entry.a2a_message?.parts || [];
+  for (const p of parts) {
+    if (p.type !== 'data' || !p.decoded_l9_or_sab) continue;
+    const d = p.decoded_l9_or_sab;
+    const h = d.header;
+    if (!h) continue;
+    const actors  = h.participants?.actors || [];
+    const sender  = actors.find(a => a.role === 'sender')?.id || '—';
+    const recvrs  = actors.filter(a => a.role !== 'sender').map(a => a.id);
+    return {
+      subprotocol: h.subprotocol || entry.phase,
+      kind:    h.kind    || '—',
+      subkind: h.subkind || null,
+      sender,
+      receivers: recvrs,
+      messageId: h.message?.id  || '',
+      episode:   h.message?.episode || '',
+      parents:   h.message?.parents || [],
+      topic:     h.context?.topic  || '',
+      payload:   d.payload || null,
+      raw: d,
+    };
+  }
+  return null;
+}
+
+// ── Sequence diagram rendering ────────────────────────────────────────────────
+const SKIP_AGENTS = /^topic:/;
+const AGENT_ORDER = ['commercial-agent', 'liability-agent', 'cip-engine'];
+
+function collectAgents(msgs) {
+  const set = new Set();
+  for (const m of msgs) {
+    const info = extractL9Info(m);
+    if (!info) continue;
+    if (!SKIP_AGENTS.test(info.sender)) set.add(info.sender);
+    for (const r of info.receivers) if (!SKIP_AGENTS.test(r)) set.add(r);
+  }
+  const agents = [...set];
+  agents.sort((a, b) => {
+    const ai = AGENT_ORDER.indexOf(a), bi = AGENT_ORDER.indexOf(b);
+    if (ai < 0 && bi < 0) return a.localeCompare(b);
+    if (ai < 0) return 1; if (bi < 0) return -1;
+    return ai - bi;
+  });
+  return agents;
+}
+
+// ── Side panel ────────────────────────────────────────────────────────────────
+let _activeRow = -1;
+
+function dpField(k, v) {
+  return `<div class="dp-field"><span class="dk">${k}</span><span class="dv">${String(v).slice(0,300)}</span></div>`;
+}
+function dpSection(title, fields) {
+  if (!fields.length) return '';
+  return `<div class="dp-section">
+    <div class="dp-section-title">${title}</div>
+    ${fields.map(([k,v]) => dpField(k,v)).join('')}
+  </div>`;
+}
+
+function showDetail(idx, entry, info) {
+  if (_activeRow === idx) return;
+  // Highlight active row
+  if (_activeRow >= 0) document.getElementById('row-'+_activeRow)?.classList.remove('active');
+  _activeRow = idx;
+  document.getElementById('row-'+idx)?.classList.add('active');
+
+  const dpHeader = document.getElementById('dp-header');
+  const dpBody   = document.getElementById('dp-body');
+  const kind    = info?.kind || '—';
+  const sub     = info?.subprotocol || entry.phase;
+  const subkind = info?.subkind ? `:${info.subkind}` : '';
+  const kColor  = KIND_COLOR[kind]  || 'var(--muted)';
+  const kBg     = KIND_BG[kind]     || 'var(--border)';
+  const sColor  = SUB_COLOR[sub]    || 'var(--muted)';
+  const sBg     = SUB_BG[sub]       || 'var(--border)';
+
+  // ── Header ──
+  const sender   = info?.sender    || '—';
+  const recvrs   = info?.receivers || [];
+  const agentChip = (id, role) =>
+    `<span class="agent-chip">${agentIcon(id)} ${id} <span style="color:var(--muted)">${role}</span></span>`;
+
+  dpHeader.innerHTML = `
+    <div class="dp-step">#${String(idx+1).padStart(2,'0')} · ${entry.phase}</div>
+    <div class="dp-kind">
+      <span class="badge" style="background:${kBg};color:${kColor}">${kind}${subkind}</span>
+      <span class="badge" style="background:${sBg};color:${sColor}">${sub}</span>
+    </div>
+    <div class="dp-agents">
+      ${agentChip(sender, 'sender')}
+      ${recvrs.length ? '<span style="color:var(--muted)">→</span>' : ''}
+      ${recvrs.map(r => agentChip(r, 'receiver')).join('')}
+    </div>`;
+
+  // ── Body sections ──
+  let sections = '';
+
+  // L9 Header
+  const h = info?.raw?.header || {};
+  const hFields = [
+    ['protocol',    h.protocol],
+    ['subprotocol', h.subprotocol],
+    ['version',     h.version],
+    ['kind',        h.kind + (h.subkind ? ':'+h.subkind : '')],
+    ['message.id',  (h.message?.id||'').slice(0,12) + '…'],
+    ['episode',     (h.message?.episode||'').slice(-40)],
+    ['parents',     (h.message?.parents||[]).length
+                     ? h.message.parents.map(p=>p.slice(0,8)+'…').join(', ')
+                     : '[ ]'],
+    ['sensitivity', h.policy?.sensitivity],
+    ['propagation', h.policy?.propagation],
+    ['topic',       (h.context?.topic||'').slice(0,120)],
+  ].filter(([,v]) => v != null && v !== '' && v !== undefined);
+  sections += dpSection('L9 Header', hFields);
+
+  // Actors
+  const actors = h.participants?.actors || [];
+  if (actors.length) {
+    const aFields = actors.map(a => [a.role, `${agentIcon(a.id)} ${a.id}`]);
+    sections += dpSection('Participants', aFields);
+  }
+
+  // Payload
+  const d = info?.payload?.data;
+  if (d) {
+    const pFields = [];
+    const pick = (k, lbl) => { const v = d[k]; if (v != null && v !== '') pFields.push([lbl||k, typeof v==='object' ? JSON.stringify(v,null,2) : String(v)]); };
+    pick('operation'); pick('poll_id'); pick('reason');
+    if (d.task?.description) pFields.push(['task.description', d.task.description]);
+    if (d.task?.objective)   pFields.push(['task.objective',   d.task.objective]);
+    if (d.selection?.members)          pFields.push(['selected_agents', JSON.stringify(d.selection.members)]);
+    if (d.selection?.coverage   !=null) pFields.push(['coverage',       d.selection.coverage]);
+    if (d.selection?.aggregate_fit!=null) pFields.push(['aggregate_fit', d.selection.aggregate_fit]);
+    if (d.required_skills?.length) pFields.push(['required_skills', d.required_skills.map(s=>s.skill).join(', ')]);
+    if (d.utterance?.text)    pFields.push(['utterance.text',     d.utterance.text.slice(0,300)]);
+    if (d.utterance?.evidence) pFields.push(['utterance.evidence', JSON.stringify(d.utterance.evidence)]);
+    if (d.utterance?.addresses_evidence) pFields.push(['addresses_evidence', JSON.stringify(d.utterance.addresses_evidence)]);
+    if (d.belief?.prior    !=null) pFields.push(['belief.prior',    d.belief.prior]);
+    if (d.belief?.posterior!=null) pFields.push(['belief.posterior', d.belief.posterior]);
+    if (d.belief?.revision_cause) pFields.push(['revision_cause', d.belief.revision_cause]);
+    if (d.grounding?.repair_reason) pFields.push(['repair_reason', d.grounding.repair_reason]);
+    if (d.grounding?.contingency_score!=null) pFields.push(['contingency_score', d.grounding.contingency_score]);
+    if (d.grounding?.challenges?.length) pFields.push(['challenges', JSON.stringify(d.grounding.challenges)]);
+    const st = d.semantic_context?.sao_state;
+    if (st) {
+      pFields.push(['step',     st.step]);
+      pFields.push(['proposer', st.current_proposer]);
+      if (st.current_offer) pFields.push(['current_offer', JSON.stringify(st.current_offer)]);
+      if (st.n_outcomes)    pFields.push(['n_outcomes',    st.n_outcomes]);
+    }
+    if (d.semantic_context?.outcome) pFields.push(['outcome', d.semantic_context.outcome]);
+    if (d.final_agreement)  pFields.push(['final_agreement', JSON.stringify(d.final_agreement)]);
+    if (pFields.length) sections += dpSection('L9 Payload', pFields);
+  }
+
+  // A2A Message envelope
+  const a2a = entry.a2a_message || {};
+  if (a2a.message_id) {
+    const a2aFields = [
+      ['message_id',  a2a.message_id],
+      ['context_id',  a2a.context_id],
+      ['task_id',     a2a.task_id],
+      ['role',        a2a.role],
+    ].filter(([,v]) => v);
+    // Parts: text parts + media-type from data parts
+    const parts = a2a.parts || [];
+    parts.forEach((p, i) => {
+      if (p.type === 'text')  a2aFields.push([`part[${i}].text`, p.text?.slice(0, 200)]);
+      if (p.type === 'data')  a2aFields.push([`part[${i}].media_type`, p.media_type]);
+    });
+    sections += dpSection('A2A Message', a2aFields);
+  }
+
+  // Raw JSON
+  sections += `<div class="dp-section">
+    <details>
+      <summary>Raw JSON</summary>
+      <pre class="dp-raw-pre">${JSON.stringify({a2a_message: entry.a2a_message, decoded_l9: info?.raw || {}}, null, 2)}</pre>
+    </details>
+  </div>`;
+
+  dpBody.innerHTML = sections || `<div class="dp-empty">No payload data</div>`;
+}
+
+function renderSeqRow(entry, idx, info, agents, colMap) {
+  const N = agents.length;
+  const phase = entry.phase;
+  const kind  = info?.kind || '—';
+  const sub   = info?.subprotocol || phase;
+  const kColor = KIND_COLOR[kind]  || 'var(--muted)';
+  const kBg    = KIND_BG[kind]     || 'var(--border)';
+  const sColor = SUB_COLOR[sub]    || 'var(--muted)';
+  const subkindText = info?.subkind ? `:${info.subkind}` : '';
+
+  // Determine sender/receiver columns
+  const senderAgent = !SKIP_AGENTS.test(info?.sender||'') ? info?.sender : null;
+  const recvAgents  = (info?.receivers||[]).filter(r => !SKIP_AGENTS.test(r));
+  const sCol = senderAgent != null ? (colMap[senderAgent] ?? -1) : -1;
+  const rCols = recvAgents.map(r => colMap[r] ?? -1).filter(c => c >= 0);
+  const rCol  = rCols.length > 0 ? rCols[0] : -1;
+
+  // Build column cells
+  let colsHtml = '';
+  for (let i = 0; i < N; i++) {
+    const isSender   = i === sCol;
+    const isReceiver = rCols.includes(i);
+    colsHtml += `<div class="seq-col${isSender?' is-sender':''}${isReceiver?' is-receiver':''}"></div>`;
+  }
+
+  // Build arrow overlay
+  let arrowHtml = '';
+  if (sCol >= 0) {
+    // Column width as percentage
+    const colW = 100 / N;
+
+    if (rCol < 0 || rCol === sCol) {
+      // Self / broadcast — small loop indicator on sender column
+      const centerPct = (sCol + 0.5) * colW;
+      arrowHtml = `
+        <div class="seq-arrow-wrap" style="left:calc(${centerPct}% - 70px);width:140px;">
+          <div class="seq-arrow-inner">
+            <div class="arrow-label-row">
+              <span class="arrow-kind" style="color:${kColor}">${kind}${subkindText}</span>
+              <span class="arrow-sub">[broadcast]</span>
+            </div>
+            <div style="border:2px dashed ${kColor};border-radius:6px;padding:.2rem .6rem;font-size:.9rem;color:${kColor};white-space:nowrap;background:rgba(255,255,255,.6)">⟳ ${senderAgent||'?'}</div>
+          </div>
+        </div>`;
+    } else {
+      const leftToRight = rCol > sCol;
+      const fromPct = (Math.min(sCol, rCol) + 0.5) * colW;
+      const toPct   = (Math.max(sCol, rCol) + 0.5) * colW;
+      const leftPct = fromPct;
+      const widthPct = toPct - fromPct;
+
+      arrowHtml = `
+        <div class="seq-arrow-wrap" style="left:${leftPct}%;width:${widthPct}%;">
+          <div class="seq-arrow-inner">
+            <div class="arrow-label-row" style="${leftToRight ? '' : 'flex-direction:row-reverse'}">
+              <span class="arrow-kind" style="color:${kColor}">${kind}${subkindText}</span>
+              ${subBadge(sub)}
+            </div>
+            <div class="arrow-line-row" style="${leftToRight ? '' : 'flex-direction:row-reverse'}">
+              ${leftToRight ? '' : `<div class="arrow-head left" style="color:${kColor}"></div>`}
+              <div class="arrow-line" style="background:${kColor}"></div>
+              ${leftToRight ? `<div class="arrow-head right" style="color:${kColor}"></div>` : ''}
+            </div>
+          </div>
+        </div>`;
+    }
+  }
+
+  const id = idx;
+  return `
+<div class="seq-row" id="row-${id}" onmouseenter="showDetail(${id}, _msgs[${id}], _infos[${id}])">
+  <div class="seq-gutter">
+    <span class="seq-num">#${String(idx+1).padStart(2,'0')}</span>
+    <span class="seq-step-label">${entry.label}</span>
+    <div class="seq-badges">
+      ${kindBadge(kind)}
+    </div>
+  </div>
+  <div class="seq-cols">
+    ${colsHtml}
+    ${arrowHtml}
+  </div>
+</div>`;
+}
+
+function renderSequence(msgs) {
+  const agents = collectAgents(msgs);
+  const colMap = {};
+  agents.forEach((a, i) => colMap[a] = i);
+
+  // Store globally for hover access
+  window._msgs  = msgs;
+  window._infos = msgs.map(m => extractL9Info(m));
+
+  // Render agent headers
+  const headEl = document.getElementById('seq-head');
+  headEl.innerHTML = `<div class="seq-head-gutter">Step / Label</div>` +
+    agents.map(a => `
+      <div class="agent-hdr">
+        <span class="agent-hdr-icon">${agentIcon(a)}</span>
+        <div class="agent-hdr-name">${a}</div>
+      </div>`).join('');
+
+  // Stats bar
+  const counts = {};
+  msgs.forEach(m => counts[m.phase] = (counts[m.phase]||0)+1);
+  document.getElementById('stats-bar').innerHTML = [['Total', msgs.length], ...Object.entries(counts)]
+    .map(([l,n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+
+  // Message rows
+  let html = '';
+  let lastPhase = '';
+  const PHASE_NAMES = { TFP:'Team Formation', SIEP:'Legal Standard Alignment', CIP:'Contingency Repair', SAB:'Semantic Negotiation' };
+
+  msgs.forEach((m, i) => {
+    const info = extractL9Info(m);
+    if (m.phase !== lastPhase) {
+      lastPhase = m.phase;
+      const pc = PHASE_COLOR[m.phase] || 'var(--muted)';
+      html += `<div class="phase-sep">
+        <div class="phase-sep-gutter" style="color:${pc};font-size:.9rem;font-weight:700">
+          ${m.phase} — ${PHASE_NAMES[m.phase]||''}
+        </div>
+        <div class="phase-sep-line" style="background:${pc};opacity:.3"></div>
+      </div>`;
+    }
+    html += renderSeqRow(m, i, info, agents, colMap);
+  });
+
+  document.getElementById('seq-body').innerHTML = html;
+}
+
+function loadMessages() {
+  fetch('/messages')
+    .then(r => r.json())
+    .then(data => {
+      const msgs = data.episode_messages || [];
+      if (msgs.length) renderSequence(msgs);
+    })
+    .catch(err => appendConsole('[UI ERROR] ' + err));
+}
+
+// Load existing messages on page load
+window.addEventListener('DOMContentLoaded', () => {
+  fetch('/messages').then(r => r.ok ? r.json() : null)
+    .then(d => { if (d?.episode_messages?.length) loadMessages(); })
+    .catch(() => {});
+
+  // ── Resize handle drag logic ──
+  const handle = document.getElementById('resize-handle');
+  const panel  = document.getElementById('detail-panel');
+  let dragging = false, startX = 0, startW = 0;
+  handle.addEventListener('mousedown', e => {
+    dragging = true; startX = e.clientX; startW = panel.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta = startX - e.clientX;
+    const newW = Math.max(320, Math.min(900, startW + delta));
+    panel.style.width = newW + 'px';
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+  });
+});
+</script>
+</body>
+</html>
+"""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HTTP handler
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Handler(BaseHTTPRequestHandler):
+
+    def log_message(self, fmt, *args):  # silence default logging
+        pass
+
+    def do_GET(self):
+        path = urlparse(self.path).path
+
+        if path == "/" or path == "/index.html":
+            self._send_html()
+        elif path == "/run":
+            self._sse_run()
+        elif path == "/messages":
+            self._send_json()
+        else:
+            self.send_error(404)
+
+    # ── /  ────────────────────────────────────────────────────────────────────
+    def _send_html(self):
+        body = _HTML.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    # ── /messages  ────────────────────────────────────────────────────────────
+    def _send_json(self):
+        if not _MSG_JSON.exists():
+            body = b'{"episode_messages":[]}'
+        else:
+            body = _MSG_JSON.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
+    # ── /run  (SSE)  ──────────────────────────────────────────────────────────
+    def _sse_run(self):
+        global _demo_running
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+
+        with _run_lock:
+            if not _demo_running:
+                _demo_running = True
+                while not _demo_queue.empty():
+                    try: _demo_queue.get_nowait()
+                    except queue.Empty: break
+                threading.Thread(target=_stream_demo, daemon=True).start()
+
+        def _sse(event: str, data: str) -> bytes:
+            escaped = data.replace("\n", "\\n")
+            return f"event: {event}\ndata: {escaped}\n\n".encode()
+
+        try:
+            while True:
+                try:
+                    item = _demo_queue.get(timeout=30)
+                except queue.Empty:
+                    # keep-alive
+                    self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+                    continue
+
+                if item is None:
+                    self.wfile.write(_sse("done", ""))
+                    self.wfile.flush()
+                    break
+
+                self.wfile.write(_sse("line", item))
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Entry point
+# ─────────────────────────────────────────────────────────────────────────────
+
+def main():
+    server = HTTPServer(("0.0.0.0", PORT), Handler)
+    url = f"http://localhost:{PORT}"
+    print(f"  L9 Inspector  →  {url}")
+    print(f"  Press Ctrl-C to stop")
+    try:
+        import webbrowser
+        webbrowser.open(url)
+    except Exception:
+        pass
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n  Server stopped.")
+
+
+if __name__ == "__main__":
+    main()
