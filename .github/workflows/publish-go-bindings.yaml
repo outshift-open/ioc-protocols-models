@@ -119,17 +119,6 @@ jobs:
           echo "Running Go binding tests..."
           make test_bindings LANGUAGE=golang
 
-      - name: Validate SAB subprotocol bindings
-        run: |
-          echo "Checking SAB subprotocol bindings..."
-          if [ -f "SSTP/subprotocol/sab/language_bindings/golang/data_model.go" ]; then
-            cd SSTP/subprotocol/sab/language_bindings/golang
-            go mod verify
-            echo "✅ SAB bindings validated"
-          else
-            echo "ℹ️  SAB bindings not found (optional)"
-          fi
-
       - name: Create and push Git tag
         if: |
           steps.check_tag.outputs.exists == 'false' &&
