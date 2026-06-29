@@ -284,7 +284,7 @@ After this, two tags exist on the remote:
 
 ## Go Module Usage (Consumers)
 
-> ⚠️ **Important:** Versions v0.0.2 through v0.0.5 are deprecated and will not work. Please use v0.0.6 or later.
+> **Recommended:** Use v0.0.6 or later for Go module consumption.
 
 ### Install the module:
 
