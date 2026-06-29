@@ -128,13 +128,13 @@ finalize_docs() {
     <div class="bindings">
         <h2>Language Bindings</h2>
         <ul>
-            <li><strong>Go:</strong> <code>go get github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang@v$version</code></li>
+            <li><strong>Go:</strong> <code>go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v$version</code></li>
         </ul>
     </div>
 
     <hr style="margin: 40px 0;">
     <footer>
-        <p><strong>Repository:</strong> <a href="https://github.com/cisco-eti/ioc-protocols-models">https://github.com/cisco-eti/ioc-protocols-models</a></p>
+        <p><strong>Repository:</strong> <a href="https://github.com/outshift-open/ioc-protocols-models">https://github.com/outshift-open/ioc-protocols-models</a></p>
     </footer>
 </body>
 </html>
