@@ -110,10 +110,11 @@ class LocalStateReplica:
                 ).get("deferred_to")
                 break
 
-        # topic: header["topic"] (new format) with fallback to epistemic["concept_id"]
+        # topic: context.topic with fallback to context.epistemic.concept_id
+        _ctx: dict = header.get("context") or {}
         topic: Optional[str] = (
-            header.get("topic")
-            or (header.get("epistemic") or {}).get("concept_id")
+            _ctx.get("topic")
+            or (_ctx.get("epistemic") or {}).get("concept_id")
         ) or None
 
         entry = ReplicaEntry(
@@ -121,7 +122,7 @@ class LocalStateReplica:
             sender=sender,
             sequence=seq,
             timestamp_ms=_parse_timestamp_ms(header),
-            epistemic=header.get("epistemic"),
+            epistemic=_ctx.get("epistemic"),
             operation=operation,
             posterior=posterior,
             contingency_verified=contingency_verified,

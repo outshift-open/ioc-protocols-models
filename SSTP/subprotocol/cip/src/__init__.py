@@ -19,9 +19,17 @@ from .message import (
     get_part,
 )
 from .tom import TheoryOfMindEngineBase, normalize_alignment, normalize_tom_snapshot
-from .cip_payload import CIPMessagePayload
-from .builder import CIPMessageBuilder
-from .processor import CIPProcessor
+from .cip_payload import CIPMessagePayload, RepairReason
+
+# CIPMessageBuilder and CIPProcessor depend on the ai.outshift.data_model pydantic
+# wheel from SSTP/language_bindings/python.  Guard so the rest of the package
+# imports cleanly without the wheel on sys.path.
+try:
+    from .builder import CIPMessageBuilder
+    from .processor import CIPProcessor
+    _BUILDER_AVAILABLE = True
+except ImportError:
+    _BUILDER_AVAILABLE = False
 
 __all__ = [
     "TheoryOfMindEngineBase",
@@ -44,6 +52,7 @@ __all__ = [
     "contingency_check",
     "diagnose_repair_reason",
     "CIPMessagePayload",
+    "RepairReason",
     "CIPMessageBuilder",
     "CIPProcessor",
 ]

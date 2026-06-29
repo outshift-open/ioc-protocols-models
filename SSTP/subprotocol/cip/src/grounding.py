@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Set
 
-from SSTP.subprotocol.cip.src.builder import RepairReason
+from SSTP.subprotocol.cip.src.cip_payload import RepairReason
 
 # Minimum overlap fraction between A's concept_ids and B's addresses_evidence
 # for the response to be considered contingent.

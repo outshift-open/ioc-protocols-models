@@ -12,7 +12,7 @@ from typing import List, Optional
 import json
 import uuid
 
-from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, ParticipantSet, Context, Semantic, Epistemic
+from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, ParticipantSet, Context, Semantic, Epistemic  # noqa: E402 — requires language_bindings/python on sys.path
 from SSTP.subprotocol.cip.src.cip_payload import (
     CIPBeliefBlock,
     CIPGroundingBlock,
@@ -20,19 +20,16 @@ from SSTP.subprotocol.cip.src.cip_payload import (
     CIPUtteranceBlock,
     CIP_ONTOLOGY_REF,
     CIP_SCHEMA_URN,
+    RepairReason as _RepairReasonBase,
 )
+
+
+RepairReason = _RepairReasonBase  # re-export from cip_payload (no wheel dep)
 
 
 class Kind(str, Enum):
     contingency = "contingency"
     commit = "commit"
-
-
-class RepairReason(str, Enum):
-    grounding_failure = "grounding_failure"
-    scope_mismatch = "scope_mismatch"
-    ungroundable_novelty = "ungroundable_novelty"
-    delivery_failure = "delivery_failure"
 
 
 class RevisionCause(str, Enum):
@@ -63,7 +60,8 @@ class CIPUtterance:
     text: Optional[str] = None
     evidence: List[str] = field(default_factory=list)
     addresses_evidence: List[str] = field(default_factory=list)
-    turn_depth: int = 0
+    ring_round: int = 0
+    repair_depth: int = 0
 
 
 @dataclass
@@ -201,7 +199,8 @@ class CIPMessageBuilder:
                 text=self._text or internal.utterance.text,
                 evidence=list(internal.utterance.evidence),
                 addresses_evidence=list(internal.utterance.addresses_evidence),
-                turn_depth=internal.utterance.turn_depth,
+                ring_round=internal.utterance.ring_round,
+                repair_depth=internal.utterance.repair_depth,
             ),
             grounding=CIPGroundingBlock(
                 contingency_verified=internal.grounding.contingency_verified,

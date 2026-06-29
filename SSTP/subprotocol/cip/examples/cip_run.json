@@ -42,7 +42,7 @@
           "text": "repair_required:reason=scope_mismatch:target=msg-bad-scope",
           "evidence": [],
           "addresses_evidence": [],
-          "turn_depth": 0
+          "ring_round": 0
         },
         "grounding": {
           "contingency_verified": false,
@@ -109,7 +109,7 @@
             "concept:task_objective",
             "urn:concept:task_objective:deliverable_spec"
           ],
-          "turn_depth": 1
+          "ring_round": 1
         },
         "grounding": {
           "contingency_verified": false,
@@ -177,7 +177,7 @@
             "concept:task_objective",
             "urn:concept:task_objective:deliverable_spec"
           ],
-          "turn_depth": 1
+          "ring_round": 1
         },
         "grounding": {
           "contingency_verified": null,
@@ -242,7 +242,7 @@
             "concept:task_objective",
             "urn:concept:task_objective:deliverable_spec"
           ],
-          "turn_depth": 1
+          "ring_round": 1
         },
         "grounding": {
           "contingency_verified": true,

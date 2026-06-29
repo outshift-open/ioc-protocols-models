@@ -19,7 +19,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 from SSTP.subprotocol.siep.src.tomcore.llm import LLMClient
-from SSTP.subprotocol.siep.src.tom import TheoryOfMindEngineBase
+from SSTP.subprotocol.cip.src.tom import TheoryOfMindEngineBase
 from SSTP.subprotocol.siep.src.epistemic.stores import AgentEpistemicStore
 
 LOGGER = logging.getLogger("ioc")
@@ -137,9 +137,12 @@ class AgentTOM:
                          confidence_before: Optional[float] = None,
                          speaker_epistemic: Optional[Dict[str, Any]] = None,
                          listener_prior_epistemic: Optional[Dict[str, Any]] = None,
+                         belief_store: Optional[Any] = None,
+                         concept_id: str = "",
+                         use_case: str = "",
                          ) -> Dict[str, Any]:
         """Grounding check: structural when epistemic blocks available, LLM fallback otherwise."""
-        from SSTP.subprotocol.siep.src.grounding import contingency_check, diagnose_repair_reason
+        from SSTP.subprotocol.cip.src.grounding import contingency_check, diagnose_repair_reason
         has_concepts = (
             bool((speaker_epistemic or {}).get("scope") or
                  (speaker_epistemic or {}).get("addresses_evidence"))
@@ -148,6 +151,9 @@ class AgentTOM:
         if has_concepts:
             verified, score = contingency_check(listener_prior_epistemic, speaker_epistemic)
             repair = diagnose_repair_reason(listener_prior_epistemic, speaker_epistemic)
+            # Structural check covers scope/evidence contingency; call LLM for ambiguity
+            # which the structural path cannot detect.
+            amb = self.detect_ambiguity(utterance=utterance, task_goal=task_goal)
             return {
                 "aligned": verified,
                 "alignment_score": score,
@@ -156,8 +162,8 @@ class AgentTOM:
                 "derailment_cause": repair.value if repair is not None else None,
                 "grounding_failure": not verified,
                 "contingency_score": score,
-                "ambiguous": False,
-                "ambiguity_score": 0.0,
+                "ambiguous": amb.get("ambiguous", False),
+                "ambiguity_score": amb.get("ambiguity_score", 0.0),
                 "judge_confidence": 1.0,
                 "critique": "structural_grounding_check",
             }
@@ -204,14 +210,40 @@ class AgentTOM:
         return verdict
 
     def assess_task_alignment(self, task_goal: str = "", utterance: str = "") -> Dict[str, Any]:
-        """Deprecated. epistemic_state in L9 header carries phase classification."""
-        return {"actor": self.agent_id, "task_goal": task_goal,
-                "aligned": True, "alignment_score": 0.5, "rationale": "structural"}
+        if not utterance:
+            return {"actor": self.agent_id, "task_goal": task_goal,
+                    "aligned": True, "alignment_score": 1.0, "rationale": "empty-utterance"}
+        result = self._llm.complete_json("assess_task_alignment", {
+            "agent_id": self.agent_id,
+            "task_goal": task_goal,
+            "utterance": utterance,
+        })
+        alignment_score = round(max(0.0, min(1.0, float(
+            result.get("alignment_score", 0.65)))), 4)
+        return {
+            "actor": self.agent_id,
+            "task_goal": task_goal,
+            "aligned": bool(result.get("aligned", alignment_score >= 0.5)),
+            "alignment_score": alignment_score,
+            "rationale": str(result.get("rationale", "")),
+        }
 
     def detect_ambiguity(self, utterance: str = "", task_goal: str = "") -> Dict[str, Any]:
-        """Deprecated. diagnose_repair_reason() in grounding.py covers this."""
-        return {"ambiguous": False, "ambiguity_score": 0.0,
-                "ambiguous_spans": [], "plausible_interpretations": []}
+        if not utterance:
+            return {"ambiguous": False, "ambiguity_score": 0.0,
+                    "ambiguous_spans": [], "plausible_interpretations": []}
+        result = self._llm.complete_json("detect_ambiguity", {
+            "utterance": utterance,
+            "task_goal": task_goal,
+            "agent_id": self.agent_id,
+        })
+        return {
+            "ambiguous": bool(result.get("ambiguous", False)),
+            "ambiguity_score": round(max(0.0, min(1.0, float(
+                result.get("ambiguity_score", 0.0)))), 4),
+            "ambiguous_spans": result.get("ambiguous_spans", []),
+            "plausible_interpretations": result.get("plausible_interpretations", []),
+        }
 
     def peer_alignment(self, peer_id: str = "", task_goal: str = "",
                        peer_belief_override: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -279,10 +311,8 @@ class AgentTOM:
 
         self._peer_beliefs[peer_id] = updated_peer
 
-        # Alignment score used for both prediction error and peer EMA
-        alignment_score = float(
-            self.assess_task_alignment(task_goal, utterance).get("alignment_score", 0.5)
-        )
+        # Use the alignment_score passed in by the caller (from assess_utterance),
+        # not the stub assess_task_alignment() which always returned 0.5.
         self._peer_ema[peer_id] = round(
             _EMA_ALPHA * alignment_score + (1 - _EMA_ALPHA) * self._peer_ema.get(peer_id, 1.0),
             4,
@@ -485,9 +515,11 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
 
     def detect_ambiguity(self, utterance: str, task_goal: str,
                          agent_id: Optional[str] = None) -> Dict[str, Any]:
-        """Deprecated. diagnose_repair_reason() in grounding.py covers this."""
-        return {"ambiguous": False, "ambiguity_score": 0.0,
-                "ambiguous_spans": [], "plausible_interpretations": []}
+        _id = agent_id or next(iter(self._agent_toms), None)
+        if _id is None:
+            return {"ambiguous": False, "ambiguity_score": 0.0,
+                    "ambiguous_spans": [], "plausible_interpretations": []}
+        return self.agent(_id).detect_ambiguity(utterance, task_goal)
 
     def update(self, view: Dict[str, Any], utterance: str,
                task_goal: str, actor: str = "agent") -> Dict[str, Any]:
@@ -509,9 +541,11 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
 
     def assess_task_alignment(self, actor: str, task_goal: str, utterance: str,
                                schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Deprecated. epistemic_state in L9 header carries phase classification."""
-        return {"actor": actor, "task_goal": task_goal,
-                "aligned": True, "alignment_score": 0.5, "rationale": "structural"}
+        _id = actor if actor in self._agent_toms else next(iter(self._agent_toms), None)
+        if _id is None:
+            return {"actor": actor, "task_goal": task_goal,
+                    "aligned": True, "alignment_score": 0.65, "rationale": "no-agents"}
+        return self.agent(_id).assess_task_alignment(task_goal=task_goal, utterance=utterance)
 
     def ie_utterance_judge(
         self,
