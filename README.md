@@ -328,6 +328,19 @@ git ls-remote --tags origin | grep "SSTP/language_bindings/golang"
 
 ## Go Module Publishing (Maintainers)
 
+Go modules are published via GitHub Actions workflow. Two methods available:
+
+### GitHub Actions (Recommended)
+
+1. Go to **Actions** → **"Publish Go Module Bindings"**
+2. Click **"Run workflow"**
+3. Optionally specify version (or use schema version)
+4. Creates tag: `SSTP/language_bindings/golang/v{version}`
+
+See [`.github/workflows/publish-go-bindings.yaml`](.github/workflows/publish-go-bindings.yaml) for details.
+
+### Command Line (Alternative)
+
 ```bash
 # Validate only (no tag created, nothing pushed)
 make publish_bindings LANGUAGE=golang
@@ -336,7 +349,7 @@ make publish_bindings LANGUAGE=golang
 ./SSTP/language_bindings/publish_bindings.sh golang --tag
 ```
 
-Tag format: `SSTP/language_bindings/golang/v{version}`
+### Local Development
 
 Without tagging, local development uses `replace` directives in `go.mod`:
 
