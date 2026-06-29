@@ -1,13 +1,29 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
 [build-system]
 requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "ioc-l9"
-version = "0.1.0"
+name = "ioc-l9-all-models"
+version = "0.0.2"
 description = "IOC L9 Protocol Package"
-authors = []
-packages = [{include = "SSTP"}]
+authors = ["Outshift Open <oss@cisco.com>"]
+readme = "PACKAGE.md"
+license = "Apache-2.0"
+keywords = ["ioc", "l9", "protocols", "ai"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+packages = [{include = "ai"}]
+
+[tool.poetry.urls]
+"Homepage" = "https://github.com/outshift-open/ioc-protocols-models"
+"Repository" = "https://github.com/outshift-open/ioc-protocols-models"
+"Bug Tracker" = "https://github.com/outshift-open/ioc-protocols-models/issues"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
@@ -17,6 +33,7 @@ litellm = ">=1.89.3"
 urllib3 = ">=2.7.0"
 langgraph = ">=1.1.4"
 python-dotenv = ">=1.0.0,<2.0"
+a2a-sdk = "^1.1.0"
 
 [tool.poetry.group.dev.dependencies]
 datamodel-code-generator = ">=0.25.0"

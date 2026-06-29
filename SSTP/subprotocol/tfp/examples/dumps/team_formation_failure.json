@@ -1,0 +1,1166 @@
+{
+  "schema": "ioc.tfp.message_dump.v1",
+  "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae",
+  "poll_id": "urn:ioc:tfp:poll:83829a3f",
+  "message_count": 15,
+  "generated_at": "2026-06-24T05:55:19.967500+00:00",
+  "messages": [
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "intent",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "7b5b7060-c70b-4b17-bd53-50a82e9a6972",
+          "parents": [],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "poll_open",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "task": {
+            "task_id": "incident-4471",
+            "description": "Triage a suspicious-login security incident across SIEM + endpoint data",
+            "objective": "Confirm or dismiss compromise within 30 minutes"
+          },
+          "required_skills": [
+            {
+              "skill": "skill:log_triage",
+              "min_proficiency": 0.7,
+              "weight": 2.0,
+              "mandatory": true
+            },
+            {
+              "skill": "skill:threat_intel",
+              "min_proficiency": 0.6,
+              "weight": 1.5,
+              "mandatory": true
+            },
+            {
+              "skill": "skill:host_forensics",
+              "min_proficiency": 0.6,
+              "weight": 1.0,
+              "mandatory": false
+            },
+            {
+              "skill": "skill:quantum_forensics",
+              "min_proficiency": 0.9,
+              "weight": 1.0,
+              "mandatory": true
+            }
+          ],
+          "reasoning_summary": "Need log triage + threat intel; host forensics is a nice-to-have."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "comms-bot",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "ce065ece-2ba2-4a1e-8543-78b394640eb8",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "decline",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "reason": "None of my skills match the required skills for this poll."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "log-analyst",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "cd7598c9-2aa3-4a4c-ad35-6780b9b9d575",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:log_triage",
+                "proficiency": 0.92
+              },
+              {
+                "skill": "skill:siem_query",
+                "proficiency": 0.8
+              }
+            ],
+            "fit_score": 0.9
+          },
+          "reasoning_summary": "fit≈0.3345"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "threat-intel",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "30334dae-6dfc-41ac-bcbd-4cb90517888c",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:threat_intel",
+                "proficiency": 0.88
+              },
+              {
+                "skill": "skill:ioc_enrichment",
+                "proficiency": 0.85
+              }
+            ],
+            "fit_score": 0.82
+          },
+          "reasoning_summary": "fit≈0.24"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "forensics",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "1667c842-86f9-418b-8269-7fffb7379fd3",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:host_forensics",
+                "proficiency": 0.9
+              },
+              {
+                "skill": "skill:log_triage",
+                "proficiency": 0.6
+              }
+            ],
+            "fit_score": 0.7
+          },
+          "reasoning_summary": "fit≈0.1636"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "intel-2",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "cd29d444-a2aa-4285-a7e3-f777c6f5b8eb",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:threat_intel",
+                "proficiency": 0.72
+              }
+            ],
+            "fit_score": 0.7
+          },
+          "reasoning_summary": "fit≈0.1964"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "slow-intel",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "intel-2",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "bbc83b9a-ccf9-4c50-8932-930960dea049",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "bid",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "offer": {
+            "skills": [
+              {
+                "skill": "skill:threat_intel",
+                "proficiency": 0.99
+              }
+            ],
+            "fit_score": 0.95
+          },
+          "reasoning_summary": "fit≈0.27"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "intel-2",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "slow-intel",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "9503327c-cb16-49a7-a81d-543606dc192e",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "select",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "selection": {
+            "members": [
+              "log-analyst",
+              "threat-intel"
+            ],
+            "roles": [
+              {
+                "agent_id": "log-analyst",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:log_triage"
+                ]
+              },
+              {
+                "agent_id": "threat-intel",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:threat_intel"
+                ]
+              }
+            ],
+            "coverage": 0.6667,
+            "unmet_skills": [
+              "skill:quantum_forensics"
+            ],
+            "aggregate_fit": 0.2873
+          }
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "log-analyst",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "intel-2",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "slow-intel",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "d454d960-9e03-407a-bf0c-cb067e31647a",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "accept",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "reason": "Skills match the task and I have capacity this shift."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "intel-2",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "slow-intel",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "838941c3-baab-46e9-b01b-638944ec0371",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "select",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "selection": {
+            "members": [
+              "log-analyst",
+              "threat-intel"
+            ],
+            "roles": [
+              {
+                "agent_id": "log-analyst",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:log_triage"
+                ]
+              },
+              {
+                "agent_id": "threat-intel",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:threat_intel"
+                ]
+              }
+            ],
+            "coverage": 0.6667,
+            "unmet_skills": [
+              "skill:quantum_forensics"
+            ],
+            "aggregate_fit": 0.2873
+          }
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "threat-intel",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "intel-2",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "slow-intel",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "3849f0fa-7996-4ac5-b141-3717f28d6ebb",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "reject",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "reason": "Already committed to incident-4470 this shift; at capacity."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "intel-2",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "slow-intel",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "c5ff385f-185d-4941-88d8-d4c6363ae90a",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "select",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "selection": {
+            "members": [
+              "log-analyst",
+              "intel-2"
+            ],
+            "roles": [
+              {
+                "agent_id": "log-analyst",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:log_triage"
+                ]
+              },
+              {
+                "agent_id": "intel-2",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:threat_intel"
+                ]
+              }
+            ],
+            "coverage": 0.6667,
+            "unmet_skills": [
+              "skill:quantum_forensics"
+            ],
+            "aggregate_fit": 0.2655
+          }
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "intel-2",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "recruiter",
+              "role": "receiver",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "slow-intel",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "e5758893-2937-4647-b160-dcc195f44297",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "accept",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "reason": "Skills match the task and I have capacity this shift."
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "exchange",
+        "subkind": "team-formation",
+        "participants": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "intel-2",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "slow-intel",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "5743d90e-ef68-4b55-9b9d-b9c5daa4ac97",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "re_poll",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [
+            {
+              "skill": "skill:quantum_forensics",
+              "min_proficiency": 0.9,
+              "weight": 1.0,
+              "mandatory": true
+            }
+          ],
+          "reasoning_summary": "re_poll: mandatory skills uncovered: skill:quantum_forensics"
+        }
+      }
+    },
+    {
+      "header": {
+        "protocol": "SSTP",
+        "subprotocol": "TFP",
+        "version": "0",
+        "kind": "commit",
+        "subkind": "abort",
+        "participants": {
+          "actors": [
+            {
+              "id": "recruiter",
+              "role": "sender",
+              "attestation": null
+            },
+            {
+              "id": "comms-bot",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "log-analyst",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "threat-intel",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "forensics",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "intel-2",
+              "role": "participant",
+              "attestation": null
+            },
+            {
+              "id": "slow-intel",
+              "role": "participant",
+              "attestation": null
+            }
+          ],
+          "groups": null
+        },
+        "message": {
+          "id": "ba6b300c-573b-4f5c-bffe-0aab6ac8d490",
+          "parents": [
+            "7b5b7060-c70b-4b17-bd53-50a82e9a6972"
+          ],
+          "episode": "6c3eb58c-a9e6-40e8-a0b9-dcce9e3d3aae"
+        },
+        "policy": null,
+        "context": {
+          "topic": "Forming a team to Triage a suspicious-login security incident across SIEM + endpoint data",
+          "epistemic": null,
+          "semantic": null
+        }
+      },
+      "payload": {
+        "type": "json-schema",
+        "data": {
+          "operation": "form_failed",
+          "poll_id": "urn:ioc:tfp:poll:83829a3f",
+          "required_skills": [],
+          "selection": {
+            "members": [
+              "log-analyst",
+              "intel-2"
+            ],
+            "roles": [
+              {
+                "agent_id": "log-analyst",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:log_triage"
+                ]
+              },
+              {
+                "agent_id": "intel-2",
+                "role": "contributor",
+                "responsible_for": [
+                  "skill:threat_intel"
+                ]
+              }
+            ],
+            "coverage": 0.6667,
+            "unmet_skills": [
+              "skill:quantum_forensics"
+            ],
+            "aggregate_fit": 0.2655
+          },
+          "reasoning_summary": "coverage=0.6667 aggregate_fit=0.2655"
+        }
+      }
+    }
+  ]
+}

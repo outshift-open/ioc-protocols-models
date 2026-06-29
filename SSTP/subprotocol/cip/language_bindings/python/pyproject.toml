@@ -1,0 +1,20 @@
+# Copyright 2026 Cisco Systems, Inc. and its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "ai-outshift-subprotocols-cip"
+# NOTE: version is auto-stamped by `make build_cip_wheel` from SSTP/subprotocol/cip/schema/cip_payload.schema.json "version" field.
+# If building manually, bump this to match the CIP schema version.
+version = "0.0.1"
+description = "IOC CIP Subprotocol Data Models"
+authors = []
+packages = [{include = "ai"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+pydantic = ">=2.0"

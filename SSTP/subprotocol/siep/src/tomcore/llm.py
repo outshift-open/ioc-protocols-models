@@ -48,20 +48,24 @@ class LiteLLMClient(LLMClient):
         self.model = model or os.environ.get("LLM_MODEL", _DEFAULT_MODEL)
         self.temperature = temperature
         self._api_key = os.environ.get("LLM_API_KEY") or None
-        self._base_url = os.environ.get("LLM_BASE_URL") or None
+        self._base_url = os.environ.get("LLM_API_BASE") or os.environ.get("LLM_BASE_URL") or None
 
     def complete_json(self, task: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         from SSTP.subprotocol.siep.src.tomcore.litellm_util import litellm_completion_compat
 
+        # Force OpenAI-compatible routing through proxy when base_url is set
+        model = self.model
+        if self._base_url and model and not model.startswith("openai/"):
+            model = f"openai/{model}"
+
         user_msg = f"Task: {task}\nPayload:\n{json.dumps(payload, indent=2)}"
         kwargs: Dict[str, Any] = {
-            "model": self.model,
+            "model": model,
             "messages": [
                 {"role": "system", "content": _SYSTEM_PROMPT},
                 {"role": "user",   "content": user_msg},
             ],
             "temperature": self.temperature,
-            "response_format": {"type": "json_object"},
         }
         if self._api_key:
             kwargs["api_key"] = self._api_key
