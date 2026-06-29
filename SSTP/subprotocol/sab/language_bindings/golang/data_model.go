@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"reflect"
 
-	l9 "github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang"
+	l9 "github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang"
 )
 
 // Semantic context for kind='commit' messages that finalize a negotiation.
