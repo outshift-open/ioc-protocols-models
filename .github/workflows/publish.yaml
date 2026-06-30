@@ -128,7 +128,8 @@ jobs:
 
   publish-go:
     name: Publish Go Module Bindings
-    # Only run on tag pushes, not on PRs
+    # Only run on tag pushes, not on PRs, and only after Python publish succeeds
+    needs: publish-python
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
