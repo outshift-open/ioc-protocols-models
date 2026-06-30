@@ -283,6 +283,34 @@ _HTML = r"""<!DOCTYPE html>
     background: var(--bg); color: var(--text); font-size: .9rem; cursor: pointer; width: 100%; margin-top: .4rem; }
   #pb-progress { height: 4px; background: var(--border); border-radius: 2px; margin-top: .5rem; overflow: hidden; }
   #pb-progress-bar { height: 100%; background: var(--accent); border-radius: 2px; transition: width .3s; }
+
+  /* ── Right panel: A2A → L9 nesting ── */
+  .a2a-outer { border: 2px solid #334 !important; }
+  .a2a-outer > .dp-section-title {
+    background: #1e2235; color: #a8b4d0; display: flex; align-items: center; gap: .5rem; }
+  .a2a-outer > .dp-section-title .a2a-subtitle {
+    font-weight: 400; opacity: .65; text-transform: none; letter-spacing: 0; font-size: .82rem; }
+
+  .l9-envelope {
+    margin: .5rem; border: 2px solid var(--accent);
+    border-radius: .45rem; background: #f0f1ff; overflow: hidden; }
+  .l9-envelope-label {
+    background: var(--accent); color: #fff; padding: .28rem .7rem;
+    font-size: .83rem; font-weight: 700; display: flex; align-items: center; gap: .4rem; }
+  .l9-envelope-label code {
+    background: rgba(255,255,255,.22); border-radius: .25rem;
+    padding: .05rem .3rem; font-size: .8rem; font-weight: 400; }
+  .l9-envelope-body { padding: .4rem; display: flex; flex-direction: column; gap: .4rem; }
+
+  .l9-inner { border: 1px solid #c7d2fe !important; background: #fff !important;
+    box-shadow: none !important; border-radius: .4rem !important; }
+  .l9-inner > .dp-section-title { background: #e8ecff; color: var(--accent);
+    border-bottom-color: #c7d2fe; }
+
+  .participants-nested { margin: .3rem .4rem .4rem; border: 1px solid #dde1f0;
+    border-radius: .35rem; overflow: hidden; background: #fafbff; }
+  .participants-nested > .dp-section-title { background: #f2f4ff; color: var(--muted);
+    font-size: .82rem; padding: .3rem .6rem; border-bottom: 1px solid #dde1f0; }
 </style>
 </head>
 <body>
@@ -551,10 +579,12 @@ function showDetail(idx, entry, info) {
     </div>`;
 
   // ── Body sections ──
-  let sections = '';
+  // Structure: A2A (outer) → L9 Envelope (nested) → { L9 Header + Participants, L9 Payload }
 
-  // L9 Header
   const h = info?.raw?.header || {};
+  const a2a = entry.a2a_message || {};
+
+  // ── L9 Header fields ──
   const hFields = [
     ['protocol',    h.protocol],
     ['subprotocol', h.subprotocol],
@@ -569,25 +599,33 @@ function showDetail(idx, entry, info) {
     ['propagation', h.policy?.propagation],
     ['topic',       (h.context?.topic||'').slice(0,120)],
   ].filter(([,v]) => v != null && v !== '' && v !== undefined);
-  sections += dpSection('L9 Header', hFields);
 
-  // Actors
+  // ── Participants (nested inside L9 Header) ──
   const actors = h.participants?.actors || [];
-  if (actors.length) {
-    const aFields = actors.map(a => [a.role, `${agentIcon(a.id)} ${a.id}`]);
-    sections += dpSection('Participants', aFields);
-  }
+  const participantsHtml = actors.length ? `
+    <div class="participants-nested">
+      <div class="dp-section-title">👥 Participants</div>
+      ${actors.map(a => dpField(a.role, `${agentIcon(a.id)} ${a.id}`)).join('')}
+    </div>` : '';
 
-  // Payload
+  const l9HeaderHtml = hFields.length ? `
+    <div class="dp-section l9-inner">
+      <div class="dp-section-title">🗂 L9 Header</div>
+      ${hFields.map(([k,v]) => dpField(k,v)).join('')}
+      ${participantsHtml}
+    </div>` : '';
+
+  // ── L9 Payload ──
   const d = info?.payload?.data;
+  let l9PayloadHtml = '';
   if (d) {
     const pFields = [];
     const pick = (k, lbl) => { const v = d[k]; if (v != null && v !== '') pFields.push([lbl||k, typeof v==='object' ? JSON.stringify(v,null,2) : String(v)]); };
     pick('operation'); pick('poll_id'); pick('reason');
     if (d.task?.description) pFields.push(['task.description', d.task.description]);
     if (d.task?.objective)   pFields.push(['task.objective',   d.task.objective]);
-    if (d.selection?.members)          pFields.push(['selected_agents', JSON.stringify(d.selection.members)]);
-    if (d.selection?.coverage   !=null) pFields.push(['coverage',       d.selection.coverage]);
+    if (d.selection?.members)           pFields.push(['selected_agents', JSON.stringify(d.selection.members)]);
+    if (d.selection?.coverage    !=null) pFields.push(['coverage',       d.selection.coverage]);
     if (d.selection?.aggregate_fit!=null) pFields.push(['aggregate_fit', d.selection.aggregate_fit]);
     if (d.required_skills?.length) pFields.push(['required_skills', d.required_skills.map(s=>s.skill).join(', ')]);
     if (d.utterance?.text)    pFields.push(['utterance.text',     d.utterance.text.slice(0,300)]);
@@ -608,28 +646,43 @@ function showDetail(idx, entry, info) {
     }
     if (d.semantic_context?.outcome) pFields.push(['outcome', d.semantic_context.outcome]);
     if (d.final_agreement)  pFields.push(['final_agreement', JSON.stringify(d.final_agreement)]);
-    if (pFields.length) sections += dpSection('L9 Payload', pFields);
+    if (pFields.length) l9PayloadHtml = `
+      <div class="dp-section l9-inner">
+        <div class="dp-section-title">📋 L9 Payload</div>
+        ${pFields.map(([k,v]) => dpField(k,v)).join('')}
+      </div>`;
   }
 
-  // A2A Message envelope
-  const a2a = entry.a2a_message || {};
-  if (a2a.message_id) {
-    const a2aFields = [
-      ['message_id',  a2a.message_id],
-      ['context_id',  a2a.context_id],
-      ['task_id',     a2a.task_id],
-      ['role',        a2a.role],
-    ].filter(([,v]) => v);
-    // Parts: text parts + media-type from data parts
-    const parts = a2a.parts || [];
-    parts.forEach((p, i) => {
-      if (p.type === 'text')  a2aFields.push([`part[${i}].text`, p.text?.slice(0, 200)]);
-      if (p.type === 'data')  a2aFields.push([`part[${i}].media_type`, p.media_type]);
-    });
-    sections += dpSection('A2A Message', a2aFields);
-  }
+  // ── L9 Envelope (wraps Header + Payload, sits inside A2A) ──
+  const mediaType = (a2a.parts||[]).find(p => p.type==='data')?.media_type || 'application/l9+json';
+  const l9EnvelopeHtml = (l9HeaderHtml || l9PayloadHtml) ? `
+    <div class="l9-envelope">
+      <div class="l9-envelope-label">📦 data part · <code>${mediaType}</code> — L9 Envelope</div>
+      <div class="l9-envelope-body">
+        ${l9HeaderHtml}
+        ${l9PayloadHtml}
+      </div>
+    </div>` : '';
 
-  // Raw JSON
+  // ── A2A Message (outermost card) ──
+  const a2aMetaFields = [
+    ['message_id', a2a.message_id],
+    ['context_id', a2a.context_id],
+    ['task_id',    a2a.task_id],
+    ['role',       a2a.role],
+  ].filter(([,v]) => v);
+  (a2a.parts||[]).forEach((p, i) => {
+    if (p.type === 'text') a2aMetaFields.push([`part[${i}].text`, p.text?.slice(0, 200)]);
+  });
+
+  let sections = `
+    <div class="dp-section a2a-outer">
+      <div class="dp-section-title">🚌 A2A Message <span class="a2a-subtitle">transport envelope</span></div>
+      ${a2aMetaFields.map(([k,v]) => dpField(k,v)).join('')}
+      ${l9EnvelopeHtml}
+    </div>`;
+
+  // ── Raw JSON ──
   sections += `<div class="dp-section">
     <details>
       <summary>Raw JSON</summary>
