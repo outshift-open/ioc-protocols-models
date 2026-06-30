@@ -50,8 +50,10 @@ User Input → [Parse] → [l9_message_gen] → [l9_validate] → Output
 - After l9_message_gen returns, you MUST immediately invoke l9_validate in the SAME response.
 - Do NOT output the generated message to the user and wait.
 - Do NOT stop between generation and validation.
+- Do NOT produce ANY user-facing text between the two Skill tool calls. No logs, no status updates, no markdown — nothing visible to the user until BOTH skills have completed.
 - Both skill invocations MUST happen in a single assistant turn — no pausing, no intermediate output to the user.
 - Only produce the final formatted output AFTER both skills have completed.
+- If you find yourself about to end your turn after l9_message_gen returns, STOP — you are not done. Invoke l9_validate immediately before producing any output.
 
 ## Constraints
 
