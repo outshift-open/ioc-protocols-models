@@ -8,6 +8,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from SSTP.subprotocol.common.data_models.drift_dectection import DriftDetectionOutput
+
 SIEP_SCHEMA_URN = "urn:ioc:siep:payload:v1"
 SIEP_ONTOLOGY_REF = "protocol/ontology/siep_ontology.ttl"
 
@@ -39,6 +41,7 @@ class SIEPMessagePayload(BaseModel):
     utterance: SIEPUtteranceBlock = SIEPUtteranceBlock()
     grounding: SIEPGroundingBlock = SIEPGroundingBlock()
     belief: SIEPBeliefBlock = SIEPBeliefBlock()
+    drift_detection: Optional[DriftDetectionOutput] = None  # optional drift detection output
 
 
 __all__ = [
