@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SAB subprotocol public API — re-exports from SSTP.subprotocol.sab."""
+"""SAB subprotocol public API — re-exports from ai.outshift.sab."""
 
-from SSTP.subprotocol.sab.language_bindings.python.ai.outshift.sab.data_model import (
+from ai.outshift.sab.data_model import (
     SAB,
     SABHeader,
     SABPayload,

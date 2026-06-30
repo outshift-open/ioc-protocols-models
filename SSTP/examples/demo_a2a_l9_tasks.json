@@ -1,16 +1,16 @@
 {
   "tasks": [
     {
-      "id": "01ed5cb7-98d3-4cea-9dc8-0df56d61c27e",
-      "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
+      "id": "0d3fddb9-91c8-4b84-9765-ffebcecb25e5",
+      "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
       "status": {
         "state": "TASK_STATE_COMPLETED"
       },
       "history": [
         {
-          "message_id": "51ae81eb-96c7-4efe-86b0-24c2e5478f93",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "01ed5cb7-98d3-4cea-9dc8-0df56d61c27e",
+          "message_id": "8bbda21e-8136-407b-ae6c-9ef71bcca612",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "0d3fddb9-91c8-4b84-9765-ffebcecb25e5",
           "role": "ROLE_USER",
           "parts": [
             {
@@ -18,67 +18,67 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": null,
-                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "intent",
-                  "subkind": "team-formation",
-                  "subprotocol": "TFP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "6b92b0f9-22fc-4f7f-bbf8-dda851330ed9",
-                    "parents": []
-                  },
-                  "attributes": null
-                },
                 "payload": {
                   "data": {
-                    "poll_id": "urn:ioc:tfp:poll:9c56dbfa",
-                    "operation": "poll_open",
                     "reasoning_summary": "Need contract_law + indemnity + GDPR for cross-jurisdiction SaaS review.",
                     "required_skills": [
                       {
-                        "min_proficiency": 0.8,
-                        "skill": "skill:contract_law",
                         "mandatory": true,
+                        "skill": "skill:contract_law",
+                        "min_proficiency": 0.8,
                         "weight": 2.0
                       },
                       {
-                        "min_proficiency": 0.7,
-                        "skill": "skill:indemnity_analysis",
                         "mandatory": true,
+                        "skill": "skill:indemnity_analysis",
+                        "min_proficiency": 0.7,
                         "weight": 1.5
                       },
                       {
-                        "min_proficiency": 0.6,
-                        "skill": "skill:gdpr_compliance",
                         "mandatory": false,
+                        "skill": "skill:gdpr_compliance",
+                        "min_proficiency": 0.6,
                         "weight": 1.0
                       }
                     ],
+                    "poll_id": "urn:ioc:tfp:poll:ff1c8646",
+                    "operation": "poll_open",
                     "task": {
+                      "task_id": "task:saas-contract-review",
                       "description": "Review cross-jurisdiction SaaS enterprise agreement",
-                      "objective": "Align on material breach definition then resolve damages scope",
-                      "task_id": "task:saas-contract-review"
+                      "objective": "Align on material breach definition then resolve damages scope"
                     }
                   },
                   "type": "json-schema"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": null,
+                  "kind": "intent",
+                  "policy": null,
+                  "subprotocol": "TFP",
+                  "version": "0",
+                  "message": {
+                    "id": "41f81af0-0e63-431b-8238-073610a17abf",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": []
+                  },
+                  "subkind": "team-formation",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": null,
+                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -86,9 +86,9 @@
           ]
         },
         {
-          "message_id": "12a31f91-7daf-4df4-82f5-1fca5b6c73fc",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "01ed5cb7-98d3-4cea-9dc8-0df56d61c27e",
+          "message_id": "50222130-35c9-4356-b30c-ec864b046bb2",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "0d3fddb9-91c8-4b84-9765-ffebcecb25e5",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -96,47 +96,11 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": null,
-                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "receiver"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "exchange",
-                  "subkind": "team-formation",
-                  "subprotocol": "TFP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "b55b5441-8ddc-4699-8006-261c30e62a72",
-                    "parents": [
-                      "6b92b0f9-22fc-4f7f-bbf8-dda851330ed9"
-                    ]
-                  },
-                  "attributes": null
-                },
                 "payload": {
                   "data": {
+                    "reasoning_summary": "fit\u22480.5867",
                     "offer": {
                       "availability": 0.9,
-                      "fit_score": 0.88,
                       "skills": [
                         {
                           "skill": "skill:contract_law",
@@ -146,14 +110,50 @@
                           "skill": "skill:gdpr_compliance",
                           "proficiency": 0.8
                         }
-                      ]
+                      ],
+                      "fit_score": 0.88
                     },
-                    "operation": "bid",
-                    "poll_id": "urn:ioc:tfp:poll:9c56dbfa",
-                    "reasoning_summary": "fit\u22480.5867",
-                    "required_skills": []
+                    "required_skills": [],
+                    "poll_id": "urn:ioc:tfp:poll:ff1c8646",
+                    "operation": "bid"
                   },
                   "type": "json-schema"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": null,
+                  "kind": "exchange",
+                  "policy": null,
+                  "subprotocol": "TFP",
+                  "version": "0",
+                  "message": {
+                    "id": "58271ff9-803e-4036-b523-e66d8bf28f79",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": [
+                      "41f81af0-0e63-431b-8238-073610a17abf"
+                    ]
+                  },
+                  "subkind": "team-formation",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": null,
+                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -161,9 +161,9 @@
           ]
         },
         {
-          "message_id": "29402a98-80ab-4bbf-9b6d-b8e18c393d94",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "01ed5cb7-98d3-4cea-9dc8-0df56d61c27e",
+          "message_id": "ac6c860e-955b-4ca9-9cd4-bdad381a5feb",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "0d3fddb9-91c8-4b84-9765-ffebcecb25e5",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -171,47 +171,11 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": null,
-                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "liability-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "receiver"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "exchange",
-                  "subkind": "team-formation",
-                  "subprotocol": "TFP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "cc533afd-75cc-47b0-a057-afa0c9b1318a",
-                    "parents": [
-                      "6b92b0f9-22fc-4f7f-bbf8-dda851330ed9"
-                    ]
-                  },
-                  "attributes": null
-                },
                 "payload": {
                   "data": {
+                    "reasoning_summary": "fit\u22480.2933",
                     "offer": {
                       "availability": 0.8,
-                      "fit_score": 0.75,
                       "skills": [
                         {
                           "skill": "skill:indemnity_analysis",
@@ -221,14 +185,50 @@
                           "skill": "skill:contract_law",
                           "proficiency": 0.72
                         }
-                      ]
+                      ],
+                      "fit_score": 0.75
                     },
-                    "operation": "bid",
-                    "poll_id": "urn:ioc:tfp:poll:9c56dbfa",
-                    "reasoning_summary": "fit\u22480.2933",
-                    "required_skills": []
+                    "required_skills": [],
+                    "poll_id": "urn:ioc:tfp:poll:ff1c8646",
+                    "operation": "bid"
                   },
                   "type": "json-schema"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": null,
+                  "kind": "exchange",
+                  "policy": null,
+                  "subprotocol": "TFP",
+                  "version": "0",
+                  "message": {
+                    "id": "ed7b02da-f390-4de3-a2a3-d7904b3502c3",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": [
+                      "41f81af0-0e63-431b-8238-073610a17abf"
+                    ]
+                  },
+                  "subkind": "team-formation",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": null,
+                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -236,9 +236,9 @@
           ]
         },
         {
-          "message_id": "00015eab-f83e-4de9-83e5-3db9f44dd2ac",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "01ed5cb7-98d3-4cea-9dc8-0df56d61c27e",
+          "message_id": "551858a0-f77c-46e0-bacd-c4a381051c32",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "0d3fddb9-91c8-4b84-9765-ffebcecb25e5",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -246,58 +246,19 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": null,
-                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "receiver"
-                      },
-                      {
-                        "id": "liability-agent",
-                        "attestation": null,
-                        "role": "receiver"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "exchange",
-                  "subkind": "team-formation",
-                  "subprotocol": "TFP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "05614081-0e1e-4c85-92fe-6e1767ed7462",
-                    "parents": [
-                      "6b92b0f9-22fc-4f7f-bbf8-dda851330ed9"
-                    ]
-                  },
-                  "attributes": null
-                },
                 "payload": {
                   "data": {
-                    "poll_id": "urn:ioc:tfp:poll:9c56dbfa",
-                    "operation": "select",
                     "reasoning_summary": "coverage=1.0 fit=0.44",
                     "required_skills": [],
+                    "poll_id": "urn:ioc:tfp:poll:ff1c8646",
                     "selection": {
+                      "unmet_skills": [],
+                      "coverage": 1.0,
                       "members": [
                         "commercial-agent",
                         "liability-agent"
                       ],
+                      "aggregate_fit": 0.44,
                       "roles": [
                         {
                           "responsible_for": [
@@ -315,135 +276,52 @@
                           "agent_id": "liability-agent",
                           "role": "contributor"
                         }
-                      ],
-                      "unmet_skills": [],
-                      "coverage": 1.0,
-                      "aggregate_fit": 0.44
-                    }
+                      ]
+                    },
+                    "operation": "select"
                   },
                   "type": "json-schema"
-                }
-              },
-              "media_type": "application/vnd.sstp.l9+json"
-            }
-          ]
-        },
-        {
-          "message_id": "4dccc809-ecf1-45a1-aad3-783fba4c716e",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "01ed5cb7-98d3-4cea-9dc8-0df56d61c27e",
-          "role": "ROLE_AGENT",
-          "parts": [
-            {
-              "text": "L9/TFP/exchange:team-formation"
-            },
-            {
-              "data": {
+                },
                 "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": null,
-                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement"
-                  },
                   "protocol": "SSTP",
+                  "attributes": null,
+                  "kind": "exchange",
+                  "policy": null,
+                  "subprotocol": "TFP",
                   "version": "0",
+                  "message": {
+                    "id": "2913a177-c0a1-4df7-ae06-ea6f4d29de95",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": [
+                      "41f81af0-0e63-431b-8238-073610a17abf"
+                    ]
+                  },
+                  "subkind": "team-formation",
                   "participants": {
+                    "groups": null,
                     "actors": [
                       {
-                        "id": "commercial-agent",
                         "attestation": null,
+                        "id": "commercial-agent",
                         "role": "sender"
                       },
                       {
-                        "id": "commercial-agent",
                         "attestation": null,
+                        "id": "commercial-agent",
                         "role": "receiver"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "exchange",
-                  "subkind": "team-formation",
-                  "subprotocol": "TFP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "dc54a6d4-3ba6-4a8b-98cc-64f24835e4e1",
-                    "parents": [
-                      "6b92b0f9-22fc-4f7f-bbf8-dda851330ed9"
-                    ]
-                  },
-                  "attributes": null
-                },
-                "payload": {
-                  "data": {
-                    "reason": "Confirmed\u2014I accept my role on the cross-jurisdiction SaaS review team. My expertise covers SaaS enterprise agreement structuring and negotiation, contractual material breach analysis under common law and civil law frameworks, and GDPR/data protection compliance across EU and international jurisdictions.",
-                    "operation": "accept",
-                    "poll_id": "urn:ioc:tfp:poll:9c56dbfa",
-                    "required_skills": []
-                  },
-                  "type": "json-schema"
-                }
-              },
-              "media_type": "application/vnd.sstp.l9+json"
-            }
-          ]
-        },
-        {
-          "message_id": "2e7bf9d1-383a-438b-89cf-db82520481a7",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "01ed5cb7-98d3-4cea-9dc8-0df56d61c27e",
-          "role": "ROLE_AGENT",
-          "parts": [
-            {
-              "text": "L9/TFP/exchange:team-formation"
-            },
-            {
-              "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": null,
-                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
+                      },
                       {
+                        "attestation": null,
                         "id": "liability-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
                         "role": "receiver"
                       }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "exchange",
-                  "subkind": "team-formation",
-                  "subprotocol": "TFP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "b92cf5ba-e020-40ba-a171-1d6c349fd7d5",
-                    "parents": [
-                      "6b92b0f9-22fc-4f7f-bbf8-dda851330ed9"
                     ]
                   },
-                  "attributes": null
-                },
-                "payload": {
-                  "data": {
-                    "reason": "Confirmed\u2014I accept my role on the cross-jurisdiction SaaS review team. My expertise covers consequential damages clauses (including exclusion and carve-out drafting), SLA breach thresholds and remedy escalation frameworks, and cross-jurisdiction indemnity analysis addressing conflicts of law, cap enforceability, and varying standards for indirect loss recovery across common-law and civil-law regimes.",
-                    "operation": "accept",
-                    "poll_id": "urn:ioc:tfp:poll:9c56dbfa",
-                    "required_skills": []
-                  },
-                  "type": "json-schema"
+                  "context": {
+                    "semantic": null,
+                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -451,9 +329,131 @@
           ]
         },
         {
-          "message_id": "703b0804-1de3-4636-8bfb-ea14ec48c136",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "01ed5cb7-98d3-4cea-9dc8-0df56d61c27e",
+          "message_id": "64de32ff-f0d3-4933-ba97-a94f66d0bdce",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "0d3fddb9-91c8-4b84-9765-ffebcecb25e5",
+          "role": "ROLE_AGENT",
+          "parts": [
+            {
+              "text": "L9/TFP/exchange:team-formation"
+            },
+            {
+              "data": {
+                "payload": {
+                  "data": {
+                    "reason": "Contract law and GDPR expertise confirmed; joining review team.",
+                    "required_skills": [],
+                    "poll_id": "urn:ioc:tfp:poll:ff1c8646",
+                    "operation": "accept"
+                  },
+                  "type": "json-schema"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": null,
+                  "kind": "exchange",
+                  "policy": null,
+                  "subprotocol": "TFP",
+                  "version": "0",
+                  "message": {
+                    "id": "6c8f2847-24be-4b30-a3ea-ace5afd5cc28",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": [
+                      "41f81af0-0e63-431b-8238-073610a17abf"
+                    ]
+                  },
+                  "subkind": "team-formation",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": null,
+                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement",
+                    "epistemic": null
+                  }
+                }
+              },
+              "media_type": "application/vnd.sstp.l9+json"
+            }
+          ]
+        },
+        {
+          "message_id": "2eb03888-3fa7-4190-8358-2fbad8f7f886",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "0d3fddb9-91c8-4b84-9765-ffebcecb25e5",
+          "role": "ROLE_AGENT",
+          "parts": [
+            {
+              "text": "L9/TFP/exchange:team-formation"
+            },
+            {
+              "data": {
+                "payload": {
+                  "data": {
+                    "reason": "Indemnity and damages analysis skills ready; joining review team.",
+                    "required_skills": [],
+                    "poll_id": "urn:ioc:tfp:poll:ff1c8646",
+                    "operation": "accept"
+                  },
+                  "type": "json-schema"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": null,
+                  "kind": "exchange",
+                  "policy": null,
+                  "subprotocol": "TFP",
+                  "version": "0",
+                  "message": {
+                    "id": "84dec52c-4162-4a60-b629-6606cc944756",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": [
+                      "41f81af0-0e63-431b-8238-073610a17abf"
+                    ]
+                  },
+                  "subkind": "team-formation",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": null,
+                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement",
+                    "epistemic": null
+                  }
+                }
+              },
+              "media_type": "application/vnd.sstp.l9+json"
+            }
+          ]
+        },
+        {
+          "message_id": "e3cf67f9-2f75-4702-95ef-a9ca71daa28b",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "0d3fddb9-91c8-4b84-9765-ffebcecb25e5",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -461,48 +461,19 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": null,
-                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "commit",
-                  "subkind": "converged",
-                  "subprotocol": "TFP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "9f172511-1541-48f5-93d2-7646b49d9f4a",
-                    "parents": [
-                      "6b92b0f9-22fc-4f7f-bbf8-dda851330ed9"
-                    ]
-                  },
-                  "attributes": null
-                },
                 "payload": {
                   "data": {
-                    "poll_id": "urn:ioc:tfp:poll:9c56dbfa",
-                    "operation": "form_converged",
                     "reasoning_summary": "Team formed: ['commercial-agent', 'liability-agent']",
                     "required_skills": [],
+                    "poll_id": "urn:ioc:tfp:poll:ff1c8646",
                     "selection": {
+                      "unmet_skills": [],
+                      "coverage": 1.0,
                       "members": [
                         "commercial-agent",
                         "liability-agent"
                       ],
+                      "aggregate_fit": 0.44,
                       "roles": [
                         {
                           "responsible_for": [
@@ -520,13 +491,42 @@
                           "agent_id": "liability-agent",
                           "role": "contributor"
                         }
-                      ],
-                      "unmet_skills": [],
-                      "coverage": 1.0,
-                      "aggregate_fit": 0.44
-                    }
+                      ]
+                    },
+                    "operation": "form_converged"
                   },
                   "type": "json-schema"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": null,
+                  "kind": "commit",
+                  "policy": null,
+                  "subprotocol": "TFP",
+                  "version": "0",
+                  "message": {
+                    "id": "369555f9-9356-4edc-b75b-93abca888925",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": [
+                      "41f81af0-0e63-431b-8238-073610a17abf"
+                    ]
+                  },
+                  "subkind": "converged",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": null,
+                    "topic": "Forming a team to Review cross-jurisdiction SaaS enterprise agreement",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -536,16 +536,16 @@
       ]
     },
     {
-      "id": "25256f7a-56e3-4ec8-b90c-736d28ef6b6a",
-      "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
+      "id": "6525f92b-4eee-4325-8ce9-48e89a7a6e98",
+      "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
       "status": {
         "state": "TASK_STATE_WORKING"
       },
       "history": [
         {
-          "message_id": "d1b0160b-81c7-4ef3-a749-bd2b29cea87a",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "25256f7a-56e3-4ec8-b90c-736d28ef6b6a",
+          "message_id": "9b72d04f-2d76-4e6d-adb5-462a9e7faf1b",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "6525f92b-4eee-4325-8ce9-48e89a7a6e98",
           "role": "ROLE_USER",
           "parts": [
             {
@@ -553,70 +553,76 @@
             },
             {
               "data": {
+                "payload": {
+                  "data": {
+                    "belief": {
+                      "revision_cause": null,
+                      "posterior": 0.5,
+                      "prior": 0.5
+                    },
+                    "utterance": {
+                      "addresses_evidence": [],
+                      "repair_depth": 0.0,
+                      "text": null,
+                      "ring_round": 0.0,
+                      "evidence": []
+                    },
+                    "grounding": {
+                      "contingency_verified": null,
+                      "repair_reason": null,
+                      "contingency_score": null,
+                      "challenges": []
+                    }
+                  },
+                  "type": "siep"
+                },
                 "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "epistemic": {
+                      "epistemic_kind": "siep",
+                      "state": "team_process",
+                      "message_act": null,
+                      "uncertainty": 0.0,
+                      "belief_status": null,
+                      "concept_id": "concept:material_breach"
+                    },
+                    "utterance_text": null
+                  },
+                  "kind": "intent",
+                  "policy": null,
+                  "subprotocol": "SIEP",
+                  "version": "0.0.3",
+                  "message": {
+                    "id": "c0dafad2-c438-4c3c-9c92-50ef5389fb5b",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": []
+                  },
+                  "subkind": null,
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
                   "context": {
-                    "epistemic": null,
                     "semantic": {
                       "provenance": null,
                       "ontology_ref": "protocol/ontology/siep_ontology.ttl",
                       "schema_id": "urn:ioc:siep:payload:v1"
                     },
-                    "topic": "concept:material_breach"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0.0.3",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "intent",
-                  "subkind": null,
-                  "subprotocol": "SIEP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "1e573648-2a4c-4417-a7b1-90378a123303",
-                    "parents": []
-                  },
-                  "attributes": {
-                    "utterance_text": null,
-                    "epistemic": {
-                      "belief_status": null,
-                      "state": "team_process",
-                      "concept_id": "concept:material_breach",
-                      "uncertainty": 0.0,
-                      "message_act": null,
-                      "epistemic_kind": "siep"
-                    }
+                    "topic": "concept:material_breach",
+                    "epistemic": null
                   }
-                },
-                "payload": {
-                  "data": {
-                    "belief": {
-                      "prior": 0.5,
-                      "revision_cause": null,
-                      "posterior": 0.5
-                    },
-                    "grounding": {
-                      "challenges": [],
-                      "contingency_verified": null,
-                      "repair_reason": null,
-                      "contingency_score": null
-                    },
-                    "utterance": {
-                      "evidence": [],
-                      "addresses_evidence": [],
-                      "text": null,
-                      "turn_depth": 0.0
-                    }
-                  },
-                  "type": "siep"
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -624,9 +630,9 @@
           ]
         },
         {
-          "message_id": "f52422be-eb22-45f3-918b-8fcded752678",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "25256f7a-56e3-4ec8-b90c-736d28ef6b6a",
+          "message_id": "37829ba7-9697-4bd3-9de7-522bc6b2e260",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "6525f92b-4eee-4325-8ce9-48e89a7a6e98",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -634,75 +640,81 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": {
-                      "provenance": null,
-                      "ontology_ref": "protocol/ontology/siep_ontology.ttl",
-                      "schema_id": "urn:ioc:siep:payload:v1"
-                    },
-                    "topic": "concept:material_breach"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0.0.3",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "exchange",
-                  "subkind": null,
-                  "subprotocol": "SIEP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "369241bb-8898-42c0-98b2-c08cb53940c5",
-                    "parents": [
-                      "1e573648-2a4c-4417-a7b1-90378a123303"
-                    ]
-                  },
-                  "attributes": {
-                    "utterance_text": null,
-                    "epistemic": {
-                      "belief_status": "asserted",
-                      "state": "taskwork",
-                      "concept_id": "concept:material_breach",
-                      "uncertainty": 0.0,
-                      "message_act": "assertion",
-                      "epistemic_kind": "siep"
-                    }
-                  }
-                },
                 "payload": {
                   "data": {
                     "belief": {
-                      "prior": 0.8,
                       "revision_cause": "semantic_memory",
-                      "posterior": 0.8
-                    },
-                    "grounding": {
-                      "challenges": [],
-                      "contingency_verified": null,
-                      "repair_reason": null,
-                      "contingency_score": null
+                      "posterior": 0.8,
+                      "prior": 0.8
                     },
                     "utterance": {
+                      "addresses_evidence": [],
+                      "repair_depth": 0.0,
+                      "text": "Confirmed: concept:material_breach \u2014 SLA uptime clause 14.2 breach satisfies the contract-law material breach threshold.",
+                      "ring_round": 0.0,
                       "evidence": [
                         "concept:material_breach",
                         "concept:sla_breach_threshold"
-                      ],
-                      "addresses_evidence": [],
-                      "text": "A material breach under contract law occurs when a party fails to perform a substantial obligation that goes to the essence of the agreement, depriving the non-breaching party of the benefit it reasonably expected\u2014applied to SLA clause 14.2, this means a failure to maintain the guaranteed uptime threshold (typically 99.9%) constitutes a material breach because continuous service availability is a fundamental obligation upon which the customer's reliance and the contract's core value depend. The non-breaching party would, upon such failure and any applicable cure-period expiration, be entitled to invoke termination rights and seek remedies (including service credits or damages) as specified under clause 14.2 and the agreement's general breach provisions.",
-                      "turn_depth": 0.0
+                      ]
+                    },
+                    "grounding": {
+                      "contingency_verified": null,
+                      "repair_reason": null,
+                      "contingency_score": null,
+                      "challenges": []
                     }
                   },
                   "type": "siep"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "epistemic": {
+                      "epistemic_kind": "siep",
+                      "state": "taskwork",
+                      "message_act": "assertion",
+                      "uncertainty": 0.0,
+                      "belief_status": "asserted",
+                      "concept_id": "concept:material_breach"
+                    },
+                    "utterance_text": null
+                  },
+                  "kind": "exchange",
+                  "policy": null,
+                  "subprotocol": "SIEP",
+                  "version": "0.0.3",
+                  "message": {
+                    "id": "2ebb4cd4-ec5c-493d-b123-8994930fd3a6",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": [
+                      "c0dafad2-c438-4c3c-9c92-50ef5389fb5b"
+                    ]
+                  },
+                  "subkind": null,
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": {
+                      "provenance": null,
+                      "ontology_ref": "protocol/ontology/siep_ontology.ttl",
+                      "schema_id": "urn:ioc:siep:payload:v1"
+                    },
+                    "topic": "concept:material_breach",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -710,9 +722,9 @@
           ]
         },
         {
-          "message_id": "49d2ffe8-bea6-41a3-9455-fd1bcdbdab4e",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "25256f7a-56e3-4ec8-b90c-736d28ef6b6a",
+          "message_id": "ae991abb-fa2b-487d-b2d5-64210dafb40a",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "6525f92b-4eee-4325-8ce9-48e89a7a6e98",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -720,74 +732,80 @@
             },
             {
               "data": {
+                "payload": {
+                  "data": {
+                    "belief": {
+                      "revision_cause": "semantic_memory",
+                      "posterior": 0.6,
+                      "prior": 0.6
+                    },
+                    "utterance": {
+                      "addresses_evidence": [],
+                      "repair_depth": 0.0,
+                      "text": "My analysis aligns on concept:substantial_performance: vendor's 3-week delivery constitutes substantial performance under tort doctrine.",
+                      "ring_round": 0.0,
+                      "evidence": [
+                        "concept:substantial_performance"
+                      ]
+                    },
+                    "grounding": {
+                      "contingency_verified": null,
+                      "repair_reason": null,
+                      "contingency_score": null,
+                      "challenges": []
+                    }
+                  },
+                  "type": "siep"
+                },
                 "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "epistemic": {
+                      "epistemic_kind": "siep",
+                      "state": "taskwork",
+                      "message_act": "assertion",
+                      "uncertainty": 0.0,
+                      "belief_status": "asserted",
+                      "concept_id": "concept:substantial_performance"
+                    },
+                    "utterance_text": null
+                  },
+                  "kind": "exchange",
+                  "policy": null,
+                  "subprotocol": "SIEP",
+                  "version": "0.0.3",
+                  "message": {
+                    "id": "84d5ba43-75ec-43db-af12-606787e7a0b1",
+                    "episode": "urn:ioc:episode:ee07b378-11aa-4f74-8213-af16a444473f",
+                    "parents": [
+                      "c0dafad2-c438-4c3c-9c92-50ef5389fb5b"
+                    ]
+                  },
+                  "subkind": null,
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
                   "context": {
-                    "epistemic": null,
                     "semantic": {
                       "provenance": null,
                       "ontology_ref": "protocol/ontology/siep_ontology.ttl",
                       "schema_id": "urn:ioc:siep:payload:v1"
                     },
-                    "topic": "concept:substantial_performance"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0.0.3",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "liability-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "exchange",
-                  "subkind": null,
-                  "subprotocol": "SIEP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:a60e55a3-e8e5-47a0-a186-5bcb411033da",
-                    "id": "05c45af7-1985-45e2-88bb-0b2c1339425a",
-                    "parents": [
-                      "1e573648-2a4c-4417-a7b1-90378a123303"
-                    ]
-                  },
-                  "attributes": {
-                    "utterance_text": null,
-                    "epistemic": {
-                      "belief_status": "asserted",
-                      "state": "taskwork",
-                      "concept_id": "concept:substantial_performance",
-                      "uncertainty": 0.0,
-                      "message_act": "assertion",
-                      "epistemic_kind": "siep"
-                    }
+                    "topic": "concept:substantial_performance",
+                    "epistemic": null
                   }
-                },
-                "payload": {
-                  "data": {
-                    "belief": {
-                      "prior": 0.6,
-                      "revision_cause": "semantic_memory",
-                      "posterior": 0.6
-                    },
-                    "grounding": {
-                      "challenges": [],
-                      "contingency_verified": null,
-                      "repair_reason": null,
-                      "contingency_score": null
-                    },
-                    "utterance": {
-                      "evidence": [
-                        "concept:substantial_performance"
-                      ],
-                      "addresses_evidence": [],
-                      "text": "I believe that under the material breach analysis, the obligor's delivery of 92% of contracted services by the Day 60 milestone satisfies the substantial performance doctrine, meaning the non-breaching party cannot terminate but is limited to damages for the 8% shortfall\u2014essentially, if the performance timeline shows near-complete delivery within the cure period, no material breach has occurred. I'm confident this framework applies because the timeline demonstrates the promisor acted in good faith toward completion, which should preclude the aggrieved party from invoking termination rights or consequential damages caps.",
-                      "turn_depth": 0.0
-                    }
-                  },
-                  "type": "siep"
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -797,16 +815,16 @@
       ]
     },
     {
-      "id": "22d41124-a2ff-418c-810d-5c7ebe93fe4c",
-      "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
+      "id": "28c36569-40d7-4002-bca9-b5fdab22f647",
+      "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
       "status": {
         "state": "TASK_STATE_COMPLETED"
       },
       "history": [
         {
-          "message_id": "4b9b2a1a-2c0d-4f31-8a88-8c207d50849b",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "22d41124-a2ff-418c-810d-5c7ebe93fe4c",
+          "message_id": "91d78b6b-eef8-473c-bc60-d14e748e50bc",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "28c36569-40d7-4002-bca9-b5fdab22f647",
           "role": "ROLE_USER",
           "parts": [
             {
@@ -814,67 +832,73 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": {},
-                    "semantic": {
-                      "provenance": null,
-                      "ontology_ref": "protocol/ontology/cip_ontology.ttl",
-                      "schema_id": "urn:ioc:cip:payload:v1"
+                "payload": {
+                  "data": {
+                    "belief": {
+                      "revision_cause": null,
+                      "posterior": 0.5,
+                      "prior": 0.5
                     },
-                    "topic": "concept:material_breach"
+                    "utterance": {
+                      "addresses_evidence": [],
+                      "repair_depth": 0.0,
+                      "text": "repair_required:reason=scope_mismatch:target=liability-agent",
+                      "ring_round": 0.0,
+                      "evidence": []
+                    },
+                    "grounding": {
+                      "contingency_verified": false,
+                      "repair_reason": "scope_mismatch",
+                      "contingency_score": 0.0,
+                      "challenges": [
+                        "concept:material_breach",
+                        "concept:sla_breach_threshold"
+                      ]
+                    }
                   },
+                  "type": "cip"
+                },
+                "header": {
                   "protocol": "SSTP",
-                  "version": "0.0.3",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "contingency",
-                  "subkind": null,
-                  "subprotocol": "CIP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:cip:fb6af687-3455-42df-aa05-fce25e0773dc",
-                    "id": "607d1b79-ae8a-4525-8bb9-a4f8498170d3",
-                    "parents": [
-                      "05c45af7-1985-45e2-88bb-0b2c1339425a"
-                    ]
-                  },
                   "attributes": {
                     "utterance_text": "repair_required:reason=scope_mismatch:target=liability-agent"
-                  }
-                },
-                "payload": {
-                  "data": {
-                    "belief": {
-                      "prior": 0.5,
-                      "revision_cause": null,
-                      "posterior": 0.5
-                    },
-                    "grounding": {
-                      "challenges": [
-                        "concept:material_breach",
-                        "concept:sla_breach_threshold"
-                      ],
-                      "contingency_verified": false,
-                      "repair_reason": "scope_mismatch",
-                      "contingency_score": 0.0
-                    },
-                    "utterance": {
-                      "evidence": [],
-                      "addresses_evidence": [],
-                      "text": "repair_required:reason=scope_mismatch:target=liability-agent",
-                      "turn_depth": 0.0
-                    }
                   },
-                  "type": "cip"
+                  "kind": "contingency",
+                  "policy": null,
+                  "subprotocol": "CIP",
+                  "version": "0.0.3",
+                  "message": {
+                    "id": "992f58d0-5c4b-4e2e-b09a-e5acd9894069",
+                    "episode": "urn:ioc:cip:69a4f229-52ac-4d5e-8f5b-31adbb337431",
+                    "parents": [
+                      "84d5ba43-75ec-43db-af12-606787e7a0b1"
+                    ]
+                  },
+                  "subkind": null,
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": {
+                      "provenance": null,
+                      "ontology_ref": "protocol/ontology/cip_ontology.ttl",
+                      "schema_id": "urn:ioc:cip:payload:v1"
+                    },
+                    "topic": "concept:material_breach",
+                    "epistemic": {}
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -882,9 +906,9 @@
           ]
         },
         {
-          "message_id": "2bee1797-df96-4d5e-b569-b8087e81b0d6",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "22d41124-a2ff-418c-810d-5c7ebe93fe4c",
+          "message_id": "b2359672-6a9b-4d12-a31a-dcfe2e6b8ff6",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "28c36569-40d7-4002-bca9-b5fdab22f647",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -892,72 +916,78 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": {},
-                    "semantic": {
-                      "provenance": null,
-                      "ontology_ref": "protocol/ontology/cip_ontology.ttl",
-                      "schema_id": "urn:ioc:cip:payload:v1"
-                    },
-                    "topic": "concept:material_breach"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0.0.3",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "cip-engine",
-                        "attestation": null,
-                        "role": "sender"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "contingency",
-                  "subkind": null,
-                  "subprotocol": "CIP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:cip:fb6af687-3455-42df-aa05-fce25e0773dc",
-                    "id": "5a969bc1-0708-474f-b57d-1c8c327b4ed9",
-                    "parents": [
-                      "607d1b79-ae8a-4525-8bb9-a4f8498170d3"
-                    ]
-                  },
-                  "attributes": {
-                    "utterance_text": "I need to flag a critical issue. We have identified a material breach condition that requires an immediate hard stop on this engagement. All activities under this agreement must cease until the breach is formally addressed and remediated. Please confirm receipt and acknowledge suspension of operations pending resolution. reason=scope_mismatch; address=['concept:material_breach', 'concept:sla_breach_threshold']"
-                  }
-                },
                 "payload": {
                   "data": {
                     "belief": {
-                      "prior": 0.5,
                       "revision_cause": "repair_guidance",
-                      "posterior": 0.5
+                      "posterior": 0.5,
+                      "prior": 0.5
                     },
-                    "grounding": {
-                      "challenges": [
+                    "utterance": {
+                      "addresses_evidence": [
                         "concept:material_breach",
                         "concept:sla_breach_threshold"
                       ],
-                      "contingency_verified": false,
-                      "repair_reason": "scope_mismatch",
-                      "contingency_score": 0.0
-                    },
-                    "utterance": {
+                      "repair_depth": 1.0,
+                      "text": "commercial-agent, stop \u2014 restate only under the contract-law material breach standard. reason=scope_mismatch; address=['concept:material_breach', 'concept:sla_breach_threshold']",
+                      "ring_round": 0.0,
                       "evidence": [
                         "concept:material_breach"
-                      ],
-                      "addresses_evidence": [
+                      ]
+                    },
+                    "grounding": {
+                      "contingency_verified": false,
+                      "repair_reason": "scope_mismatch",
+                      "contingency_score": 0.0,
+                      "challenges": [
                         "concept:material_breach",
                         "concept:sla_breach_threshold"
-                      ],
-                      "text": "I need to flag a critical issue. We have identified a material breach condition that requires an immediate hard stop on this engagement. All activities under this agreement must cease until the breach is formally addressed and remediated. Please confirm receipt and acknowledge suspension of operations pending resolution. reason=scope_mismatch; address=['concept:material_breach', 'concept:sla_breach_threshold']",
-                      "turn_depth": 1.0
+                      ]
                     }
                   },
                   "type": "cip"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "utterance_text": "commercial-agent, stop \u2014 restate only under the contract-law material breach standard. reason=scope_mismatch; address=['concept:material_breach', 'concept:sla_breach_threshold']"
+                  },
+                  "kind": "contingency",
+                  "policy": null,
+                  "subprotocol": "CIP",
+                  "version": "0.0.3",
+                  "message": {
+                    "id": "6e9ef1a5-1775-4048-a6ef-7f69aba5c125",
+                    "episode": "urn:ioc:cip:69a4f229-52ac-4d5e-8f5b-31adbb337431",
+                    "parents": [
+                      "992f58d0-5c4b-4e2e-b09a-e5acd9894069"
+                    ]
+                  },
+                  "subkind": null,
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "cip-engine",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": {
+                      "provenance": null,
+                      "ontology_ref": "protocol/ontology/cip_ontology.ttl",
+                      "schema_id": "urn:ioc:cip:payload:v1"
+                    },
+                    "topic": "concept:material_breach",
+                    "epistemic": {}
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -965,9 +995,9 @@
           ]
         },
         {
-          "message_id": "257ea832-3393-45f0-89c4-3af6c15e90c6",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "22d41124-a2ff-418c-810d-5c7ebe93fe4c",
+          "message_id": "55834ef2-aca3-44c8-b405-4c03a87d296d",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "28c36569-40d7-4002-bca9-b5fdab22f647",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -975,70 +1005,76 @@
             },
             {
               "data": {
+                "payload": {
+                  "data": {
+                    "belief": {
+                      "revision_cause": "repair_resolution",
+                      "posterior": 0.75,
+                      "prior": 0.68
+                    },
+                    "utterance": {
+                      "addresses_evidence": [
+                        "concept:material_breach",
+                        "concept:sla_breach_threshold"
+                      ],
+                      "repair_depth": 1.0,
+                      "text": "Re-anchoring on contract-law material breach.",
+                      "ring_round": 0.0,
+                      "evidence": [
+                        "concept:material_breach",
+                        "concept:sla_breach_threshold"
+                      ]
+                    },
+                    "grounding": {
+                      "contingency_verified": null,
+                      "repair_reason": null,
+                      "contingency_score": null,
+                      "challenges": []
+                    }
+                  },
+                  "type": "cip"
+                },
                 "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "utterance_text": "Re-anchoring on contract-law material breach."
+                  },
+                  "kind": "contingency",
+                  "policy": null,
+                  "subprotocol": "CIP",
+                  "version": "0.0.3",
+                  "message": {
+                    "id": "28b70216-32f2-4e13-bffb-253a5a52e9e9",
+                    "episode": "urn:ioc:cip:69a4f229-52ac-4d5e-8f5b-31adbb337431",
+                    "parents": [
+                      "6e9ef1a5-1775-4048-a6ef-7f69aba5c125"
+                    ]
+                  },
+                  "subkind": null,
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "cip-engine",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
                   "context": {
-                    "epistemic": {},
                     "semantic": {
                       "provenance": null,
                       "ontology_ref": "protocol/ontology/cip_ontology.ttl",
                       "schema_id": "urn:ioc:cip:payload:v1"
                     },
-                    "topic": "concept:material_breach"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0.0.3",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "liability-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "contingency",
-                  "subkind": null,
-                  "subprotocol": "CIP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:cip:fb6af687-3455-42df-aa05-fce25e0773dc",
-                    "id": "e8b21fe3-0ae7-4308-a624-48045506cce4",
-                    "parents": [
-                      "5a969bc1-0708-474f-b57d-1c8c327b4ed9"
-                    ]
-                  },
-                  "attributes": {
-                    "utterance_text": "Re-anchoring on contract-law material breach."
+                    "topic": "concept:material_breach",
+                    "epistemic": {}
                   }
-                },
-                "payload": {
-                  "data": {
-                    "belief": {
-                      "prior": 0.68,
-                      "revision_cause": "repair_resolution",
-                      "posterior": 0.75
-                    },
-                    "grounding": {
-                      "challenges": [],
-                      "contingency_verified": null,
-                      "repair_reason": null,
-                      "contingency_score": null
-                    },
-                    "utterance": {
-                      "evidence": [
-                        "concept:material_breach",
-                        "concept:sla_breach_threshold"
-                      ],
-                      "addresses_evidence": [
-                        "concept:material_breach",
-                        "concept:sla_breach_threshold"
-                      ],
-                      "text": "Re-anchoring on contract-law material breach.",
-                      "turn_depth": 1.0
-                    }
-                  },
-                  "type": "cip"
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -1046,9 +1082,9 @@
           ]
         },
         {
-          "message_id": "e0d9fbf0-feab-4206-b005-7c0e89ce4047",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "22d41124-a2ff-418c-810d-5c7ebe93fe4c",
+          "message_id": "e5a80124-e825-4806-acb1-8c344a4741c2",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "28c36569-40d7-4002-bca9-b5fdab22f647",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -1056,73 +1092,79 @@
             },
             {
               "data": {
+                "payload": {
+                  "data": {
+                    "belief": {
+                      "revision_cause": "repair_resolution",
+                      "posterior": 0.75,
+                      "prior": 0.68
+                    },
+                    "utterance": {
+                      "addresses_evidence": [
+                        "concept:material_breach",
+                        "concept:sla_breach_threshold"
+                      ],
+                      "repair_depth": 0.0,
+                      "text": "repair_verified:liability-agent re-anchored to concept:material_breach",
+                      "ring_round": 0.0,
+                      "evidence": [
+                        "concept:material_breach",
+                        "concept:sla_breach_threshold"
+                      ]
+                    },
+                    "grounding": {
+                      "contingency_verified": true,
+                      "repair_reason": null,
+                      "contingency_score": 1.0,
+                      "challenges": [
+                        "concept:material_breach",
+                        "concept:sla_breach_threshold"
+                      ]
+                    }
+                  },
+                  "type": "cip"
+                },
                 "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "utterance_text": "repair_verified:liability-agent re-anchored to concept:material_breach"
+                  },
+                  "kind": "commit",
+                  "policy": null,
+                  "subprotocol": "CIP",
+                  "version": "0.0.3",
+                  "message": {
+                    "id": "9d8f447f-d8d3-4ffe-845b-b7e60544a7c0",
+                    "episode": "urn:ioc:cip:69a4f229-52ac-4d5e-8f5b-31adbb337431",
+                    "parents": [
+                      "28b70216-32f2-4e13-bffb-253a5a52e9e9"
+                    ]
+                  },
+                  "subkind": "resolved",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "cip-engine",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
                   "context": {
-                    "epistemic": {},
                     "semantic": {
                       "provenance": null,
                       "ontology_ref": "protocol/ontology/cip_ontology.ttl",
                       "schema_id": "urn:ioc:cip:payload:v1"
                     },
-                    "topic": "concept:material_breach"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0.0.3",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "cip-engine",
-                        "attestation": null,
-                        "role": "sender"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "commit",
-                  "subkind": "resolved",
-                  "subprotocol": "CIP",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:cip:fb6af687-3455-42df-aa05-fce25e0773dc",
-                    "id": "7acbff8f-5bdb-4962-9ab3-9ad172e49901",
-                    "parents": [
-                      "e8b21fe3-0ae7-4308-a624-48045506cce4"
-                    ]
-                  },
-                  "attributes": {
-                    "utterance_text": "repair_verified:liability-agent re-anchored to concept:material_breach"
+                    "topic": "concept:material_breach",
+                    "epistemic": {}
                   }
-                },
-                "payload": {
-                  "data": {
-                    "belief": {
-                      "prior": 0.68,
-                      "revision_cause": "repair_resolution",
-                      "posterior": 0.75
-                    },
-                    "grounding": {
-                      "challenges": [
-                        "concept:material_breach",
-                        "concept:sla_breach_threshold"
-                      ],
-                      "contingency_verified": true,
-                      "repair_reason": null,
-                      "contingency_score": 1.0
-                    },
-                    "utterance": {
-                      "evidence": [
-                        "concept:material_breach",
-                        "concept:sla_breach_threshold"
-                      ],
-                      "addresses_evidence": [
-                        "concept:material_breach",
-                        "concept:sla_breach_threshold"
-                      ],
-                      "text": "repair_verified:liability-agent re-anchored to concept:material_breach",
-                      "turn_depth": 1.0
-                    }
-                  },
-                  "type": "cip"
                 }
               },
               "media_type": "application/vnd.sstp.l9+json"
@@ -1132,16 +1174,16 @@
       ]
     },
     {
-      "id": "7d652b18-2866-41dd-9437-873bd1a42de9",
-      "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
+      "id": "88155f02-1c15-418f-8e1e-9faa6eff6e0d",
+      "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
       "status": {
         "state": "TASK_STATE_COMPLETED"
       },
       "history": [
         {
-          "message_id": "5cc25fa0-3639-4a13-ba05-9d081fb9d205",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "7d652b18-2866-41dd-9437-873bd1a42de9",
+          "message_id": "9f4f3007-ebf0-46ac-a19f-f57794f3dd14",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "88155f02-1c15-418f-8e1e-9faa6eff6e0d",
           "role": "ROLE_USER",
           "parts": [
             {
@@ -1149,62 +1191,62 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": {
-                      "provenance": null,
-                      "ontology_ref": "urn:ioc:ontology:sab:v1",
-                      "schema_id": "urn:ioc:schema:sab-l9:v1"
+                "payload": {
+                  "data": {
+                    "semantic_context": {
+                      "schema_version": "1.0",
+                      "encoding": "json"
                     },
-                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}"
+                    "origin": {
+                      "attestation": null,
+                      "actor_id": "commercial-agent"
+                    },
+                    "version": "0",
+                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+                    "message_id": "d3d89717-084f-40c4-900b-bfb171edce54",
+                    "dt_created": "2026-06-24T10:00:00Z"
                   },
+                  "type": "json-schema"
+                },
+                "header": {
                   "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "topic:sab/sessions",
-                        "attestation": null,
-                        "role": "receiver"
-                      }
-                    ],
-                    "groups": null
+                  "attributes": {
+                    "msg_created_at": "2026-06-24T10:00:00Z"
                   },
                   "kind": "contingency",
-                  "subkind": "negotiate",
-                  "subprotocol": "SAB",
                   "policy": null,
+                  "subprotocol": "SAB",
+                  "version": "0",
                   "message": {
-                    "episode": "urn:ioc:episode:sab:a9b0a0b4-10c3-4f86-9ae3-c7238a8232ac",
-                    "id": "9b36c135-48bd-46e2-a9ee-9169ee89cccf",
+                    "id": "d3d89717-084f-40c4-900b-bfb171edce54",
+                    "episode": "urn:ioc:episode:sab:e84a5166-4ae9-458a-93e8-9fbc96462b1f",
                     "parents": []
                   },
-                  "attributes": {
-                    "msg_created_at": "2026-06-24T10:00:00Z"
-                  }
-                },
-                "payload": {
-                  "data": {
-                    "dt_created": "2026-06-24T10:00:00Z",
-                    "message_id": "9b36c135-48bd-46e2-a9ee-9169ee89cccf",
-                    "version": "0",
-                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
-                    "semantic_context": {
-                      "schema_version": "1.0",
-                      "encoding": "json"
-                    },
-                    "origin": {
-                      "actor_id": "commercial-agent",
-                      "attestation": null
-                    }
+                  "subkind": "negotiate",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "topic:sab/sessions",
+                        "role": "receiver"
+                      }
+                    ]
                   },
-                  "type": "json-schema"
+                  "context": {
+                    "semantic": {
+                      "provenance": null,
+                      "ontology_ref": "urn:ioc:ontology:sab:v1",
+                      "schema_id": "urn:ioc:schema:sab-l9:v1"
+                    },
+                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.sab+json"
@@ -1212,9 +1254,9 @@
           ]
         },
         {
-          "message_id": "39b9860a-7a10-40e6-a91b-065e5b854041",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "7d652b18-2866-41dd-9437-873bd1a42de9",
+          "message_id": "b9962fb4-50f0-426b-b66f-5770198ddab6",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "88155f02-1c15-418f-8e1e-9faa6eff6e0d",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -1222,126 +1264,126 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": {
-                      "provenance": null,
-                      "ontology_ref": "urn:ioc:ontology:sab:v1",
-                      "schema_id": "urn:ioc:schema:sab-l9:v1"
-                    },
-                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "liability-agent",
-                        "attestation": null,
-                        "role": "receiver"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "contingency",
-                  "subkind": "negotiate",
-                  "subprotocol": "SAB",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:sab:a9b0a0b4-10c3-4f86-9ae3-c7238a8232ac",
-                    "id": "131fda51-c7a6-49d6-80c1-78a7edb6ef8f",
-                    "parents": [
-                      "9b36c135-48bd-46e2-a9ee-9169ee89cccf"
-                    ]
-                  },
-                  "attributes": {
-                    "msg_created_at": "2026-06-24T10:00:00Z"
-                  }
-                },
                 "payload": {
                   "data": {
-                    "dt_created": "2026-06-24T10:00:02Z",
-                    "message_id": "131fda51-c7a6-49d6-80c1-78a7edb6ef8f",
-                    "version": "0",
-                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
                     "semantic_context": {
-                      "sao_state": {
-                        "current_data": null,
-                        "waiting": false,
-                        "current_offer": {
-                          "governing_interpretation": "us_standard",
-                          "damages_cap": "6_months_fees"
+                      "offer_validation_failure": null,
+                      "sao_response": {
+                        "data": null,
+                        "outcome": {
+                          "damages_cap": "6_months_fees",
+                          "governing_interpretation": "us_standard"
                         },
-                        "last_thread": "",
-                        "new_offers": null,
-                        "n_negotiators": 2.0,
-                        "running": true,
-                        "broken": false,
-                        "threads": null,
-                        "current_proposer": "commercial-agent",
-                        "error_details": "",
-                        "current_proposer_agent": "commercial-agent",
-                        "time": 2.1,
-                        "started": true,
-                        "timedout": false,
-                        "erred_negotiator": "",
-                        "results": null,
-                        "new_offerer_agents": null,
-                        "left_negotiators": null,
-                        "step": 0.0,
-                        "agreement": null,
-                        "new_data": null,
-                        "last_negotiator": null,
-                        "relative_time": 0.035,
-                        "has_error": false,
-                        "n_acceptances": 0.0,
-                        "erred_agent": ""
+                        "response": 3.0
                       },
+                      "session_id": "urn:ioc:sab:session:83e35eff-8a92-4edd-86df-0f76f546132d",
+                      "schema_version": "1.0",
                       "nmi": {
-                        "max_n_negotiators": null,
-                        "private_time_limit": 30.0,
-                        "pend": 0.0,
-                        "pend_per_second": 0.0,
-                        "annotation": null,
-                        "one_offer_per_step": false,
-                        "shared_time_limit": 60.0,
-                        "n_outcomes": 9.0,
-                        "allow_none_with_data": true,
-                        "private_n_steps": null,
-                        "id": "urn:ioc:sab:session:9bf36d0a-e754-4e96-88c9-8412ff24b79c",
-                        "step_time_limit": 10.0,
-                        "end_on_no_response": true,
-                        "dynamic_entry": false,
-                        "shared_n_steps": 20.0,
                         "offering_is_accepting": true,
+                        "end_on_no_response": true,
+                        "private_n_steps": null,
+                        "allow_none_with_data": true,
+                        "step_time_limit": 10.0,
                         "negotiator_time_limit": 5.0,
-                        "allow_negotiators_to_leave": true
+                        "id": "urn:ioc:sab:session:83e35eff-8a92-4edd-86df-0f76f546132d",
+                        "annotation": null,
+                        "max_n_negotiators": null,
+                        "pend_per_second": 0.0,
+                        "n_outcomes": 9.0,
+                        "pend": 0.0,
+                        "dynamic_entry": false,
+                        "shared_time_limit": 60.0,
+                        "private_time_limit": 30.0,
+                        "allow_negotiators_to_leave": true,
+                        "shared_n_steps": 20.0,
+                        "one_offer_per_step": false
                       },
-                      "sao_response": {
-                        "response": 3.0,
-                        "data": null,
-                        "outcome": {
-                          "governing_interpretation": "us_standard",
-                          "damages_cap": "6_months_fees"
-                        }
-                      },
-                      "session_id": "urn:ioc:sab:session:9bf36d0a-e754-4e96-88c9-8412ff24b79c",
-                      "offer_validation_failure": null,
-                      "schema_version": "1.0",
-                      "encoding": "json"
+                      "encoding": "json",
+                      "sao_state": {
+                        "waiting": false,
+                        "n_acceptances": 0.0,
+                        "last_negotiator": null,
+                        "running": true,
+                        "last_thread": "",
+                        "threads": null,
+                        "error_details": "",
+                        "has_error": false,
+                        "current_proposer": "commercial-agent",
+                        "erred_negotiator": "",
+                        "new_offers": null,
+                        "broken": false,
+                        "new_offerer_agents": null,
+                        "time": 2.1,
+                        "left_negotiators": null,
+                        "results": null,
+                        "current_offer": {
+                          "damages_cap": "6_months_fees",
+                          "governing_interpretation": "us_standard"
+                        },
+                        "started": true,
+                        "n_negotiators": 2.0,
+                        "current_proposer_agent": "commercial-agent",
+                        "new_data": null,
+                        "step": 0.0,
+                        "timedout": false,
+                        "relative_time": 0.035,
+                        "current_data": null,
+                        "erred_agent": "",
+                        "agreement": null
+                      }
                     },
                     "origin": {
-                      "actor_id": "commercial-agent",
-                      "attestation": null
-                    }
+                      "attestation": null,
+                      "actor_id": "commercial-agent"
+                    },
+                    "version": "0",
+                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+                    "message_id": "cde8a235-e87c-447f-8f7f-56d55ec675bc",
+                    "dt_created": "2026-06-24T10:00:02Z"
                   },
                   "type": "json-schema"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "msg_created_at": "2026-06-24T10:00:00Z"
+                  },
+                  "kind": "contingency",
+                  "policy": null,
+                  "subprotocol": "SAB",
+                  "version": "0",
+                  "message": {
+                    "id": "cde8a235-e87c-447f-8f7f-56d55ec675bc",
+                    "episode": "urn:ioc:episode:sab:e84a5166-4ae9-458a-93e8-9fbc96462b1f",
+                    "parents": [
+                      "d3d89717-084f-40c4-900b-bfb171edce54"
+                    ]
+                  },
+                  "subkind": "negotiate",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": {
+                      "provenance": null,
+                      "ontology_ref": "urn:ioc:ontology:sab:v1",
+                      "schema_id": "urn:ioc:schema:sab-l9:v1"
+                    },
+                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.sab+json"
@@ -1349,9 +1391,9 @@
           ]
         },
         {
-          "message_id": "ec273b6c-38e1-4729-98cc-163f3c0ecad3",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "7d652b18-2866-41dd-9437-873bd1a42de9",
+          "message_id": "3c0b33b1-a736-44d2-8a42-dd8f913ad03d",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "88155f02-1c15-418f-8e1e-9faa6eff6e0d",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -1359,107 +1401,107 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": {
-                      "provenance": null,
-                      "ontology_ref": "urn:ioc:ontology:sab:v1",
-                      "schema_id": "urn:ioc:schema:sab-l9:v1"
-                    },
-                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "liability-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "receiver"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "contingency",
-                  "subkind": "negotiate",
-                  "subprotocol": "SAB",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:sab:a9b0a0b4-10c3-4f86-9ae3-c7238a8232ac",
-                    "id": "70a2aaa3-664f-4f2b-bacb-9bdbbe9a45cc",
-                    "parents": [
-                      "9b36c135-48bd-46e2-a9ee-9169ee89cccf"
-                    ]
-                  },
-                  "attributes": {
-                    "msg_created_at": "2026-06-24T10:00:00Z"
-                  }
-                },
                 "payload": {
                   "data": {
-                    "dt_created": "2026-06-24T10:00:08Z",
-                    "message_id": "70a2aaa3-664f-4f2b-bacb-9bdbbe9a45cc",
-                    "version": "0",
-                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
                     "semantic_context": {
-                      "sao_state": {
-                        "current_data": null,
-                        "waiting": false,
-                        "current_offer": {
-                          "governing_interpretation": "uk_standard",
-                          "damages_cap": "24_months_fees"
+                      "offer_validation_failure": null,
+                      "sao_response": {
+                        "data": null,
+                        "outcome": {
+                          "damages_cap": "24_months_fees",
+                          "governing_interpretation": "uk_standard"
                         },
-                        "last_thread": "",
-                        "new_offers": null,
-                        "n_negotiators": 2.0,
+                        "response": 1.0
+                      },
+                      "session_id": "urn:ioc:sab:session:83e35eff-8a92-4edd-86df-0f76f546132d",
+                      "schema_version": "1.0",
+                      "nmi": null,
+                      "encoding": "json",
+                      "sao_state": {
+                        "waiting": false,
+                        "n_acceptances": 0.0,
+                        "last_negotiator": "commercial-agent",
                         "running": true,
-                        "broken": false,
+                        "last_thread": "",
                         "threads": null,
+                        "error_details": "",
+                        "has_error": false,
                         "current_proposer": "liability-agent",
-                        "error_details": "",
-                        "current_proposer_agent": "liability-agent",
+                        "erred_negotiator": "",
+                        "new_offers": null,
+                        "broken": false,
+                        "new_offerer_agents": null,
                         "time": 8.4,
-                        "started": true,
-                        "timedout": false,
-                        "erred_negotiator": "",
-                        "results": null,
-                        "new_offerer_agents": null,
                         "left_negotiators": null,
+                        "results": null,
+                        "current_offer": {
+                          "damages_cap": "24_months_fees",
+                          "governing_interpretation": "uk_standard"
+                        },
+                        "started": true,
+                        "n_negotiators": 2.0,
+                        "current_proposer_agent": "liability-agent",
+                        "new_data": null,
                         "step": 1.0,
-                        "agreement": null,
-                        "new_data": null,
-                        "last_negotiator": "commercial-agent",
+                        "timedout": false,
                         "relative_time": 0.14,
-                        "has_error": false,
-                        "n_acceptances": 0.0,
-                        "erred_agent": ""
-                      },
-                      "nmi": null,
-                      "sao_response": {
-                        "response": 1.0,
-                        "data": null,
-                        "outcome": {
-                          "governing_interpretation": "uk_standard",
-                          "damages_cap": "24_months_fees"
-                        }
-                      },
-                      "session_id": "urn:ioc:sab:session:9bf36d0a-e754-4e96-88c9-8412ff24b79c",
-                      "offer_validation_failure": null,
-                      "schema_version": "1.0",
-                      "encoding": "json"
+                        "current_data": null,
+                        "erred_agent": "",
+                        "agreement": null
+                      }
                     },
                     "origin": {
-                      "actor_id": "liability-agent",
-                      "attestation": null
-                    }
+                      "attestation": null,
+                      "actor_id": "liability-agent"
+                    },
+                    "version": "0",
+                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+                    "message_id": "a6b3f3de-729b-4e98-becc-6d19503ddd2d",
+                    "dt_created": "2026-06-24T10:00:08Z"
                   },
                   "type": "json-schema"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "msg_created_at": "2026-06-24T10:00:00Z"
+                  },
+                  "kind": "contingency",
+                  "policy": null,
+                  "subprotocol": "SAB",
+                  "version": "0",
+                  "message": {
+                    "id": "a6b3f3de-729b-4e98-becc-6d19503ddd2d",
+                    "episode": "urn:ioc:episode:sab:e84a5166-4ae9-458a-93e8-9fbc96462b1f",
+                    "parents": [
+                      "d3d89717-084f-40c4-900b-bfb171edce54"
+                    ]
+                  },
+                  "subkind": "negotiate",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": {
+                      "provenance": null,
+                      "ontology_ref": "urn:ioc:ontology:sab:v1",
+                      "schema_id": "urn:ioc:schema:sab-l9:v1"
+                    },
+                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.sab+json"
@@ -1467,9 +1509,9 @@
           ]
         },
         {
-          "message_id": "78b3d494-7b2b-469c-b098-6f047148108e",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "7d652b18-2866-41dd-9437-873bd1a42de9",
+          "message_id": "77bab1d0-227a-41bc-a1b8-e123dda086e2",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "88155f02-1c15-418f-8e1e-9faa6eff6e0d",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -1477,107 +1519,107 @@
             },
             {
               "data": {
-                "header": {
-                  "context": {
-                    "epistemic": null,
-                    "semantic": {
-                      "provenance": null,
-                      "ontology_ref": "urn:ioc:ontology:sab:v1",
-                      "schema_id": "urn:ioc:schema:sab-l9:v1"
-                    },
-                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "liability-agent",
-                        "attestation": null,
-                        "role": "receiver"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "contingency",
-                  "subkind": "negotiate",
-                  "subprotocol": "SAB",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:sab:a9b0a0b4-10c3-4f86-9ae3-c7238a8232ac",
-                    "id": "b53bdab0-30a8-4d43-90cd-e2c70096662f",
-                    "parents": [
-                      "9b36c135-48bd-46e2-a9ee-9169ee89cccf"
-                    ]
-                  },
-                  "attributes": {
-                    "msg_created_at": "2026-06-24T10:00:00Z"
-                  }
-                },
                 "payload": {
                   "data": {
-                    "dt_created": "2026-06-24T10:00:14Z",
-                    "message_id": "b53bdab0-30a8-4d43-90cd-e2c70096662f",
-                    "version": "0",
-                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
                     "semantic_context": {
-                      "sao_state": {
-                        "current_data": null,
-                        "waiting": false,
-                        "current_offer": {
-                          "governing_interpretation": "hybrid",
-                          "damages_cap": "12_months_fees"
+                      "offer_validation_failure": null,
+                      "sao_response": {
+                        "data": null,
+                        "outcome": {
+                          "damages_cap": "12_months_fees",
+                          "governing_interpretation": "hybrid"
                         },
-                        "last_thread": "",
-                        "new_offers": null,
-                        "n_negotiators": 2.0,
-                        "running": true,
-                        "broken": false,
-                        "threads": null,
-                        "current_proposer": "commercial-agent",
-                        "error_details": "",
-                        "current_proposer_agent": "commercial-agent",
-                        "time": 14.7,
-                        "started": true,
-                        "timedout": false,
-                        "erred_negotiator": "",
-                        "results": null,
-                        "new_offerer_agents": null,
-                        "left_negotiators": null,
-                        "step": 2.0,
-                        "agreement": null,
-                        "new_data": null,
+                        "response": 1.0
+                      },
+                      "session_id": "urn:ioc:sab:session:83e35eff-8a92-4edd-86df-0f76f546132d",
+                      "schema_version": "1.0",
+                      "nmi": null,
+                      "encoding": "json",
+                      "sao_state": {
+                        "waiting": false,
+                        "n_acceptances": 0.0,
                         "last_negotiator": "liability-agent",
-                        "relative_time": 0.245,
+                        "running": true,
+                        "last_thread": "",
+                        "threads": null,
+                        "error_details": "",
                         "has_error": false,
-                        "n_acceptances": 0.0,
-                        "erred_agent": ""
-                      },
-                      "nmi": null,
-                      "sao_response": {
-                        "response": 1.0,
-                        "data": null,
-                        "outcome": {
-                          "governing_interpretation": "hybrid",
-                          "damages_cap": "12_months_fees"
-                        }
-                      },
-                      "session_id": "urn:ioc:sab:session:9bf36d0a-e754-4e96-88c9-8412ff24b79c",
-                      "offer_validation_failure": null,
-                      "schema_version": "1.0",
-                      "encoding": "json"
+                        "current_proposer": "commercial-agent",
+                        "erred_negotiator": "",
+                        "new_offers": null,
+                        "broken": false,
+                        "new_offerer_agents": null,
+                        "time": 14.7,
+                        "left_negotiators": null,
+                        "results": null,
+                        "current_offer": {
+                          "damages_cap": "12_months_fees",
+                          "governing_interpretation": "hybrid"
+                        },
+                        "started": true,
+                        "n_negotiators": 2.0,
+                        "current_proposer_agent": "commercial-agent",
+                        "new_data": null,
+                        "step": 2.0,
+                        "timedout": false,
+                        "relative_time": 0.245,
+                        "current_data": null,
+                        "erred_agent": "",
+                        "agreement": null
+                      }
                     },
                     "origin": {
-                      "actor_id": "commercial-agent",
-                      "attestation": null
-                    }
+                      "attestation": null,
+                      "actor_id": "commercial-agent"
+                    },
+                    "version": "0",
+                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+                    "message_id": "05d21ed0-9498-4303-9ac2-986c8b3e7ab8",
+                    "dt_created": "2026-06-24T10:00:14Z"
                   },
                   "type": "json-schema"
+                },
+                "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "msg_created_at": "2026-06-24T10:00:00Z"
+                  },
+                  "kind": "contingency",
+                  "policy": null,
+                  "subprotocol": "SAB",
+                  "version": "0",
+                  "message": {
+                    "id": "05d21ed0-9498-4303-9ac2-986c8b3e7ab8",
+                    "episode": "urn:ioc:episode:sab:e84a5166-4ae9-458a-93e8-9fbc96462b1f",
+                    "parents": [
+                      "d3d89717-084f-40c4-900b-bfb171edce54"
+                    ]
+                  },
+                  "subkind": "negotiate",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
+                  "context": {
+                    "semantic": {
+                      "provenance": null,
+                      "ontology_ref": "urn:ioc:ontology:sab:v1",
+                      "schema_id": "urn:ioc:schema:sab-l9:v1"
+                    },
+                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}",
+                    "epistemic": null
+                  }
                 }
               },
               "media_type": "application/vnd.sstp.sab+json"
@@ -1585,9 +1627,9 @@
           ]
         },
         {
-          "message_id": "d4dde747-8207-4d05-94c9-fe9bbcb8d233",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "7d652b18-2866-41dd-9437-873bd1a42de9",
+          "message_id": "9b3cb3be-ae33-44b7-9cae-58d17c0b3549",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "88155f02-1c15-418f-8e1e-9faa6eff6e0d",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -1595,107 +1637,107 @@
             },
             {
               "data": {
+                "payload": {
+                  "data": {
+                    "semantic_context": {
+                      "offer_validation_failure": null,
+                      "sao_response": {
+                        "data": null,
+                        "outcome": {
+                          "damages_cap": "12_months_fees",
+                          "governing_interpretation": "hybrid"
+                        },
+                        "response": 0.0
+                      },
+                      "session_id": "urn:ioc:sab:session:83e35eff-8a92-4edd-86df-0f76f546132d",
+                      "schema_version": "1.0",
+                      "nmi": null,
+                      "encoding": "json",
+                      "sao_state": {
+                        "waiting": false,
+                        "n_acceptances": 0.0,
+                        "last_negotiator": "commercial-agent",
+                        "running": true,
+                        "last_thread": "",
+                        "threads": null,
+                        "error_details": "",
+                        "has_error": false,
+                        "current_proposer": "commercial-agent",
+                        "erred_negotiator": "",
+                        "new_offers": null,
+                        "broken": false,
+                        "new_offerer_agents": null,
+                        "time": 20.3,
+                        "left_negotiators": null,
+                        "results": null,
+                        "current_offer": {
+                          "damages_cap": "12_months_fees",
+                          "governing_interpretation": "hybrid"
+                        },
+                        "started": true,
+                        "n_negotiators": 2.0,
+                        "current_proposer_agent": "commercial-agent",
+                        "new_data": null,
+                        "step": 3.0,
+                        "timedout": false,
+                        "relative_time": 0.338,
+                        "current_data": null,
+                        "erred_agent": "",
+                        "agreement": null
+                      }
+                    },
+                    "origin": {
+                      "attestation": null,
+                      "actor_id": "liability-agent"
+                    },
+                    "version": "0",
+                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+                    "message_id": "211b504c-d7d8-44bd-9a22-72cb26f9cb13",
+                    "dt_created": "2026-06-24T10:00:20Z"
+                  },
+                  "type": "json-schema"
+                },
                 "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "msg_created_at": "2026-06-24T10:00:00Z"
+                  },
+                  "kind": "contingency",
+                  "policy": null,
+                  "subprotocol": "SAB",
+                  "version": "0",
+                  "message": {
+                    "id": "211b504c-d7d8-44bd-9a22-72cb26f9cb13",
+                    "episode": "urn:ioc:episode:sab:e84a5166-4ae9-458a-93e8-9fbc96462b1f",
+                    "parents": [
+                      "d3d89717-084f-40c4-900b-bfb171edce54"
+                    ]
+                  },
+                  "subkind": "negotiate",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "liability-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
                   "context": {
-                    "epistemic": null,
                     "semantic": {
                       "provenance": null,
                       "ontology_ref": "urn:ioc:ontology:sab:v1",
                       "schema_id": "urn:ioc:schema:sab-l9:v1"
                     },
-                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "liability-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "receiver"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "contingency",
-                  "subkind": "negotiate",
-                  "subprotocol": "SAB",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:sab:a9b0a0b4-10c3-4f86-9ae3-c7238a8232ac",
-                    "id": "d5077b13-0bf0-457c-9b19-9cdcd21c1ea9",
-                    "parents": [
-                      "9b36c135-48bd-46e2-a9ee-9169ee89cccf"
-                    ]
-                  },
-                  "attributes": {
-                    "msg_created_at": "2026-06-24T10:00:00Z"
+                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}",
+                    "epistemic": null
                   }
-                },
-                "payload": {
-                  "data": {
-                    "dt_created": "2026-06-24T10:00:20Z",
-                    "message_id": "d5077b13-0bf0-457c-9b19-9cdcd21c1ea9",
-                    "version": "0",
-                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
-                    "semantic_context": {
-                      "sao_state": {
-                        "current_data": null,
-                        "waiting": false,
-                        "current_offer": {
-                          "governing_interpretation": "hybrid",
-                          "damages_cap": "12_months_fees"
-                        },
-                        "last_thread": "",
-                        "new_offers": null,
-                        "n_negotiators": 2.0,
-                        "running": true,
-                        "broken": false,
-                        "threads": null,
-                        "current_proposer": "commercial-agent",
-                        "error_details": "",
-                        "current_proposer_agent": "commercial-agent",
-                        "time": 20.3,
-                        "started": true,
-                        "timedout": false,
-                        "erred_negotiator": "",
-                        "results": null,
-                        "new_offerer_agents": null,
-                        "left_negotiators": null,
-                        "step": 3.0,
-                        "agreement": null,
-                        "new_data": null,
-                        "last_negotiator": "commercial-agent",
-                        "relative_time": 0.338,
-                        "has_error": false,
-                        "n_acceptances": 0.0,
-                        "erred_agent": ""
-                      },
-                      "nmi": null,
-                      "sao_response": {
-                        "response": 0.0,
-                        "data": null,
-                        "outcome": {
-                          "governing_interpretation": "hybrid",
-                          "damages_cap": "12_months_fees"
-                        }
-                      },
-                      "session_id": "urn:ioc:sab:session:9bf36d0a-e754-4e96-88c9-8412ff24b79c",
-                      "offer_validation_failure": null,
-                      "schema_version": "1.0",
-                      "encoding": "json"
-                    },
-                    "origin": {
-                      "actor_id": "liability-agent",
-                      "attestation": null
-                    }
-                  },
-                  "type": "json-schema"
                 }
               },
               "media_type": "application/vnd.sstp.sab+json"
@@ -1703,9 +1745,9 @@
           ]
         },
         {
-          "message_id": "da1c7e4a-09b4-4a02-a907-8d4d3444e61a",
-          "context_id": "44fc6988-7b30-459b-ac46-701a62fd606e",
-          "task_id": "7d652b18-2866-41dd-9437-873bd1a42de9",
+          "message_id": "48c6cad3-a866-4c5d-9ab9-343aaf6175c9",
+          "context_id": "151d2161-b41c-406d-a218-a3a9f3003d51",
+          "task_id": "88155f02-1c15-418f-8e1e-9faa6eff6e0d",
           "role": "ROLE_AGENT",
           "parts": [
             {
@@ -1713,82 +1755,82 @@
             },
             {
               "data": {
+                "payload": {
+                  "data": {
+                    "semantic_context": {
+                      "agents_negotiating": [
+                        "commercial-agent",
+                        "liability-agent"
+                      ],
+                      "session_id": "urn:ioc:sab:session:83e35eff-8a92-4edd-86df-0f76f546132d",
+                      "outcome": "agreement",
+                      "encoding": "json",
+                      "schema_version": "1.0",
+                      "error_message": null,
+                      "final_agreement": [
+                        {
+                          "issue_id": "governing_interpretation",
+                          "chosen_option": "hybrid"
+                        },
+                        {
+                          "issue_id": "damages_cap",
+                          "chosen_option": "12_months_fees"
+                        }
+                      ],
+                      "content_text": "Consequential damages clause resolved: governing interpretation and liability cap."
+                    },
+                    "origin": {
+                      "attestation": null,
+                      "actor_id": "commercial-agent"
+                    },
+                    "version": "0",
+                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
+                    "message_id": "a073959e-8fa5-427e-ac52-1c3b771e94f1",
+                    "dt_created": "2026-06-24T10:00:25Z"
+                  },
+                  "type": "json-schema"
+                },
                 "header": {
+                  "protocol": "SSTP",
+                  "attributes": {
+                    "msg_created_at": "2026-06-24T10:00:00Z"
+                  },
+                  "kind": "commit",
+                  "policy": null,
+                  "subprotocol": "SAB",
+                  "version": "0",
+                  "message": {
+                    "id": "a073959e-8fa5-427e-ac52-1c3b771e94f1",
+                    "episode": "urn:ioc:episode:sab:e84a5166-4ae9-458a-93e8-9fbc96462b1f",
+                    "parents": [
+                      "d3d89717-084f-40c4-900b-bfb171edce54"
+                    ]
+                  },
+                  "subkind": "converged",
+                  "participants": {
+                    "groups": null,
+                    "actors": [
+                      {
+                        "attestation": null,
+                        "id": "commercial-agent",
+                        "role": "sender"
+                      },
+                      {
+                        "attestation": null,
+                        "id": "topic:sab/sessions",
+                        "role": "receiver"
+                      }
+                    ]
+                  },
                   "context": {
-                    "epistemic": null,
                     "semantic": {
                       "provenance": null,
                       "ontology_ref": "urn:ioc:ontology:sab:v1",
                       "schema_id": "urn:ioc:schema:sab-l9:v1"
                     },
-                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}"
-                  },
-                  "protocol": "SSTP",
-                  "version": "0",
-                  "participants": {
-                    "actors": [
-                      {
-                        "id": "commercial-agent",
-                        "attestation": null,
-                        "role": "sender"
-                      },
-                      {
-                        "id": "topic:sab/sessions",
-                        "attestation": null,
-                        "role": "receiver"
-                      }
-                    ],
-                    "groups": null
-                  },
-                  "kind": "commit",
-                  "subkind": "converged",
-                  "subprotocol": "SAB",
-                  "policy": null,
-                  "message": {
-                    "episode": "urn:ioc:episode:sab:a9b0a0b4-10c3-4f86-9ae3-c7238a8232ac",
-                    "id": "c8f6b28c-260a-42f6-ab16-8cc9782eb263",
-                    "parents": [
-                      "9b36c135-48bd-46e2-a9ee-9169ee89cccf"
-                    ]
-                  },
-                  "attributes": {
-                    "msg_created_at": "2026-06-24T10:00:00Z"
+                    "topic": "Consequential damages clause resolved: governing interpretation and liability cap. | issues: [\"governing_interpretation\", \"damages_cap\"] | options: {\"governing_interpretation\": [\"us_standard\", \"uk_standard\", \"hybrid\"], \"damages_cap\": [\"6_months_fees\", \"12_months_fees\", \"24_months_fees\"]}",
+                    "epistemic": null
                   }
-                },
-                "payload": {
-                  "data": {
-                    "dt_created": "2026-06-24T10:00:25Z",
-                    "message_id": "c8f6b28c-260a-42f6-ab16-8cc9782eb263",
-                    "version": "0",
-                    "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
-                    "semantic_context": {
-                      "final_agreement": [
-                        {
-                          "chosen_option": "hybrid",
-                          "issue_id": "governing_interpretation"
-                        },
-                        {
-                          "chosen_option": "12_months_fees",
-                          "issue_id": "damages_cap"
-                        }
-                      ],
-                      "error_message": null,
-                      "content_text": "Consequential damages clause resolved: governing interpretation and liability cap.",
-                      "encoding": "json",
-                      "agents_negotiating": [
-                        "commercial-agent",
-                        "liability-agent"
-                      ],
-                      "outcome": "agreement",
-                      "session_id": "urn:ioc:sab:session:9bf36d0a-e754-4e96-88c9-8412ff24b79c",
-                      "schema_version": "1.0"
-                    },
-                    "origin": {
-                      "actor_id": "commercial-agent",
-                      "attestation": null
-                    }
-                  },
-                  "type": "json-schema"
                 }
               },
               "media_type": "application/vnd.sstp.sab+json"

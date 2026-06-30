@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from enum import Enum
 from typing import Any, List, Optional
 import json
@@ -150,6 +150,7 @@ class SIEPMessageBuilder:
     def __init__(self, episode_urn: str, sender: str) -> None:
         self._ep = episode_urn
         self._sender = sender
+        self._receivers: List[str] = []
         self._kind: Optional[Kind] = None
         self._subkind: Optional[SubKind] = None
         self._parents: List[str] = []
@@ -163,6 +164,11 @@ class SIEPMessageBuilder:
 
     def intent(self) -> "SIEPMessageBuilder":
         self._kind = Kind.intent
+        return self
+
+    def to(self, *receivers: str) -> "SIEPMessageBuilder":
+        """Set one or more receiver agent IDs."""
+        self._receivers = list(receivers)
         return self
 
     def exchange(self) -> "SIEPMessageBuilder":
@@ -245,7 +251,7 @@ class SIEPMessageBuilder:
         )
         attributes = {
             "utterance_text": self._text,
-            "epistemic": siep_ep.model_dump(),
+            "epistemic": asdict(siep_ep),
         }
         l9 = L9(
             header=L9Header(
@@ -254,7 +260,10 @@ class SIEPMessageBuilder:
                 version="0.0.3",
                 kind=self._kind.value,
                 subkind=self._subkind.value if self._subkind else None,
-                participants=Actors(actors=[Actor(id=self._sender, role="sender")], groups=None).model_dump(),
+                participants=Actors(actors=[
+                    Actor(id=self._sender, role="sender"),
+                    *[Actor(id=r, role="receiver") for r in self._receivers],
+                ], groups=None).model_dump(),
                 message=Message(id=msg_id, parents=list(self._parents), episode=self._ep).model_dump(),
                 attributes=attributes,
                 context=Context(
