@@ -15,6 +15,12 @@ import (
 	l9 "github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang"
 )
 
+// Output of a drift detection method.
+type DriftDetectionOutput struct {
+	// Name corresponds to the JSON schema field "name".
+	Name string `json:"name" yaml:"name" mapstructure:"name"`
+}
+
 // Semantic context for kind='commit' messages that finalize a negotiation.
 //
 // Carries the schema identity of the commit plus the final_agreement
@@ -48,6 +54,9 @@ type NegotiateCommitSemanticContext struct {
 
 	// SessionID corresponds to the JSON schema field "session_id".
 	SessionID string `json:"session_id" yaml:"session_id" mapstructure:"session_id"`
+
+	// Optional drift detection output associated with this context.
+	DriftDetection *DriftDetectionOutput `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
 }
 
 // List of agent IDs that participated in this negotiation.
@@ -190,6 +199,9 @@ type NegotiateSemanticContext struct {
 
 	// SessionID corresponds to the JSON schema field "session_id".
 	SessionID string `json:"session_id" yaml:"session_id" mapstructure:"session_id"`
+
+	// Optional drift detection output associated with this context.
+	DriftDetection *DriftDetectionOutput `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
 }
 
 type NegotiateSemanticContextEncoding string
@@ -1307,6 +1319,9 @@ type SemanticContext struct {
 
 	// SchemaVersion corresponds to the JSON schema field "schema_version".
 	SchemaVersion string `json:"schema_version" yaml:"schema_version" mapstructure:"schema_version"`
+
+	// Optional drift detection output associated with this context.
+	DriftDetection *DriftDetectionOutput `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.

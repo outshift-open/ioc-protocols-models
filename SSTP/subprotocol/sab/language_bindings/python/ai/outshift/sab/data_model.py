@@ -12,6 +12,7 @@ from typing import Any, Literal
 
 from ai.outshift.data_model import L9Header, L9Payload, Actor, Context
 from pydantic import BaseModel, Field, RootModel
+from SSTP.subprotocol.common.data_models.drift_dectection import DriftDetectionOutput
 
 
 class Protocol(RootModel[Literal["SSTP"]]):
@@ -65,6 +66,7 @@ class Encoding(Enum):
 class SemanticContext(BaseModel):
     schema_version: str = Field(..., title="Schema Version")
     encoding: Encoding = Field("json", title="Encoding")
+    drift_detection: DriftDetectionOutput | None = Field(None, title="Drift Detection", description="Optional drift detection output associated with this context.")
 
 
 class Outcome(Enum):
@@ -115,6 +117,7 @@ class NegotiateCommitSemanticContext(BaseModel):
         ),
         title="Final Agreement",
     )
+    drift_detection: DriftDetectionOutput | None = Field(None, title="Drift Detection", description="Optional drift detection output associated with this context.")
 
 
 class ResponseType(IntEnum):
@@ -250,6 +253,7 @@ class NegotiateSemanticContext(BaseModel):
     offer_validation_failure: dict[str, Any] | None = Field(
         None, title="Offer Validation Failure"
     )
+    drift_detection: DriftDetectionOutput | None = Field(None, title="Drift Detection", description="Optional drift detection output associated with this context.")
 
 
 class SABHeader(L9Header):

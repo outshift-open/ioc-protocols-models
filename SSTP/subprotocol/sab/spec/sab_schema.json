@@ -150,6 +150,15 @@
       "title": "SABCommitPayloadData",
       "type": "object"
     },
+    "DriftDetectionOutput": {
+      "description": "Output of a drift detection method.",
+      "properties": {
+        "name": { "title": "Name", "type": "string" }
+      },
+      "required": ["name"],
+      "title": "DriftDetectionOutput",
+      "type": "object"
+    },
     "SemanticContext": {
       "description": "Schema and encoding metadata for the payload.",
       "properties": {
@@ -159,6 +168,12 @@
           "enum": ["json", "structured_text", "hybrid"],
           "title": "Encoding",
           "type": "string"
+        },
+        "drift_detection": {
+          "anyOf": [{ "$ref": "#/$defs/DriftDetectionOutput" }, { "type": "null" }],
+          "default": null,
+          "description": "Optional drift detection output associated with this context.",
+          "title": "Drift Detection"
         }
       },
       "required": ["schema_version"],
@@ -192,6 +207,12 @@
           "anyOf": [{ "additionalProperties": true, "type": "object" }, { "type": "null" }],
           "default": null,
           "title": "Offer Validation Failure"
+        },
+        "drift_detection": {
+          "anyOf": [{ "$ref": "#/$defs/DriftDetectionOutput" }, { "type": "null" }],
+          "default": null,
+          "description": "Optional drift detection output associated with this context.",
+          "title": "Drift Detection"
         }
       },
       "required": ["session_id"],
@@ -241,6 +262,12 @@
           "default": null,
           "description": "Agreed option per issue. Each entry is {'issue_id': str, 'chosen_option': str}. None when negotiation ended without agreement.",
           "title": "Final Agreement"
+        },
+        "drift_detection": {
+          "anyOf": [{ "$ref": "#/$defs/DriftDetectionOutput" }, { "type": "null" }],
+          "default": null,
+          "description": "Optional drift detection output associated with this context.",
+          "title": "Drift Detection"
         }
       },
       "required": ["session_id", "outcome"],
