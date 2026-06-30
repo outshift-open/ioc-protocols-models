@@ -105,8 +105,31 @@ _HTML = r"""<!DOCTYPE html>
   header h1 { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
   header .subtitle { color: var(--muted); font-size: 1.05rem; }
 
+  /* ── Scenario banner ── */
+  .scenario-banner {
+    background: #f8f9ff; border-bottom: 2px solid var(--border);
+    padding: .65rem 1.5rem; font-size: .92rem; display: flex; gap: 1.2rem;
+    align-items: stretch; }
+  .scenario-banner-col { display: flex; flex-direction: column; gap: .3rem; }
+  .scenario-banner-col .sb-label {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); font-weight: 700; }
+  .scenario-banner-col .sb-value { color: var(--text); font-size: .88rem; line-height: 1.45; }
+  .sb-divider { width: 1px; background: var(--border); flex-shrink: 0; align-self: stretch; margin: .1rem 0; }
+  .sb-contract { flex: 2; min-width: 260px; }
+  .sb-contract .sb-title { font-size: 1rem; font-weight: 700; color: var(--accent); margin-bottom: .2rem; }
+  .sb-contract .sb-desc  { font-size: .86rem; color: var(--text); line-height: 1.5; }
+  .sb-contract .sb-objective { font-size: .83rem; color: var(--muted); margin-top: .25rem;
+    border-left: 3px solid var(--accent); padding-left: .5rem; line-height: 1.4; }
+  .sb-agent { flex: 1; min-width: 180px; }
+  .sb-agent-name { font-weight: 700; font-size: .92rem; margin-bottom: .15rem; }
+  .sb-agent-skills { font-size: .83rem; color: var(--muted); line-height: 1.45; }
+  .sb-agent-role  { font-size: .8rem; display: inline-block; margin-top: .2rem;
+    background: var(--bg); border: 1px solid var(--border); border-radius: .3rem;
+    padding: .1rem .4rem; color: var(--text); }
+
   /* ── Root layout ── */
-  .root { display: flex; height: calc(100vh - 62px); }
+  .root { display: flex; height: calc(100vh - 62px - 72px); }
 
   /* ── Sidebar ── */
   aside { width: 280px; flex-shrink: 0; background: var(--panel); border-right: 1px solid var(--border);
@@ -311,6 +334,83 @@ _HTML = r"""<!DOCTYPE html>
     border-radius: .35rem; overflow: hidden; background: #fafbff; }
   .participants-nested > .dp-section-title { background: #f2f4ff; color: var(--muted);
     font-size: .82rem; padding: .3rem .6rem; border-bottom: 1px solid #dde1f0; }
+
+  /* ── Drift row highlight ── */
+  .seq-row--drift { background: #fff7ed !important; }
+  .seq-row--drift:hover { background: #fed7aa !important; }
+  .seq-row--drift .seq-gutter { border-left: 4px solid #f97316; }
+  .drift-badge { background: #fff7ed; border: 1.5px solid #f97316; color: #c2410c;
+    border-radius: .3rem; padding: .15rem .45rem; font-size: .82rem; font-weight: 700;
+    display: inline-flex; align-items: center; gap: .25rem; margin-top: .3rem; }
+  .drift-detail-box { background: #fff7ed; border: 1.5px solid #f97316; border-radius: .4rem;
+    padding: .45rem .7rem; font-size: .88rem; color: #7c2d12; line-height: 1.55;
+    margin-bottom: .1rem; }
+  .drift-detail-box strong { color: #c2410c; }
+
+  /* ── CIP Journey timeline ── */
+  .cip-journey { background: #fff; border: 2px solid var(--cip); border-radius: .5rem;
+    overflow: hidden; }
+  .cip-journey-title { background: var(--cip-bg); color: var(--cip); padding: .4rem .7rem;
+    font-size: .88rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+    border-bottom: 1px solid #fed7aa; }
+  .cip-journey-steps { display: flex; flex-direction: column; }
+  .cip-step { display: flex; align-items: flex-start; gap: .5rem; padding: .4rem .7rem;
+    border-bottom: 1px solid #fef3c7; font-size: .87rem; }
+  .cip-step:last-child { border-bottom: none; }
+  .cip-step-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    margin-top: .25rem; background: #d1d5db; border: 2px solid #9ca3af; }
+  .cip-step.current .cip-step-dot { background: var(--cip); border-color: var(--cip);
+    box-shadow: 0 0 6px var(--cip); }
+  .cip-step.done .cip-step-dot { background: #16a34a; border-color: #16a34a; }
+  .cip-step-body { flex: 1; }
+  .cip-step-label { font-weight: 600; color: var(--text); }
+  .cip-step.current .cip-step-label { color: var(--cip); }
+  .cip-step.done   .cip-step-label { color: #15803d; }
+  .cip-step-detail { color: var(--muted); font-size: .82rem; margin-top: .15rem; line-height: 1.4; }
+  .cip-step-connector { width: 2px; height: 10px; background: #e5e7eb; margin-left: .75rem; }
+
+  /* ── SAB bargaining boxes ── */
+  .sab-open-box { background: #fdf4ff; border: 2px solid var(--sab); border-radius: .5rem;
+    overflow: hidden; margin-bottom: .1rem; }
+  .sab-open-box-title { background: var(--sab-bg); color: var(--sab); padding: .4rem .7rem;
+    font-size: .88rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+    border-bottom: 1px solid #e9d5ff; }
+  .sab-issue-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .sab-issue-table th { background: #f3e8ff; color: var(--sab); padding: .3rem .6rem;
+    text-align: left; font-weight: 700; border-bottom: 1px solid #e9d5ff; }
+  .sab-issue-table td { padding: .3rem .6rem; border-bottom: 1px solid #f3e8ff; vertical-align: top; }
+  .sab-issue-table tr:last-child td { border-bottom: none; }
+  .sab-option { display: inline-block; margin: .1rem .15rem; padding: .1rem .4rem;
+    border-radius: .25rem; border: 1px solid #d8b4fe; background: #fff; font-size: .82rem; }
+  .sab-option.pos-commercial { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; font-weight: 700; }
+  .sab-option.pos-liability  { background: #fce7f3; border-color: #f9a8d4; color: #9d174d; font-weight: 700; }
+  .sab-option.pos-agreed     { background: #d1fae5; border-color: #6ee7b7; color: #065f46; font-weight: 700; }
+  .sab-positions { display: flex; gap: .5rem; padding: .5rem .7rem; flex-wrap: wrap; }
+  .sab-position-card { flex: 1; min-width: 130px; border-radius: .4rem; padding: .4rem .6rem;
+    font-size: .85rem; line-height: 1.5; }
+  .sab-position-card.commercial { background: #eff6ff; border: 1px solid #93c5fd; }
+  .sab-position-card.liability  { background: #fdf2f8; border: 1px solid #f9a8d4; }
+  .sab-position-card .sp-agent  { font-weight: 700; font-size: .8rem; text-transform: uppercase;
+    letter-spacing: .06em; margin-bottom: .2rem; }
+  .sab-distance { padding: .35rem .7rem; background: #fff7ed; border-top: 1px solid #fed7aa;
+    font-size: .83rem; color: #92400e; }
+
+  .sab-resolved-box { background: #f0fdf4; border: 2px solid #16a34a; border-radius: .5rem;
+    overflow: hidden; margin-bottom: .1rem; }
+  .sab-resolved-title { background: #d1fae5; color: #065f46; padding: .4rem .7rem;
+    font-size: .88rem; font-weight: 700; border-bottom: 1px solid #a7f3d0; }
+  .sab-agreed-terms { display: flex; gap: .6rem; padding: .5rem .7rem; flex-wrap: wrap; }
+  .sab-term { background: #fff; border: 2px solid #6ee7b7; border-radius: .4rem;
+    padding: .4rem .7rem; flex: 1; min-width: 120px; }
+  .sab-term .st-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em;
+    color: #16a34a; font-weight: 700; margin-bottom: .2rem; }
+  .sab-term .st-value { font-size: 1rem; font-weight: 700; color: #065f46; }
+  .sab-rounds { padding: .4rem .7rem; border-top: 1px solid #a7f3d0; font-size: .85rem; }
+  .sab-rounds-title { font-weight: 700; color: #065f46; margin-bottom: .3rem; font-size: .82rem;
+    text-transform: uppercase; letter-spacing: .06em; }
+  .sab-round-row { display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem; }
+  .sab-round-agent { font-size: .78rem; color: var(--muted); min-width: 130px; }
+  .sab-round-offer { display: flex; gap: .25rem; }
 </style>
 </head>
 <body>
@@ -323,6 +423,69 @@ _HTML = r"""<!DOCTYPE html>
     </div>
   </div>
 </header>
+
+<!-- ── Scenario context banner ── -->
+<div class="scenario-banner">
+
+  <!-- Contract problem statement -->
+  <div class="scenario-banner-col sb-contract">
+    <span class="sb-label">📄 Problem statement</span>
+    <div class="sb-title">Cross-jurisdiction SaaS Enterprise Agreement</div>
+    <div class="sb-desc">
+      Two AI agents must jointly interpret and resolve an unresolved consequential damages clause
+      in a SaaS contract that spans multiple legal jurisdictions. Neither agent alone holds the
+      full picture — commercial law expertise must be combined with indemnity &amp; damages analysis.
+    </div>
+    <div class="sb-objective">
+      Objective: align on a shared legal standard for material breach, then negotiate and agree on
+      <strong>governing interpretation</strong> (US / UK / Hybrid) and <strong>damages cap</strong>
+      (6 / 12 / 24 months of fees).
+    </div>
+  </div>
+
+  <div class="sb-divider"></div>
+
+  <!-- Commercial-agent -->
+  <div class="scenario-banner-col sb-agent">
+    <span class="sb-label">⚖️ Agent 1</span>
+    <div class="sb-agent-name" style="color:var(--intent)">commercial-agent</div>
+    <div class="sb-agent-skills">
+      Contract law &amp; material breach standards<br>
+      GDPR / CCPA data-processing compliance<br>
+      Cross-jurisdiction SaaS agreements
+    </div>
+    <span class="sb-agent-role">Lead · team coordinator</span>
+  </div>
+
+  <div class="sb-divider"></div>
+
+  <!-- Liability-agent -->
+  <div class="scenario-banner-col sb-agent">
+    <span class="sb-label">🛡️ Agent 2</span>
+    <div class="sb-agent-name" style="color:var(--exchange)">liability-agent</div>
+    <div class="sb-agent-skills">
+      Indemnity &amp; consequential damages scope<br>
+      SLA breach threshold analysis<br>
+      Cross-jurisdiction indemnity frameworks
+    </div>
+    <span class="sb-agent-role">Participant · damages specialist</span>
+  </div>
+
+  <div class="sb-divider"></div>
+
+  <!-- Repair Cognition Engine -->
+  <div class="scenario-banner-col sb-agent">
+    <span class="sb-label">🔧 Agent 3</span>
+    <div class="sb-agent-name" style="color:var(--cip)">repair-cognition-engine</div>
+    <div class="sb-agent-skills">
+      Detects semantic drift between agents<br>
+      Issues hard-stop repair directives<br>
+      Verifies re-alignment before proceeding
+    </div>
+    <span class="sb-agent-role">CIP · contingency repair</span>
+  </div>
+
+</div>
 
 <div class="root">
 
@@ -429,7 +592,7 @@ const PHASE_COLOR = { TFP:'var(--tfp)', SIEP:'var(--siep)', CIP:'var(--cip)', SA
 const AGENT_ICON = {
   'commercial-agent': '⚖️',
   'liability-agent':  '🛡️',
-  'cip-engine':       '🔧',
+  'repair-cognition-engine': '🔧',
 };
 function agentIcon(id) { return AGENT_ICON[id] || '🤖'; }
 
@@ -511,7 +674,7 @@ function extractL9Info(entry) {
 
 // ── Sequence diagram rendering ────────────────────────────────────────────────
 const SKIP_AGENTS = /^topic:/;
-const AGENT_ORDER = ['commercial-agent', 'liability-agent', 'cip-engine'];
+const AGENT_ORDER = ['commercial-agent', 'liability-agent', 'repair-cognition-engine'];
 
 function collectAgents(msgs) {
   const set = new Set();
@@ -585,6 +748,200 @@ function showDetail(idx, entry, info) {
 
   const h = info?.raw?.header || {};
   const a2a = entry.a2a_message || {};
+
+  // ── Drift detection box (msg 10: SIEP exchange with wrong doctrine) ──
+  const isDrift = entry.phase === 'SIEP' && entry.label.includes('⚠');
+  const driftBox = isDrift ? `
+    <div class="drift-detail-box">
+      <strong>⚠ Semantic Drift Detected</strong><br>
+      liability-agent applied <code>concept:substantial_performance</code> (tort doctrine)
+      instead of the agreed <code>concept:material_breach</code> (contract-law standard).<br>
+      <span style="margin-top:.3rem;display:block">
+        belief.prior = ${info?.raw?.payload?.data?.belief?.prior ?? '?'} ·
+        evidence: ${JSON.stringify(info?.raw?.payload?.data?.utterance?.evidence ?? [])}
+      </span>
+      This mismatch triggers escalation → <strong>CIP repair</strong> (messages #11–#14).
+    </div>` : '';
+
+  // ── CIP Journey (messages 11–14: contingency lifecycle) ──
+  let cipJourneyHtml = '';
+  if (entry.phase === 'CIP') {
+    const allMsgs  = window._msgs  || [];
+    const allInfos = window._infos || [];
+    const cipMsgs  = allMsgs.map((m, i) => ({ m, info: allInfos[i], i }))
+                            .filter(x => x.m.phase === 'CIP');
+
+    const stepDefs = [
+      { match: x => x.info?.kind === 'contingency' && x.m.label.includes('raises'),
+        label: '🚨 Contingency raised',
+        detail: m => {
+          const d = m.info?.raw?.payload?.data || {};
+          return `scope_mismatch detected · challenges: ${JSON.stringify(d.grounding?.challenges || [])}`;
+        }},
+      { match: x => x.m.label.includes('repair_guidance') || x.m.label.includes('hard-stop'),
+        label: '🔧 CIP engine: repair guidance issued',
+        detail: m => {
+          const t = m.info?.raw?.payload?.data?.utterance?.text || '';
+          return t.slice(0, 120) || 'hard-stop instruction sent to liability-agent';
+        }},
+      { match: x => x.m.label.includes('re-anchor'),
+        label: '🔄 liability-agent re-anchors',
+        detail: m => {
+          const d = m.info?.raw?.payload?.data || {};
+          return `belief ${d.belief?.prior} → ${d.belief?.posterior} · ${d.belief?.revision_cause || ''}`;
+        }},
+      { match: x => x.info?.kind === 'commit' && (x.info?.subkind === 'resolved' || x.m.label.includes('resolved')),
+        label: '✅ Alignment restored · commit:resolved',
+        detail: m => {
+          const d = m.info?.raw?.payload?.data || {};
+          return `contingency_score=${d.grounding?.contingency_score} · contingency_verified=${d.grounding?.contingency_verified}`;
+        }},
+    ];
+
+    const steps = stepDefs.map(def => {
+      const found = cipMsgs.find(def.match);
+      return { ...def, found };
+    });
+
+    const stepsHtml = steps.map(s => {
+      const isCurrent = s.found && s.found.i === idx;
+      const isDone    = s.found && s.found.i < idx;
+      const cls       = isCurrent ? 'current' : isDone ? 'done' : '';
+      const detail    = s.found ? s.detail(s.found) : '—';
+      return `
+        <div class="cip-step ${cls}">
+          <div class="cip-step-dot"></div>
+          <div class="cip-step-body">
+            <div class="cip-step-label">${s.label}${s.found ? ` <span style="color:var(--muted);font-weight:400">#${s.found.i+1}</span>` : ''}</div>
+            <div class="cip-step-detail">${detail}</div>
+          </div>
+        </div>`;
+    }).join('<div class="cip-step-connector"></div>');
+
+    cipJourneyHtml = `
+      <div class="cip-journey">
+        <div class="cip-journey-title">🔁 CIP Repair Journey — triggered by drift in msg #10</div>
+        <div class="cip-journey-steps">${stepsHtml}</div>
+      </div>`;
+  }
+
+  // ── SAB boxes (msg 15: open / misalignment · msg 20: resolved agreement) ──
+  let sabHtml = '';
+  if (entry.phase === 'SAB') {
+    const allMsgs  = window._msgs  || [];
+    const allInfos = window._infos || [];
+
+    // Helper: extract current_offer from a SAB message
+    const getOffer = m => {
+      const parts = m?.a2a_message?.parts || [];
+      const l9 = parts.find(p => p.type === 'data')?.decoded_l9_or_sab;
+      return l9?.payload?.data?.semantic_context?.sao_state?.current_offer || null;
+    };
+    const getSender = m => {
+      const parts = m?.a2a_message?.parts || [];
+      const l9 = parts.find(p => p.type === 'data')?.decoded_l9_or_sab;
+      const actors = l9?.header?.participants?.actors || [];
+      return actors.find(a => a.role === 'sender')?.id || '?';
+    };
+    const getFinalAgreement = m => {
+      const parts = m?.a2a_message?.parts || [];
+      const l9 = parts.find(p => p.type === 'data')?.decoded_l9_or_sab;
+      return l9?.payload?.data?.semantic_context?.final_agreement || null;
+    };
+
+    // Collect all SAB negotiate rounds (msgs with offers)
+    const sabRounds = allMsgs
+      .map((m, i) => ({ m, i, offer: getOffer(m), sender: getSender(m) }))
+      .filter(x => x.offer && x.m.phase === 'SAB');
+
+    const OPTIONS_MAP = {
+      governing_interpretation: { us_standard: 'US Standard', uk_standard: 'UK Standard', hybrid: 'Hybrid' },
+      damages_cap: { '6_months_fees': '6 months', '12_months_fees': '12 months', '24_months_fees': '24 months' },
+    };
+
+    // ── msg 15: SAB open — show misalignment ──
+    if (entry.label.includes('negotiate_open') || (entry.phase === 'SAB' && idx === allMsgs.findIndex(m => m.phase === 'SAB'))) {
+      const firstOffer  = sabRounds[0]; // commercial-agent: us_standard / 6_months
+      const secondOffer = sabRounds[1]; // liability-agent: uk_standard / 24_months
+      const issues = ['governing_interpretation', 'damages_cap'];
+
+      const rowsHtml = issues.map(issue => {
+        const opts = ['us_standard','uk_standard','hybrid','6_months_fees','12_months_fees','24_months_fees']
+          .filter(o => OPTIONS_MAP[issue]?.[o]);
+        const coVal = firstOffer?.offer?.[issue];
+        const laVal = secondOffer?.offer?.[issue];
+        const optsHtml = opts.map(o => {
+          let cls = 'sab-option';
+          if (o === coVal) cls += ' pos-commercial';
+          else if (o === laVal) cls += ' pos-liability';
+          return `<span class="${cls}" title="${o === coVal ? '⚖️ commercial-agent' : o === laVal ? '🛡️ liability-agent' : ''}">${OPTIONS_MAP[issue][o]}</span>`;
+        }).join('');
+        return `<tr><td style="font-weight:600;color:var(--text)">${issue.replace('_',' ')}</td><td>${optsHtml}</td></tr>`;
+      }).join('');
+
+      const posHtml = firstOffer && secondOffer ? `
+        <div class="sab-positions">
+          <div class="sab-position-card commercial">
+            <div class="sp-agent" style="color:#1d4ed8">⚖️ commercial-agent opens</div>
+            <div>🗳 ${OPTIONS_MAP.governing_interpretation[firstOffer.offer.governing_interpretation] || firstOffer.offer.governing_interpretation}</div>
+            <div>💰 ${OPTIONS_MAP.damages_cap[firstOffer.offer.damages_cap] || firstOffer.offer.damages_cap}</div>
+          </div>
+          <div style="align-self:center;font-size:1.2rem;color:var(--muted)">⟺</div>
+          <div class="sab-position-card liability">
+            <div class="sp-agent" style="color:#9d174d">🛡️ liability-agent counters</div>
+            <div>🗳 ${OPTIONS_MAP.governing_interpretation[secondOffer.offer.governing_interpretation] || secondOffer.offer.governing_interpretation}</div>
+            <div>💰 ${OPTIONS_MAP.damages_cap[secondOffer.offer.damages_cap] || secondOffer.offer.damages_cap}</div>
+          </div>
+        </div>
+        <div class="sab-distance">⚠ Maximum divergence on both issues — bargaining starts from opposite ends of the option space</div>` : '';
+
+      sabHtml = `
+        <div class="sab-open-box">
+          <div class="sab-open-box-title">🤝 SAB opens — 2 open issues · agents at opposite positions</div>
+          <table class="sab-issue-table">
+            <tr><th>Issue</th><th>Options <span style="font-weight:400;font-size:.78rem">(🔵 commercial · 🔴 liability)</span></th></tr>
+            ${rowsHtml}
+          </table>
+          ${posHtml}
+        </div>`;
+    }
+
+    // ── msg 20: commit:converged — show final agreement ──
+    const isResolved = info?.kind === 'commit' && (info?.subkind === 'converged' || entry.label.includes('agreed'));
+    if (isResolved) {
+      const finalAgreement = getFinalAgreement(entry);
+      const agreedMap = {};
+      (finalAgreement || []).forEach(a => { agreedMap[a.issue_id] = a.chosen_option; });
+
+      const termsHtml = Object.entries(agreedMap).map(([issue, val]) => `
+        <div class="sab-term">
+          <div class="st-label">${issue.replace('_',' ')}</div>
+          <div class="st-value">✅ ${OPTIONS_MAP[issue]?.[val] || val}</div>
+        </div>`).join('');
+
+      const roundsHtml = sabRounds.map((r, ri) => {
+        const isAgreed = ri === sabRounds.length - 1;
+        return `<div class="sab-round-row">
+          <span class="sab-round-agent">${r.sender === 'commercial-agent' ? '⚖️' : '🛡️'} ${r.sender} #${r.i+1}</span>
+          <div class="sab-round-offer">
+            <span class="sab-option${isAgreed ? ' pos-agreed' : r.sender === 'commercial-agent' ? ' pos-commercial' : ' pos-liability'}">${OPTIONS_MAP.governing_interpretation[r.offer.governing_interpretation] || r.offer.governing_interpretation}</span>
+            <span class="sab-option${isAgreed ? ' pos-agreed' : r.sender === 'commercial-agent' ? ' pos-commercial' : ' pos-liability'}">${OPTIONS_MAP.damages_cap[r.offer.damages_cap] || r.offer.damages_cap}</span>
+          </div>
+          ${isAgreed ? '<span style="color:#16a34a;font-weight:700">✅ accepted</span>' : ''}
+        </div>`;
+      }).join('');
+
+      sabHtml = `
+        <div class="sab-resolved-box">
+          <div class="sab-resolved-title">✅ SAB commit:converged — damages clause agreed</div>
+          <div class="sab-agreed-terms">${termsHtml}</div>
+          <div class="sab-rounds">
+            <div class="sab-rounds-title">📋 Negotiation history (${sabRounds.length} rounds)</div>
+            ${roundsHtml}
+          </div>
+        </div>`;
+    }
+  }
 
   // ── L9 Header fields ──
   const hFields = [
@@ -678,6 +1035,9 @@ function showDetail(idx, entry, info) {
   });
 
   let sections = `
+    ${driftBox}
+    ${cipJourneyHtml}
+    ${sabHtml}
     <div class="dp-section a2a-outer">
       <div class="dp-section-title">🚌 A2A Message <span class="a2a-subtitle">transport envelope</span></div>
       ${a2aMetaFields.map(([k,v]) => dpField(k,v)).join('')}
@@ -877,8 +1237,11 @@ function renderSeqRow(entry, idx, info, agents, colMap) {
   }
 
   const id = idx;
+  const isDrift = entry.phase === 'SIEP' && entry.label.includes('⚠');
+  const driftBadge = isDrift
+    ? `<div class="drift-badge">⚠ DRIFT DETECTED — tort doctrine applied</div>` : '';
   return `
-<div class="seq-row pb-hidden" id="row-${id}" onmouseenter="showDetail(${id}, _msgs[${id}], _infos[${id}])">
+<div class="seq-row${isDrift ? ' seq-row--drift' : ''} pb-hidden" id="row-${id}" onmouseenter="showDetail(${id}, _msgs[${id}], _infos[${id}])">
   <div class="seq-gutter">
     <span class="seq-num">#${String(idx+1).padStart(2,'0')}</span>
     <span class="seq-step-label">${entry.label}</span>
@@ -886,6 +1249,7 @@ function renderSeqRow(entry, idx, info, agents, colMap) {
       ${kindBadge(kind)}
     </div>
     ${gutterHint}
+    ${driftBadge}
   </div>
   <div class="seq-cols">
     ${colsHtml}

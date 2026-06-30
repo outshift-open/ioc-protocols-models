@@ -803,7 +803,7 @@ def run_demo() -> None:  # noqa: C901
     _hr("═")
 
     cip_episode = f"urn:ioc:cip:{uuid.uuid4()}"
-    cip_proc    = CIPProcessor("cip-engine", cip_episode, CIPEngineConfig(
+    cip_proc    = CIPProcessor("repair-cognition-engine", cip_episode, CIPEngineConfig(
         derailment_causes={
             "scope_mismatch":    ["{listener}, your reply applied the wrong legal doctrine."],
             "alignment_failure": ["{listener}, your reply did not engage the agreed legal standard."],
@@ -837,23 +837,23 @@ def run_demo() -> None:  # noqa: C901
     # ②③ PACK + SEND
     cip_task_id, a2a = bus.open_l9_task(l9_req, Role.ROLE_USER, ctx_id)
     rec("CIP", "3a · contingency  (commercial-agent raises repair request)", a2a)
-    # ④ RECV → cip-engine processes
+    # ④ RECV → repair-cognition-engine processes
     l9_recv = bus.recv_l9(cip_task_id)
 
-    # cip-engine: ① BUILD repair guidance (LLM via CIPProcessor)
+    # repair-cognition-engine: ① BUILD repair guidance (LLM via CIPProcessor)
     l9_guidance = cip_proc.process(l9_recv)[0]
     guidance_text = (l9_guidance.payload.data or {}).get("utterance", {}).get("text", "") if l9_guidance.payload else ""
     # ②③ PACK + SEND
     a2a = bus.send_l9(cip_task_id, l9_guidance, Role.ROLE_AGENT, ctx_id)
-    rec("CIP", "3b · repair_guidance  (cip-engine issues hard-stop — LLM)", a2a,
-        "cip-engine (future Cognition Engine)")
+    rec("CIP", "3b · repair_guidance  (repair-cognition-engine issues hard-stop — LLM)", a2a,
+        "repair-cognition-engine")
     # ④ RECV → liability-agent receives guidance
     _ = bus.recv_l9(cip_task_id)
 
     # 3c  liability-agent re-anchors — LLM
     # ① BUILD L9 (informed by guidance_text from 3b)
     l9_reanchor = (_cip("liability-agent")
-                   .to("cip-engine")
+                   .to("repair-cognition-engine")
                    .contingency().grounding().revised().concept(C_SCOPE)
                    .parents(l9_guidance.header.message.id)
                    .payload(CIPPayload(
@@ -872,14 +872,14 @@ def run_demo() -> None:  # noqa: C901
     # ②③ PACK + SEND
     a2a = bus.send_l9(cip_task_id, l9_reanchor, Role.ROLE_AGENT, ctx_id)
     rec("CIP", "3c · contingency_response  (liability-agent re-anchors)", a2a)
-    # ④ RECV → cip-engine processes
+    # ④ RECV → repair-cognition-engine processes
     l9_recv = bus.recv_l9(cip_task_id)
 
-    # cip-engine: ① BUILD commit:resolved (LLM via CIPProcessor)
+    # repair-cognition-engine: ① BUILD commit:resolved (LLM via CIPProcessor)
     l9_resolved = cip_proc.process(l9_recv)[0]
     # ②③ PACK + SEND (close task)
     a2a = bus.close_l9_task(cip_task_id, l9_resolved, Role.ROLE_AGENT, ctx_id)
-    rec("CIP", "3d · commit:resolved  (cip-engine closes — alignment restored)", a2a)
+    rec("CIP", "3d · commit:resolved  (repair-cognition-engine closes — alignment restored)", a2a)
     # ④ RECV → all parties receive resolution
     _ = bus.recv_l9(cip_task_id)
 
