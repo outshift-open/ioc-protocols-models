@@ -1,17 +1,17 @@
 # SSTP Common Skills
 
-Reusable skills for working with L9 protocol messages under the SSTP protocol.
+Reusable skills for working with L9 protocol messages under the SSTP protocol. These common skills work with both Claude and OpenClaw agents.
 
 ## Skills
 
 | Skill | Description |
 |-------|-------------|
-| `l9_header_gen` | Generates a standalone L9 header as valid JSON for a given kind and subprotocol |
-| `l9_message_gen` | Generates a complete L9 message (header + payload) as valid JSON |
-| `l9_to_human` | Converts an L9 JSON message into a human-readable plain-text string |
-| `l9_transform` | Converts plain-text human input into a valid L9 exchange message |
-| `l9_validate` | Validates an L9 JSON message against the schema and reports PASS/FAIL with details |
-| `l9_gen_validate` | Chains l9_message_gen → l9_validate to generate a message and immediately validate it |
+| `header_generation` | Generates a standalone L9 header as valid JSON for a given kind and subprotocol |
+| `message_generation` | Generates a complete L9 message (header + payload) as valid JSON |
+| `message_to_text` | Converts an L9 JSON message into a human-readable plain-text string |
+| `text_to_message` | Converts plain-text human input into a valid L9 exchange message |
+| `message_validation` | Validates an L9 JSON message against the schema and reports PASS/FAIL with details |
+| `generate_and_validate` | Chains message_generation → message_validation to generate and immediately validate |
 
 ## Supported Subprotocols
 
@@ -22,5 +22,5 @@ Reusable skills for working with L9 protocol messages under the SSTP protocol.
 
 ## Tested With
 
-- Claude (Anthropic)
-- OpenClaw
+- Claude Opus 4.6 (Anthropic) agents
+- OpenClaw agents

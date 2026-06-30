@@ -1,5 +1,5 @@
 ---
-name: l9-header-gen
+name: header-generation
 description: Generates a valid L9 header JSON from kind and sender.
 ---
 

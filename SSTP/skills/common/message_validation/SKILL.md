@@ -1,5 +1,5 @@
 ---
-name: l9-validate
+name: message-validation
 description: Validates an L9 JSON message against the schema. Reports PASS or FAIL.
 ---
 

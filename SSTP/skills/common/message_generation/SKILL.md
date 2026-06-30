@@ -1,5 +1,5 @@
 ---
-name: l9-message-gen
+name: message-generation
 description: Generates a complete L9 message (header + payload) as valid JSON.
 ---
 

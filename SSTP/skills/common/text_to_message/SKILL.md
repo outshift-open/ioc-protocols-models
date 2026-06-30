@@ -1,5 +1,5 @@
 ---
-name: l9-transform
+name: text-to-message
 description: Converts plain-text input into a valid L9 exchange message.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: l9-to-human
+name: message-to-text
 description: Converts an L9 JSON message into a simple human-readable string.
 ---
 
