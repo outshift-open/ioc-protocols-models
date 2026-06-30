@@ -11,6 +11,7 @@ Reusable skills for working with L9 protocol messages under the SSTP protocol.
 | `l9_to_human` | Converts an L9 JSON message into a human-readable plain-text string |
 | `l9_transform` | Converts plain-text human input into a valid L9 exchange message |
 | `l9_validate` | Validates an L9 JSON message against the schema and reports PASS/FAIL with details |
+| `l9_gen_validate` | Chains l9_message_gen → l9_validate to generate a message and immediately validate it |
 
 ## Supported Subprotocols
 
