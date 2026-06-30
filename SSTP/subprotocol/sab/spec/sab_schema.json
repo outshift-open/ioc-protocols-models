@@ -150,12 +150,53 @@
       "title": "SABCommitPayloadData",
       "type": "object"
     },
-    "DriftDetectionOutput": {
-      "description": "Output of a drift detection method.",
+    "SeverityLevel": {
+      "description": "Discrete severity bucket for a detected failure mode.",
+      "enum": ["low", "medium", "high"],
+      "title": "SeverityLevel",
+      "type": "string"
+    },
+    "ProcessFailureMode": {
+      "description": "PM-* process-level failure modes detected from the interaction history.",
+      "enum": ["Unclassified", "Persistent Divergence", "Dominant Narrative", "Repetition", "Reasoning Breakdown", "Task Deviation", "Constraint Violation", "Ambiguity"],
+      "title": "ProcessFailureMode",
+      "type": "string"
+    },
+    "Severity": {
+      "description": "Severity verdict for one failure mode.",
       "properties": {
-        "name": { "title": "Name", "type": "string" }
+        "type": { "$ref": "#/$defs/SeverityLevel", "description": "Assigned severity bucket" },
+        "high": { "description": "Score <= this -> HIGH", "maximum": 1.0, "minimum": 0.0, "title": "High", "type": "number" },
+        "medium": { "description": "Score <= this -> MEDIUM", "maximum": 1.0, "minimum": 0.0, "title": "Medium", "type": "number" }
       },
-      "required": ["name"],
+      "required": ["type", "high", "medium"],
+      "title": "Severity",
+      "type": "object"
+    },
+    "FailureMode": {
+      "description": "A single detected process failure mode.",
+      "properties": {
+        "type": { "$ref": "#/$defs/ProcessFailureMode", "description": "Detected failure-mode category" },
+        "score": { "description": "Confidence score in [0,1]; lower = stronger evidence of drift", "maximum": 1.0, "minimum": 0.0, "title": "Score", "type": "number" },
+        "severity": { "$ref": "#/$defs/Severity" },
+        "description": { "description": "Static taxonomy description for type", "title": "Description", "type": "string" },
+        "reasoning": { "description": "Engine's per-instance justification for flagging this mode", "title": "Reasoning", "type": "string" }
+      },
+      "required": ["type", "score", "severity", "description", "reasoning"],
+      "title": "FailureMode",
+      "type": "object"
+    },
+    "DriftDetectionOutput": {
+      "description": "Top-level Drift Detection output. Empty failure_modes list means no drift was detected.",
+      "properties": {
+        "failure_modes": {
+          "default": [],
+          "description": "Detected process failure modes; empty list = no drift detected",
+          "items": { "$ref": "#/$defs/FailureMode" },
+          "title": "Failure Modes",
+          "type": "array"
+        }
+      },
       "title": "DriftDetectionOutput",
       "type": "object"
     },

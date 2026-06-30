@@ -12,7 +12,7 @@ from typing import Any, Literal
 
 from ai.outshift.data_model import L9Header, L9Payload, Actor, Context
 from pydantic import BaseModel, Field, RootModel
-from SSTP.subprotocol.common.data_models.drift_dectection import DriftDetectionOutput
+from SSTP.subprotocol.common.data_models.drift_detection import DriftDetectionOutput
 
 
 class Protocol(RootModel[Literal["SSTP"]]):

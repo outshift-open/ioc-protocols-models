@@ -15,10 +15,58 @@ import (
 	l9 "github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang"
 )
 
-// Output of a drift detection method.
+// SeverityLevel is a discrete severity bucket for a detected failure mode.
+type SeverityLevel string
+
+const (
+	SeverityLevelLow    SeverityLevel = "low"
+	SeverityLevelMedium SeverityLevel = "medium"
+	SeverityLevelHigh   SeverityLevel = "high"
+)
+
+// ProcessFailureMode represents PM-* process-level failure modes.
+type ProcessFailureMode string
+
+const (
+	ProcessFailureModeUnclassified       ProcessFailureMode = "Unclassified"
+	ProcessFailureModePersistentDivergence ProcessFailureMode = "Persistent Divergence"
+	ProcessFailureModeDominantNarrative  ProcessFailureMode = "Dominant Narrative"
+	ProcessFailureModeRepetition         ProcessFailureMode = "Repetition"
+	ProcessFailureModeReasoningBreakdown ProcessFailureMode = "Reasoning Breakdown"
+	ProcessFailureModeTaskDeviation      ProcessFailureMode = "Task Deviation"
+	ProcessFailureModeConstraintViolation ProcessFailureMode = "Constraint Violation"
+	ProcessFailureModeAmbiguity          ProcessFailureMode = "Ambiguity"
+)
+
+// Severity is a severity verdict for one failure mode.
+type Severity struct {
+	// Assigned severity bucket.
+	Type SeverityLevel `json:"type" yaml:"type" mapstructure:"type"`
+	// Score <= this -> HIGH.
+	High float64 `json:"high" yaml:"high" mapstructure:"high"`
+	// Score <= this -> MEDIUM.
+	Medium float64 `json:"medium" yaml:"medium" mapstructure:"medium"`
+}
+
+// FailureMode is a single detected process failure mode.
+type FailureMode struct {
+	// Detected failure-mode category.
+	Type ProcessFailureMode `json:"type" yaml:"type" mapstructure:"type"`
+	// Confidence score in [0,1]; lower = stronger evidence of drift.
+	Score float64 `json:"score" yaml:"score" mapstructure:"score"`
+	// Severity verdict.
+	Severity Severity `json:"severity" yaml:"severity" mapstructure:"severity"`
+	// Static taxonomy description for type.
+	Description string `json:"description" yaml:"description" mapstructure:"description"`
+	// Engine's per-instance justification for flagging this mode.
+	Reasoning string `json:"reasoning" yaml:"reasoning" mapstructure:"reasoning"`
+}
+
+// DriftDetectionOutput is the top-level Drift Detection output (formerly SAVOutput).
+// Empty FailureModes list means no drift was detected.
 type DriftDetectionOutput struct {
-	// Name corresponds to the JSON schema field "name".
-	Name string `json:"name" yaml:"name" mapstructure:"name"`
+	// Detected process failure modes; empty list = no drift detected.
+	FailureModes []FailureMode `json:"failure_modes,omitempty" yaml:"failure_modes,omitempty" mapstructure:"failure_modes,omitempty"`
 }
 
 // Semantic context for kind='commit' messages that finalize a negotiation.
