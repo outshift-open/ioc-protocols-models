@@ -119,7 +119,7 @@ You edit the schema, then run the tooling to regenerate everything else.
 ├── Makefile                              # All build targets (start here)
 ├── pyproject.toml                        # PyPI package definition (ioc-l9-all-models)
 ├── PACKAGE.md                            # PyPI package long description
-├── PUBLISHING.md                         # PyPI publish guide
+├── PUBLISHING.md                         # PyPI + Go publishing guide
 ├── SSTP/
 │   ├── spec/l9_schema.json              # THE schema (single source of truth)
 │   ├── language_bindings/
@@ -130,7 +130,7 @@ You edit the schema, then run the tooling to regenerate everything else.
 │   │   ├── golang/
 │   │   │   ├── data_model.go            # Generated Go structs
 │   │   │   └── go.mod                   # Go module definition
-│   │   └── publish_bindings.sh          # Go module publisher (--tag to push)
+│   │   └── publish_bindings.sh          # Optional: Manual validation script (automated via GitHub Actions)
 │   ├── subprotocol/
 │   │   ├── sab/                         # Semantic Alignment Broadcast
 │   │   ├── tfp/                         # Team Formation via Polling
