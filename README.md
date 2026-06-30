@@ -284,20 +284,26 @@ After this, two tags exist on the remote:
 
 ## Go Module Usage (Consumers)
 
+> **Recommended:** Use v0.0.6 or later for Go module consumption.
+
 ### Install the module:
 
 ```bash
-go get github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang@v0.0.2
+# Latest version (recommended)
+go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@latest
+
+# Or specific version (v0.0.6+)
+go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v0.0.6
 ```
 
-> **Private repo:** You'll need `GOPRIVATE=github.com/cisco-eti/*` and SSH git access configured.
+> **Private repo:** You'll need `GOPRIVATE=github.com/outshift-open/*` and SSH git access configured.
 >
 > **Public repo:** No extra config needed — `go get` works out of the box.
 
 ### Use in your code:
 
 ```go
-import l9 "github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang"
+import l9 "github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang"
 
 msg := l9.L9SchemaJson{
     Header: l9.L9Header{
@@ -341,7 +347,7 @@ Tag format: `SSTP/language_bindings/golang/v{version}`
 Without tagging, local development uses `replace` directives in `go.mod`:
 
 ```go
-replace github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang => ../path/to/local/copy
+replace github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang => ../path/to/local/copy
 ```
 
 ---

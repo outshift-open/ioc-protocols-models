@@ -31,7 +31,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 SCHEMA_FILE="$PROJECT_ROOT/SSTP/subprotocol/sab/spec/sab_schema.json"
 OUT_FILE="$SCRIPT_DIR/data_model.go"
 PACKAGE="sab"
-L9_MODULE="github.com/cisco-eti/ioc-protocols-models/SSTP/language_bindings/golang"
+L9_MODULE="github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang"
 
 echo "Generating Go SAB bindings..."
 echo "  schema : $SCHEMA_FILE"
