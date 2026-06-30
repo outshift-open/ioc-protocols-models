@@ -119,7 +119,7 @@ You edit the schema, then run the tooling to regenerate everything else.
 ├── Makefile                              # All build targets (start here)
 ├── pyproject.toml                        # PyPI package definition (ioc-l9-all-models)
 ├── PACKAGE.md                            # PyPI package long description
-├── PUBLISHING.md                         # PyPI publish guide
+├── PUBLISHING.md                         # PyPI + Go publishing guide
 ├── SSTP/
 │   ├── spec/l9_schema.json              # THE schema (single source of truth)
 │   ├── language_bindings/
@@ -130,7 +130,7 @@ You edit the schema, then run the tooling to regenerate everything else.
 │   │   ├── golang/
 │   │   │   ├── data_model.go            # Generated Go structs
 │   │   │   └── go.mod                   # Go module definition
-│   │   └── publish_bindings.sh          # Go module publisher (--tag to push)
+│   │   └── publish_bindings.sh          # Optional: Manual validation script (automated via GitHub Actions)
 │   ├── subprotocol/
 │   │   ├── sab/                         # Semantic Alignment Broadcast
 │   │   ├── tfp/                         # Team Formation via Polling
@@ -249,36 +249,36 @@ make generate_docs                       # Just docs
 
 ---
 
-## Release Workflow (Full)
+## Release Workflow (Automated)
 
-When you're ready to cut a release, run these steps in order:
+When you're ready to cut a release:
 
 ```bash
-# Step 0: Get the version from the schema
-VERSION=$(make -s print-version)
+# 1. Bump version in pyproject.toml
+#    Example: version = "0.0.7"
 
-# Step 1: Generate + validate everything (bindings, docs, tests)
-./scripts/generate_artifacts.sh
+# 2. Commit and push to main
+git add pyproject.toml
+git commit -m "chore: bump version to 0.0.7"
+git push origin main
 
-# Step 2: Build the Python wheel (version stamped from schema)
-make build_wheel
+# 3. Create and push version tag
+git tag v0.0.7
+git push origin v0.0.7
 
-# Step 3: Publish artifacts (finalize docs, validate bindings)
-./scripts/publish_artifacts.sh "$VERSION"
-
-# Step 4: Create the repository git tag (e.g. 0.0.2)
-./scripts/release_artifacts.sh "$VERSION"
-
-# Step 5: Create the Go module tag and push it
-./SSTP/language_bindings/publish_bindings.sh golang --tag
+# 4. GitHub Actions automatically publishes:
+#    - Python package to PyPI
+#    - Go module tag (SSTP/language_bindings/golang/v0.0.7)
 ```
 
-After this, two tags exist on the remote:
+After the automated workflow completes, two tags exist on the remote:
 
 | Tag | Example | Purpose |
 |-----|---------|---------|
-| `v{version}` | `v0.0.2` | PyPI publish trigger + repository release |
-| `SSTP/language_bindings/golang/v{version}` | `SSTP/language_bindings/golang/v0.0.2` | Go module tag (enables `go get`) |
+| `v{version}` | `v0.0.7` | Triggers automated PyPI + Go publishing |
+| `SSTP/language_bindings/golang/v{version}` | `SSTP/language_bindings/golang/v0.0.7` | Go module tag (enables `go get`) |
+
+The GitHub Actions workflow ([.github/workflows/publish.yaml](.github/workflows/publish.yaml)) handles both Python and Go publishing automatically.
 
 ---
 
@@ -332,19 +332,27 @@ git ls-remote --tags origin | grep "SSTP/language_bindings/golang"
 
 ---
 
-## Go Module Publishing (Maintainers)
+## Go Module Publishing (Automated)
+
+Go module tags are **automatically created** when you push a version tag (e.g., `v0.0.7`). The GitHub Actions workflow ([.github/workflows/publish.yaml](.github/workflows/publish.yaml)) handles this.
+
+Tag format: `SSTP/language_bindings/golang/v{version}`
+
+### Manual Validation (Optional)
+
+If you want to validate Go bindings locally before publishing:
 
 ```bash
 # Validate only (no tag created, nothing pushed)
 make publish_bindings LANGUAGE=golang
 
-# Validate + create + push the versioned git tag
-./SSTP/language_bindings/publish_bindings.sh golang --tag
+# Or run tests directly
+make test_bindings LANGUAGE=golang
 ```
 
-Tag format: `SSTP/language_bindings/golang/v{version}`
+### Local Development
 
-Without tagging, local development uses `replace` directives in `go.mod`:
+For local development without published tags, use `replace` directives in `go.mod`:
 
 ```go
 replace github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang => ../path/to/local/copy

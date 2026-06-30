@@ -1,15 +1,22 @@
 # =============================================================================
-# Publish to PyPI — Triggered on version tags (e.g. v0.0.1)
+# Publish Python and Go Bindings — Triggered on version tags (e.g. v0.0.1)
 # =============================================================================
 #
-# This workflow builds and publishes the ioc-l9-all-models wheel to PyPI.
+# This workflow publishes both Python and Go language bindings when a version
+# tag is pushed.
+#
+# PYTHON (PyPI):
+#   - Builds and publishes the ioc-l9-all-models wheel to PyPI
+#
+# GO (Git Tags):
+#   - Creates a Go module tag for version-pinned imports
 #
 # HOW TO RELEASE:
 #   1. Bump version in pyproject.toml (e.g. version = "0.0.2")
 #   2. Commit and push to main
 #   3. Tag the commit:  git tag v0.0.2
 #   4. Push the tag:    git push origin v0.0.2
-#   5. This workflow runs automatically and publishes the package
+#   5. This workflow runs automatically and publishes both packages
 #
 # PYPI SETUP (one-time):
 #   Go to https://pypi.org → Your Account → Publishing → Add a new pending publisher
@@ -19,12 +26,13 @@
 #     - Workflow name:   publish.yaml
 #     - Environment:     (leave blank)
 #
-# AFTER PUBLISH, users install with:
-#   pip install ioc-l9-all-models   # Full package (L9 + SAB + TFP + SIEP + CIP)
+# AFTER PUBLISH:
+#   Python: pip install ioc-l9-all-models
+#   Go:     go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v0.0.X
 #
 # =============================================================================
 
-name: Publish to PyPI
+name: Publish Python and Go Bindings
 
 # Trigger on version tags and PRs to main (PR runs are skipped by the job-level if)
 on:
@@ -36,8 +44,8 @@ on:
       - "main"
 
 jobs:
-  publish:
-    name: Publish Package to PyPI
+  publish-python:
+    name: Publish Python Package to PyPI
     # Only run the publish job on tag pushes, not on PRs
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
@@ -117,3 +125,118 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           verbose: true
+
+  publish-go:
+    name: Publish Go Module Bindings
+    # Only run on tag pushes, not on PRs
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create and push tags
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0  # Need full history for tags
+
+      - name: Set up Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          go-version: '1.21'
+
+      - name: Install go-jsonschema
+        run: go install github.com/atombender/go-jsonschema@latest
+
+      - name: Determine version from git tag
+        id: version
+        run: |
+          TAG_NAME="${{ github.ref_name }}"
+          VERSION="${TAG_NAME#v}"
+
+          echo "Git tag: $TAG_NAME"
+          echo "Normalized version: $VERSION"
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "go_module_tag=SSTP/language_bindings/golang/v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if Go module tag already exists
+        id: check_tag
+        run: |
+          TAG="${{ steps.version.outputs.go_module_tag }}"
+
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️  Tag $TAG already exists on remote"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "✅ Tag $TAG does not exist, ready to create"
+          fi
+
+      - name: Validate Go module path in go.mod
+        run: |
+          EXPECTED_PATH="github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang"
+          ACTUAL_PATH=$(grep "^module " SSTP/language_bindings/golang/go.mod | awk '{print $2}')
+
+          if [ "$ACTUAL_PATH" != "$EXPECTED_PATH" ]; then
+            echo "❌ Error: go.mod has incorrect module path"
+            echo "Expected: $EXPECTED_PATH"
+            echo "Actual:   $ACTUAL_PATH"
+            exit 1
+          fi
+
+          echo "✅ go.mod module path is correct: $ACTUAL_PATH"
+
+      - name: Validate Go bindings exist
+        run: |
+          if [ ! -f "SSTP/language_bindings/golang/data_model.go" ]; then
+            echo "❌ Error: Go bindings not found"
+            echo "Run 'make generate_bindings LANGUAGE=golang' to generate them"
+            exit 1
+          fi
+
+          echo "✅ Go bindings exist"
+
+      - name: Run Go tests
+        run: |
+          echo "Running Go binding tests..."
+          make test_bindings LANGUAGE=golang
+
+      - name: Create and push Go module tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          TAG="${{ steps.version.outputs.go_module_tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "Creating tag: $TAG"
+          git tag -a "$TAG" -m "IOC L9 Protocol Go module v$VERSION"
+
+          echo "Pushing tag to origin..."
+          git push origin "$TAG"
+
+          echo "✅ Published Go module: $TAG"
+
+      - name: Skip - Tag already exists
+        if: steps.check_tag.outputs.exists == 'true'
+        run: |
+          echo "ℹ️  Tag ${{ steps.version.outputs.go_module_tag }} already exists, skipping Go module publish"
+          echo "This is normal if republishing the same version"
+
+      - name: Summary
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.go_module_tag }}"
+
+          echo "🎉 Successfully published Go module bindings!"
+          echo ""
+          echo "Version: v$VERSION"
+          echo "Tag: $TAG"
+          echo ""
+          echo "Users can now install with:"
+          echo "  go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v$VERSION"
+          echo ""
+          echo "Note: It may take a few minutes for the Go proxy to cache the module."
