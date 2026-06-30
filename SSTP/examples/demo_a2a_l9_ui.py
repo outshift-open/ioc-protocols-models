@@ -318,7 +318,9 @@ _HTML = r"""<!DOCTYPE html>
 <header>
   <div>
     <h1>⚡ demo_a2a_l9 · Sequence Diagram</h1>
-    <div class="subtitle">TFP → SIEP → CIP → SAB · A2A transport · L9 messages between agents</div>
+    <div class="subtitle">TFP → SIEP → CIP → SAB · A2A transport · L9 messages between agents
+      <span style="font-size:.85rem;color:var(--muted);margin-left:.5rem">TFP = Team Formation Protocol · SIEP = Semantic Interaction Exchange Protocol · CIP = Contingency Interaction Protocols · SAB = Semantic Alignment via Bargaining</span>
+    </div>
   </div>
 </header>
 
@@ -371,10 +373,10 @@ _HTML = r"""<!DOCTYPE html>
   <div class="sidebar-section">
     <h2>Subprotocol colours</h2>
     <div class="legend-grid">
-      <span class="badge" style="background:var(--tfp-bg);color:var(--tfp)">TFP</span>
-      <span class="badge" style="background:var(--siep-bg);color:var(--siep)">SIEP</span>
-      <span class="badge" style="background:var(--cip-bg);color:var(--cip)">CIP</span>
-      <span class="badge" style="background:var(--sab-bg);color:var(--sab)">SAB</span>
+      <span class="badge" style="background:var(--tfp-bg);color:var(--tfp)" title="Team Formation Protocol">TFP</span>
+      <span class="badge" style="background:var(--siep-bg);color:var(--siep)" title="Semantic Interaction Exchange Protocol">SIEP</span>
+      <span class="badge" style="background:var(--cip-bg);color:var(--cip)" title="Contingency Interaction Protocols">CIP</span>
+      <span class="badge" style="background:var(--sab-bg);color:var(--sab)" title="Semantic Alignment via Bargaining">SAB</span>
     </div>
   </div>
 </aside>
@@ -479,7 +481,7 @@ function runDemo() {
   });
 }
 
-// ── Extract L9/SAB info from a message entry ─────────────────────────────────
+// ── Extract L9/SAB (Semantic Alignment via Bargaining) info from a message entry ───
 function extractL9Info(entry) {
   const parts = entry.a2a_message?.parts || [];
   for (const p of parts) {
@@ -919,7 +921,7 @@ function renderSequence(msgs, autoPlay) {
   // Message rows
   let html = '';
   let lastPhase = '';
-  const PHASE_NAMES = { TFP:'Team Formation', SIEP:'Legal Standard Alignment', CIP:'Contingency Repair', SAB:'Semantic Negotiation' };
+  const PHASE_NAMES = { TFP:'Team Formation Protocol', SIEP:'Semantic Interaction Exchange Protocol', CIP:'Contingency Interaction Protocols', SAB:'Semantic Alignment via Bargaining' };
 
   msgs.forEach((m, i) => {
     const info = extractL9Info(m);
