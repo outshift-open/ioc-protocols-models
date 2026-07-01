@@ -15,6 +15,7 @@ class L9MessageCache:
         self._msg_to_root: Dict[str, str] = {}  # msg_id → root_id
         self._episodes: Dict[str, Set[str]] = {}  # episode_id → set of msg_ids
         self._episode_to_conv: Dict[str, Set[str]] = {}  # episode_id → set of root_ids
+        self._by_sender_episode: Dict[tuple, str] = {}  # (sender_id, episode_id) → last_msg_id
 
     def add(self, msg: L9, timestamp: Optional[datetime] = None):
         """Add a message to the cache."""
@@ -44,6 +45,12 @@ class L9MessageCache:
             if episode_id not in self._episode_to_conv:
                 self._episode_to_conv[episode_id] = set()
             self._episode_to_conv[episode_id].add(root_id)
+
+            # Index last message from sender in episode (for drift detection)
+            sender_id = self._get_sender_id(msg)
+            if sender_id:
+                key = (sender_id, episode_id)
+                self._by_sender_episode[key] = msg_id
 
     def get(self, msg_id: str) -> Optional[L9]:
         """Get a single message."""
@@ -106,6 +113,17 @@ class L9MessageCache:
             )
 
             return [self._messages[mid] for mid in sorted_ids[-n:] if mid in self._messages]
+
+    def get_last_from_sender_in_episode(self, sender_id: str, episode_id: str) -> Optional[L9]:
+        """Get the last message from a specific sender in an episode.
+
+        This is useful for drift detection where you need to compare the current
+        message from a sender against their previous message in the same episode.
+        """
+        with self._lock:
+            key = (sender_id, episode_id)
+            msg_id = self._by_sender_episode.get(key)
+            return self._messages.get(msg_id) if msg_id else None
 
     def list_episodes(self) -> List[Dict]:
         """List all episodes with basic info."""
@@ -183,6 +201,14 @@ class L9MessageCache:
                 self._timestamps.pop(msg_id, None)
                 self._msg_to_root.pop(msg_id, None)
 
+            # Clean up sender-episode index for this conversation
+            keys_to_remove = [
+                key for key in self._by_sender_episode.keys()
+                if self._by_sender_episode[key] in msg_ids
+            ]
+            for key in keys_to_remove:
+                self._by_sender_episode.pop(key, None)
+
     def evict_episode(self, episode_id: str):
         """Remove all messages in a specific episode."""
         with self._lock:
@@ -205,6 +231,11 @@ class L9MessageCache:
 
             # Clean up episode-to-conversation mapping
             self._episode_to_conv.pop(episode_id, None)
+
+            # Clean up sender-episode index for this episode
+            keys_to_remove = [key for key in self._by_sender_episode.keys() if key[1] == episode_id]
+            for key in keys_to_remove:
+                self._by_sender_episode.pop(key, None)
 
     def evict_old_conversations(self, cutoff: datetime) -> int:
         """Remove conversations with no activity since cutoff."""
@@ -241,6 +272,14 @@ class L9MessageCache:
 
         return self._find_root(parent_msg)
 
+    def _get_sender_id(self, msg: L9) -> Optional[str]:
+        """Extract sender ID from message."""
+        # Try to get sender from participants
+        if msg.header.participants and msg.header.participants.actors:
+            # Assume first actor is the sender
+            return msg.header.participants.actors[0].id
+        return None
+
     def clear(self):
         """Clear everything."""
         with self._lock:
@@ -250,3 +289,4 @@ class L9MessageCache:
             self._msg_to_root.clear()
             self._episodes.clear()
             self._episode_to_conv.clear()
+            self._by_sender_episode.clear()

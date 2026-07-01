@@ -14,7 +14,8 @@ Messages are linked through their `parents` field, forming a directed acyclic gr
 ### Features:
 
 - **Thread-safe**: All operations protected by reentrant lock (RLock)
-- **Dual indexing**: Query by conversation OR episode
+- **Triple indexing**: Query by conversation, episode, OR sender+episode
+- **Sender tracking**: Get last message from specific sender in episode (for drift detection)
 - **Timestamp tracking**: Find recent messages, evict by age
 - **Cross-episode conversations**: One conversation can span multiple episodes
 - **Episode spanning conversations**: One episode can appear in multiple conversations
@@ -54,6 +55,9 @@ msgs = cache.get_episode_in_conversation("msg_id", "ep2")
 
 # Get last N messages in an episode (by timestamp)
 recent_in_episode = cache.get_last_n_in_episode("ep1", n=3)
+
+# Get last message from specific sender in episode (for drift detection)
+last_from_alice = cache.get_last_from_sender_in_episode("alice", "ep1")
 
 # List all episodes
 for ep in cache.list_episodes():
@@ -173,6 +177,7 @@ _conversations: Dict[str, List[str]]            # root_id → [msg_ids in order]
 _msg_to_root: Dict[str, str]                    # msg_id → root_id (cache)
 _episodes: Dict[str, Set[str]]                  # episode_id → set of msg_ids
 _episode_to_conv: Dict[str, Set[str]]           # episode_id → set of root_ids
+_by_sender_episode: Dict[tuple, str]            # (sender_id, episode_id) → last_msg_id
 ```
 
 ### Thread safety
@@ -220,10 +225,35 @@ This allows querying:
 - "All messages in episode ep1" → returns msg1, msg2, msg10 (cross-conversation)
 - "All messages in episode ep1 within conv1" → returns msg1, msg2 only
 
+## SIEP Integration
+
+The cache supports **drift detection** workflows used by the SIEP (Semantic Interoperability and Epistemic Protocol) engine:
+
+```python
+# SIEP pattern: compare current message vs last message from same sender
+current_msg = cache.get("msg_id_current")
+sender_id = current_msg.header.participants.actors[0].id
+episode_id = current_msg.header.message.episode
+
+prior_msg = cache.get_last_from_sender_in_episode(sender_id, episode_id)
+
+if prior_msg:
+    # Compare evidence lists for drift
+    current_evidence = extract_evidence(current_msg)
+    prior_evidence = extract_evidence(prior_msg)
+    score = compute_overlap(current_evidence, prior_evidence)
+
+    if score < THRESHOLD:
+        # Semantic drift detected!
+        escalate_to_CIP()
+```
+
+This O(1) lookup replaces the need to filter all episode messages by sender.
+
 ## Limitations
 
 1. **Only follows first parent**: If a message has multiple parents, only `parents[0]` is used for root finding
-2. **No participant indexing**: Can't query "show me all messages from agent Alice"
+2. **Sender extraction assumes first actor**: Uses `participants.actors[0]` as sender
 3. **No content search**: Can't search by SIEP concepts or payload data
 4. **In-memory only**: No persistence, data lost on restart
 5. **No size limits**: Cache grows forever without manual eviction
