@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from SSTP.examples.hcpanel.agent_bus import BeliefStoreProxy
 from SSTP.examples.hcpanel.domain import ClinicalDebateOutcome, SpecialistOpinion
-from SSTP.l9 import L9, TaskworkParticipant
+from SSTP.examples.hcpanel.episode import L9, TaskworkParticipant
 from SSTP.subprotocol.siep.src.epistemic.stores import AgentBeliefStore
 
 if TYPE_CHECKING:

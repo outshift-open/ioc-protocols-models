@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-SSTP/l9/episode.py — Application-facing L9 Episode API.
+SSTP/examples/hcpanel/episode.py — Application-facing L9 Episode API.
 
 Application writers import :class:`L9` and the relevant Episode subclass.
 They never call ``AgentBus`` or any ``emit_*`` method directly.

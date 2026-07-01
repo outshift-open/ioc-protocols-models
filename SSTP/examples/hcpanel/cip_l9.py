@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-SSTP/subprotocol/cip/src/l9.py — CIP specialisation of the L9 header builder.
+SSTP/examples/hcpanel/cip_l9.py — CIP specialisation of the L9 header builder.
 
 CIP (Contingency & Interaction Protocol) is the target-repo name for what
 the source repo calls IE (Interaction Engine).  This module is the direct
@@ -36,7 +36,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List
 
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import SpeechAct, EpistemicState, make_epistemic_block
-from SSTP.l9_base import (
+from SSTP.examples.hcpanel.l9_base import (
     L9HeaderBuilder,
     normalize_use_case,
     schema_trust_level_for_kind,

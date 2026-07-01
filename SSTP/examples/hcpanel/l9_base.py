@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-SSTP/l9_base.py — Generic L9 header builder base class.
+SSTP/examples/hcpanel/l9_base.py — Generic L9 header builder base class.
 
 Defines the common L9 envelope structure and the abstract ``L9HeaderBuilder``
 base class that all protocol specialisations (SNP/SIEP, IE/CIP, …) subclass.
