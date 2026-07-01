@@ -15,6 +15,60 @@ import (
 	l9 "github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang"
 )
 
+// SeverityLevel is a discrete severity bucket for a detected failure mode.
+type SeverityLevel string
+
+const (
+	SeverityLevelLow    SeverityLevel = "low"
+	SeverityLevelMedium SeverityLevel = "medium"
+	SeverityLevelHigh   SeverityLevel = "high"
+)
+
+// ProcessFailureMode represents PM-* process-level failure modes.
+type ProcessFailureMode string
+
+const (
+	ProcessFailureModeUnclassified       ProcessFailureMode = "Unclassified"
+	ProcessFailureModePersistentDivergence ProcessFailureMode = "Persistent Divergence"
+	ProcessFailureModeDominantNarrative  ProcessFailureMode = "Dominant Narrative"
+	ProcessFailureModeRepetition         ProcessFailureMode = "Repetition"
+	ProcessFailureModeReasoningBreakdown ProcessFailureMode = "Reasoning Breakdown"
+	ProcessFailureModeTaskDeviation      ProcessFailureMode = "Task Deviation"
+	ProcessFailureModeConstraintViolation ProcessFailureMode = "Constraint Violation"
+	ProcessFailureModeAmbiguity          ProcessFailureMode = "Ambiguity"
+)
+
+// Severity is a severity verdict for one failure mode.
+type Severity struct {
+	// Assigned severity bucket.
+	Type SeverityLevel `json:"type" yaml:"type" mapstructure:"type"`
+	// Score <= this -> HIGH.
+	High float64 `json:"high" yaml:"high" mapstructure:"high"`
+	// Score <= this -> MEDIUM.
+	Medium float64 `json:"medium" yaml:"medium" mapstructure:"medium"`
+}
+
+// FailureMode is a single detected process failure mode.
+type FailureMode struct {
+	// Detected failure-mode category.
+	Type ProcessFailureMode `json:"type" yaml:"type" mapstructure:"type"`
+	// Confidence score in [0,1]; lower = stronger evidence of drift.
+	Score float64 `json:"score" yaml:"score" mapstructure:"score"`
+	// Severity verdict.
+	Severity Severity `json:"severity" yaml:"severity" mapstructure:"severity"`
+	// Static taxonomy description for type.
+	Description string `json:"description" yaml:"description" mapstructure:"description"`
+	// Engine's per-instance justification for flagging this mode.
+	Reasoning string `json:"reasoning" yaml:"reasoning" mapstructure:"reasoning"`
+}
+
+// DriftDetectionOutput is the top-level Drift Detection output (formerly SAVOutput).
+// Empty FailureModes list means no drift was detected.
+type DriftDetectionOutput struct {
+	// Detected process failure modes; empty list = no drift detected.
+	FailureModes []FailureMode `json:"failure_modes,omitempty" yaml:"failure_modes,omitempty" mapstructure:"failure_modes,omitempty"`
+}
+
 // Semantic context for kind='commit' messages that finalize a negotiation.
 //
 // Carries the schema identity of the commit plus the final_agreement
@@ -48,6 +102,9 @@ type NegotiateCommitSemanticContext struct {
 
 	// SessionID corresponds to the JSON schema field "session_id".
 	SessionID string `json:"session_id" yaml:"session_id" mapstructure:"session_id"`
+
+	// Optional drift detection output associated with this context.
+	DriftDetection *DriftDetectionOutput `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
 }
 
 // List of agent IDs that participated in this negotiation.
@@ -190,6 +247,9 @@ type NegotiateSemanticContext struct {
 
 	// SessionID corresponds to the JSON schema field "session_id".
 	SessionID string `json:"session_id" yaml:"session_id" mapstructure:"session_id"`
+
+	// Optional drift detection output associated with this context.
+	DriftDetection *DriftDetectionOutput `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
 }
 
 type NegotiateSemanticContextEncoding string
@@ -1307,6 +1367,9 @@ type SemanticContext struct {
 
 	// SchemaVersion corresponds to the JSON schema field "schema_version".
 	SchemaVersion string `json:"schema_version" yaml:"schema_version" mapstructure:"schema_version"`
+
+	// Optional drift detection output associated with this context.
+	DriftDetection *DriftDetectionOutput `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
