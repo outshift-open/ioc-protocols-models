@@ -401,6 +401,8 @@ VERSION=$(make -s print-version)
 
 Skills live in `SSTP/skills/` and are **hand-authored**. They must be updated manually whenever the schema or bindings change.
 
+**Common Skills** — Reusable skills for working with L9 protocol messages are available in `SSTP/skills/common/`. See [SSTP/skills/common/README.md](SSTP/skills/common/README.md) for the complete list of skills (header generation, message generation, validation, text conversion) and supported models/agents (Claude Haiku 4.5, Opus 4.6, OpenClaw).
+
 ## Contributing
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**. For detailed contributing guidelines, please see [CONTRIBUTING.md](CONTRIBUTING.md).
