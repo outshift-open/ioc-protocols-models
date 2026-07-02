@@ -22,5 +22,7 @@ Reusable skills for working with L9 protocol messages under the SSTP protocol. T
 
 ## Tested With
 
-- Claude Opus 4.6 (Anthropic) agents
-- OpenClaw agents
+| Agent | Haiku 4.5 | Opus 4.6 |
+|-------|-----------|----------|
+| Claude | ✓ | ✓ |
+| OpenClaw | ✓ | ✓ |
