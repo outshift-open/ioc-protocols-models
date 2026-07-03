@@ -5,9 +5,8 @@
 """
 SSTP/subprotocol/siep/src/l9.py — SIEP/SNP specialisation of the L9 header builder.
 
-SIEP (Semantic Interaction & Epistemic Protocol) is the target-repo name for what
-the source repo calls SNP (Semantic Negotiation Protocol).  This module is the
-direct equivalent of sstp/snp/l9.py in ioc-cfn-protocols-models.
+SIEP (Semantic Interaction & Epistemic Protocol) L9 builder — maps SIEP
+operations to SSTP kinds and constructs compliant L9 header dicts.
 
 Maps SNP operations to SSTP event_types and then to SSTP kinds:
 
@@ -279,8 +278,7 @@ def build_snp_l9_header(
 ) -> Dict[str, Any]:
     """Build an SSTP L9 header for a SIEP/SNP message.
 
-    Drop-in replacement for ``sstp.snp.l9.build_snp_l9_header`` from
-    ioc-cfn-protocols-models with imports rewritten to SSTP.* namespace.
+    Build a SIEP L9 header dict with all SSTP.* namespace imports.
     """
     return _DEFAULT_BUILDER.build_snp(
         operation=operation,

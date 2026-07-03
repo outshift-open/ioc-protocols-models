@@ -5,9 +5,8 @@
 """
 SSTP/subprotocol/cip/src/l9.py — CIP specialisation of the L9 header builder.
 
-CIP (Contingency & Interaction Protocol) is the target-repo name for what
-the source repo calls IE (Interaction Engine).  This module is the direct
-equivalent of sstp/ie/l9.py in ioc-cfn-protocols-models.
+CIP (Contingency & Interaction Protocol) L9 builder — maps CIP event types
+to SSTP kinds and constructs compliant L9 header dicts.
 
 Maps CIP/IE event types to SSTP kinds (5-value session-flow vocabulary):
 
@@ -218,8 +217,7 @@ def build_l9_header(
 ) -> Dict[str, Any]:
     """Build a CIP/IE SSTP L9 header dict.
 
-    Drop-in replacement for ``sstp.ie.l9.build_l9_header`` from
-    ioc-cfn-protocols-models with imports rewritten to SSTP.* namespace.
+    Build a CIP L9 header dict with all SSTP.* namespace imports.
     """
     return _DEFAULT_BUILDER.build(
         use_case=use_case,
