@@ -14,8 +14,8 @@ Every SIEP message (build_snp_l9_header) is appended directly to ie_bus.messages
 that SNP and IE messages share a single ordered stream.  snp_trace is a read-only
 property that returns the filtered subset (subprotocol=="SIEP").
 
-Ported from app/healthcare_ie_snp/panel_negotiation_bus.py; only use_case hardcode
-and the episode_id format have been parameterised.
+Adapted from the hcpanel reference implementation; use_case and episode_id format
+have been parameterised for the protocol-models example package.
 """
 from __future__ import annotations
 
