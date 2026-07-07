@@ -3,10 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-SSTP/l9_base.py — Generic L9 header builder base class.
+SSTP/l9_base.py — Generic, config-driven L9 header builder.
 
-Defines the common L9 envelope structure and the abstract ``L9HeaderBuilder``
-base class that all protocol specialisations (SNP/SIEP, IE/CIP, …) subclass.
+Defines the common L9 envelope structure and the concrete ``L9HeaderBuilder``
+class used by every protocol specialisation (SNP/SIEP, IE/CIP, …). Everything
+that differs between protocols — the event-type → kind mapping, schema URN
+topics, default epistemic stance, and short-TTL event types — is *data*
+supplied at construction time, not code. There is no abstract base to
+subclass.
 
 Protocol specialisations live in sub-packages:
 
@@ -15,11 +19,14 @@ Protocol specialisations live in sub-packages:
 
 Adding a new protocol
 ---------------------
-1. Create ``SSTP/subprotocol/<name>/src/l9.py``.
-2. Subclass ``L9HeaderBuilder``.
-3. Implement ``kind_for_event_type``, ``schema_id_for``, and optionally
-   ``ttl_for_event_type``.
-4. Expose a module-level convenience function that calls ``self.build(...)``.
+1. In ``SSTP/subprotocol/<name>/src/l9.py``, declare your protocol's lookup
+   tables (``kind_by_event_type``, optionally ``schema_topic_by_event_type``,
+   ``default_epistemic_by_event_type``, ``short_ttl_event_types``, event-type
+   aliases).
+2. Construct one module-level ``L9HeaderBuilder(subprotocol="<NAME>", ...)``
+   instance with those tables — no subclass required.
+3. Expose a module-level convenience function that calls
+   ``_BUILDER.build(...)``.
 """
 
 from __future__ import annotations
@@ -72,27 +79,86 @@ def _iso8601_from_timestamp_ms(timestamp_ms: int) -> str:
     )
 
 
-# ── Abstract base class ───────────────────────────────────────────────────────
+# ── Concrete, config-driven builder ───────────────────────────────────────────
 
 
 class L9HeaderBuilder:
-    """Abstract base for L9 protocol header building.
+    """Concrete L9 header builder, parameterised by per-protocol lookup tables.
 
-    Subclass for each protocol (SIEP/SNP, CIP/IE, …).  Subclasses must
-    implement :meth:`kind_for_event_type` and :meth:`schema_id_for`.
+    Every protocol (CIP, SIEP, …) constructs one instance with its own
+    vocabulary — no subclassing needed:
+
+        _BUILDER = L9HeaderBuilder(
+            subprotocol="CIP",
+            kind_by_event_type=_KIND_BY_EVENT_TYPE,
+            schema_topic_by_event_type=_SCHEMA_TOPIC_BY_EVENT_TYPE,
+            default_epistemic_by_event_type=_DEFAULT_EPISTEMIC,
+            short_ttl_event_types=_SHORT_TTL_EVENT_TYPES,
+        )
+
+    :param subprotocol: Default ``header.subprotocol`` value (e.g. ``"CIP"``).
+    :param kind_by_event_type: Canonical event_type → SSTP ``kind`` mapping.
+    :param event_type_aliases: Optional alias/synonym → canonical event_type map.
+    :param schema_topic_by_event_type: Canonical event_type → ``(area, topic)``
+        tuple used to build ``context.semantic.schema_id``. Event types not
+        present fall back to ``(default_schema_area, event_type)``.
+    :param default_schema_area: Fallback schema area (default ``"coordination"``).
+    :param default_epistemic_by_event_type: Canonical event_type → pre-built
+        epistemic block dict (e.g. via ``make_epistemic_block``), used when the
+        caller does not pass an explicit ``epistemic=`` block to :meth:`build`.
+    :param default_epistemic: Fallback epistemic block for event types not
+        present in ``default_epistemic_by_event_type``.
+    :param short_ttl_event_types: Event types considered short-lived by
+        :meth:`ttl_for_event_type`.
+    :param default_kind: Fallback ``kind`` for unmapped event types.
     """
 
     PROTOCOL: str = "SSTP"
-    VERSION: str = L9_VERSION
+
+    def __init__(
+        self,
+        *,
+        subprotocol: str,
+        kind_by_event_type: Dict[str, str],
+        event_type_aliases: "Dict[str, str] | None" = None,
+        schema_topic_by_event_type: "Dict[str, tuple] | None" = None,
+        default_schema_area: str = "coordination",
+        default_epistemic_by_event_type: "Dict[str, Dict[str, Any]] | None" = None,
+        default_epistemic: "Dict[str, Any] | None" = None,
+        short_ttl_event_types: frozenset = frozenset(),
+        default_kind: str = "exchange",
+        version: str = L9_VERSION,
+    ) -> None:
+        self.subprotocol = subprotocol
+        self.VERSION = version
+        self._kind_by_event_type = dict(kind_by_event_type)
+        self._event_type_aliases = dict(event_type_aliases or {})
+        self._schema_topic_by_event_type = dict(schema_topic_by_event_type or {})
+        self._default_schema_area = default_schema_area
+        self._default_epistemic_by_event_type = dict(default_epistemic_by_event_type or {})
+        self._default_epistemic = default_epistemic
+        self._short_ttl_event_types = frozenset(short_ttl_event_types)
+        self._default_kind = default_kind
+
+    def canonical_event_type(self, event_type: str) -> str:
+        """Resolve an alias/synonym to its canonical event_type."""
+        candidate = str(event_type).strip().lower()
+        return self._event_type_aliases.get(candidate, candidate)
 
     def kind_for_event_type(self, event_type: str) -> str:
-        raise NotImplementedError(f"{type(self).__name__} must implement kind_for_event_type")
+        return self._kind_by_event_type.get(self.canonical_event_type(event_type), self._default_kind)
 
     def schema_id_for(self, use_case: str, event_type: str, kind: str, schema_trust_level: str) -> str:
-        raise NotImplementedError(f"{type(self).__name__} must implement schema_id_for")
+        normalized_use_case = normalize_use_case(use_case)
+        canonical = self.canonical_event_type(event_type)
+        area, topic = self._schema_topic_by_event_type.get(canonical, (self._default_schema_area, canonical))
+        version = schema_version_for_kind(kind)
+        if schema_trust_level == "certified":
+            return f"urn:ioc:{normalized_use_case}:{area}:{topic}:v{version}"
+        return f"urn:ioc:draft:{normalized_use_case}:{area}:{topic}:v{version}"
 
     def ttl_for_event_type(self, event_type: str) -> int:
-        return 604800
+        return 86400 if self.canonical_event_type(event_type) in self._short_ttl_event_types else 604800
 
     def build(
         self,
@@ -122,8 +188,12 @@ class L9HeaderBuilder:
         recipients: "List[str] | None" = None,
     ) -> Dict[str, Any]:
         normalized_use_case = normalize_use_case(use_case)
-        canonical_type = str(event_type).strip().lower()
-        kind = kind_override or self.kind_for_event_type(canonical_type)
+        canonical_type = self.canonical_event_type(event_type)
+        kind = kind_override or self._kind_by_event_type.get(canonical_type, self._default_kind)
+
+        if epistemic is None:
+            default_block = self._default_epistemic_by_event_type.get(canonical_type, self._default_epistemic)
+            epistemic = dict(default_block) if default_block is not None else None
 
         if ":" in kind:
             kind, _auto_subkind = kind.split(":", 1)
@@ -131,7 +201,7 @@ class L9HeaderBuilder:
                 subkind = _auto_subkind
 
         trust_level = schema_trust_level_for_kind(kind)
-        effective_subprotocol = subprotocol
+        effective_subprotocol = subprotocol if subprotocol is not None else self.subprotocol
 
         derived_message_id = message_id or str(_uuid.uuid4())
 

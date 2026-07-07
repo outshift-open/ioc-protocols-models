@@ -3,10 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-SSTP/subprotocol/cip/src/l9.py — CIP specialisation of the L9 header builder.
+SSTP/subprotocol/cip/src/l9.py — CIP event-type vocabulary for the L9 header builder.
 
-CIP (Contingency & Interaction Protocol) L9 builder — maps CIP event types
-to SSTP kinds and constructs compliant L9 header dicts.
+CIP (Contingency & Interaction Protocol) L9 config — maps CIP event types
+to SSTP kinds/schema topics/epistemic defaults and constructs a single
+``L9HeaderBuilder`` instance (see ``SSTP.l9_base``) from that vocabulary.
+No subclassing is required — the builder is generic, this module only
+supplies data.
 
 Maps CIP/IE event types to SSTP kinds (5-value session-flow vocabulary):
 
@@ -35,12 +38,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List
 
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import SpeechAct, EpistemicState, make_epistemic_block
-from SSTP.l9_base import (
-    L9HeaderBuilder,
-    normalize_use_case,
-    schema_trust_level_for_kind,
-    schema_version_for_kind,
-)
+from SSTP.l9_base import L9HeaderBuilder
 
 # ── CIP protocol identifiers ─────────────────────────────────────────────────
 
@@ -123,18 +121,11 @@ def canonical_event_type(event_type: str) -> str:
 
 
 def kind_for_event_type(event_type: str) -> str:
-    return _KIND_BY_EVENT_TYPE.get(canonical_event_type(event_type), "exchange")
+    return _BUILDER.kind_for_event_type(event_type)
 
 
 def schema_id_for(use_case: str, event_type: str, kind: str, schema_trust_level: str) -> str:
-    normalized_use_case = normalize_use_case(use_case)
-    area, topic = _SCHEMA_TOPIC_BY_EVENT_TYPE.get(
-        canonical_event_type(event_type), ("coordination", kind)
-    )
-    version = schema_version_for_kind(kind)
-    if schema_trust_level == "certified":
-        return f"urn:ioc:{normalized_use_case}:{area}:{topic}:v{version}"
-    return f"urn:ioc:draft:{normalized_use_case}:{area}:{topic}:v{version}"
+    return _BUILDER.schema_id_for(use_case, event_type, kind, schema_trust_level)
 
 
 def get_topic(header: Dict[str, Any]) -> "str | None":
@@ -143,52 +134,31 @@ def get_topic(header: Dict[str, Any]) -> "str | None":
     return ctx.get("topic") or (ctx.get("epistemic") or {}).get("concept_id")
 
 
-# ── CIPL9HeaderBuilder ────────────────────────────────────────────────────────
+# ── CIP L9HeaderBuilder instance ─────────────────────────────────────────────
 
+# Pre-built epistemic blocks per event type (module load time — pure/stateless).
+_DEFAULT_EPISTEMIC_BY_EVENT_TYPE: Dict[str, Dict[str, Any]] = {
+    event_type: make_epistemic_block(speech_act=sa, epistemic_state=es)
+    for event_type, (sa, es) in _CIP_DEFAULT_EPISTEMIC.items()
+}
 
-class CIPL9HeaderBuilder(L9HeaderBuilder):
-    """CIP/IE specialisation of :class:`~SSTP.l9_base.L9HeaderBuilder`."""
-
-    def kind_for_event_type(self, event_type: str) -> str:
-        return kind_for_event_type(event_type)
-
-    def schema_id_for(self, use_case: str, event_type: str, kind: str, schema_trust_level: str) -> str:
-        return schema_id_for(use_case, event_type, kind, schema_trust_level)
-
-    def ttl_for_event_type(self, event_type: str) -> int:
-        return 86400 if event_type in _SHORT_TTL_EVENT_TYPES else 604800
-
-    def build(
-        self,
-        *,
-        use_case: str,
-        event_type: str,
-        sender: str,
-        receiver: "str | None",
-        timestamp_ms: int,
-        subprotocol: "str | None" = "CIP",
-        **kwargs: Any,
-    ) -> Dict[str, Any]:
-        canonical = canonical_event_type(event_type)
-        if kwargs.get("epistemic") is None:
-            sa, es = _CIP_DEFAULT_EPISTEMIC.get(
-                canonical, (SpeechAct.ASSERTION, EpistemicState.GROUNDING)
-            )
-            kwargs["epistemic"] = make_epistemic_block(speech_act=sa, epistemic_state=es)
-        return super().build(
-            use_case=use_case,
-            event_type=canonical,
-            sender=sender,
-            receiver=receiver,
-            timestamp_ms=timestamp_ms,
-            subprotocol=subprotocol,
-            **kwargs,
-        )
+_BUILDER = L9HeaderBuilder(
+    subprotocol="CIP",
+    kind_by_event_type=_KIND_BY_EVENT_TYPE,
+    event_type_aliases=_EVENT_TYPE_ALIASES,
+    schema_topic_by_event_type=_SCHEMA_TOPIC_BY_EVENT_TYPE,
+    default_epistemic_by_event_type=_DEFAULT_EPISTEMIC_BY_EVENT_TYPE,
+    default_epistemic=make_epistemic_block(
+        speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING
+    ),
+    short_ttl_event_types=_SHORT_TTL_EVENT_TYPES,
+    default_kind="exchange",
+)
 
 
 # ── Module-level convenience function ────────────────────────────────────────
 
-_DEFAULT_BUILDER = CIPL9HeaderBuilder()
+_DEFAULT_BUILDER = _BUILDER
 
 
 def build_l9_header(
@@ -251,6 +221,5 @@ __all__ = [
     "kind_for_event_type",
     "schema_id_for",
     "get_topic",
-    "CIPL9HeaderBuilder",
     "build_l9_header",
 ]

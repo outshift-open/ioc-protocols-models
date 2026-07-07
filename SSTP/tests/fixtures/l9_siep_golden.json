@@ -1,0 +1,466 @@
+{
+  "accept": {
+    "attributes": {
+      "msg_created": "2025-06-15T15:06:40Z",
+      "msg_expiry": null,
+      "msg_sources": [
+        "source-1"
+      ],
+      "msg_transforms": []
+    },
+    "context": {
+      "epistemic": {
+        "belief_status": "asserted",
+        "message_act": "assertion",
+        "state": "team_process",
+        "uncertainty": 0.0
+      },
+      "semantic": {
+        "ontology_ref": "protocol/ontology/snp_ontology.ttl",
+        "schema_id": "urn:ioc:hcpanel_regression:coordination:decision_emitted:v1.0"
+      },
+      "topic": "concept:x"
+    },
+    "kind": "commit",
+    "message": {
+      "episode": "urn:ioc:hcpanel_regression:state:shared_dialogue",
+      "id": "fixed-msg-id",
+      "parents": [
+        "parent-1"
+      ]
+    },
+    "participants": {
+      "actors": [
+        {
+          "attestation": "self_attested_local",
+          "id": "dr_a",
+          "participant_type": "sender",
+          "role": "dr_a"
+        },
+        {
+          "attestation": null,
+          "id": "dr_b",
+          "participant_type": "recipient",
+          "role": "dr_b"
+        }
+      ],
+      "groups": null
+    },
+    "payload": [],
+    "policy": {
+      "propagation": "restricted",
+      "retention_policy": "policy.hcpanel_regression.default",
+      "sensitivity": "internal"
+    },
+    "protocol": "SSTP",
+    "subkind": null,
+    "subprotocol": "SIEP",
+    "version": "0.0.5"
+  },
+  "consider_proposal": {
+    "attributes": {
+      "msg_created": "2025-06-15T15:06:40Z",
+      "msg_expiry": null,
+      "msg_sources": [
+        "source-1"
+      ],
+      "msg_transforms": []
+    },
+    "context": {
+      "epistemic": {
+        "belief_status": "asserted",
+        "message_act": "assertion",
+        "state": "team_process",
+        "uncertainty": 0.0
+      },
+      "semantic": {
+        "ontology_ref": "protocol/ontology/snp_ontology.ttl",
+        "schema_id": "urn:ioc:draft:hcpanel_regression:coordination:peer_turn:v0.1"
+      },
+      "topic": "concept:x"
+    },
+    "kind": "exchange",
+    "message": {
+      "episode": "urn:ioc:hcpanel_regression:state:shared_dialogue",
+      "id": "fixed-msg-id",
+      "parents": [
+        "parent-1"
+      ]
+    },
+    "participants": {
+      "actors": [
+        {
+          "attestation": "self_attested_local",
+          "id": "dr_a",
+          "participant_type": "sender",
+          "role": "dr_a"
+        },
+        {
+          "attestation": null,
+          "id": "dr_b",
+          "participant_type": "recipient",
+          "role": "dr_b"
+        }
+      ],
+      "groups": null
+    },
+    "payload": [],
+    "policy": {
+      "propagation": "restricted",
+      "retention_policy": "policy.hcpanel_regression.default",
+      "sensitivity": "internal"
+    },
+    "protocol": "SSTP",
+    "subkind": null,
+    "subprotocol": "SIEP",
+    "version": "0.0.5"
+  },
+  "counter_proposal": {
+    "attributes": {
+      "msg_created": "2025-06-15T15:06:40Z",
+      "msg_expiry": null,
+      "msg_sources": [
+        "source-1"
+      ],
+      "msg_transforms": []
+    },
+    "context": {
+      "epistemic": {
+        "belief_status": "asserted",
+        "message_act": "challenge",
+        "state": "team_process",
+        "uncertainty": 0.0
+      },
+      "semantic": {
+        "ontology_ref": "protocol/ontology/snp_ontology.ttl",
+        "schema_id": "urn:ioc:draft:hcpanel_regression:coordination:peer_turn:v0.1"
+      },
+      "topic": "concept:x"
+    },
+    "kind": "exchange",
+    "message": {
+      "episode": "urn:ioc:hcpanel_regression:state:shared_dialogue",
+      "id": "fixed-msg-id",
+      "parents": [
+        "parent-1"
+      ]
+    },
+    "participants": {
+      "actors": [
+        {
+          "attestation": "self_attested_local",
+          "id": "dr_a",
+          "participant_type": "sender",
+          "role": "dr_a"
+        },
+        {
+          "attestation": null,
+          "id": "dr_b",
+          "participant_type": "recipient",
+          "role": "dr_b"
+        }
+      ],
+      "groups": null
+    },
+    "payload": [],
+    "policy": {
+      "propagation": "restricted",
+      "retention_policy": "policy.hcpanel_regression.default",
+      "sensitivity": "internal"
+    },
+    "protocol": "SSTP",
+    "subkind": null,
+    "subprotocol": "SIEP",
+    "version": "0.0.5"
+  },
+  "evaluate_proposal": {
+    "attributes": {
+      "msg_created": "2025-06-15T15:06:40Z",
+      "msg_expiry": null,
+      "msg_sources": [
+        "source-1"
+      ],
+      "msg_transforms": []
+    },
+    "context": {
+      "epistemic": {
+        "belief_status": "asserted",
+        "message_act": "assertion",
+        "state": "team_process",
+        "uncertainty": 0.0
+      },
+      "semantic": {
+        "ontology_ref": "protocol/ontology/snp_ontology.ttl",
+        "schema_id": "urn:ioc:draft:hcpanel_regression:coordination:peer_turn:v0.1"
+      },
+      "topic": "concept:x"
+    },
+    "kind": "exchange",
+    "message": {
+      "episode": "urn:ioc:hcpanel_regression:state:shared_dialogue",
+      "id": "fixed-msg-id",
+      "parents": [
+        "parent-1"
+      ]
+    },
+    "participants": {
+      "actors": [
+        {
+          "attestation": "self_attested_local",
+          "id": "dr_a",
+          "participant_type": "sender",
+          "role": "dr_a"
+        },
+        {
+          "attestation": null,
+          "id": "dr_b",
+          "participant_type": "recipient",
+          "role": "dr_b"
+        }
+      ],
+      "groups": null
+    },
+    "payload": [],
+    "policy": {
+      "propagation": "restricted",
+      "retention_policy": "policy.hcpanel_regression.default",
+      "sensitivity": "internal"
+    },
+    "protocol": "SSTP",
+    "subkind": null,
+    "subprotocol": "SIEP",
+    "version": "0.0.5"
+  },
+  "negotiate": {
+    "attributes": {
+      "msg_created": "2025-06-15T15:06:40Z",
+      "msg_expiry": null,
+      "msg_sources": [
+        "source-1"
+      ],
+      "msg_transforms": []
+    },
+    "context": {
+      "epistemic": {
+        "belief_status": "asserted",
+        "message_act": "assertion",
+        "state": "team_process",
+        "uncertainty": 0.0
+      },
+      "semantic": {
+        "ontology_ref": "protocol/ontology/snp_ontology.ttl",
+        "schema_id": "urn:ioc:draft:hcpanel_regression:coordination:peer_turn:v0.1"
+      },
+      "topic": "concept:x"
+    },
+    "kind": "exchange",
+    "message": {
+      "episode": "urn:ioc:hcpanel_regression:state:shared_dialogue",
+      "id": "fixed-msg-id",
+      "parents": [
+        "parent-1"
+      ]
+    },
+    "participants": {
+      "actors": [
+        {
+          "attestation": "self_attested_local",
+          "id": "dr_a",
+          "participant_type": "sender",
+          "role": "dr_a"
+        },
+        {
+          "attestation": null,
+          "id": "dr_b",
+          "participant_type": "recipient",
+          "role": "dr_b"
+        }
+      ],
+      "groups": null
+    },
+    "payload": [],
+    "policy": {
+      "propagation": "restricted",
+      "retention_policy": "policy.hcpanel_regression.default",
+      "sensitivity": "internal"
+    },
+    "protocol": "SSTP",
+    "subkind": null,
+    "subprotocol": "SIEP",
+    "version": "0.0.5"
+  },
+  "propose": {
+    "attributes": {
+      "msg_created": "2025-06-15T15:06:40Z",
+      "msg_expiry": null,
+      "msg_sources": [
+        "source-1"
+      ],
+      "msg_transforms": []
+    },
+    "context": {
+      "epistemic": {
+        "belief_status": "asserted",
+        "message_act": "assertion",
+        "state": "team_process",
+        "uncertainty": 0.0
+      },
+      "semantic": {
+        "ontology_ref": "protocol/ontology/snp_ontology.ttl",
+        "schema_id": "urn:ioc:draft:hcpanel_regression:coordination:peer_turn:v0.1"
+      },
+      "topic": "concept:x"
+    },
+    "kind": "exchange",
+    "message": {
+      "episode": "urn:ioc:hcpanel_regression:state:shared_dialogue",
+      "id": "fixed-msg-id",
+      "parents": [
+        "parent-1"
+      ]
+    },
+    "participants": {
+      "actors": [
+        {
+          "attestation": "self_attested_local",
+          "id": "dr_a",
+          "participant_type": "sender",
+          "role": "dr_a"
+        },
+        {
+          "attestation": null,
+          "id": "dr_b",
+          "participant_type": "recipient",
+          "role": "dr_b"
+        }
+      ],
+      "groups": null
+    },
+    "payload": [],
+    "policy": {
+      "propagation": "restricted",
+      "retention_policy": "policy.hcpanel_regression.default",
+      "sensitivity": "internal"
+    },
+    "protocol": "SSTP",
+    "subkind": null,
+    "subprotocol": "SIEP",
+    "version": "0.0.5"
+  },
+  "reject": {
+    "attributes": {
+      "msg_created": "2025-06-15T15:06:40Z",
+      "msg_expiry": null,
+      "msg_sources": [
+        "source-1"
+      ],
+      "msg_transforms": []
+    },
+    "context": {
+      "epistemic": {
+        "belief_status": "asserted",
+        "message_act": "challenge",
+        "state": "team_process",
+        "uncertainty": 0.0
+      },
+      "semantic": {
+        "ontology_ref": "protocol/ontology/snp_ontology.ttl",
+        "schema_id": "urn:ioc:hcpanel_regression:coordination:decision_emitted:v1.0"
+      },
+      "topic": "concept:x"
+    },
+    "kind": "commit",
+    "message": {
+      "episode": "urn:ioc:hcpanel_regression:state:shared_dialogue",
+      "id": "fixed-msg-id",
+      "parents": [
+        "parent-1"
+      ]
+    },
+    "participants": {
+      "actors": [
+        {
+          "attestation": "self_attested_local",
+          "id": "dr_a",
+          "participant_type": "sender",
+          "role": "dr_a"
+        },
+        {
+          "attestation": null,
+          "id": "dr_b",
+          "participant_type": "recipient",
+          "role": "dr_b"
+        }
+      ],
+      "groups": null
+    },
+    "payload": [],
+    "policy": {
+      "propagation": "restricted",
+      "retention_policy": "policy.hcpanel_regression.default",
+      "sensitivity": "internal"
+    },
+    "protocol": "SSTP",
+    "subkind": null,
+    "subprotocol": "SIEP",
+    "version": "0.0.5"
+  },
+  "review_proposal": {
+    "attributes": {
+      "msg_created": "2025-06-15T15:06:40Z",
+      "msg_expiry": null,
+      "msg_sources": [
+        "source-1"
+      ],
+      "msg_transforms": []
+    },
+    "context": {
+      "epistemic": {
+        "belief_status": "asserted",
+        "message_act": "assertion",
+        "state": "team_process",
+        "uncertainty": 0.0
+      },
+      "semantic": {
+        "ontology_ref": "protocol/ontology/snp_ontology.ttl",
+        "schema_id": "urn:ioc:draft:hcpanel_regression:coordination:peer_turn:v0.1"
+      },
+      "topic": "concept:x"
+    },
+    "kind": "exchange",
+    "message": {
+      "episode": "urn:ioc:hcpanel_regression:state:shared_dialogue",
+      "id": "fixed-msg-id",
+      "parents": [
+        "parent-1"
+      ]
+    },
+    "participants": {
+      "actors": [
+        {
+          "attestation": "self_attested_local",
+          "id": "dr_a",
+          "participant_type": "sender",
+          "role": "dr_a"
+        },
+        {
+          "attestation": null,
+          "id": "dr_b",
+          "participant_type": "recipient",
+          "role": "dr_b"
+        }
+      ],
+      "groups": null
+    },
+    "payload": [],
+    "policy": {
+      "propagation": "restricted",
+      "retention_policy": "policy.hcpanel_regression.default",
+      "sensitivity": "internal"
+    },
+    "protocol": "SSTP",
+    "subkind": null,
+    "subprotocol": "SIEP",
+    "version": "0.0.5"
+  }
+}
