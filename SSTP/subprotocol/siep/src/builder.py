@@ -12,7 +12,7 @@ from typing import Any, List, Optional
 import json
 import uuid
 
-from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, Context, Semantic, Kind, ParticipantSet as Actors, Message
+from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, Context, Semantic, Kind, ParticipantSet as Actors, Message, PolicyLabel
 from SSTP.subprotocol.siep.src.siep_payload import (
     SIEPMessagePayload,
     SIEPBeliefBlock,
@@ -21,6 +21,13 @@ from SSTP.subprotocol.siep.src.siep_payload import (
     SIEP_ONTOLOGY_REF,
     SIEP_SCHEMA_URN,
 )
+# Reused, not duplicated: the SNP operation → event_type/kind/epistemic
+# vocabulary already declared in l9.py. `.operation()` below builds on the
+# same tables `build_snp_l9_header()` uses, so the two code paths stay in
+# sync until hcpanel's call sites migrate onto this builder and
+# l9.py/l9_base.py can be retired (see SSTP/l9_base.py docstring).
+from SSTP.subprotocol.siep.src import l9 as _l9
+from SSTP.l9_base import schema_trust_level_for_kind as _schema_trust_level_for_kind
 
 
 
@@ -161,6 +168,16 @@ class SIEPMessageBuilder:
         self._uncertainty: float = 0.0
         self._siep_payload: Optional[SIEPPayload] = None
         self._text: Optional[str] = None
+        # Additive fields for the full SNP operation vocabulary (see .operation()).
+        # Unused by engine.py's narrower usage; None means "use the fixed
+        # SIEP_SCHEMA_URN / no policy block", preserving today's behaviour.
+        self._operation: Optional[str] = None
+        self._use_case: Optional[str] = None
+        self._sequence_number: Optional[int] = None
+        self._provenance_sources: List[str] = []
+        self._sensitivity: Optional[str] = None
+        self._propagation: Optional[str] = None
+        self._retention_policy: Optional[str] = None
 
     def intent(self) -> "SIEPMessageBuilder":
         self._kind = Kind.intent
@@ -169,6 +186,58 @@ class SIEPMessageBuilder:
     def to(self, *receivers: str) -> "SIEPMessageBuilder":
         """Set one or more receiver agent IDs."""
         self._receivers = list(receivers)
+        return self
+
+    # Alias for `.to()` — matches the `recipients` terminology used by
+    # l9_base.L9HeaderBuilder.build() for callers migrating off build_snp_l9_header().
+    recipients = to
+
+    def use_case(self, value: str) -> "SIEPMessageBuilder":
+        self._use_case = value
+        return self
+
+    def operation(self, operation: str) -> "SIEPMessageBuilder":
+        """Configure kind/epistemic defaults for an SNP ``operation``.
+
+        Reuses the vocabulary already declared in ``l9.py``
+        (``_SNP_OPERATION_TO_EVENT_TYPE``, ``_SNP_EVENT_TYPE_TO_KIND``,
+        ``_SNP_DEFAULT_EPISTEMIC``) instead of redeclaring it, so this
+        builder can eventually cover every SNP operation
+        ``build_snp_l9_header()`` does today.
+        """
+        op = operation.value if hasattr(operation, "value") else str(operation)
+        self._operation = op
+        event_type = _l9.snp_event_type_for_operation(op)
+        self._kind = Kind(_l9._SNP_EVENT_TYPE_TO_KIND.get(event_type, "exchange"))
+        sa, es = _l9._SNP_DEFAULT_EPISTEMIC.get(
+            op, (_l9.SpeechAct.ASSERTION, _l9.EpistemicState.TEAM_PROCESS)
+        )
+        self._msg_act = MessageAct(sa.value)
+        self._ep_state = EpistemicState(es.value)
+        if self._belief_status is None:
+            self._belief_status = BeliefStatus.asserted
+        return self
+
+    def sequence_number(self, value: int) -> "SIEPMessageBuilder":
+        self._sequence_number = value
+        return self
+
+    def provenance_sources(self, *sources: str) -> "SIEPMessageBuilder":
+        self._provenance_sources = list(sources)
+        return self
+
+    def policy(
+        self,
+        *,
+        sensitivity: str = "internal",
+        propagation: str = "restricted",
+        retention_policy: Optional[str] = None,
+    ) -> "SIEPMessageBuilder":
+        self._sensitivity = sensitivity
+        self._propagation = propagation
+        self._retention_policy = retention_policy or (
+            f"policy.{self._use_case}.default" if self._use_case else None
+        )
         return self
 
     def exchange(self) -> "SIEPMessageBuilder":
@@ -253,6 +322,25 @@ class SIEPMessageBuilder:
             "utterance_text": self._text,
             "epistemic": asdict(siep_ep),
         }
+        if self._sequence_number is not None:
+            attributes["sequence_number"] = self._sequence_number
+        if self._provenance_sources:
+            attributes["msg_sources"] = list(self._provenance_sources)
+
+        schema_id = SIEP_SCHEMA_URN
+        if self._operation is not None and self._use_case is not None:
+            trust_level = _schema_trust_level_for_kind(self._kind.value)
+            event_type = _l9.snp_event_type_for_operation(self._operation)
+            schema_id = _l9._BUILDER.schema_id_for(self._use_case, event_type, self._kind.value, trust_level)
+
+        policy = None
+        if self._sensitivity is not None or self._propagation is not None:
+            policy = PolicyLabel(
+                sensitivity=self._sensitivity or "internal",
+                propagation=self._propagation or "restricted",
+                retention_policy=self._retention_policy or "policy.default",
+            )
+
         l9 = L9(
             header=L9Header(
                 protocol="SSTP",
@@ -266,10 +354,11 @@ class SIEPMessageBuilder:
                 ], groups=None).model_dump(),
                 message=Message(id=msg_id, parents=list(self._parents), episode=self._ep).model_dump(),
                 attributes=attributes,
+                policy=policy,
                 context=Context(
                     topic=self._concept or "",
                     semantic=Semantic(
-                        schema_id=SIEP_SCHEMA_URN,
+                        schema_id=schema_id,
                         ontology_ref=SIEP_ONTOLOGY_REF,
                     ),
                 ),

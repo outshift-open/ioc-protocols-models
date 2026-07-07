@@ -3,10 +3,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-SSTP/subprotocol/siep/src/l9.py — SIEP/SNP specialisation of the L9 header builder.
+SSTP/subprotocol/siep/src/l9.py — SIEP/SNP vocabulary for the L9 header builder.
 
-SIEP (Semantic Interaction & Epistemic Protocol) L9 builder — maps SIEP
-operations to SSTP kinds and constructs compliant L9 header dicts.
+SIEP (Semantic Interaction & Epistemic Protocol) L9 config — maps SNP
+operations to SSTP event_types/kinds and constructs a single
+``L9HeaderBuilder`` instance (see ``SSTP.l9_base``) from that vocabulary.
+No subclassing is required — the builder is generic, this module only
+supplies data plus the ``operation → event_type`` translation that SNP
+needs on top of it (:func:`build_snp_l9_header`).
 
 Maps SNP operations to SSTP event_types and then to SSTP kinds:
 
@@ -28,14 +32,7 @@ from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
     EpistemicState,
     make_epistemic_block,
 )
-from SSTP.l9_base import (
-    L9HeaderBuilder,
-    L9_PROTOCOL,
-    L9_VERSION,
-    normalize_use_case,
-    schema_trust_level_for_kind,
-    schema_version_for_kind,
-)
+from SSTP.l9_base import L9HeaderBuilder
 
 # ── SNP/SIEP profile constants ────────────────────────────────────────────────
 
@@ -169,89 +166,82 @@ def build_snp_payload(
     return out
 
 
-# ── SNPL9HeaderBuilder ────────────────────────────────────────────────────────
+# ── SIEP L9HeaderBuilder instance ────────────────────────────────────────────
 
 _SNP_SHORT_TTL_EVENTS: frozenset = frozenset({"peer_turn", "repair_required", "repair_applied"})
 
+_BUILDER = L9HeaderBuilder(
+    subprotocol="SIEP",
+    kind_by_event_type=_SNP_EVENT_TYPE_TO_KIND,
+    default_schema_area="coordination",
+    short_ttl_event_types=_SNP_SHORT_TTL_EVENTS,
+    default_kind="exchange",
+)
 
-class SNPL9HeaderBuilder(L9HeaderBuilder):
-    """SIEP/SNP specialisation of :class:`~SSTP.l9_base.L9HeaderBuilder`."""
 
-    def kind_for_event_type(self, event_type: str) -> str:
-        return _SNP_EVENT_TYPE_TO_KIND.get(event_type, "exchange")
+def build_snp(
+    *,
+    operation: str,
+    use_case: str,
+    sender: str,
+    receiver: str | None,
+    timestamp_ms: int,
+    proposal_id: str,
+    utterance: str = "",
+    parent_ids: Iterable[str] | None = None,
+    episode_id: str | None = None,
+    provenance_sources: Iterable[str] | None = None,
+    message_id: str | None = None,
+    subprotocol: str | None = "SIEP",
+    epistemic: Dict[str, Any] | None = None,
+    topic: str | None = None,
+    kind_override: str | None = None,
+    sequence_number: int | None = None,
+    payload_parts: List[Dict[str, Any]] | None = None,
+    role: str | None = None,
+    recipients: List[str] | None = None,
+) -> Dict[str, Any]:
+    """Build an L9 header for an SNP ``operation``.
 
-    def schema_id_for(
-        self,
-        use_case: str,
-        event_type: str,
-        kind: str,
-        schema_trust_level: str,
-    ) -> str:
-        normalized = normalize_use_case(use_case)
-        version = schema_version_for_kind(kind)
-        if schema_trust_level == "certified":
-            return f"urn:ioc:{normalized}:coordination:{event_type}:v{version}"
-        return f"urn:ioc:draft:{normalized}:coordination:{event_type}:v{version}"
-
-    def ttl_for_event_type(self, event_type: str) -> int:
-        return 86400 if event_type in _SNP_SHORT_TTL_EVENTS else 604800
-
-    def build_snp(
-        self,
-        *,
-        operation: str,
-        use_case: str,
-        sender: str,
-        receiver: str | None,
-        timestamp_ms: int,
-        proposal_id: str,
-        utterance: str = "",
-        parent_ids: Iterable[str] | None = None,
-        episode_id: str | None = None,
-        provenance_sources: Iterable[str] | None = None,
-        message_id: str | None = None,
-        subprotocol: str | None = "SIEP",
-        epistemic: Dict[str, Any] | None = None,
-        topic: str | None = None,
-        kind_override: str | None = None,
-        sequence_number: int | None = None,
-        payload_parts: List[Dict[str, Any]] | None = None,
-        role: str | None = None,
-        recipients: List[str] | None = None,
-    ) -> Dict[str, Any]:
-        op = operation.value if hasattr(operation, "value") else str(operation)
-        if epistemic is None:
-            sa, es = _SNP_DEFAULT_EPISTEMIC.get(
-                op, (SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS)
-            )
-            epistemic = make_epistemic_block(speech_act=sa, epistemic_state=es)
-        event_type = snp_event_type_for_operation(op)
-        return self.build(
-            use_case=use_case,
-            event_type=event_type,
-            sender=sender,
-            receiver=receiver,
-            timestamp_ms=timestamp_ms,
-            utterance=utterance,
-            parent_ids=parent_ids,
-            episode_id=episode_id,
-            provenance_sources=provenance_sources,
-            ontology_ref=SNP_ONTOLOGY_REFERENCE,
-            message_id=message_id,
-            subprotocol=subprotocol,
-            epistemic=epistemic,
-            topic=topic,
-            kind_override=kind_override,
-            sequence_number=sequence_number,
-            payload_parts=payload_parts,
-            role=role,
-            recipients=recipients,
+    SNP's epistemic default is keyed by *operation* (propose/counter_proposal/
+    accept/reject/…), which is finer-grained than the L9 ``event_type`` those
+    operations collapse to (several operations map to the same ``peer_turn``
+    event_type but carry different speech acts) — so that resolution happens
+    here, one level above the generic, event-type-keyed ``L9HeaderBuilder``.
+    """
+    op = operation.value if hasattr(operation, "value") else str(operation)
+    if epistemic is None:
+        sa, es = _SNP_DEFAULT_EPISTEMIC.get(
+            op, (SpeechAct.ASSERTION, EpistemicState.TEAM_PROCESS)
         )
+        epistemic = make_epistemic_block(speech_act=sa, epistemic_state=es)
+    event_type = snp_event_type_for_operation(op)
+    return _BUILDER.build(
+        use_case=use_case,
+        event_type=event_type,
+        sender=sender,
+        receiver=receiver,
+        timestamp_ms=timestamp_ms,
+        utterance=utterance,
+        parent_ids=parent_ids,
+        episode_id=episode_id,
+        provenance_sources=provenance_sources,
+        ontology_ref=SNP_ONTOLOGY_REFERENCE,
+        message_id=message_id,
+        subprotocol=subprotocol,
+        epistemic=epistemic,
+        topic=topic,
+        kind_override=kind_override,
+        sequence_number=sequence_number,
+        payload_parts=payload_parts,
+        role=role,
+        recipients=recipients,
+    )
 
 
 # ── Module-level convenience functions ───────────────────────────────────────
 
-_DEFAULT_BUILDER = SNPL9HeaderBuilder()
+_DEFAULT_BUILDER = _BUILDER
 
 
 def build_snp_l9_header(
@@ -280,7 +270,7 @@ def build_snp_l9_header(
 
     Build a SIEP L9 header dict with all SSTP.* namespace imports.
     """
-    return _DEFAULT_BUILDER.build_snp(
+    return build_snp(
         operation=operation,
         use_case=use_case,
         sender=sender,
@@ -310,6 +300,6 @@ __all__ = [
     "NegotiationStatus",
     "snp_event_type_for_operation",
     "build_snp_payload",
-    "SNPL9HeaderBuilder",
+    "build_snp",
     "build_snp_l9_header",
 ]
