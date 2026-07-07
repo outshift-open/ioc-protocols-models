@@ -2,14 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Compact CIP message model and fluent builder used by the processor/demo."""
+"""Compact CIP message model, fluent builder, and legacy flat-header adapters."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
-import json
+from typing import Any, Dict, Iterable, List, Optional
 import uuid
 
 from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, ParticipantSet, Context, Semantic, Epistemic, PolicyLabel, Kind  # noqa: E402 — requires language_bindings/python on sys.path
@@ -22,13 +21,13 @@ from SSTP.subprotocol.cip.src.cip_payload import (
     CIP_SCHEMA_URN,
     RepairReason as _RepairReasonBase,
 )
-# Reused, not duplicated: the CIP event-type → kind/schema/epistemic vocabulary
-# tables already declared in l9.py. `.event_type()` below builds on the same
-# tables `build_l9_header()` uses, so the two code paths stay in sync until
-# hcpanel's call sites migrate onto this builder and l9.py/l9_base.py can be
-# retired (see SSTP/l9_base.py docstring).
-from SSTP.subprotocol.cip.src import l9 as _l9
-from SSTP.l9_base import schema_trust_level_for_kind as _schema_trust_level_for_kind
+from SSTP.subprotocol._l9_compat import (
+    flatten_legacy_header,
+    normalize_use_case,
+    schema_trust_level_for_kind,
+    schema_version_for_kind,
+)
+from SSTP.subprotocol.siep.src.epistemic.vocabulary import make_epistemic_block
 
 
 RepairReason = _RepairReasonBase  # re-export from cip_payload (no wheel dep)
@@ -38,6 +37,103 @@ RepairReason = _RepairReasonBase  # re-export from cip_payload (no wheel dep)
 # knowledge) — not redeclared here, so CIP can never drift from the schema.
 # (SIEP's builder.py already followed this pattern; CIP previously had its
 # own local 2-member duplicate — fixed to match.)
+
+
+CIP_PROTOCOL: str = "interaction_engine_protocol"
+CIP_PROTOCOL_VERSION: str = "1.0.0"
+
+_EVENT_TYPE_ALIASES: Dict[str, str] = {
+    "message": "peer_turn",
+    "peer_repair": "repair_applied",
+    "repair_applied": "repair_applied",
+    "conversation_terminated": "conversation_terminated",
+}
+
+_KIND_BY_EVENT_TYPE: Dict[str, str] = {
+    "turn_ingested": "exchange",
+    "peer_turn": "exchange",
+    "repair_required": "contingency",
+    "repair_applied": "commit",
+    "decision_emitted": "commit",
+    "episode_persisted": "commit",
+    "conversation_terminated": "commit",
+    "epistemic_clarification": "contingency",
+    "process_proposed": "exchange",
+    "process_accepted": "commit",
+    "process_challenged": "contingency",
+    "prior_query": "exchange",
+    "initial_prior": "exchange",
+    "rule_update": "knowledge",
+    "outcome_reported": "exchange",
+}
+
+_SCHEMA_TOPIC_BY_EVENT_TYPE: Dict[str, tuple[str, str]] = {
+    "turn_ingested": ("intake", "turn"),
+    "peer_turn": ("coordination", "peer_message"),
+    "repair_required": ("coordination", "repair_request"),
+    "repair_applied": ("coordination", "repair_message"),
+    "decision_emitted": ("coordination", "decision"),
+    "episode_persisted": ("memory", "episode_commit"),
+    "conversation_terminated": ("coordination", "termination_notice"),
+    "epistemic_clarification": ("coordination", "epistemic_repair"),
+    "process_proposed": ("coordination", "process_proposal"),
+    "process_accepted": ("coordination", "process_acceptance"),
+    "process_challenged": ("coordination", "process_challenge"),
+    "prior_query": ("memory", "prior_query"),
+    "initial_prior": ("memory", "initial_prior"),
+    "rule_update": ("memory", "rule_update"),
+    "outcome_reported": ("memory", "outcome_reported"),
+}
+
+_DEFAULT_EPISTEMIC_BY_EVENT_TYPE: Dict[str, Dict[str, Any]] = {
+    "turn_ingested": make_epistemic_block(speech_act="assertion", epistemic_state="taskwork"),
+    "peer_turn": make_epistemic_block(speech_act="assertion", epistemic_state="grounding"),
+    "repair_required": make_epistemic_block(speech_act="assertion", epistemic_state="grounding"),
+    "repair_applied": make_epistemic_block(speech_act="assertion", epistemic_state="grounding"),
+    "decision_emitted": make_epistemic_block(speech_act="assertion", epistemic_state="grounding"),
+    "episode_persisted": make_epistemic_block(speech_act="assertion", epistemic_state="taskwork"),
+    "epistemic_clarification": make_epistemic_block(speech_act="assertion", epistemic_state="grounding"),
+    "process_proposed": make_epistemic_block(speech_act="assertion", epistemic_state="team_process"),
+    "process_accepted": make_epistemic_block(speech_act="assertion", epistemic_state="team_process"),
+    "process_challenged": make_epistemic_block(speech_act="challenge", epistemic_state="team_process"),
+    "prior_query": make_epistemic_block(speech_act="assertion", epistemic_state="taskwork"),
+    "initial_prior": make_epistemic_block(speech_act="assertion", epistemic_state="taskwork"),
+    "rule_update": make_epistemic_block(speech_act="assertion", epistemic_state="taskwork"),
+    "outcome_reported": make_epistemic_block(speech_act="assertion", epistemic_state="taskwork"),
+}
+
+_DEFAULT_EPISTEMIC = make_epistemic_block(
+    speech_act="assertion",
+    epistemic_state="grounding",
+)
+
+
+def canonical_event_type(event_type: str) -> str:
+    candidate = str(event_type).strip().lower()
+    return _EVENT_TYPE_ALIASES.get(candidate, candidate)
+
+
+def kind_for_event_type(event_type: str) -> str:
+    return _KIND_BY_EVENT_TYPE.get(canonical_event_type(event_type), "exchange")
+
+
+def schema_id_for(use_case: str, event_type: str, kind: str, schema_trust_level: str) -> str:
+    normalized_use_case = normalize_use_case(use_case)
+    canonical = canonical_event_type(event_type)
+    area, topic = _SCHEMA_TOPIC_BY_EVENT_TYPE.get(canonical, ("coordination", canonical))
+    version = schema_version_for_kind(kind)
+    if schema_trust_level == "certified":
+        return f"urn:ioc:{normalized_use_case}:{area}:{topic}:v{version}"
+    return f"urn:ioc:draft:{normalized_use_case}:{area}:{topic}:v{version}"
+
+
+def get_topic(header: Dict[str, Any]) -> "str | None":
+    ctx = header.get("context") or {}
+    return ctx.get("topic") or (ctx.get("epistemic") or {}).get("concept_id")
+
+
+def _default_epistemic_for_event_type(event_type: str) -> Dict[str, Any]:
+    return dict(_DEFAULT_EPISTEMIC_BY_EVENT_TYPE.get(canonical_event_type(event_type), _DEFAULT_EPISTEMIC))
 
 
 class RevisionCause(str, Enum):
@@ -134,8 +230,7 @@ class CIPMessageBuilder:
         self._receivers = list(receivers)
         return self
 
-    # Alias for `.to()` — matches the `recipients` terminology used by
-    # l9_base.L9HeaderBuilder.build() for callers migrating off build_l9_header().
+    # Alias for `.to()` — matches the legacy flat-header adapter API.
     recipients = to
 
     def use_case(self, value: str) -> "CIPMessageBuilder":
@@ -149,30 +244,21 @@ class CIPMessageBuilder:
         kind_override: Optional[str] = None,
         subkind: Optional[str] = None,
     ) -> "CIPMessageBuilder":
-        """Configure kind/subkind/schema/epistemic defaults for a CIP event_type.
-
-        Reuses the vocabulary tables already declared in ``l9.py``
-        (``_KIND_BY_EVENT_TYPE``, ``_SCHEMA_TOPIC_BY_EVENT_TYPE``,
-        ``_CIP_DEFAULT_EPISTEMIC``) instead of redeclaring them, so this
-        builder can eventually cover every event type ``build_l9_header()``
-        does today.
-        """
-        canonical = _l9.canonical_event_type(event_type)
+        """Configure kind/subkind/schema/epistemic defaults for a CIP event_type."""
+        canonical = canonical_event_type(event_type)
         self._event_type = canonical
-        kind_value = kind_override or _l9.kind_for_event_type(canonical)
+        kind_value = kind_override or kind_for_event_type(canonical)
         if ":" in kind_value:
             kind_value, auto_subkind = kind_value.split(":", 1)
             subkind = subkind or auto_subkind
         self._kind = Kind(kind_value)
         if subkind is not None:
             self._subkind = subkind
-        sa, es = _l9._CIP_DEFAULT_EPISTEMIC.get(
-            canonical, (_l9.SpeechAct.ASSERTION, _l9.EpistemicState.GROUNDING)
-        )
-        self._msg_act = MessageAct(sa.value)
-        self._ep_state = EpistemicState(es.value)
+        default_epistemic = _default_epistemic_for_event_type(canonical)
+        self._msg_act = MessageAct(default_epistemic["message_act"])
+        self._ep_state = EpistemicState(default_epistemic["state"])
         if self._belief_status is None:
-            self._belief_status = BeliefStatus.asserted
+            self._belief_status = BeliefStatus(default_epistemic["belief_status"])
         return self
 
     def sequence_number(self, value: int) -> "CIPMessageBuilder":
@@ -261,8 +347,8 @@ class CIPMessageBuilder:
 
         schema_id = CIP_SCHEMA_URN
         if self._event_type is not None and self._use_case is not None:
-            trust_level = _schema_trust_level_for_kind(self._kind.value)
-            schema_id = _l9.schema_id_for(self._use_case, self._event_type, self._kind.value, trust_level)
+            trust_level = schema_trust_level_for_kind(self._kind.value)
+            schema_id = schema_id_for(self._use_case, self._event_type, self._kind.value, trust_level)
 
         policy = None
         if self._sensitivity is not None or self._propagation is not None:
@@ -340,7 +426,93 @@ class CIPMessageBuilder:
         )
 
 
+def build_l9_header(
+    *,
+    use_case: str,
+    event_type: str,
+    sender: str,
+    receiver: "str | None",
+    timestamp_ms: int,
+    sensitivity: str = "internal",
+    propagation: str = "restricted",
+    utterance: str = "",
+    parent_ids: "Iterable[str] | None" = None,
+    episode_id: "str | None" = None,
+    provenance_sources: "Iterable[str] | None" = None,
+    payload_parts: "List[Dict[str, Any]] | None" = None,
+    message_id: "str | None" = None,
+    ontology_ref: "str | None" = None,
+    subprotocol: "str | None" = "CIP",
+    epistemic: "Dict[str, Any] | None" = None,
+    topic: "str | None" = None,
+    kind_override: "str | None" = None,
+    sequence_number: "int | None" = None,
+    role: "str | None" = None,
+    recipients: "List[str] | None" = None,
+) -> Dict[str, Any]:
+    normalized_use_case = normalize_use_case(use_case)
+    builder = CIPMessageBuilder(
+        episode_urn=episode_id or f"urn:ioc:{normalized_use_case}:state:shared_dialogue",
+        sender=str(sender or "unknown"),
+    ).use_case(use_case).event_type(event_type, kind_override=kind_override)
+    effective_recipients = list(recipients) if recipients is not None else (
+        [str(receiver)] if receiver and str(receiver) != str(sender or "unknown") else []
+    )
+    if effective_recipients:
+        builder.to(*effective_recipients)
+    if topic is not None:
+        builder.concept(topic)
+    if utterance:
+        builder.text(utterance)
+    if parent_ids:
+        builder.parents(*[str(parent_id) for parent_id in parent_ids if parent_id])
+    if sequence_number is not None:
+        builder.sequence_number(sequence_number)
+    source_list = [str(source) for source in (provenance_sources or []) if source]
+    if source_list:
+        builder.provenance_sources(*source_list)
+    builder.policy(
+        sensitivity=sensitivity,
+        propagation=propagation,
+        retention_policy=f"policy.{normalized_use_case}.default",
+    )
+    l9_obj = builder.build()
+    header_dump = l9_obj.header.model_dump(mode="json", exclude_none=False)
+    kind = header_dump.get("kind") or kind_override or kind_for_event_type(event_type)
+    return flatten_legacy_header(
+        builder_header={
+            **header_dump,
+            "kind": kind,
+            "subkind": header_dump.get("subkind"),
+        },
+        sender=sender,
+        receiver=receiver,
+        role=role,
+        recipients=recipients,
+        use_case=use_case,
+        timestamp_ms=timestamp_ms,
+        message_id=message_id,
+        episode_id=episode_id,
+        topic=topic,
+        epistemic=epistemic if epistemic is not None else _default_epistemic_for_event_type(event_type),
+        schema_id=schema_id_for(
+            use_case,
+            event_type,
+            kind,
+            schema_trust_level_for_kind(kind),
+        ),
+        ontology_ref=ontology_ref,
+        subprotocol=subprotocol,
+        payload_parts=payload_parts,
+        sensitivity=sensitivity,
+        propagation=propagation,
+        provenance_sources=provenance_sources,
+    )
+
+
 __all__ = [
+    "CIP_PROTOCOL",
+    "CIP_PROTOCOL_VERSION",
     "BeliefStatus",
     "CIPBelief",
     "CIPGrounding",
@@ -352,4 +524,10 @@ __all__ = [
     "MessageAct",
     "RepairReason",
     "RevisionCause",
+    "_KIND_BY_EVENT_TYPE",
+    "build_l9_header",
+    "canonical_event_type",
+    "get_topic",
+    "kind_for_event_type",
+    "schema_id_for",
 ]

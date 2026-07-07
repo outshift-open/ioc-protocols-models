@@ -20,7 +20,7 @@ from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
     SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block, RepairReason,
 )
 from SSTP.subprotocol.cip.src.grounding import diagnose_repair_reason
-from SSTP.subprotocol.cip.src.l9 import build_l9_header
+from SSTP.subprotocol.cip.src.builder import build_l9_header
 
 
 class ProtocolViolation(RuntimeError):
@@ -190,7 +190,7 @@ class AgentBus:
         target_epistemic: "Optional[Dict[str, Any]]" = None,
         episode_id: "str | None" = None,
     ) -> Dict[str, Any]:
-        from SSTP.subprotocol.cip.src.l9 import get_topic
+        from SSTP.subprotocol.cip.src.builder import get_topic
         _repair_topic = get_topic({"topic": None, "epistemic": target_epistemic}) if target_epistemic else None
         _reason_str = repair_reason.value if isinstance(repair_reason, RepairReason) else str(repair_reason)
         _utterance = f"repair_required:reason={_reason_str}:target={target_message_id}"
@@ -431,7 +431,7 @@ class AgentBus:
             replica.apply(header, payload=ie_content)
 
         if verified:
-            from SSTP.subprotocol.cip.src.l9 import get_topic
+            from SSTP.subprotocol.cip.src.builder import get_topic
             ep_concept_id = get_topic(header) or ""
             if belief_store is not None and ep_concept_id:
                 sender = ((header.get("participants") or {}).get("actors") or header.get("actors") or [{}])[0].get("id", "unknown")
