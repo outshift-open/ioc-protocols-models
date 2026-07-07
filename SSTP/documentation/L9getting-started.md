@@ -208,7 +208,7 @@ main.py
 ### The L9 message API
 
 The full API reference — `L9`, `Episode`, `build_l9_header`,
-`build_snp_l9_header`, `L9HeaderBuilder`, and all prior helpers — is in
+`build_snp_l9_header`, and all prior helpers — is in
 [L9api.md](./L9api.md).
 
 **How hcpanel uses the API**
