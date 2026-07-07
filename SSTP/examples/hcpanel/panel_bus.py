@@ -26,13 +26,13 @@ import uuid
 from collections import Counter
 from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from SSTP.subprotocol.siep.src.l9 import (
+from SSTP.subprotocol.siep.src.builder import (
     NegotiationOperation,
     NegotiationStatus,
     build_snp_l9_header,
     build_snp_payload,
 )
-from SSTP.subprotocol.cip.src.l9 import build_l9_header
+from SSTP.subprotocol.cip.src.builder import build_l9_header
 from SSTP.subprotocol.cip.src.message import get_part as _get_part
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
     SpeechAct, EpistemicState, BeliefStatus,
