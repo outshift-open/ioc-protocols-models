@@ -36,13 +36,13 @@ sys.path.insert(0, str(REPO_ROOT))
 # ── import every module that contains models ──────────────────────────────────
 import src.primitives as primitives_module
 import src.epistemic  as epistemic_module
-import src             as src_module
+import src.l9         as l9_module
 
 # Map each module to the subdirectory name it should produce
 MODULES = [
     (primitives_module, "primitives"),
     (epistemic_module,  "epistemic"),
-    (src_module,        "src"),
+    (l9_module,         "src"),
 ]
 
 # ── collect all BaseModel subclasses, keyed by source subdir ─────────────────

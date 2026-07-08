@@ -19,52 +19,39 @@ Kind values and their meaning:
   knowledge    — knowledge-base update or retrieval
 """
 
-from typing import Optional
-from enum import Enum
-from pydantic import BaseModel
+# Re-export all public classes for convenience
+from src.l9 import Kind, L9Payload, L9Header, L9
+from src.primitives import (
+    Message,
+    Actor,
+    ParticipantSet,
+    PolicyLabel,
+    Provenance,
+    Semantic,
+    Context,
+    Episode,
+    TaskWork,
+    Team,
+)
+from src.epistemic import Epistemic
 
-from src.primitives import ParticipantSet, PolicyLabel, Message, Context
-
-# ── Enums ─────────────────────────────────────────────────────────────────────
-class Kind(str, Enum):
-    intent      = "intent"
-    contingency = "contingency"
-    exchange    = "exchange"
-    commit      = "commit"
-    knowledge   = "knowledge"
-
-class L9Payload(BaseModel):
-    """
-    The actual content being carried by an L9 message.
-    The `type` field describes the payload format; `data` holds the content.
-    """
-    type: str   # payload content type, e.g. "text", "json-schema", "task"
-    data: dict  # free-form payload data — structure is defined by `type`
-
-
-
-class L9Header(BaseModel):
-    """
-    Routing and metadata envelope for every L9 message.
-    The routing layer reads the header — especially `kind` and `subkind` —
-    to decide which handler should process the message.
-    """
-    protocol: str                          # protocol name, e.g. "MyProtocol"
-    subprotocol: str                       # subprotocol name, e.g. "MySubprotocol"
-    version: str                           # protocol version string, e.g. "1.0"
-    kind: Kind                             # one of: intent | contingency | exchange | commit | knowledge
-    subkind: Optional[str] = None          # free-form classification within the kind
-    participants: ParticipantSet           # all participants: sender(s), receiver(s), observers
-    message: Optional[Message] = None
-    policy: Optional[PolicyLabel] = None   # optional data governance labels
-    attributes: Optional[dict] = None
-    context: Optional[Context] = None      # optional context
-
-
-class L9(BaseModel):
-    """
-    A complete L9 message: header (routing/metadata) + payload (content).
-    This is the top-level structure passed between participants in the IoC protocol.
-    """
-    header: L9Header
-    payload: L9Payload
+__all__ = [
+    # L9 core
+    "Kind",
+    "L9Payload",
+    "L9Header",
+    "L9",
+    # Primitives
+    "Message",
+    "Actor",
+    "ParticipantSet",
+    "PolicyLabel",
+    "Provenance",
+    "Semantic",
+    "Context",
+    "Episode",
+    "TaskWork",
+    "Team",
+    # Epistemic
+    "Epistemic",
+]
