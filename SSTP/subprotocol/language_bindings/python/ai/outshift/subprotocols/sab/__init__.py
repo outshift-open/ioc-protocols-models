@@ -2,24 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SAB subprotocol public API — re-exports from SSTP.subprotocol.sab.src.
+"""SAB subprotocol public API — re-exports from SSTP.subprotocol.sab.src."""
 
-SAB does not define its own L9 header. These are the payload (``L9Payload.data``)
-models plus :class:`SABMessageBuilder`, which assembles a canonical ``L9`` (from
-``ai.outshift.data_model``) and writes ``msg_created_at`` into
-``header.attributes``.
-"""
-
-from SSTP.subprotocol.sab.src.builder import (
-    SAB_L9_SCHEMA_URN,
-    SAB_ONTOLOGY_REF,
-    SERVER_ACTOR_ID,
-    STATUS_KIND,
-    SABMessageBuilder,
-    build_topic,
-    now_iso,
-    payload_hash,
-)
+from SSTP.subprotocol.sab.src.builder import SABMessageBuilder
 from SSTP.subprotocol.sab.src.sab_models import (
     NegotiateCommitSemanticContext,
     NegotiateSemanticContext,
@@ -35,23 +20,13 @@ from SSTP.subprotocol.sab.src.sab_models import (
     SAOResponse,
     SAOState,
     SemanticContext,
-    ThreadState,
 )
 
 __all__ = [
-    # builder + helpers
     "SABMessageBuilder",
-    "SAB_L9_SCHEMA_URN",
-    "SAB_ONTOLOGY_REF",
-    "SERVER_ACTOR_ID",
-    "STATUS_KIND",
-    "build_topic",
-    "now_iso",
-    "payload_hash",
-    # enums / vocab
+    # vocab
     "SABKind",
     "SABSubkind",
-    "ResponseType",
     # payload.data models
     "SABOrigin",
     "SABIntentPayloadData",
@@ -66,5 +41,5 @@ __all__ = [
     "SAOState",
     "SAOResponse",
     "SAONMI",
-    "ThreadState",
+    "ResponseType",
 ]
