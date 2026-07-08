@@ -39,8 +39,8 @@ pip install ioc-l9-all-models
 # import L9 protocol models
 from ai.outshift.data_model import L9, L9Header, L9Payload, Message, Actor, ParticipantSet, Kind
 
-# import SAB subprotocol models
-# from ai.outshift.sab.data_model import SAB, SABActors, SABHeader, SABPayload, SABIntentPayloadData
+# import SAB subprotocol models + builder (SAB reuses the canonical L9 header)
+# from ai.outshift.subprotocols.sab import SABMessageBuilder, SABNegotiatePayloadData
 
 # Create an L9 message
 msg = L9(
