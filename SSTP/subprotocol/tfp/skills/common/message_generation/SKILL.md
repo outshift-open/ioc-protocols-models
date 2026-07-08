@@ -9,11 +9,32 @@ Produce a complete TFP (Team Formation Protocol) L9 message — header + payload
 
 ## Behavior — interactive prompt
 
-When invoked, do NOT generate a message immediately. Instead:
+When invoked, do NOT emit a message immediately. Walk the user through one turn of the
+open-world team-formation lifecycle, using TFP's own vocabulary:
 
-1. **Ask** which operation the user wants: `poll_open | bid | decline | clarify | select | accept | reject | re_poll | form_converged | form_failed`
-2. **Show a pre-filled sample input** for that operation (from the "Example input" and per-operation table below) and ask: _"Use this as-is, or tell me what to change?"_
-3. **Collect** the user's edits (or confirmation), then generate the full L9 JSON.
+1. **Ask which team-formation turn to build** (grouped by lifecycle stage — each maps to
+   a `TFPOperation`):
+   - **Recruit** — `poll_open`: a recruiter broadcasts a poll to `topic:tfp/polls`
+     describing the `task` and the `required_skills` it needs covered
+   - **Bid** — `bid` (a candidate offers its skills), `decline` (a candidate passes), or
+     `clarify` (a candidate asks about the task before bidding)
+   - **Select** — `select`: the recruiter proposes a `TeamSelection` (which candidates fill
+     which roles)
+   - **Confirm** — `accept` / `reject`: a selected candidate confirms or refuses its role
+   - **Close** — `form_converged` (team locked in, all mandatory skills covered) or
+     `form_failed` (abort); `re_poll` re-opens for the skills still uncovered
+2. **Ask the turn-specific details**, then show a pre-filled sample and ask
+   _"Use this as-is, or tell me what to change?"_:
+   - `poll_open` → the recruiter, the `task` (id / description / objective), and each
+     `required_skills` entry (skill, `min_proficiency`, `weight`, `mandatory`)
+   - `bid` → the candidate, its `offer` (`CandidateOffer` — the skills it claims and at what
+     proficiency), and a `reasoning_summary`
+   - `decline` / `reject` / `accept` → who, and the `reason`
+   - `select` / `form_converged` / `form_failed` → the `selection` (`TeamSelection`)
+   - `re_poll` → the `required_skills` that are still uncovered
+3. **Confirm or collect edits**, then emit the full L9 JSON for that single turn, reusing
+   the poll's `episode` and `poll_id` (the root `poll_open` has `parents: []`; later turns
+   reference the id(s) they reply to).
 
 ## Source of truth (fetch raw content every time)
 

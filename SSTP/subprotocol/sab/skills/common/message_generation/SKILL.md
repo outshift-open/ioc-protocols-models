@@ -9,11 +9,27 @@ Produce a complete SAB (Semantic Alignment via Bargaining) message — header + 
 
 ## Behavior — interactive prompt
 
-When invoked, do NOT generate a message immediately. Instead:
+When invoked, do NOT emit a message immediately. Walk the user through one step of a
+Stacked Alternating Offers (SAO) negotiation, using SAB's own vocabulary:
 
-1. **Ask** which phase the user wants: `open | round | close`
-2. **Show a pre-filled sample input** for that phase (from the examples below) and ask: _"Use this as-is, or tell me what to change?"_
-3. **Collect** the user's edits (or confirmation), then generate the full L9 JSON.
+1. **Ask which negotiation step to build** (these map to the three SAB payload shapes):
+   - `open` — announce a new bargaining session to `topic:sab/sessions`; declares the
+     mission, the `issues`, and the `options_per_issue` that are on the table
+   - `round` — make an **offer**, **counter-offer**, or **acceptance** in the
+     alternating-offers loop (one option per issue)
+   - `close` — **commit** the final outcome: `converged` (agreement), `disagreement`,
+     or `timeout`
+2. **Ask the step-specific bargaining details**, then show a pre-filled sample and ask
+   _"Use this as-is, or tell me what to change?"_:
+   - `open` → who initiates, the mission text, and each issue's options
+   - `round` → the current `offer` (one option per issue), the `proposer`, the `step`
+     number, and whether this is an **opening offer** (`NO_RESPONSE`, response `3`), a
+     **counter** (`REJECT_OFFER`, response `1`), or an **acceptance** (`ACCEPT_OFFER`,
+     response `0`, re-proposing the same offer with `n_acceptances = 1`)
+   - `close` → the `outcome` (agreement / disagreement / timeout) and the
+     `final_agreement` (one chosen option per issue, or `null` if no deal)
+3. **Confirm or collect edits**, then emit the full L9 JSON for that single step,
+   reusing the session's `episode` and `session_id`.
 
 ## Source of truth (fetch raw content every time)
 
