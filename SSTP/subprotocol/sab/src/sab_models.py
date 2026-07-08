@@ -72,8 +72,8 @@ Outcome = Union[Dict[str, Any], Tuple, None]
 # ---------------------------------------------------------------------------
 # SAB kind / subkind vocabulary
 #
-# These are NOT baked into a bespoke header class — the builder uses them to set
-# the canonical ``L9Header.kind`` / ``L9Header.subkind``.
+# The builder uses these to set the canonical ``L9Header.kind`` /
+# ``L9Header.subkind``.
 # ---------------------------------------------------------------------------
 
 

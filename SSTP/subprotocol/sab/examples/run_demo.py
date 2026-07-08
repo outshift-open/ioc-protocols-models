@@ -7,8 +7,7 @@
 """Generate SAB example message dumps for the Quick Deal mission.
 
 Each message is a full canonical **L9** envelope built with
-:class:`SABMessageBuilder`. SAB no longer defines its own header — the header is
-the standard ``L9Header`` and ``msg_created_at`` lives in ``header.attributes``.
+:class:`SABMessageBuilder`; ``msg_created_at`` lives in ``header.attributes``.
 
 Produces two files in this directory:
   demo_agreement.json    — intent + 4 negotiate rounds + commit/converged

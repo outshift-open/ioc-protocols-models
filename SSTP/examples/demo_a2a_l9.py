@@ -89,7 +89,7 @@ from ai.outshift.subprotocols.sab import (
     SABKind, SABSubkind,
 )
 
-# SAB carries no bespoke envelope type — a SAB message IS a canonical L9.
+# A SAB message is a canonical L9.
 SAB = L9
 
 # ── Episode constants ─────────────────────────────────────────────────────────

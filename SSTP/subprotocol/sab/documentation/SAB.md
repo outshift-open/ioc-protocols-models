@@ -5,7 +5,7 @@ alignment through a bargaining process, implemented with NegMAS **Stacked
 Alternating Offers (SAO)**. Agents exchange offers over a shared negotiation
 space until they converge on an agreement, exhaust the step budget, or break.
 
-## Design: SAB has no header of its own
+## Overview
 
 Like SIEP, CIP, and TFP, **SAB does not define an L9 header**. A SAB message
 *is* a canonical [`L9`](../../../spec/l9_schema.json) message:
@@ -21,9 +21,7 @@ The envelope is built by [`SABMessageBuilder`](../src/builder.py), which fills
 the canonical `L9Header` and puts SAB metadata into the standard
 `header.attributes` dict. In particular:
 
-- **`msg_created_at`** lives in **`header.attributes["msg_created_at"]`** — not
-  in a bespoke `SABAttributes` model. (The historical `SABHeader` /
-  `SABActors` / `SABAttributes` classes have been removed.)
+- **`msg_created_at`** lives in **`header.attributes["msg_created_at"]`**.
 - The **negotiation space** (mission text, `issues`, `options_per_issue`) is
   encoded into **`header.context.topic`**; `header.context.semantic.schema_id =
   "urn:ioc:schema:sab-l9:v1"` identifies the envelope.
