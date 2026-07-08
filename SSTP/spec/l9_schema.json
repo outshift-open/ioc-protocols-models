@@ -184,7 +184,7 @@
       "type": "object"
     },
     "PolicyLabel": {
-      "description": "Data governance and access-control labels applied to the message.\n## TODO Nandu, Peter please review",
+      "description": "Data governance and access-control labels applied to the message.",
       "properties": {
         "sensitivity": {
           "title": "Sensitivity",
