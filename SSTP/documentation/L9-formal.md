@@ -1,7 +1,7 @@
 # L9 Formal Protocol Definitions
 
 This document contains the formal notation, message schema, payload schemas, protocol flows,
-and well-formedness conditions for L9 version 0.0.5. All field names match the current
+and well-formedness conditions for L9 version 0.0.6. All field names match the current
 implementation in `SSTP/l9_base.py`, `SSTP/subprotocol/cip/src/l9.py`, and
 `SSTP/subprotocol/siep/src/l9.py`.
 
@@ -83,12 +83,12 @@ by social compliance and should be trusted less in future episodes.
 
 ## Message Schema
 
-Every L9 message M carries the following fields (v0.0.5 wire format):
+Every L9 message M carries the following fields (v0.0.6 wire format):
 
 ```
 M := {
   protocol    = "SSTP"
-  version     = "0.0.5"
+  version     = "0.0.6"
   kind        ∈ { intent, exchange, contingency, commit, knowledge }
   subkind     ∈ { converged, rejected, resolved, ready, ⊥ }
   subprotocol ∈ { "CIP", "SIEP" }

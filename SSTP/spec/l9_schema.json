@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ioc:l9:schema:v1",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "title": "L9Schema",
   "description": "Combined JSON Schema for all ioc_l9 Pydantic models.",
   "$defs": {
@@ -316,15 +316,7 @@
           "$ref": "#/$defs/ParticipantSet"
         },
         "message": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Message"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "$ref": "#/$defs/Message"
         },
         "policy": {
           "anyOf": [
@@ -367,7 +359,8 @@
         "subprotocol",
         "version",
         "kind",
-        "participants"
+        "participants",
+        "message"
       ],
       "type": "object"
     },

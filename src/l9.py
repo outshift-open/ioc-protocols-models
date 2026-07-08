@@ -54,7 +54,7 @@ class L9Header(BaseModel):
     kind: Kind                             # one of: intent | contingency | exchange | commit | knowledge
     subkind: Optional[str] = None          # free-form classification within the kind
     participants: ParticipantSet           # all participants: sender(s), receiver(s), observers
-    message: Optional[Message] = None
+    message: Message                       # message metadata including ID, parents, and episode
     policy: Optional[PolicyLabel] = None   # optional data governance labels
     attributes: Optional[dict] = None
     context: Optional[Context] = None      # optional context
