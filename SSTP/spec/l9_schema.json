@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ioc:l9:schema:v1",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "title": "L9Schema",
   "description": "Combined JSON Schema for all ioc_l9 Pydantic models.",
   "$defs": {
     "Actor": {
-      "description": "A participant in a protocol exchange \u2014 can be a human, a system, or any\nother entity. Multiple actors are listed in ParticipantSet to identify\nsender(s), receiver(s), and observers.",
+      "description": "A participant in a protocol exchange - can be a human, an AI agent, or a system.\nMultiple actors are listed in L9Header.actors to identify sender(s) and receiver(s).",
       "properties": {
         "id": {
           "title": "Id",
@@ -41,12 +41,12 @@
       "type": "object"
     },
     "Provenance": {
-      "description": "Tracks the origin and lineage of a message \u2014 who created it, from what source,\nand through which transformations. Fields TBD.",
+      "description": "Tracks the origin and lineage of a message - who created it, from what source,\nand through which transformations. Fields TBD.",
       "properties": {},
       "type": "object"
     },
     "Semantic": {
-      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nImplementations use this to select the appropriate handler for the message.",
+      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nThe CFN routing layer uses this to select appropriate cognitive engines (CEs).",
       "properties": {
         "schema_id": {
           "title": "Schema Id",
@@ -116,7 +116,6 @@
           "type": "string"
         },
         "parents": {
-          "description": "Ordered list of parent message IDs. Empty list for root messages.",
           "items": {
             "type": "string"
           },
@@ -317,15 +316,7 @@
           "$ref": "#/$defs/ParticipantSet"
         },
         "message": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Message"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "$ref": "#/$defs/Message"
         },
         "policy": {
           "anyOf": [
@@ -368,7 +359,8 @@
         "subprotocol",
         "version",
         "kind",
-        "participants"
+        "participants",
+        "message"
       ],
       "type": "object"
     },
