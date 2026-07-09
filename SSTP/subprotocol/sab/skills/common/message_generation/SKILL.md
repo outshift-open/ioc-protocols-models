@@ -205,8 +205,17 @@ them from the user's `options_per_issue`.
 ```
 
 - `nmi` is populated on the **first** round and is `null` thereafter.
-- Opening offer → `sao_response.response = "NO_RESPONSE"`; a counter → `"REJECT_OFFER"`. Each turn flips `origin.actor_id` / `current_proposer` between `agent-buyer` and `agent-seller`.
-- **Acceptance:** the accepting agent re-proposes the standing `current_offer` with `sao_response.response = "ACCEPT_OFFER"`, `n_acceptances = 1`, `running = false`, and `sao_state.agreement` set to the agreed offer (because `offering_is_accepting = true`).
+- Opening offer → `sao_response.response = "NO_RESPONSE"`; a counter → `"REJECT_OFFER"`. Each
+  offer/counter flips `origin.actor_id` / `current_proposer` / `current_proposer_agent`
+  between `agent-buyer` and `agent-seller`, sets `current_offer` = `sao_response.outcome` (the
+  offer just made), and `last_negotiator` = the previous proposer (`null` on the opening
+  offer, `step` counting up from 0).
+- **Acceptance:** `origin.actor_id` is the *accepting* agent, but `current_offer` /
+  `current_proposer` / `current_proposer_agent` stay the **standing offer being accepted**
+  (proposed by the *other* agent), and `last_negotiator` is that proposer — they do **not**
+  flip to the accepter. Set `sao_response.response = "ACCEPT_OFFER"` with `outcome` = that
+  offer, `n_acceptances = 1`, `running = false`, and `sao_state.agreement` = the agreed offer
+  (because `offering_is_accepting = true`).
 - **Timed-out final round (disagreement path):** the last `round` keeps `response = "REJECT_OFFER"` but sets `sao_state.timedout = true` and `running = false` once the step budget is exhausted.
 
 ## Success close — `converged` (full message)

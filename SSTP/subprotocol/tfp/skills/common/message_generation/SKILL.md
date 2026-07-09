@@ -115,11 +115,24 @@ don't supply those.
   - `bid` `select` `accept` → `exchange` / `team-formation`
   - `form_converged` → `commit` / `converged`
   - `form_failed` → `commit` / `abort`
-- `header.participants.groups` = `null`. `header.participants.actors`:
-  - `sender` is the first actor, role `"sender"`
-  - `bid` and `accept` (from a candidate) add `recruiter` as role `"receiver"`; `select` (from the recruiter) adds the target candidate as role `"receiver"`
-  - `poll_open` and `form_converged` / `form_failed` are broadcasts → **no receiver**
-  - other known cast members may follow as role `"participant"` (optional)
+- `header.participants.groups` = `null`. `header.participants.actors` is a **cumulative,
+  insertion-ordered roster of every agent seen so far in the episode**, rebuilt on each turn
+  (it keeps growing as agents join and eventually lists everyone who took part):
+  - `actors[0]` = this turn's `sender`, role `"sender"`
+  - then this turn's addressed receiver(s), role `"receiver"`: `bid` and `accept` (from a
+    candidate) add `recruiter`; `select` (from the recruiter) adds the target candidate
+  - then **every other agent that already appeared earlier in the episode**, role
+    `"participant"` (carried forward — an agent joins the roster the first time it sends or is
+    addressed, and persists as `"participant"` on all later turns)
+  - a new agent "joins" the list the first time it participates, so the roster only grows,
+    never shrinks or reorders past entries
+  - broadcast turns have **no receiver**: `poll_open`'s roster is just `[recruiter]`;
+    `form_converged` / `form_failed` carry the full accumulated roster (`recruiter` as
+    `sender`, everyone else as `participant`)
+  - only **agents** are actors — never add a broadcast channel / `topic:` as an actor
+  - the roster is stamped by the sequencer that has seen the whole episode. If you build a
+    single turn in isolation, include exactly the agents you've been told already
+    participated — don't invent participants you have no evidence for.
 - `header.message.parents`: `poll_open` → `[]`; every other turn → `[<poll_open message.id>]`
 - `header.context.topic` = `"Forming a team to <task_description>"`; `header.context.epistemic` = `null`; `header.context.semantic` = `null`; `header.policy` = `null`
 - `payload.type` = `"json-schema"`; `payload.data.operation` and `payload.data.poll_id` are always present; `payload.data.required_skills` is populated on `poll_open`, otherwise `[]`
