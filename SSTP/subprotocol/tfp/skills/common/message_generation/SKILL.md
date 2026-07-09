@@ -257,6 +257,12 @@ The `skill:<...>` names and the role assignments are placeholders — fill `sele
 }
 ```
 
+## Session finality
+
+Once a `form_converged` or `form_failed` message is emitted, the poll is **terminal**. Do
+NOT offer or generate any further turns for that `episode`/`poll_id`. If the user wants to
+form another team, start a fresh poll (new `poll_open` with new ids).
+
 ## Output
 
 Output ONLY valid JSON — no explanation, no markdown fences. Before emitting, confirm no
