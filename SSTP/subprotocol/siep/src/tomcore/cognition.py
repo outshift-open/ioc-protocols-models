@@ -93,6 +93,7 @@ class AgentTOM:
         task_goal = session_context.get("task_goal", "")
         result = self._llm.complete_json("tom_belief_seed", {
             "agent_id": peer_id,
+            "caller_id": self.agent_id,
             "role_description": role_description,
             "task_goal": task_goal,
             "session_context": session_context,
@@ -180,7 +181,7 @@ class AgentTOM:
             payload["listener_prior_utterance"] = listener_prior_utterance
         if confidence_before is not None:
             payload["confidence_before"] = confidence_before
-        result = self._llm.complete_json("ie_utterance_judge", payload)
+        result = self._llm.complete_json("utterance_judge", payload)
         derailed = bool(result.get("derailed", False))
         ambiguous = bool(result.get("ambiguous", False))
         alignment_score = max(0.0, min(1.0, float(
@@ -482,10 +483,10 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
 
     def __init__(
         self,
-        llm: LLMClient,
+        llm_factory: Callable[[str], LLMClient],
         epistemic_store_factory: Optional[Callable[[str], AgentEpistemicStore]] = None,
     ) -> None:
-        self.llm = llm
+        self._llm_factory = llm_factory
         self._epistemic_store_factory = epistemic_store_factory
         self._agent_toms: Dict[str, AgentTOM] = {}
         self._attribution_scores: Dict[str, float] = {}
@@ -498,7 +499,7 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
                 if self._epistemic_store_factory is not None
                 else AgentEpistemicStore(agent_id)
             )
-            self._agent_toms[agent_id] = AgentTOM(agent_id, self.llm, store)
+            self._agent_toms[agent_id] = AgentTOM(agent_id, self._llm_factory(agent_id), store)
         return self._agent_toms[agent_id]
 
     # ── Deprecated no-op stubs ────────────────────────────────────────────────
@@ -547,7 +548,7 @@ class TheoryOfMindEngine(TheoryOfMindEngineBase):
                     "aligned": True, "alignment_score": 0.65, "rationale": "no-agents"}
         return self.agent(_id).assess_task_alignment(task_goal=task_goal, utterance=utterance)
 
-    def ie_utterance_judge(
+    def utterance_judge(
         self,
         utterance: str,
         task_goal: str,

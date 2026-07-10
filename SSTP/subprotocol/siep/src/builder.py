@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
@@ -26,7 +27,13 @@ from SSTP.subprotocol._l9_compat import (
     schema_trust_level_for_kind,
     schema_version_for_kind,
 )
-from SSTP.subprotocol.siep.src.epistemic.vocabulary import make_epistemic_block
+from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
+    make_epistemic_block,
+    SpeechAct,
+    EpistemicState as _EpistemicStateVocab,
+    BeliefStatus as _BeliefStatusVocab,
+    infer_snp_epistemic,
+)
 
 SNP_PROFILE: str = "semantic_negotiation"
 SNP_ONTOLOGY_REFERENCE: str = "protocol/ontology/snp_ontology.ttl"
@@ -621,6 +628,353 @@ def build_snp_l9_header(
     )
 
 
+
+# ── SNP emit helpers ───────────────────────────────────────────────────────────
+# Each function takes two objects:
+#   context : NegotiationContext  — debate state (use_case, stores, ID generators)
+#   network : NetworkHandle       — transport (appends headers to network.messages)
+# SIEP never creates or imports a concrete network implementation.
+
+
+def _snp_position_key(pos: Any) -> str:
+    if isinstance(pos, dict):
+        return str(pos.get("likely_cause") or pos.get("risk_bucket") or pos.get("decision_key") or pos)
+    return str(pos)
+
+
+def _snp_confidence(pos: Any) -> float:
+    if isinstance(pos, dict):
+        return float(pos.get("confidence") or pos.get("roi_score") or 0.5)
+    return 0.5
+
+
+def emit_wire_received(
+    context: Any,
+    network: Any,
+    debate_header: Dict[str, Any],
+    recipient: str,
+) -> None:
+    """Append a WIRE received trace entry to the network for the recipient of an SNP message."""
+    from SSTP.subprotocol.cip.src.builder import build_l9_header
+    msg_id = (debate_header.get("message") or {}).get("id", "")
+    episode_id = (debate_header.get("message") or {}).get("episode")
+    actors = (debate_header.get("participants") or {}).get("actors") or []
+    sender_id = actors[0].get("id", "") if actors else ""
+    _recv_utt = f"received:{msg_id.split(':')[-1] if ':' in msg_id else msg_id}"
+    _recv_header = build_l9_header(
+        use_case=context.use_case,
+        event_type="peer_turn",
+        sender=recipient,
+        receiver=sender_id,
+        timestamp_ms=int(time.time() * 1000),
+        sensitivity="internal",
+        utterance=_recv_utt,
+        parent_ids=[msg_id] if msg_id else None,
+        episode_id=episode_id,
+        kind_override="exchange",
+        payload_parts=[{
+            "type": "utterance", "location": "inline",
+            "content": _recv_utt,
+            "rationale": f"received from {sender_id}",
+        }],
+    )
+    network.messages.append(_recv_header)
+
+
+def emit_propose(
+    context: Any,
+    network: Any,
+    controller: str,
+    specialist: str,
+    position: Any,
+    turn: int,
+) -> Dict[str, Any]:
+    """Emit a PROPOSE header from controller to specialist; append to network."""
+    from SSTP.subprotocol.siep.src.epistemic.stores import SemanticProposal
+    conf = _snp_confidence(position)
+    key = _snp_position_key(position)
+    utterance = f"{controller} proposes {key} confidence={conf:.2f}"
+    proposal_id = context._proposal_id(turn, controller)
+    ts = int(time.time() * 1000)
+    pos_dict = position if isinstance(position, dict) else {}
+    _ep_state = _EpistemicStateVocab.TASKWORK if turn == 0 else _EpistemicStateVocab.TEAM_PROCESS
+    epistemic_block = make_epistemic_block(
+        speech_act=SpeechAct.ASSERTION,
+        epistemic_state=_ep_state,
+        belief_status=_BeliefStatusVocab.ASSERTED,
+        uncertainty=round(1.0 - conf, 4),
+    )
+    _debate_payload = build_snp_payload(
+        operation=NegotiationOperation.PROPOSE,
+        proposal_id=proposal_id,
+        content=key,
+        status=NegotiationStatus.PENDING,
+        negotiation_id=context._debate_id,
+        posterior=pos_dict.get("posterior") or conf,
+        supporting_evidence=pos_dict.get("supporting_evidence"),
+        against_evidence=pos_dict.get("against_evidence"),
+        reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
+    )
+    _ctrl_rationale = str(pos_dict.get("rationale") or pos_dict.get("reasoning_summary") or "").strip()
+    _ctrl_thought = str(pos_dict.get("thought_summary") or "").strip()
+    _ctrl_utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": utterance}
+    if _ctrl_rationale:
+        _ctrl_utt_part["rationale"] = _ctrl_rationale
+    if _ctrl_thought:
+        _ctrl_utt_part["thought_summary"] = _ctrl_thought
+    debate_header = build_snp_l9_header(
+        operation=NegotiationOperation.PROPOSE,
+        use_case=context.use_case,
+        sender=controller,
+        receiver=specialist,
+        timestamp_ms=ts,
+        proposal_id=proposal_id,
+        utterance=utterance,
+        episode_id=context._episode_id(),
+        topic=key if key else None,
+        epistemic=epistemic_block,
+        payload_parts=[
+            _ctrl_utt_part,
+            {"type": "siep", "location": "inline", "content": _debate_payload},
+        ],
+    )
+    if context.proposal_store is not None:
+        context.proposal_store.record(SemanticProposal(
+            proposal_id=proposal_id,
+            concept_id=key or "",
+            episode_id=context._episode_id(),
+            sender=controller,
+            receiver=specialist,
+            payload=pos_dict,
+            timestamp_ms=ts,
+        ))
+    network.messages.append(debate_header)
+    emit_wire_received(context, network, debate_header, specialist)
+    return debate_header
+
+
+def emit_specialist_response(
+    context: Any,
+    network: Any,
+    specialist: str,
+    controller: str,
+    position: Any,
+    operation: str,
+    turn: int,
+    ie_request_message_id: str,
+    ctrl_position_key: str = "",
+    ctrl_conf: float = 0.5,
+    accept_threshold: float = 0.1,
+) -> Dict[str, Any]:
+    """Emit a specialist ACCEPT/COUNTER-PROPOSAL response header; append to network."""
+    key = _snp_position_key(position)
+    conf = _snp_confidence(position)
+    verb = "accepts" if operation == NegotiationOperation.ACCEPT else "counter-proposes"
+    utterance = f"{specialist} {verb} {key} confidence={conf:.2f}"
+    proposal_id = context._proposal_id(turn, specialist)
+    ts = int(time.time() * 1000)
+    op_str = operation.value if hasattr(operation, "value") else str(operation)
+    speech_act, epistemic_state = infer_snp_epistemic(
+        operation=op_str,
+        ctrl_position_key=ctrl_position_key,
+        member_position_key=key,
+        ctrl_conf=ctrl_conf,
+        member_conf=conf,
+        accept_threshold=accept_threshold,
+    )
+    belief_status = _BeliefStatusVocab.DEFERRED if speech_act == SpeechAct.COMPLIANCE else _BeliefStatusVocab.ASSERTED
+    pos_dict = position if isinstance(position, dict) else {}
+    addresses_ev: Optional[List[str]] = (
+        pos_dict.get("addresses_evidence")
+        or pos_dict.get("supporting_evidence")
+        or ([ctrl_position_key] if ctrl_position_key and operation in (
+            NegotiationOperation.COUNTER_PROPOSAL, NegotiationOperation.ACCEPT
+        ) else None)
+    )
+    _is_delib_pass = speech_act in (SpeechAct.COMPLIANCE, SpeechAct.DELIBERATION_PASS)
+    epistemic_block = make_epistemic_block(
+        speech_act=speech_act,
+        epistemic_state=epistemic_state,
+        belief_status=belief_status,
+        uncertainty=round(1.0 - conf, 4),
+    )
+    _debate_payload = build_snp_payload(
+        operation=operation,
+        proposal_id=proposal_id,
+        content=key,
+        status=NegotiationStatus.PENDING,
+        negotiation_id=context._debate_id,
+        posterior=pos_dict.get("posterior") or conf,
+        supporting_evidence=pos_dict.get("supporting_evidence"),
+        against_evidence=pos_dict.get("against_evidence"),
+        reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
+        addresses_evidence=addresses_ev,
+        deferred_to=controller if _is_delib_pass else None,
+    )
+    _spec_rationale = str(pos_dict.get("rationale") or pos_dict.get("reasoning_summary") or "").strip()
+    _spec_thought = str(pos_dict.get("thought_summary") or "").strip()
+    _spec_utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": utterance}
+    if _spec_rationale:
+        _spec_utt_part["rationale"] = _spec_rationale
+    if _spec_thought:
+        _spec_utt_part["thought_summary"] = _spec_thought
+    debate_header = build_snp_l9_header(
+        operation=operation,
+        use_case=context.use_case,
+        sender=specialist,
+        receiver=controller,
+        timestamp_ms=ts,
+        proposal_id=proposal_id,
+        utterance=utterance,
+        episode_id=context._episode_id(),
+        topic=ctrl_position_key if ctrl_position_key else None,
+        epistemic=epistemic_block,
+        kind_override="exchange",
+        payload_parts=[
+            _spec_utt_part,
+            {"type": "siep", "location": "inline", "content": _debate_payload},
+        ],
+    )
+    network.messages.append(debate_header)
+    emit_wire_received(context, network, debate_header, controller)
+    return debate_header
+
+
+def emit_final_decision(
+    context: Any,
+    network: Any,
+    controller: str,
+    specialist: str,
+    position: Any,
+    turn: int,
+    ie_request_message_id: str,
+    specialist_position: Any = None,
+    accept_threshold: float = 0.1,
+) -> Dict[str, Any]:
+    """Emit the controller's COMMIT (final per-specialist close) header; append to network."""
+    conf = _snp_confidence(position)
+    key = _snp_position_key(position)
+    utterance = f"{controller} commits {key} confidence={conf:.2f}"
+    proposal_id = context._proposal_id(turn, controller)
+    ts = int(time.time() * 1000)
+    spec_key = _snp_position_key(specialist_position) if specialist_position is not None else key
+    if spec_key != key:
+        _sa: SpeechAct = SpeechAct.COMPLIANCE
+        _es: _EpistemicStateVocab = _EpistemicStateVocab.TEAM_PROCESS
+        _bs: _BeliefStatusVocab = _BeliefStatusVocab.DEFERRED
+    else:
+        _sa = SpeechAct.ASSERTION
+        _es = _EpistemicStateVocab.TEAM_PROCESS
+        _bs = _BeliefStatusVocab.ASSERTED
+    epistemic_block = make_epistemic_block(
+        speech_act=_sa, epistemic_state=_es, belief_status=_bs,
+        uncertainty=round(1.0 - conf, 4),
+    )
+    debate_header = build_snp_l9_header(
+        operation=NegotiationOperation.ACCEPT,
+        use_case=context.use_case,
+        sender=controller,
+        receiver=specialist,
+        timestamp_ms=ts,
+        proposal_id=proposal_id,
+        utterance=utterance,
+        episode_id=context._episode_id(),
+        epistemic=epistemic_block,
+        kind_override="commit",
+    )
+    network.messages.append(debate_header)
+    return debate_header
+
+
+def emit_negotiate(
+    context: Any,
+    network: Any,
+    *,
+    sender: str,
+    receiver: str,
+    utterance: str,
+    turn: int,
+    confidence: float,
+    parent_debate_id: Optional[str] = None,
+    epistemic_state: _EpistemicStateVocab = _EpistemicStateVocab.TEAM_PROCESS,
+) -> Dict[str, Any]:
+    """Emit a NEGOTIATE header (ring peer pass); append to network."""
+    proposal_id = context._proposal_id(turn, sender)
+    ts = int(time.time() * 1000)
+    epistemic_block = make_epistemic_block(
+        speech_act=SpeechAct.ASSERTION,
+        epistemic_state=epistemic_state,
+        belief_status=_BeliefStatusVocab.ASSERTED,
+        uncertainty=round(1.0 - confidence, 4),
+    )
+    debate_header = build_snp_l9_header(
+        operation=NegotiationOperation.NEGOTIATE,
+        use_case=context.use_case,
+        sender=sender,
+        receiver=receiver,
+        timestamp_ms=ts,
+        proposal_id=proposal_id,
+        utterance=utterance,
+        parent_ids=[parent_debate_id] if parent_debate_id else None,
+        episode_id=context._episode_id(),
+        epistemic=epistemic_block,
+    )
+    network.messages.append(debate_header)
+    return debate_header
+
+
+def emit_decision(
+    context: Any,
+    network: Any,
+    *,
+    sender: str,
+    receiver: str,
+    utterance: str,
+    operation: str,
+    turn: int,
+    confidence: float,
+    ie_request_message_id: str,
+    parent_debate_id: Optional[str] = None,
+    ctrl_position_key: str = "",
+    ctrl_conf: float = 0.5,
+    accept_threshold: float = 0.1,
+) -> Dict[str, Any]:
+    """Emit an ACCEPT/REJECT decision header (ring response); append to network."""
+    proposal_id = context._proposal_id(turn, sender)
+    ts = int(time.time() * 1000)
+    op_str = operation.value if hasattr(operation, "value") else str(operation)
+    speech_act, epistemic_state = infer_snp_epistemic(
+        operation=op_str,
+        ctrl_position_key=ctrl_position_key,
+        member_position_key=ctrl_position_key,
+        ctrl_conf=ctrl_conf,
+        member_conf=confidence,
+        accept_threshold=accept_threshold,
+    )
+    belief_status = _BeliefStatusVocab.DEFERRED if speech_act == SpeechAct.COMPLIANCE else _BeliefStatusVocab.ASSERTED
+    epistemic_block = make_epistemic_block(
+        speech_act=speech_act,
+        epistemic_state=epistemic_state,
+        belief_status=belief_status,
+        uncertainty=round(1.0 - confidence, 4),
+    )
+    debate_header = build_snp_l9_header(
+        operation=operation,
+        use_case=context.use_case,
+        sender=sender,
+        receiver=receiver,
+        timestamp_ms=ts,
+        proposal_id=proposal_id,
+        utterance=utterance,
+        parent_ids=[parent_debate_id] if parent_debate_id else None,
+        episode_id=context._episode_id(),
+        topic=ctrl_position_key if ctrl_position_key else None,
+        epistemic=epistemic_block,
+    )
+    network.messages.append(debate_header)
+    return debate_header
+
+
 __all__ = [
     "ActorRef",
     "BeliefStatus",
@@ -648,4 +1002,10 @@ __all__ = [
     "contingency_score",
     "schema_id_for",
     "snp_event_type_for_operation",
+    "emit_wire_received",
+    "emit_propose",
+    "emit_specialist_response",
+    "emit_final_decision",
+    "emit_negotiate",
+    "emit_decision",
 ]

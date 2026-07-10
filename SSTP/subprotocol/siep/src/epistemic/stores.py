@@ -182,7 +182,7 @@ class TeamGroundedTruth:
     genuine_agreement_ratio: float           # GAR: fraction consistent with taskwork priors
     social_compliance_ratio: float           # SCR: fraction of revisions = social_compliance
     common_ground_ids: List[str]            # CommonGround episode_ids that fed this
-    outcome: str                             # accept | reject | deferred
+    outcome: str                             # accept | reject | deferred | deferred_to_human | casting_vote
     formed_at_ms: int
 
 
@@ -850,6 +850,21 @@ class TaskworkStore:
 
 
 @dataclass
+class EscalationRule:
+    """Generic escalation rule agreed during team process.
+
+    All fields are opaque strings/floats — no domain vocabulary.
+    Application layer populates ``safety_override_conditions`` with
+    domain-specific trigger labels; the generic layer treats them as opaque.
+    """
+    deadlock_rule: str                     # "casting_vote" | "human_escalation" | "majority_override"
+    casting_vote_holder: str               # agent_id or ""
+    human_escalation_threshold: float      # SCR or round-count above which → human
+    safety_override_conditions: List[str] = field(default_factory=list)  # opaque
+    agreed: bool = False
+
+
+@dataclass
 class RoleAssignment:
     """One agent's role and responsibilities within a panel."""
     agent_id:        str
@@ -874,6 +889,8 @@ class TeamProcessAgreement:
     role_assignments:     List[RoleAssignment] = field(default_factory=list)
     decomposition_agreed: bool = False   # True when all role_assignments have agreed=True
     formed_at_ms:         int = 0
+    session_objective:    str = ""       # opaque goal string from application
+    escalation_rule:      Optional[EscalationRule] = None  # agreed at team process close
 
 
 class TeamProcessStore:
@@ -931,6 +948,7 @@ __all__ = [
     "TaskworkState",
     "TaskworkStore",
     # Team process state
+    "EscalationRule",
     "RoleAssignment",
     "TeamProcessAgreement",
     "TeamProcessStore",

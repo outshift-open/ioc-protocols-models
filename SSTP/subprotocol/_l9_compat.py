@@ -36,8 +36,16 @@ def schema_version_for_kind(kind: str) -> str:
 
 
 def iso8601_from_timestamp_ms(timestamp_ms: int) -> str:
+    import time as _time
+    # Combine the millisecond timestamp with current wall-clock microseconds so
+    # wire messages sort correctly relative to LLM trace entries recorded at the
+    # same instant (LLM trace uses datetime.utcnow() which has microsecond precision).
+    wall = _time.time()
+    # Use wall time if it's within 2 seconds of timestamp_ms (i.e. caller passed current time)
+    ts_sec = max(0, timestamp_ms) / 1000.0
+    ts = wall if abs(wall - ts_sec) < 2.0 else ts_sec
     return (
-        datetime.fromtimestamp(max(0, timestamp_ms) / 1000.0, tz=timezone.utc)
+        datetime.fromtimestamp(ts, tz=timezone.utc)
         .isoformat()
         .replace("+00:00", "Z")
     )

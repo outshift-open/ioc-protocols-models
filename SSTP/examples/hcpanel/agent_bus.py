@@ -5,7 +5,7 @@
 """
 SSTP/examples/hcpanel/agent_bus.py — Per-episode L9 message bus for hcpanel.
 
-AgentBus is the domain-agnostic base.  HCPanelAgentBus is the
+MessageBus is the domain-agnostic base.  HCPanelAgentBus is the
 healthcare-specialised subclass used by the hcpanel application.
 """
 
@@ -13,14 +13,14 @@ from __future__ import annotations
 
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
-from SSTP.subprotocol.siep.src.epistemic.stores import AgentBeliefStore, BeliefRevision, CommonGround
+from SSTP.subprotocol.siep.src.epistemic.stores import BeliefRevision, CommonGround
 from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
     SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block, RepairReason,
 )
-from SSTP.subprotocol.cip.src.grounding import diagnose_repair_reason
 from SSTP.subprotocol.cip.src.builder import build_l9_header
+from SSTP.subprotocol.siep.src.panel import NetworkHandle
 
 
 class ProtocolViolation(RuntimeError):
@@ -40,7 +40,7 @@ def _is_lifecycle_kind(kind_override: str) -> bool:
     return base in ("intent", "commit")
 
 
-class AgentBus:
+class MessageBus(NetworkHandle):
     """Per-episode L9 message bus shared by all agents in a session."""
 
     def __init__(
@@ -59,6 +59,14 @@ class AgentBus:
         self._taskwork_store: Optional[Any] = None
         self._protocol_context: bool = False
         self._handlers: Dict[str, Any] = {}
+        self._max_delivery_attempts: int = 3
+        self._dead_letter: List[Dict[str, Any]] = []
+        self.specialist_l9s: Dict[str, Any] = {}
+        # Structured message identity counters (scoped to this session)
+        self._session_id: str = run_id
+        self._episode_seq: int = 0
+        self._msg_seq: int = 0
+        self._episode_registry: Dict[str, int] = {}
 
     @contextmanager
     def _lifecycle_emit(self) -> Generator[None, None, None]:
@@ -72,21 +80,96 @@ class AgentBus:
     def register_handler(self, agent_id: str, handler: Any) -> None:
         self._handlers[agent_id] = handler
 
+    def get_handler(self, agent_id: str) -> Optional[Any]:
+        return self._handlers.get(agent_id)
+
     def _deliver(self, header: Dict[str, Any]) -> None:
+        import logging as _log
         ps = header.get("participants") or {}
         actors = ps.get("actors") or []
         if not actors:
             return
-        sender_id = actors[0].get("id", "")
+        sender_id = actors[0].get("id", "") if actors else ""
+        msg_id = (header.get("message") or {}).get("id", "")
+        episode_id = (header.get("message") or {}).get("episode")
+
         for actor in actors[1:]:
             recipient_id = actor.get("id", "")
-            if recipient_id and recipient_id != sender_id:
-                handler = self._handlers.get(recipient_id)
-                if handler is not None:
+            if not recipient_id or recipient_id == sender_id:
+                continue
+            handler = self._handlers.get(recipient_id)
+            if handler is None:
+                _log.getLogger(__name__).warning(
+                    "message_bus.no_handler recipient=%s msg_id=%s", recipient_id, msg_id
+                )
+                self._dead_letter.append({
+                    "message_id": msg_id, "recipient_id": recipient_id,
+                    "reason": "no_handler",
+                })
+                try:
+                    self.emit_semantic_repair(
+                        sender=sender_id, receiver=recipient_id,
+                        target_message_id=msg_id,
+                        repair_reason=RepairReason.DELIVERY_FAILURE,
+                        episode_id=episode_id,
+                    )
+                except Exception:
+                    pass
+                continue
+
+            # Emit a WIRE received record so the trace shows each inbound message
+            # from the recipient's perspective, immediately before handler dispatch.
+            _recv_utt = f"received:{msg_id.split(':')[-1] if ':' in msg_id else msg_id}"
+            _recv_header = build_l9_header(
+                use_case=self.use_case,
+                event_type="peer_turn",
+                sender=recipient_id,
+                receiver=sender_id,
+                timestamp_ms=int(time.time() * 1000),
+                sensitivity=self.sensitivity,
+                utterance=_recv_utt,
+                parent_ids=[msg_id] if msg_id else None,
+                episode_id=episode_id,
+                kind_override="exchange",
+                payload_parts=[{
+                    "type": "utterance", "location": "inline",
+                    "content": _recv_utt,
+                    "rationale": f"received from {sender_id}",
+                }],
+            )
+            self.messages.append(_recv_header)
+
+            delivered = False
+            last_exc: "Optional[BaseException]" = None
+            for attempt in range(1, self._max_delivery_attempts + 1):
+                try:
                     handler(header)
+                    delivered = True
+                    break
+                except Exception as exc:
+                    _log.getLogger(__name__).warning(
+                        "message_bus.deliver attempt=%d recipient=%s error=%s",
+                        attempt, recipient_id, exc,
+                    )
+                    last_exc = exc
+
+            if not delivered:
+                self._dead_letter.append({
+                    "message_id": msg_id, "recipient_id": recipient_id,
+                    "reason": "handler_exhausted", "error": str(last_exc),
+                })
+                try:
+                    self.emit_semantic_repair(
+                        sender=sender_id, receiver=recipient_id,
+                        target_message_id=msg_id,
+                        repair_reason=RepairReason.DELIVERY_FAILURE,
+                        episode_id=episode_id,
+                    )
+                except Exception:
+                    pass
 
     @property
-    def snp_trace(self) -> List[Dict[str, Any]]:
+    def debate_trace(self) -> List[Dict[str, Any]]:
         return [m for m in self.messages if m.get("subprotocol") == "SIEP"]
 
     def emit_peer_turn(
@@ -132,6 +215,18 @@ class AgentBus:
         _recipients = recipients if recipients is not None else (
             [receiver] if receiver and receiver != sender else []
         )
+        _eid = episode_id or ""
+        _msg_id, _, _seq = self._next_msg_id(_eid)
+        # Encode parents as intra-episode msg_seq integers
+        _parent_ids: "List[Any] | None" = None
+        if parent_id:
+            if ":msg:" in parent_id:
+                try:
+                    _parent_ids = [int(parent_id.split(":msg:")[-1])]
+                except ValueError:
+                    _parent_ids = [parent_id]
+            else:
+                _parent_ids = [parent_id]
         header = build_l9_header(
             use_case=self.use_case,
             event_type="peer_turn",
@@ -140,7 +235,7 @@ class AgentBus:
             timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity,
             utterance=utterance,
-            parent_ids=[parent_id] if parent_id else None,
+            parent_ids=_parent_ids,
             episode_id=episode_id,
             kind_override=kind_override,
             epistemic=_epistemic,
@@ -148,6 +243,7 @@ class AgentBus:
             payload_parts=_payload_parts,
             role=role,
             recipients=_recipients,
+            message_id=_msg_id,
         )
         if error is not None:
             header["error"] = error
@@ -223,28 +319,8 @@ class AgentBus:
             },
         })
         self.messages.append(header)
+        self._deliver(header)
         return header
-
-    def check_and_repair(
-        self,
-        *,
-        sender: str,
-        prior_message_epistemic: "Optional[Dict[str, Any]]",
-        response_epistemic: "Optional[Dict[str, Any]]",
-        response_message_id: str,
-        episode_id: "str | None" = None,
-    ) -> "Optional[Dict[str, Any]]":
-        reason = diagnose_repair_reason(prior_message_epistemic, response_epistemic)
-        if reason is None:
-            return None
-        return self.emit_semantic_repair(
-            sender=sender,
-            receiver=response_message_id,
-            target_message_id=response_message_id,
-            repair_reason=reason,
-            target_epistemic=prior_message_epistemic,
-            episode_id=episode_id,
-        )
 
     def emit_epistemic_clarification(
         self,
@@ -276,110 +352,20 @@ class AgentBus:
             ],
         )
         self.messages.append(header)
+        self._deliver(header)
         return header
 
-    def advance_phase(self, new_phase: str, episode_id: str = "") -> None:
-        _ORDER = ("taskwork", "grounding", "team_process")
-        if new_phase not in _ORDER:
-            raise ValueError(f"Unknown phase: {new_phase!r}")
-        if _ORDER.index(new_phase) <= _ORDER.index(self._current_phase):
-            raise ValueError(f"Cannot regress phase from {self._current_phase!r} to {new_phase!r}")
-        if self._current_phase == "taskwork" and new_phase == "grounding":
-            if self._taskwork_store is not None and episode_id:
-                for state in self._taskwork_store.all_for_episode(episode_id):
-                    last_msg = self.messages[-1]["message"]["id"] if self.messages else ""
-                    self._taskwork_store.lock(state.agent_id, state.concept_id, episode_id, last_msg)
-        self._current_phase = new_phase
-
-    def emit_initial_prior(
-        self,
-        *,
-        sender: str,
-        receiver: str,
-        concept_id: str,
-        prior: float,
-        posterior: float,
-        evidence: "List[str] | None" = None,
-        episode_id: "str | None" = None,
-    ) -> Dict[str, Any]:
-        from SSTP.subprotocol.cip.src.message import IEPayload, IEUtteranceBlock, IEGroundingBlock, IEBeliefBlock
-        _utterance = f"initial_prior:{concept_id}:{posterior:.4f}"
-        payload = IEPayload(
-            utterance=IEUtteranceBlock(evidence=list(evidence or [concept_id]), addresses_evidence=[], ring_round=0),
-            grounding=IEGroundingBlock(),
-            belief=IEBeliefBlock(prior=prior, posterior=posterior, revision_cause="semantic_memory"),
-        )
-        header = build_l9_header(
-            use_case=self.use_case,
-            event_type="initial_prior",
-            sender=sender,
-            receiver=receiver,
-            timestamp_ms=int(time.time() * 1000),
-            sensitivity=self.sensitivity,
-            utterance=_utterance,
-            episode_id=episode_id,
-            topic=concept_id,
-            epistemic=make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK),
-            payload_parts=[
-                {"type": "utterance", "location": "inline", "content": _utterance},
-                {"type": "cip", "location": "inline", "content": payload.to_dict()},
-            ],
-        )
-        self.messages.append(header)
-        return header
-
-    def emit_process_proposal(self, *, sender: str, receiver: str, agreement: Any,
-                               episode_id: "str | None" = None) -> Dict[str, Any]:
-        from SSTP.subprotocol.cip.src.message import ProcessPayload
-        payload = ProcessPayload(
-            coordinator_id=agreement.coordinator_id,
-            participant_ids=list(agreement.participant_ids),
-            role_assignments=[
-                {"agent_id": ra.agent_id, "role": ra.role, "responsible_for": list(ra.responsible_for)}
-                for ra in agreement.role_assignments
-            ],
-        )
-        content = f"process_proposal:coordinator={agreement.coordinator_id}"
-        header = build_l9_header(
-            use_case=self.use_case, event_type="process_proposed",
-            sender=sender, receiver=receiver, timestamp_ms=int(time.time() * 1000),
-            sensitivity=self.sensitivity, utterance=content, episode_id=episode_id,
-            epistemic=make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS),
-            payload_parts=[
-                {"type": "utterance", "location": "inline", "content": content},
-                {"type": "process", "location": "inline", "content": payload.to_dict()},
-            ],
-        )
-        self.messages.append(header)
-        return header
-
-    def emit_process_acceptance(self, *, sender: str, receiver: str, parent_id: str,
-                                 episode_id: "str | None" = None) -> Dict[str, Any]:
-        _utterance = f"process_accepted:by={sender}"
-        header = build_l9_header(
-            use_case=self.use_case, event_type="process_accepted",
-            sender=sender, receiver=receiver, timestamp_ms=int(time.time() * 1000),
-            sensitivity=self.sensitivity, utterance=_utterance,
-            parent_ids=[parent_id], episode_id=episode_id,
-            epistemic=make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TEAM_PROCESS),
-            payload_parts=[{"type": "utterance", "location": "inline", "content": _utterance}],
-        )
-        self.messages.append(header)
-        return header
-
-    def emit_process_challenge(self, *, sender: str, receiver: str, parent_id: str,
-                                reason: str, episode_id: "str | None" = None) -> Dict[str, Any]:
-        _utterance = f"process_challenged:reason={reason}"
-        header = build_l9_header(
-            use_case=self.use_case, event_type="process_challenged",
-            sender=sender, receiver=receiver, timestamp_ms=int(time.time() * 1000),
-            sensitivity=self.sensitivity, utterance=_utterance,
-            parent_ids=[parent_id], episode_id=episode_id,
-            epistemic=make_epistemic_block(speech_act=SpeechAct.CHALLENGE, epistemic_state=EpistemicState.TEAM_PROCESS),
-            payload_parts=[{"type": "utterance", "location": "inline", "content": _utterance}],
-        )
-        self.messages.append(header)
-        return header
+    def _next_msg_id(self, episode_id: str) -> Tuple[str, str, int]:
+        """Return (message_id_urn, episode_urn, msg_seq) for the next message in episode_id."""
+        if episode_id not in self._episode_registry:
+            self._episode_seq += 1
+            self._episode_registry[episode_id] = self._episode_seq
+        ep_seq = self._episode_registry[episode_id]
+        phase = self._current_phase  # "team_process" | "taskwork" | "task"
+        self._msg_seq += 1
+        ep_urn = f"urn:session:{self._session_id}:phase:{phase}:episode:{ep_seq}"
+        msg_urn = f"{ep_urn}:msg:{self._msg_seq}"
+        return msg_urn, ep_urn, self._msg_seq
 
     def receive_peer_turn(
         self,
@@ -537,6 +523,7 @@ class AgentBus:
                 recipients=recipients or [],
             )
         self.messages.append(header)
+        self._deliver(header)
         return header
 
     def _emit_episode_close(self, *, coordinator: str, subject: str, accepted: bool,
@@ -564,6 +551,7 @@ class AgentBus:
                 recipients=recipients or [],
             )
         self.messages.append(header)
+        self._deliver(header)
         return header
 
     def emit_grounding_phase_ready(self, *, sender: str, episode_id: "str | None" = None) -> Dict[str, Any]:
@@ -602,6 +590,7 @@ class AgentBus:
                 recipients=recipients or [],
             )
         self.messages.append(header)
+        self._deliver(header)
         return header
 
     def emit_taskwork_phase_intent(self, *, coordinator: str, subject: str,
@@ -666,6 +655,7 @@ class AgentBus:
             payload_parts=[{"type": "utterance", "location": "inline", "content": _utterance}],
         )
         self.messages.append(header)
+        self._deliver(header)
         return header
 
     def emit_grounding_turn(
@@ -765,34 +755,46 @@ class AgentBus:
 
     def _emit_knowledge_announcement(self, *, sender: str, concept_id: str, posterior: float,
                                       gar: float, scr: float, provenance_weight: float,
-                                      parent_id: "str | None" = None,
+                                      commit_message_id: str = "",
+                                      revision_cause: str = "converged_episode",
                                       episode_id: "str | None" = None) -> Dict[str, Any]:
         _utterance = (f"knowledge:{concept_id}:posterior={posterior:.4f}"
                       f":gar={gar:.4f}:scr={scr:.4f}:provenance_weight={provenance_weight:.4f}")
+        _eid = episode_id or ""
+        _msg_id, _, _ = self._next_msg_id(_eid)
         header = build_l9_header(
             use_case=self.use_case, event_type="peer_turn",
             sender=sender, receiver=sender, timestamp_ms=int(time.time() * 1000),
             sensitivity=self.sensitivity, utterance=_utterance,
-            parent_ids=[parent_id] if parent_id else None, episode_id=episode_id,
+            parent_ids=[], episode_id=episode_id,
             kind_override="knowledge", topic=concept_id,
+            message_id=_msg_id,
             epistemic=make_epistemic_block(speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
                                            belief_status=BeliefStatus.ASSERTED, uncertainty=round(1.0 - posterior, 4)),
             payload_parts=[
                 {"type": "utterance", "location": "inline", "content": _utterance},
                 {"type": "knowledge", "location": "inline", "content": {
-                    "concept_id": concept_id, "posterior": posterior,
+                    "concept_id": concept_id,
+                    "source": commit_message_id,
+                    "posterior": posterior,
                     "gar": gar, "scr": scr, "provenance_weight": provenance_weight,
+                    "revision_cause": revision_cause,
                 }},
             ],
         )
         self.messages.append(header)
+        self._deliver(header)
         return header
+
+
+# Backward-compat alias — existing `from agent_bus import AgentBus` imports still work
+AgentBus = MessageBus
 
 
 # ── HCPanelAgentBus ───────────────────────────────────────────────────────────
 
 
-class HCPanelAgentBus(AgentBus):
+class HCPanelAgentBus(MessageBus):
     """Healthcare-specialised agent bus for the hcpanel application."""
 
     def __init__(self, run_id: str, conversation_id: str) -> None:
@@ -811,9 +813,9 @@ class HCPanelAgentBus(AgentBus):
         )
 
 
-__all__ = ["AgentBus", "HCPanelAgentBus", "ProtocolViolation", "get_cip_repair"]
+__all__ = ["MessageBus", "AgentBus", "HCPanelAgentBus", "ProtocolViolation", "get_cip_repair"]
 
-class HealthcareAgentBus(AgentBus):
+class HealthcareAgentBus(MessageBus):
     def __init__(self, run_id: str, conversation_id: str) -> None:
         super().__init__(
             run_id=run_id,
@@ -831,77 +833,6 @@ class HealthcareAgentBus(AgentBus):
             episode_id=episode_id or self.taskwork_episode_id or None,
             **kwargs,
         )
-
-class BeliefStoreProxy:
-    """Routes AgentBeliefStore reads/writes to per-agent private stores.
-
-    PanelBus uses a single belief_store reference for all agents.  This proxy
-    intercepts every call, extracts the agent_id, and delegates to the
-    appropriate SpecialistAgent's own AgentBeliefStore.  Agents not found in
-    the registry fall back to a shared overflow store (controller + any
-    unregistered agents).
-    """
-
-    def __init__(self, agent_stores: Dict[str, AgentBeliefStore]) -> None:
-        self._stores = agent_stores
-        self._overflow = AgentBeliefStore()
-
-    def _store_for(self, agent_id: str) -> AgentBeliefStore:
-        return self._stores.get(agent_id, self._overflow)
-
-    def current_belief(
-        self, agent_id: str, concept_id: str, use_case: str = ""
-    ) -> Any:
-        return self._store_for(agent_id).current_belief(agent_id, concept_id, use_case)
-
-    def set_prior(
-        self,
-        agent_id: str,
-        concept_id: str,
-        use_case: str,
-        prior: float,
-        prior_weight: float,
-    ) -> Any:
-        return self._store_for(agent_id).set_prior(
-            agent_id, concept_id, use_case, prior, prior_weight
-        )
-
-    def reset_episode(self, agent_id: str, concept_id: str, use_case: str) -> None:
-        self._store_for(agent_id).reset_episode(agent_id, concept_id, use_case)
-
-    def record_revision(
-        self,
-        agent_id: str,
-        concept_id: str,
-        use_case: str,
-        episode_id: str,
-        revision: BeliefRevision,
-        new_status: str = "asserted",
-        new_public_confidence: Optional[float] = None,
-    ) -> Any:
-        return self._store_for(agent_id).record_revision(
-            agent_id, concept_id, use_case, episode_id, revision,
-            new_status, new_public_confidence,
-        )
-
-    def all_beliefs(self, agent_id: str, use_case: str = "") -> Any:
-        return self._store_for(agent_id).all_beliefs(agent_id, use_case)
-
-    def _store_flat(self) -> Any:
-        flat = []
-        for store in self._stores.values():
-            flat.extend(store._store_flat())
-        flat.extend(self._overflow._store_flat())
-        return flat
-
-    def _restore_flat(self, records: Any) -> None:
-        # Restoration routes by agent_id — overflow for unknowns.
-        if not isinstance(records, list):
-            return
-        for rec in records:
-            aid = rec.get("agent_id", "")
-            self._store_for(aid)._restore_flat([rec])
-
 
 class HCPanelAgentBus(HealthcareAgentBus):
     """HCPanel bus — adds public lifecycle wrappers for the two-phase episode structure."""
@@ -943,4 +874,4 @@ class HCPanelAgentBus(HealthcareAgentBus):
         )
 
 
-__all__ = ["BeliefStoreProxy", "HCPanelAgentBus"]
+__all__ = ["HCPanelAgentBus"]
