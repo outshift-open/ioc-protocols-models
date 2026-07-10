@@ -523,7 +523,7 @@
       "subprotocol": "SAB",
       "version": "0",
       "kind": "commit",
-      "subkind": "converged",
+      "subkind": "resolved",
       "participants": {
         "actors": [
           {

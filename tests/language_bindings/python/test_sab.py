@@ -95,7 +95,7 @@ class TestSABBuilder:
             payload_hash="h",
             semantic_context=NegotiateCommitSemanticContext(session_id="s", outcome="agreement"),
         )
-        for helper, expected in [("converged", "converged"), ("disagreement", "disagreement"), ("timeout", "timeout")]:
+        for helper, expected in [("resolved", "resolved"), ("unresolved", "unresolved"), ("timeout", "timeout")]:
             l9 = getattr(SABMessageBuilder("s").participants(["a"]).message("c1"), helper)(commit).build()
             assert l9.header.kind.value == "commit"
             assert l9.header.subkind == expected

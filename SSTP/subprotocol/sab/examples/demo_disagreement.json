@@ -736,7 +736,7 @@
       "subprotocol": "SAB",
       "version": "0",
       "kind": "commit",
-      "subkind": "disagreement",
+      "subkind": "unresolved",
       "participants": {
         "actors": [
           {

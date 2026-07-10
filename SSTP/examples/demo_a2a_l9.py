@@ -985,10 +985,10 @@ def run_demo() -> None:  # noqa: C901
         # ④ RECV
         _ = bus.recv_sab(sab_task_id)
 
-    # 4f  commit:converged — ① BUILD
+    # 4f  commit:resolved — ① BUILD
     sab = (
         _sab(id_c, [id_i], "commercial-agent", "topic:sab/sessions", "2026-06-24T10:00:25Z")
-        .converged(SABCommitPayloadData(
+        .resolved(SABCommitPayloadData(
             message_id=id_c, version="0", dt_created="2026-06-24T10:00:25Z",
             origin=origin_buyer, payload_hash=payload_hash,
             semantic_context=NegotiateCommitSemanticContext(
@@ -1004,7 +1004,7 @@ def run_demo() -> None:  # noqa: C901
     )
     # ②③ PACK + SEND (close task)
     a2a = bus.close_sab_task(sab_task_id, sab, Role.ROLE_AGENT, ctx_id)
-    rec("SAB", "4f · commit:converged  (damages clause agreed ✓)", a2a,
+    rec("SAB", "4f · commit:resolved  (damages clause agreed ✓)", a2a,
         "governing=hybrid  cap=12_months_fees")
     # ④ RECV
     _ = bus.recv_sab(sab_task_id)

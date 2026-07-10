@@ -10,8 +10,8 @@ Each message is a full canonical **L9** envelope built with
 :class:`SABMessageBuilder`; ``msg_created_at`` lives in ``header.attributes``.
 
 Produces two files in this directory:
-  demo_agreement.json    — intent + 4 negotiate rounds + commit/converged
-  demo_disagreement.json — intent + 6 negotiate rounds + commit/disagreement
+  demo_agreement.json    — intent + 4 negotiate rounds + commit/resolved
+  demo_disagreement.json — intent + 6 negotiate rounds + commit/unresolved
 
 Run from anywhere:
   python3 SSTP/subprotocol/sab/examples/run_demo.py
@@ -240,7 +240,7 @@ def build_agreement() -> list[dict]:
 
     commit = (
         _builder(sid, ep, "f6a7b8c9-d0e1-2345-f012-345678901234", "2026-06-22T10:00:25Z")
-        .converged(_commit_data(
+        .resolved(_commit_data(
             "f6a7b8c9-d0e1-2345-f012-345678901234", "2026-06-22T10:00:25Z", ORIGIN_BUYER, sid,
             outcome="agreement",
             final_agreement=[
@@ -307,7 +307,7 @@ def build_disagreement() -> list[dict]:
 
     commit = (
         _builder(sid, ep, ids[7], "2026-06-22T11:00:35Z")
-        .disagreement(_commit_data(
+        .unresolved(_commit_data(
             ids[7], "2026-06-22T11:00:35Z", ORIGIN_BUYER, sid,
             outcome="disagreement", final_agreement=None))
         .build()

@@ -76,9 +76,9 @@ SERVER_ACTOR_ID = "negotiation_server"
 # CE status → (L9 kind, L9 subkind). Mirrors l9_adapter._STATUS_KIND.
 STATUS_KIND: Dict[str, tuple[SABKind, SABSubkind]] = {
     "ongoing": (SABKind.contingency, SABSubkind.negotiation),
-    "agreed": (SABKind.commit, SABSubkind.converged),
+    "agreed": (SABKind.commit, SABSubkind.resolved),
     "broken": (SABKind.commit, SABSubkind.timeout),
-    "timeout": (SABKind.commit, SABSubkind.disagreement),
+    "timeout": (SABKind.commit, SABSubkind.unresolved),
 }
 
 
@@ -116,7 +116,7 @@ class SABMessageBuilder:
     """Fluent builder that assembles a canonical :class:`L9` for SAB.
 
     Set participants / message identity / topic, choose a payload variant via
-    :meth:`intent`, :meth:`negotiate`, :meth:`converged`, :meth:`disagreement`
+    :meth:`intent`, :meth:`negotiate`, :meth:`resolved`, :meth:`unresolved`
     or :meth:`timeout`, then call :meth:`build`.
     """
 
@@ -210,11 +210,11 @@ class SABMessageBuilder:
         self._data = data
         return self
 
-    def converged(self, data: SABCommitPayloadData) -> "SABMessageBuilder":
-        return self.commit(data, subkind=SABSubkind.converged)
+    def resolved(self, data: SABCommitPayloadData) -> "SABMessageBuilder":
+        return self.commit(data, subkind=SABSubkind.resolved)
 
-    def disagreement(self, data: SABCommitPayloadData) -> "SABMessageBuilder":
-        return self.commit(data, subkind=SABSubkind.disagreement)
+    def unresolved(self, data: SABCommitPayloadData) -> "SABMessageBuilder":
+        return self.commit(data, subkind=SABSubkind.unresolved)
 
     def timeout(self, data: SABCommitPayloadData) -> "SABMessageBuilder":
         return self.commit(data, subkind=SABSubkind.timeout)
@@ -231,7 +231,7 @@ class SABMessageBuilder:
     def build(self) -> L9:
         if self._data is None or self._kind is None or self._subkind is None:
             raise ValueError(
-                "Choose a payload variant (intent/negotiate/converged/…) before build()."
+                "Choose a payload variant (intent/negotiate/resolved/…) before build()."
             )
         message_id = self._message_id or str(uuid.uuid4())
         episode = self._episode or f"urn:ioc:episode:sab:{self._session_id}"

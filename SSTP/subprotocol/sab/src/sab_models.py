@@ -34,9 +34,9 @@ Message flow / kind mapping (applied by the builder, reflected in
     ─────────   ───────────    ────────────    ─────────────────────────
     intent      contingency    negotiation     SABIntentPayloadData
     ongoing     contingency    negotiation     SABNegotiatePayloadData
-    agreed      commit         converged       SABCommitPayloadData
+    agreed      commit         resolved        SABCommitPayloadData
     broken      commit         timeout         SABCommitPayloadData
-    timeout     commit         disagreement    SABCommitPayloadData
+    timeout     commit         unresolved      SABCommitPayloadData
 
 The SAO sub-models mirror NegMAS 0.15.1 (``negmas.sao.common`` /
 ``negmas.gb.common``) — ported from
@@ -88,8 +88,8 @@ class SABSubkind(str, Enum):
     """Allowed values for ``L9Header.subkind`` on an SAB message."""
 
     negotiation = "negotiation"
-    converged = "converged"
-    disagreement = "disagreement"
+    resolved = "resolved"
+    unresolved = "unresolved"
     timeout = "timeout"
 
 

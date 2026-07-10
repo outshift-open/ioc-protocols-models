@@ -60,7 +60,7 @@ l9 = (
 
 `build()` returns a canonical `L9`. The variant helpers set `header.kind` /
 `header.subkind`: `intent()` / `negotiate()` → `contingency/negotiation`;
-`converged()`, `disagreement()`, `timeout()` → `commit/<subkind>`. Use
+`resolved()`, `unresolved()`, `timeout()` → `commit/<subkind>`. Use
 `status(<ce-status>, data)` to map a CE status string directly.
 
 ## Message flow
@@ -69,8 +69,8 @@ l9 = (
 |------|----------------------------|---------------|-----------------|---------|
 | open | `SABIntentPayloadData`     | `contingency` | `negotiation`   | Initiator opens the session with the mission/issues. |
 | round| `SABNegotiatePayloadData`  | `contingency` | `negotiation`   | An agent's SAO offer/response for the round (`sao_state` snapshot). |
-| close| `SABCommitPayloadData`     | `commit`      | `converged`     | Agreement reached (`final_agreement`). |
-| close| `SABCommitPayloadData`     | `commit`      | `disagreement`  | Step budget exhausted, no agreement. |
+| close| `SABCommitPayloadData`     | `commit`      | `resolved`      | Agreement reached (`final_agreement`). |
+| close| `SABCommitPayloadData`     | `commit`      | `unresolved`    | Step budget exhausted, no agreement. |
 | close| `SABCommitPayloadData`     | `commit`      | `timeout`       | A participant broke off or returned an invalid offer. |
 
 The CE status → kind/subkind map is `STATUS_KIND` in `src/builder.py` and is
