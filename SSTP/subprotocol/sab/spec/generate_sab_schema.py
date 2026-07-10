@@ -24,7 +24,7 @@ Scope note
 sab_schema.json describes only ``payload.data``. The L9 envelope
 (``header`` / ``payload.type``) is the canonical L9 schema
 (``SSTP/spec/l9_schema.json``); SAB does not redeclare it. The kind/subkind
-vocabulary (contingency|commit / negotiation|converged|disagreement|timeout) is
+vocabulary (contingency|commit / negotiation|resolved|unresolved|timeout) is
 applied by ``SABMessageBuilder`` and documented in ``sab_models.py`` and
 ``documentation/SAB.md``.
 

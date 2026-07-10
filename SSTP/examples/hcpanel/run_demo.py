@@ -11,8 +11,8 @@ Each message is a canonical **L9** envelope built with
 ``msg_created_at`` lives in the standard ``header.attributes``.
 
 Produces two files in this directory:
-  demo_agreement.json    — intent + 4 negotiate rounds + commit/converged
-  demo_disagreement.json — intent + 6 negotiate rounds + commit/disagreement
+  demo_agreement.json    — intent + 4 negotiate rounds + commit/resolved
+  demo_disagreement.json — intent + 6 negotiate rounds + commit/unresolved
 
 Run from anywhere:
   python3 SSTP/examples/hcpanel/run_demo.py
@@ -242,7 +242,7 @@ def build_agreement() -> list[dict]:
 
     commit = (
         _builder(sid, ep, commit_id, [intent_id], "agent-buyer", "topic:sab/sessions", "2026-06-22T10:00:25Z")
-        .converged(_commit_data(commit_id, "2026-06-22T10:00:25Z", ORIGIN_BUYER, sid,
+        .resolved(_commit_data(commit_id, "2026-06-22T10:00:25Z", ORIGIN_BUYER, sid,
                                 outcome="agreement",
                                 final_agreement=[
                                     {"issue_id": "price", "chosen_option": "medium"},
@@ -311,7 +311,7 @@ def build_disagreement() -> list[dict]:
 
     commit = (
         _builder(sid, ep, commit_id, [intent_id], "agent-buyer", "topic:sab/sessions", "2026-06-22T11:00:35Z")
-        .disagreement(_commit_data(commit_id, "2026-06-22T11:00:35Z", ORIGIN_BUYER, sid,
+        .unresolved(_commit_data(commit_id, "2026-06-22T11:00:35Z", ORIGIN_BUYER, sid,
                                    outcome="disagreement", final_agreement=None,
                                    agents=["agent-buyer", "agent-seller"], payload_hash=ph))
         .build()
