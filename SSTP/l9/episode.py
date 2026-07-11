@@ -64,6 +64,21 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from SSTP.subprotocol.siep.src.panel import NetworkHandle as AgentBus
+from SSTP.l9.emit import (
+    emit_peer_turn as _emit_peer_turn,
+    emit_semantic_repair as _emit_semantic_repair,
+    emit_epistemic_clarification as _emit_epistemic_clarification,
+    emit_taskwork_result as _emit_taskwork_result,
+    emit_repair_resolved as _emit_repair_resolved,
+    emit_grounding_turn as _emit_grounding_turn,
+    _emit_exchange_ready,
+    _emit_ready,
+    _emit_episode_close,
+    _emit_knowledge_announcement,
+    _emit_intent,
+    _lifecycle_emit,
+)
+from SSTP.l9.grounding import receive_peer_turn as _receive_peer_turn
 
 _LOGGER = logging.getLogger("sstp.l9")
 
@@ -196,7 +211,8 @@ def _handle_contingency(
         f"ambiguity_score={ambiguity_score:.2f} critique={critique or 'grounding_failure'}"
     )
 
-    clarif_hdr = bus.emit_epistemic_clarification(
+    clarif_hdr = _emit_epistemic_clarification(
+        bus,
         sender=coordinator_id,
         receiver=agent_id,
         target_message_id=original_msg_id,
@@ -212,7 +228,8 @@ def _handle_contingency(
     if not clarification_text:
         clarification_text = f"Reaffirming: {concept_id} posterior={posterior:.2f}"
 
-    bus.emit_taskwork_result(
+    _emit_taskwork_result(
+        bus,
         sender=agent_id,
         receiver=coordinator_id,
         utterance=clarification_text,
@@ -234,7 +251,8 @@ def _handle_contingency(
         if clarif_assessment.get("aligned") or not clarif_assessment.get("grounding_failure")
         else "partial"
     )
-    bus.emit_repair_resolved(
+    _emit_repair_resolved(
+        bus,
         sender=coordinator_id,
         receiver=agent_id,
         utterance=f"contingency_resolved:{concept_id}:{resolution}",
@@ -342,7 +360,8 @@ class Episode:
         Returns the new message id.
         """
         if final:
-            h = self._bus._emit_exchange_ready(
+            h = _emit_exchange_ready(
+                self._bus,
                 speaker=self._agent_id,
                 listener=None,
                 utterance=utterance,
@@ -357,7 +376,8 @@ class Episode:
             )
             self._done_agents[self._agent_id] = posterior
         else:
-            h = self._bus.emit_grounding_turn(
+            h = _emit_grounding_turn(
+                self._bus,
                 speaker=self._agent_id,
                 listener=None,
                 utterance=utterance,
@@ -378,7 +398,8 @@ class Episode:
 
         Returns the new message id.
         """
-        h = self._bus._emit_ready(
+        h = _emit_ready(
+            self._bus,
             sender=self._agent_id,
             receiver=None,
             posterior=posterior,
@@ -398,7 +419,8 @@ class Episode:
         """
         if self._agent_id in self._done_agents:
             del self._done_agents[self._agent_id]
-        h = self._bus.emit_semantic_repair(
+        h = _emit_semantic_repair(
+            self._bus,
             sender=self._agent_id,
             receiver=None,
             target_message_id=message_id,
@@ -419,8 +441,9 @@ class Episode:
         if contingency_id not in self._open_contingencies:
             raise ValueError(f"No open contingency with id {contingency_id!r}")
         from SSTP.subprotocol.siep.src.epistemic.vocabulary import SpeechAct, EpistemicState
-        with self._bus._lifecycle_emit():
-            h = self._bus.emit_peer_turn(
+        with _lifecycle_emit(self._bus):
+            h = _emit_peer_turn(
+                self._bus,
                 sender=self._agent_id,
                 receiver=None,
                 utterance=f"repair_verified:contingency={contingency_id}",
@@ -468,7 +491,8 @@ class Episode:
         self._gar = 1.0
         self._scr = 0.0
 
-        h = self._bus._emit_episode_close(
+        h = _emit_episode_close(
+            self._bus,
             coordinator=self._agent_id,
             subject=self._concept_id,
             accepted=accepted,
@@ -496,7 +520,8 @@ class Episode:
         if self._commit_message_id is None:
             raise RuntimeError("Cannot announce before close()")
         provenance_weight = (1.0 - scr) * gar
-        h = self._bus._emit_knowledge_announcement(
+        h = _emit_knowledge_announcement(
+            self._bus,
             sender=self._agent_id,
             concept_id=concept_id,
             posterior=posterior,
@@ -917,7 +942,8 @@ class TaskworkEpisode(Episode):
         # TW-2: emit coordinator case-framing exchange before any specialist speaks
         from SSTP.subprotocol.siep.src.epistemic.vocabulary import SpeechAct as _SA, EpistemicState as _ES
         if self._coordinator_framing:
-            self._bus.emit_peer_turn(
+            _emit_peer_turn(
+                self._bus,
                 sender=self._coordinator_id,
                 receiver=None,
                 utterance=self._coordinator_framing,
@@ -1105,7 +1131,7 @@ class L9:
                 "episode_count": team_prior_obj.episode_count,
             }
 
-        self._bus._emit_intent(
+        _emit_intent(self._bus,
             sender=self._agent_id,
             receiver=None,
             subject=concept_id,
@@ -1175,7 +1201,7 @@ class L9:
                 "episode_count": team_prior_obj.episode_count,
             }
 
-        self._bus._emit_intent(
+        _emit_intent(self._bus,
             sender=self._agent_id,
             receiver=None,
             subject=concept_id,
@@ -1239,7 +1265,7 @@ class L9:
                 "episode_count": team_prior_obj.episode_count,
             }
 
-        self._bus._emit_intent(
+        _emit_intent(self._bus,
             sender=self._agent_id,
             receiver=None,
             subject=concept_id,
@@ -1431,6 +1457,57 @@ class L9:
             mpc=ep.mpc,
             gar=ep.gar,
             scr=ep.scr,
+        )
+
+    def announce_knowledge(
+        self,
+        concept_id: str,
+        posterior: float,
+        gar: float,
+        scr: float,
+        episode_id: Optional[str] = None,
+    ) -> str:
+        """Emit a standalone kind=knowledge announcement outside a task episode.
+
+        Used when the coordinator has already-computed convergence results
+        (e.g. from ConvergenceStore) and wants to write them to the wire
+        without re-opening a task episode.  Returns the knowledge message id.
+        """
+        provenance_weight = round((1.0 - scr) * gar, 4)
+        h = _emit_knowledge_announcement(
+            self._bus,
+            sender=self._agent_id,
+            concept_id=concept_id,
+            posterior=posterior,
+            gar=gar,
+            scr=scr,
+            provenance_weight=provenance_weight,
+            revision_cause="converged_episode",
+            episode_id=episode_id,
+        )
+        return h["message"]["id"]
+
+    def receive_peer_turn(
+        self,
+        envelope: Dict[str, Any],
+        *,
+        replica: Optional[Any] = None,
+        belief_store: Optional[Any] = None,
+        common_ground_store: Optional[Any] = None,
+        use_case: str = "",
+    ) -> Optional[Dict[str, Any]]:
+        """Verify CIP contingency for an inbound peer turn and update epistemic stores.
+
+        Delegates to :func:`SSTP.l9.grounding.receive_peer_turn`.
+        Returns None on success, or the emitted repair header on grounding failure.
+        """
+        return _receive_peer_turn(
+            self._bus,
+            envelope,
+            replica=replica,
+            belief_store=belief_store,
+            common_ground_store=common_ground_store,
+            use_case=use_case,
         )
 
     def join(self, intent_envelope: Dict[str, Any]) -> Episode:

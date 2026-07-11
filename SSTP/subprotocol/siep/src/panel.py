@@ -70,6 +70,10 @@ class NetworkHandle(abc.ABC):
     def get_handler(self, agent_id: str) -> Optional[Callable]:
         """Return the registered handler for agent_id, or None."""
 
+    @abc.abstractmethod
+    def send(self, header: Dict[str, Any]) -> None:
+        """Append a fully-constructed L9 header and deliver it."""
+
     @property
     def debate_trace(self) -> List[Dict[str, Any]]:
         """SIEP-only messages from self.messages.  May be overridden."""

@@ -260,23 +260,22 @@ class HCPanelSystem:
             log.append("coordination:outcome=missing error=no_outcome_produced")
             return {"orchestration_log": log, "error": "no_outcome_produced"}
 
-        # Emit kind=knowledge for each converged concept via the bus, then route
-        # to TeamEpistemicMemoryAgent.handle_knowledge() — the only write path.
+        # Emit kind=knowledge for each converged concept via the episode API,
+        # then route to TeamEpistemicMemoryAgent.handle_knowledge().
+        from SSTP.l9.episode import L9
         panel_episode_id = outcome.panel_episode_id or episode_id
         _CONTROLLER_ID = "diagnostics-controller"
+        ctrl_l9 = L9(bus=self.bus, agent_id=_CONTROLLER_ID)
         for truth in self.memory.convergence_store._store.values():
-            provenance_weight = round(
-                (1.0 - truth.social_compliance_ratio) * truth.genuine_agreement_ratio, 4
-            )
-            knowledge_envelope = self.bus._emit_knowledge_announcement(
-                sender=_CONTROLLER_ID,
+            ctrl_l9.announce_knowledge(
                 concept_id=truth.concept_id,
                 posterior=truth.consensus_posterior,
                 gar=truth.genuine_agreement_ratio,
                 scr=truth.social_compliance_ratio,
-                provenance_weight=provenance_weight,
                 episode_id=panel_episode_id,
             )
+            # Route the header that was just appended to the bus to TEM
+            knowledge_envelope = self.bus.messages[-1]
             self.team_epistemic_agent.handle_knowledge(knowledge_envelope)
 
         log.append(

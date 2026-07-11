@@ -176,12 +176,12 @@ class StarNegotiator:
                     tom_ctx=tom_ctx,
                 )
                 round_ep = specialist_l9.dispatch_debate_round(debate_ctx)
-                operation = NegotiationOperation(round_ep.operation) if round_ep.operation else NegotiationOperation.ACCEPT
+                operation = round_ep.operation if round_ep.operation else NegotiationOperation.ACCEPT
                 updated_pos = round_ep.position if round_ep.position is not None else ctrl_pos
                 resp_debate = round_ep.exchange_header or emit_specialist_response(
                     self.context, self.network,
                     specialist=member_id, controller=ctx.controller_id,
-                    position=updated_pos, operation=str(operation.value if hasattr(operation, "value") else operation),
+                    position=updated_pos, operation=str(operation),
                     turn=ctx.round_idx, ie_request_message_id=prop_wire_id,
                     ctrl_position_key=ctrl_key, ctrl_conf=ctrl_conf,
                     accept_threshold=ctx.accept_threshold,

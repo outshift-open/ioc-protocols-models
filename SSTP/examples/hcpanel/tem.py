@@ -199,16 +199,19 @@ class TeamEpistemicMemoryAgent:
             "found": team_prior is not None,
         }
 
+        from SSTP.l9.episode import L9
         bus = AgentBus(run_id="tem", conversation_id=episode_id or "lookup", use_case=self.use_case)
-        response = bus._emit_exchange_ready(
-            speaker=self.AGENT_ID,
-            listener=sender,
-            utterance=f"team_prior:concept_id={concept_id}",
+        l9 = L9(bus=bus, agent_id=self.AGENT_ID)
+        ep = l9.join(envelope)
+        msg_id = ep.say(
+            f"team_prior:concept_id={concept_id}",
             posterior=prior_payload["confidence"],
-            concept_id=concept_id,
+            final=True,
+            evidence=[concept_id] if concept_id else [],
             parent_id=parent_id,
-            episode_id=episode_id,
         )
+        # Attach team_prior payload to the header that was just emitted
+        response = bus.messages[-1]
         response["payload"].append({"type": "team_prior", "location": "inline", "content": prior_payload})
         return response
 
