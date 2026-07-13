@@ -882,6 +882,54 @@ class SimulatedHealthcareLLMClient(LLMClient):
             )
             return response
 
+        if task == "grounding_judge":
+            utterance = str(payload.get("utterance", ""))
+            structural_score = float(payload.get("structural_contingency_score", 1.0))
+            structural_verified = bool(payload.get("structural_contingency_verified", True))
+            # Simulated: start from structural score, apply token-overlap refinement
+            u = utterance.lower()
+            task_goal = str(payload.get("task_goal", ""))
+            ambiguous = utterance.strip().endswith("?") or len(utterance.strip()) < 15
+            ambiguity_score = 0.75 if ambiguous else 0.08
+            # Concept overlap between utterance tokens and task goal tokens
+            _stop = {"the", "a", "an", "and", "or", "to", "in", "on", "for", "of", "is", "are",
+                     "we", "i", "you", "this", "that", "with", "from"}
+            tg_tokens = {w for w in re.findall(r"[a-z0-9_]+", task_goal.lower())
+                         if w not in _stop and len(w) > 3}
+            utt_tokens = {w for w in re.findall(r"[a-z0-9_]+", u)
+                          if w not in _stop and len(w) > 3}
+            semantic_score = (
+                round(min(1.0, len(tg_tokens & utt_tokens) / len(tg_tokens)), 4)
+                if tg_tokens else structural_score
+            )
+            # Blend: structural is authoritative for concept coverage; semantic refines
+            final_score = round(min(structural_score, max(structural_score - 0.1, semantic_score)), 4)
+            derailed = final_score < 0.2
+            grounding_failure = not structural_verified or final_score < 0.4
+            response = {
+                "aligned": structural_verified and not derailed,
+                "alignment_score": final_score,
+                "disagreement_score": round(1.0 - final_score, 4),
+                "derailed": derailed,
+                "derailment_cause": payload.get("structural_repair_reason"),
+                "grounding_failure": grounding_failure,
+                "contingency_score": final_score,
+                "ambiguous": ambiguous,
+                "ambiguity_score": round(ambiguity_score, 4),
+                "judge_confidence": 0.80,
+                "critique": (
+                    f"structural_contingency={structural_score:.2f} "
+                    f"semantic_overlap={semantic_score:.2f} "
+                    f"grounding={'ok' if not grounding_failure else 'failed'}"
+                ),
+            }
+            self._record_trace(
+                task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response,
+                thought_summary=self._simulated_thought_summary(task, payload, response),
+            )
+            return response
+
         if task == "tom_agent_utterance":
             speaker = str(payload.get("speaker_role", "peer_agent"))
             listener = str(payload.get("listener_role", "peer_agent"))
@@ -1482,6 +1530,25 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
                 "judge_confidence (float 0..1), "
                 "critique (str — explain grounding, alignment, and self-consistency verdicts)."
             ),
+            "grounding_judge": (
+                "Combined grounding and ambiguity assessment for an IE/SIEP exchange. "
+                "Inputs: utterance (the response being assessed), task_goal, speaker, listener, "
+                "structural_contingency_score (float 0..1 — concept-overlap score already computed), "
+                "structural_contingency_verified (bool), structural_repair_reason (str|null), "
+                "speaker_scope (list[str]), speaker_addresses_evidence (list[str]), listener_scope (list[str]). "
+                "Assess THREE things: "
+                "1. SEMANTIC GROUNDING: structural_contingency_score is a lower bound on contingency_score. "
+                "   You may increase it if semantic content shows genuine engagement with the listed concepts, "
+                "   but never below structural_contingency_score. Set grounding_failure=true if final score < 0.40. "
+                "2. TASK ALIGNMENT: alignment_score 0..1 with task_goal. derailed=true only for clear abandonment. "
+                "3. AMBIGUITY: ambiguity_score 0..1. ambiguous=true if >= 0.5. "
+                "Return JSON: aligned (bool), alignment_score (float 0..1), disagreement_score (float 0..1), "
+                "derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
+                "contingency_score (float 0..1 — must be >= structural_contingency_score), "
+                "ambiguous (bool), ambiguity_score (float 0..1), "
+                "judge_confidence (float 0..1), critique (str — one sentence on grounding and alignment)."
+            ),
+
             "team_prior_reasoning": (
                 "You are a healthcare coordination agent declaring your starting prior belief for a "
                 "specific domain concept before a coordination episode begins. "
@@ -1927,6 +1994,25 @@ class AnthropicHealthcareLLMClient(LLMClient):
                 "judge_confidence (float 0..1), "
                 "critique (str — explain grounding, alignment, and self-consistency verdicts)."
             ),
+            "grounding_judge": (
+                "Combined grounding and ambiguity assessment for an IE/SIEP exchange. "
+                "Inputs: utterance (the response being assessed), task_goal, speaker, listener, "
+                "structural_contingency_score (float 0..1 — concept-overlap score already computed), "
+                "structural_contingency_verified (bool), structural_repair_reason (str|null), "
+                "speaker_scope (list[str]), speaker_addresses_evidence (list[str]), listener_scope (list[str]). "
+                "Assess THREE things: "
+                "1. SEMANTIC GROUNDING: structural_contingency_score is a lower bound on contingency_score. "
+                "   You may increase it if semantic content shows genuine engagement with the listed concepts, "
+                "   but never below structural_contingency_score. Set grounding_failure=true if final score < 0.40. "
+                "2. TASK ALIGNMENT: alignment_score 0..1 with task_goal. derailed=true only for clear abandonment. "
+                "3. AMBIGUITY: ambiguity_score 0..1. ambiguous=true if >= 0.5. "
+                "Return JSON: aligned (bool), alignment_score (float 0..1), disagreement_score (float 0..1), "
+                "derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
+                "contingency_score (float 0..1 — must be >= structural_contingency_score), "
+                "ambiguous (bool), ambiguity_score (float 0..1), "
+                "judge_confidence (float 0..1), critique (str — one sentence on grounding and alignment)."
+            ),
+
             "team_prior_reasoning": (
                 "You are a healthcare coordination agent declaring your starting prior belief for a "
                 "specific domain concept before a coordination episode begins. "
