@@ -17,16 +17,11 @@ Three episode kinds, each fully encapsulating its protocol mechanics::
     tp_ep.run()
     tp_ep.close(rationale=..., thought_summary=...)
 
-    # Episode B — taskwork
-    participants = [
-        TaskworkParticipant(agent_id=..., utterance=..., posterior=...,
-                            concept_id=...),
-        ...
-    ]
+    # Episode B — taskwork (SIEP debate; each specialist independently declares prior)
     tw_ep = ctrl_l9.open_taskwork(
-        concept_id=patient_id, group=all_ids, participants=participants, task_goal=...
+        concept_id=patient_id, group=all_ids, task_goal=...
     )
-    tw_ep.run()
+    tw_ep.run(controller_position=..., specialist_positions=..., ...)
     tw_ep.close(rationale=..., thought_summary=...)
 
     # Episode C — SIEP panel
@@ -125,28 +120,6 @@ def blend_prior(
     agent_conf = agent.confidence if agent else 0.5
     team_conf = team.confidence if team else 0.5
     return (w_agent * agent_conf + w_team * team_conf) / total
-
-
-# ── Taskwork participant ──────────────────────────────────────────────────────
-
-
-@dataclass
-class TaskworkParticipant:
-    """Data carrier for one specialist's contribution to a taskwork episode.
-
-    Built by the orchestrator from domain position dicts. Passed to
-    :meth:`L9.open_taskwork`; the resulting :class:`TaskworkEpisode` uses
-    these fields inside :meth:`TaskworkEpisode.run`.
-    """
-    agent_id: str
-    utterance: str
-    posterior: float
-    concept_id: str
-    thought_summary: str = ""
-    evidence: Optional[List[str]] = field(default=None)
-    role: str = ""
-    rationale: str = ""
-    likely_cause: str = ""
 
 
 # ── Module-level protocol helpers ─────────────────────────────────────────────
@@ -500,6 +473,7 @@ class Episode:
             rationale=rationale,
             thought_summary=thought_summary,
             summary=summary,
+            recipients=self._group or None,
         )
         self._commit_message_id = h["message"]["id"]
         self._last_message_id = self._commit_message_id
@@ -515,7 +489,7 @@ class Episode:
         """Write a knowledge announcement after close().
 
         Emits kind=knowledge, parents=[commit message id], routed to
-        team-epistemic-memory. Returns the knowledge message id.
+        team-memory. Returns the knowledge message id.
         """
         if self._commit_message_id is None:
             raise RuntimeError("Cannot announce before close()")
@@ -664,7 +638,6 @@ class TaskEpisode(Episode):
         context = NegotiationContext(
             panel_name=self._task_name,
             use_case=self._bus.use_case,
-            specialist_l9s=getattr(self._bus, "specialist_l9s", {}),
             tom_engine=self._tom_engine,
             repair_fn=self._repair_fn,
             convergence_store=self._convergence_store,
@@ -715,6 +688,18 @@ class TaskEpisode(Episode):
             self._mpc = mpc
             self._gar = gar
             self._scr = scr
+
+        # Emit episode-level commit:converged to all group members so their registered
+        # handlers can react (teardown, session reset, etc.) without direct method calls.
+        _emit_episode_close(
+            self._bus,
+            coordinator=self._agent_id,
+            subject=self._concept_id,
+            accepted=True,
+            episode_id=self._episode_id,
+            rationale="task converged",
+            recipients=self._group or None,
+        )
 
     def close(self, **kwargs: Any) -> str:
         raise RuntimeError(
@@ -801,7 +786,6 @@ class TeamProcessEpisode(Episode):
         context = NegotiationContext(
             panel_name="team_process",
             use_case=self._bus.use_case,
-            specialist_l9s=getattr(self._bus, "specialist_l9s", {}),
             tom_engine=self._tom_engine,
             repair_fn=self._repair_fn,
             convergence_store=self._convergence_store,
@@ -862,160 +846,17 @@ class TeamProcessEpisode(Episode):
         for sid in self._group:
             self._record_done(sid, 1.0)
 
+    def close(self, **kwargs: Any) -> str:
+        if self._winning_position and "summary" not in kwargs:
+            kwargs["summary"] = self._winning_position
+        return super().close(**kwargs)
+
     def say(self, *args: Any, **kwargs: Any) -> str:
         raise RuntimeError("TeamProcessEpisode does not support say() — use run() instead.")
 
     def done(self, *args: Any, **kwargs: Any) -> str:
         raise RuntimeError("TeamProcessEpisode does not support done() — use run() instead.")
 
-
-# ── TaskworkEpisode ───────────────────────────────────────────────────────────
-
-
-class TaskworkEpisode(Episode):
-    """Application-facing handle for a taskwork episode (Episode B).
-
-    Returned by :meth:`L9.open_taskwork`. Extends :class:`Episode` with
-    :meth:`run` which executes belief seeding, exchange emission, ToM
-    assessment, and contingency repair for each participant inside the
-    package boundary.
-
-    The orchestrator's view::
-
-        participants = [
-            TaskworkParticipant(
-                agent_id=agent.agent_id,
-                utterance=utterance,
-                posterior=posterior,
-                concept_id=concept_id,
-                thought_summary=thought,
-            )
-            for agent in all_specialists
-        ]
-        tw_ep = ctrl_l9.open_taskwork(
-            concept_id=patient_id,
-            group=all_ids,
-            participants=participants,
-            task_goal=task_goal,
-        )
-        tw_ep.run()
-        tw_ep.close(rationale=..., thought_summary=...)
-    """
-
-    def __init__(
-        self,
-        bus: NetworkHandle,
-        agent_id: str,
-        concept_id: str,
-        episode_id: str,
-        group: Optional[List[str]] = None,
-        prior: float = 0.5,
-        participants: Optional[List[TaskworkParticipant]] = None,
-        tom_engine: Any = None,
-        coordinator_id: Optional[str] = None,
-        task_goal: str = "",
-        coordinator_framing: str = "",
-    ) -> None:
-        super().__init__(
-            bus=bus,
-            agent_id=agent_id,
-            concept_id=concept_id,
-            episode_id=episode_id,
-            initiator=True,
-            group=group,
-            prior=prior,
-        )
-        self._participants = participants or []
-        self._tom_engine = tom_engine
-        self._coordinator_id = coordinator_id or agent_id
-        self._task_goal = task_goal
-        self._coordinator_framing = coordinator_framing
-
-    def run(self) -> None:
-        """Seed beliefs, emit exchanges, assess via ToM, repair if needed.
-
-        When ``assess_fn`` is injected, it is called per participant inside the
-        open episode instead of replaying pre-cooked positions.  The coordinator
-        framing exchange is emitted first so the IE judge has a meaningful
-        ``listener_prior_utterance`` for every specialist assertion.
-        """
-        # TW-2: emit coordinator case-framing exchange before any specialist speaks
-        from SSTP.subprotocol.siep.src.epistemic.vocabulary import SpeechAct as _SA, EpistemicState as _ES
-        if self._coordinator_framing:
-            _emit_peer_turn(
-                self._bus,
-                sender=self._coordinator_id,
-                receiver=None,
-                utterance=self._coordinator_framing,
-                speech_act=_SA.BELIEF_ASSERTION,
-                epistemic_state=_ES.TASKWORK,
-                episode_id=self._episode_id,
-            )
-
-        specialist_l9s: Dict[str, Any] = getattr(self._bus, "specialist_l9s", {})
-
-        for p in self._participants:
-            # Dispatch to the specialist's on_taskwork handler if registered.
-            specialist_l9 = specialist_l9s.get(p.agent_id)
-            if specialist_l9 is not None:
-                specialist_l9.dispatch_taskwork_assess(p)
-            if not p.rationale:
-                p.rationale = p.utterance
-
-            # Emit exchange — uses distinct p.rationale (TW-3)
-            agent_ep = Episode(
-                bus=self._bus,
-                agent_id=p.agent_id,
-                concept_id=p.concept_id,
-                episode_id=self._episode_id,
-                initiator=False,
-            )
-            msg_id = agent_ep.say(
-                p.utterance,
-                posterior=p.posterior,
-                rationale=p.rationale,
-                thought_summary=p.thought_summary,
-                evidence=p.evidence,
-            )
-
-            # ToM assessment — coordinator framing as listener_prior_utterance (TW-2)
-            assessment = _safe_tom_assess(
-                self._tom_engine, p.utterance,
-                p.agent_id, self._coordinator_id,
-                self._task_goal, self._bus.use_case,
-                prior_utterance=self._coordinator_framing,
-                concept_id=p.concept_id,
-            )
-
-            # Contingency repair if grounding failed or utterance was ambiguous
-            if assessment.get("ambiguous") or assessment.get("grounding_failure"):
-                _handle_contingency(
-                    bus=self._bus,
-                    tom_engine=self._tom_engine,
-                    coordinator_id=self._coordinator_id,
-                    agent_id=p.agent_id,
-                    episode_id=self._episode_id,
-                    concept_id=p.concept_id,
-                    utterance=p.utterance,
-                    posterior=p.posterior,
-                    evidence=p.evidence,
-                    task_goal=self._task_goal,
-                    original_msg_id=msg_id,
-                    assessment=assessment,
-                )
-
-            self._record_done(p.agent_id, p.posterior)
-
-    @property
-    def participants(self) -> List["TaskworkParticipant"]:
-        """Participants list with positions updated by assess_fn — available after run()."""
-        return self._participants
-
-    def say(self, *args: Any, **kwargs: Any) -> str:
-        raise RuntimeError("TaskworkEpisode does not support say() — use run() instead.")
-
-    def done(self, *args: Any, **kwargs: Any) -> str:
-        raise RuntimeError("TaskworkEpisode does not support done() — use run() instead.")
 
 
 # ── L9 ────────────────────────────────────────────────────────────────────────
@@ -1039,7 +880,6 @@ class L9:
         agent_id: str,
         belief_store: Any = None,
         peer_store: Any = None,
-        team_epistemic_agent: Any = None,
         llm_factory: Optional[Callable] = None,
         task_goal: str = "",
         peer_descriptions: Optional[Dict[str, str]] = None,
@@ -1048,12 +888,10 @@ class L9:
         self._agent_id = agent_id
         self._belief_store = belief_store
         self._peer_store = peer_store
-        self._team_epistemic = team_epistemic_agent
         self._task_goal = task_goal
         self._peer_descriptions: Dict[str, str] = peer_descriptions or {}
         self._intent_handler: Optional[Callable] = None
         self._debate_round_handler: Optional[Callable] = None
-        self._taskwork_handler: Optional[Callable] = None
         if llm_factory is not None:
             from SSTP.subprotocol.siep.src.tomcore.cognition import TheoryOfMindEngine
             self._tom_engine: Any = TheoryOfMindEngine(llm_factory=llm_factory)
@@ -1164,34 +1002,31 @@ class L9:
         self,
         concept_id: str,
         group: List[str],
-        participants: List[TaskworkParticipant],
         episode_id: Optional[str] = None,
         task_goal: str = "",
-        coordinator_id: Optional[str] = None,
-        team_process: Optional[Dict[str, Any]] = None,
-        rationale: str = "",
-        thought_summary: str = "",
-        coordinator_framing: str = "",
-    ) -> TaskworkEpisode:
-        """Open a taskwork episode as initiator.
+        convergence_store: Any = None,
+        semantic_rule_store: Any = None,
+        repair_fn: Any = None,
+        pivot_fn: Optional[Callable] = None,
+    ) -> "TaskEpisode":
+        """Open a taskwork SIEP episode as initiator.
 
-        Emits kind=intent. Returns a :class:`TaskworkEpisode`; call
-        :meth:`TaskworkEpisode.run` to dispatch each participant's assessment
-        via their ``on_taskwork`` hook, then :meth:`Episode.close`.
-
-        ``coordinator_framing`` — opaque string emitted as coordinator
-        exchange before specialist assertions.
+        Taskwork is a SIEP debate on the task framing and individual priors.
+        Each specialist independently queries team-memory for its prior in
+        its _on_debate_round handler.  Returns a :class:`TaskEpisode` with a
+        :tw-suffixed episode id; call :meth:`TaskEpisode.run` with the
+        coordinator position and default specialist positions.
         """
         self._seed_tom_peers(group, task_goal or self._task_goal)
-        team_prior_obj = self._get_team_prior(concept_id)
-        agent_prior_obj = self._get_agent_prior(concept_id)
-        blended = blend_prior(agent_prior_obj, team_prior_obj)
 
         eid = episode_id or (
             f"urn:ioc:{self._bus.use_case}:tw"
             f":{concept_id.replace(':', '-')}:{int(time.time() * 1000)}"
         )
+        if not eid.endswith(":tw"):
+            eid = f"{eid}:tw" if ":tw" not in eid else eid
 
+        team_prior_obj = self._get_team_prior(concept_id)
         team_prior_payload: Optional[Dict[str, Any]] = None
         if team_prior_obj:
             team_prior_payload = {
@@ -1207,24 +1042,23 @@ class L9:
             subject=concept_id,
             episode_id=eid,
             team_prior=team_prior_payload,
-            team_process=team_process,
-            rationale=rationale,
-            thought_summary=thought_summary,
+            rationale=f"Opening taskwork episode for {concept_id}",
             recipients=group,
         )
 
-        return TaskworkEpisode(
+        return TaskEpisode(
             bus=self._bus,
             agent_id=self._agent_id,
             concept_id=concept_id,
             episode_id=eid,
             group=group,
-            prior=blended,
-            participants=participants,
+            prior=0.5,
+            convergence_store=convergence_store,
+            semantic_rule_store=semantic_rule_store,
             tom_engine=self._tom_engine,
-            coordinator_id=coordinator_id or self._agent_id,
-            task_goal=task_goal or self._task_goal,
-            coordinator_framing=coordinator_framing,
+            repair_fn=repair_fn,
+            task_name="taskwork",
+            pivot_fn=pivot_fn,
         )
 
     def open(
@@ -1305,9 +1139,8 @@ class L9:
         execute the negotiation, then :meth:`Episode.announce` to write the
         knowledge outcome.
 
-        The kind=intent for the task is emitted inside
-        ``TaskEpisode.run()`` by ``StarNegotiation``, which owns the
-        SIEP wire format for the task open.
+        Emits kind=intent on the outer :t episode to all group members before
+        the inner SIEP panel opens inside TaskEpisode.run().
         """
         team_prior_obj = self._get_team_prior(concept_id)
         agent_prior_obj = self._get_agent_prior(concept_id)
@@ -1315,7 +1148,26 @@ class L9:
 
         eid = episode_id or (
             f"urn:ioc:{self._bus.use_case}:task"
-            f":{concept_id.replace(':', '-')}:{int(time.time() * 1000)}"
+            f":{concept_id.replace(':', '-')}:{int(time.time() * 1000)}:t"
+        )
+
+        team_prior_payload: Optional[Dict[str, Any]] = None
+        if team_prior_obj:
+            team_prior_payload = {
+                "concept_id": concept_id,
+                "confidence": team_prior_obj.confidence,
+                "provenance_weight": team_prior_obj.provenance_weight,
+                "episode_count": team_prior_obj.episode_count,
+            }
+
+        _emit_intent(self._bus,
+            sender=self._agent_id,
+            receiver=None,
+            subject=concept_id,
+            episode_id=eid,
+            team_prior=team_prior_payload,
+            rationale=f"Opening task episode for {concept_id}",
+            recipients=group,
         )
 
         return TaskEpisode(
@@ -1381,33 +1233,49 @@ class L9:
         self,
         concept_id: str,
         group: List[str],
-        participants: List[TaskworkParticipant],
+        controller_position: Dict[str, Any],
+        specialist_positions: Dict[str, Any],
         episode_id: Optional[str] = None,
         task_goal: str = "",
-        coordinator_id: Optional[str] = None,
-        team_process: Optional[Dict[str, Any]] = None,
-        rationale: str = "",
-        thought_summary: str = "",
-        coordinator_framing: str = "",
-        close_rationale: str = "",
-        close_thought_summary: str = "",
+        accept_threshold: float = 0.15,
+        max_rounds: int = 2,
+        convergence_store: Any = None,
+        semantic_rule_store: Any = None,
+        repair_fn: Any = None,
+        pivot_fn: Optional[Callable] = None,
     ) -> "TaskworkResult":
-        """Open, run, and close a taskwork episode in one call."""
+        """Open and run a taskwork SIEP debate in one call.
+
+        Each specialist independently fetches its own prior from team-memory
+        inside _on_debate_round for the :tw episode.  Returns specialist
+        positions updated by the SIEP debate.
+        """
         ep = self.open_taskwork(
             concept_id=concept_id,
             group=group,
-            participants=participants,
             episode_id=episode_id,
             task_goal=task_goal,
-            coordinator_id=coordinator_id,
-            team_process=team_process,
-            rationale=rationale,
-            thought_summary=thought_summary,
-            coordinator_framing=coordinator_framing,
+            convergence_store=convergence_store,
+            semantic_rule_store=semantic_rule_store,
+            repair_fn=repair_fn,
+            pivot_fn=pivot_fn,
         )
-        ep.run()
-        ep.close(rationale=close_rationale, thought_summary=close_thought_summary)
-        return TaskworkResult(participants=list(ep.participants))
+        ep.run(
+            controller_position=controller_position,
+            specialist_positions=specialist_positions,
+            task_goal=task_goal,
+            accept_threshold=accept_threshold,
+            max_rounds=max_rounds,
+        )
+        return TaskworkResult(
+            specialist_positions=specialist_positions,
+            winning_position=ep.winning_position or {},
+            resolution_label=ep.resolution_label or "timeout_majority",
+            episode_id=ep.episode_id,
+            mpc=ep.mpc,
+            gar=ep.gar,
+            scr=ep.scr,
+        )
 
     def run_task(
         self,
@@ -1523,6 +1391,7 @@ class L9:
         payload = intent_envelope.get("payload", [])
         concept_id = None
         team_prior_payload = None
+        team_process_payload: Optional[Dict[str, Any]] = None
         for part in payload:
             if part.get("type") == "utterance":
                 content = part.get("content", "")
@@ -1530,6 +1399,8 @@ class L9:
                     concept_id = content[len("episode:open subject="):]
             elif part.get("type") == "team_prior":
                 team_prior_payload = part.get("content", {})
+            elif part.get("type") == "team_process":
+                team_process_payload = part.get("content")
 
         concept_id = concept_id or ""
         episode_id = intent_envelope.get("message", {}).get("episode", "")
@@ -1544,7 +1415,7 @@ class L9:
         agent_prior_obj = self._get_agent_prior(concept_id)
         blended = blend_prior(agent_prior_obj, team_prior_obj)
 
-        return Episode(
+        ep = Episode(
             bus=self._bus,
             agent_id=self._agent_id,
             concept_id=concept_id,
@@ -1552,6 +1423,8 @@ class L9:
             initiator=False,
             prior=blended,
         )
+        ep.team_process = team_process_payload  # type: ignore[attr-defined]
+        return ep
 
     def on_intent(self, handler: Callable) -> Callable:
         """Decorator: register a handler called when an intent arrives.
@@ -1633,33 +1506,57 @@ class L9:
             self._debate_round_handler(round_ep)
         return round_ep
 
-    def on_taskwork(self, handler: Callable) -> Callable:
-        """Register a handler called for each taskwork assessment round.
+    # ── Session factory ────────────────────────────────────────────────────
 
-        The handler receives a :class:`TaskworkParticipant` (mutable) and must
-        fill in ``utterance``, ``rationale``, ``posterior``, ``likely_cause``,
-        ``thought_summary``, and ``evidence`` before returning.
+    def open_session(
+        self,
+        session_id: str,
+        concept_id: str,
+        group: List[str],
+        task_goal: str = "",
+    ) -> "L9Session":
+        """Create a three-phase session wrapper for TP → TW → T episode sequences.
+
+        Seeds ToM peer models for the full group, then returns an
+        :class:`L9Session` that enforces phase ordering and forwards
+        the shared outer episode ID to each run_* call automatically.
         """
-        self._taskwork_handler = handler
-        return handler
-
-    def dispatch_taskwork_assess(self, participant: "TaskworkParticipant") -> None:
-        """Dispatch a taskwork assessment to the registered handler.
-
-        If no handler is registered the participant fields are left as-is.
-        """
-        if self._taskwork_handler is not None:
-            self._taskwork_handler(participant)
+        self._seed_tom_peers(group, task_goal or self._task_goal)
+        return L9Session(
+            session_id=session_id,
+            concept_id=concept_id,
+            group=group,
+            task_goal=task_goal or self._task_goal,
+            _l9=self,
+        )
 
     # ── Prior helpers ──────────────────────────────────────────────────────
 
     def _get_team_prior(self, concept_id: str) -> Optional[TeamPrior]:
-        if self._team_epistemic is None:
+        _TEM_ID = "team-memory"
+        handler = self._bus.get_handler(_TEM_ID)
+        if handler is None:
             return None
-        result = self._team_epistemic.get(concept_id)
-        if result is None:
-            return None
-        return result
+        msg_count_before = len(self._bus.messages)
+        handler({
+            "kind": "intent",
+            "sender": self._agent_id,
+            "payload": [{"type": "utterance", "location": "inline",
+                         "content": f"episode:open subject={concept_id}"}],
+        })
+        for msg in self._bus.messages[msg_count_before:]:
+            if msg.get("kind") == "exchange" and msg.get("sender") == _TEM_ID:
+                for part in msg.get("payload", []):
+                    if part.get("type") == "team_prior":
+                        content = part.get("content") or {}
+                        if not content.get("found"):
+                            return None
+                        return TeamPrior(
+                            confidence=content["confidence"],
+                            provenance_weight=content["provenance_weight"],
+                            episode_count=content["episode_count"],
+                        )
+        return None
 
     def _get_agent_prior(self, concept_id: str) -> Optional[AgentPrior]:
         if self._belief_store is None:
@@ -1705,7 +1602,13 @@ class TeamProcessResult:
 @dataclass
 class TaskworkResult:
     """Returned by :meth:`L9.run_taskwork`."""
-    participants: List[TaskworkParticipant]
+    specialist_positions: Dict[str, Any]
+    winning_position: Dict[str, Any]
+    resolution_label: str
+    episode_id: str
+    mpc: float
+    gar: float
+    scr: float
 
 
 @dataclass
@@ -1720,9 +1623,164 @@ class TaskResult:
     scr: float
 
 
+class L9Session:
+    """Ordered three-phase session: team-process → taskwork → task.
+
+    Returned by :meth:`L9.open_session`. Holds the shared outer episode ID
+    and forwards phase-scoped episode IDs to each run_* call automatically.
+    Enforces sequencing: each phase must complete before the next begins.
+
+    Usage::
+
+        session = ctrl_l9.open_session(
+            session_id=episode_id,
+            concept_id=patient_id,
+            group=all_ids,
+            task_goal=session_objective,
+        )
+        session.run_team_process(team_process=..., pivot_fn=..., ...)
+        tw_result = session.run_taskwork(
+            controller_position=..., specialist_positions=..., ...
+        )
+        task_result = session.run_task(
+            controller_position=..., specialist_positions=..., ...
+        )
+    """
+
+    def __init__(
+        self,
+        session_id: str,
+        concept_id: str,
+        group: List[str],
+        task_goal: str,
+        _l9: "L9",
+    ) -> None:
+        self.session_id = session_id
+        self.concept_id = concept_id
+        self.group = group
+        self.task_goal = task_goal
+        self._l9 = _l9
+        self._phase: str = ""  # "" | "tp" | "tw" | "t"
+
+    @property
+    def tp_episode_id(self) -> str:
+        return f"{self.session_id}:tp"
+
+    @property
+    def tw_episode_id(self) -> str:
+        return f"{self.session_id}:tw"
+
+    @property
+    def t_episode_id(self) -> str:
+        return f"{self.session_id}:t"
+
+    def run_team_process(
+        self,
+        *,
+        team_process: Optional[Dict[str, Any]] = None,
+        pivot_fn: Optional[Callable] = None,
+        commit_fn: Optional[Callable] = None,
+        convergence_store: Any = None,
+        semantic_rule_store: Any = None,
+        repair_fn: Any = None,
+        rationale: str = "",
+        thought_summary: str = "",
+        close_rationale: str = "",
+        close_thought_summary: str = "",
+    ) -> "TeamProcessResult":
+        """Run the team-process phase. Must be called first."""
+        if self._phase != "":
+            raise RuntimeError("run_team_process must be the first phase")
+        result = self._l9.run_team_process(
+            concept_id=self.concept_id,
+            group=self.group,
+            episode_id=self.tp_episode_id,
+            task_goal=self.task_goal,
+            team_process=team_process,
+            pivot_fn=pivot_fn,
+            commit_fn=commit_fn,
+            convergence_store=convergence_store,
+            semantic_rule_store=semantic_rule_store,
+            repair_fn=repair_fn,
+            rationale=rationale,
+            thought_summary=thought_summary,
+            close_rationale=close_rationale,
+            close_thought_summary=close_thought_summary,
+        )
+        self._phase = "tp"
+        return result
+
+    def run_taskwork(
+        self,
+        controller_position: Dict[str, Any],
+        specialist_positions: Dict[str, Any],
+        *,
+        accept_threshold: float = 0.15,
+        max_rounds: int = 2,
+        convergence_store: Any = None,
+        semantic_rule_store: Any = None,
+        repair_fn: Any = None,
+        pivot_fn: Optional[Callable] = None,
+    ) -> "TaskworkResult":
+        """Run the taskwork phase. Requires team-process to have completed."""
+        if self._phase != "tp":
+            raise RuntimeError("run_taskwork requires run_team_process to have completed")
+        result = self._l9.run_taskwork(
+            concept_id=self.concept_id,
+            group=self.group,
+            episode_id=self.tw_episode_id,
+            controller_position=controller_position,
+            specialist_positions=specialist_positions,
+            task_goal=self.task_goal,
+            accept_threshold=accept_threshold,
+            max_rounds=max_rounds,
+            convergence_store=convergence_store,
+            semantic_rule_store=semantic_rule_store,
+            repair_fn=repair_fn,
+            pivot_fn=pivot_fn,
+        )
+        self._phase = "tw"
+        return result
+
+    def run_task(
+        self,
+        controller_position: Dict[str, Any],
+        specialist_positions: Dict[str, Any],
+        *,
+        concept_id: Optional[str] = None,
+        accept_threshold: float = 0.1,
+        max_rounds: int = 2,
+        convergence_store: Any = None,
+        semantic_rule_store: Any = None,
+        repair_fn: Any = None,
+        task_name: str = "task",
+        pivot_fn: Optional[Callable] = None,
+    ) -> "TaskResult":
+        """Run the task debate phase. Requires taskwork to have completed."""
+        if self._phase != "tw":
+            raise RuntimeError("run_task requires run_taskwork to have completed")
+        result = self._l9.run_task(
+            concept_id=concept_id or self.concept_id,
+            group=self.group,
+            episode_id=self.t_episode_id,
+            controller_position=controller_position,
+            specialist_positions=specialist_positions,
+            task_goal=self.task_goal,
+            accept_threshold=accept_threshold,
+            max_rounds=max_rounds,
+            convergence_store=convergence_store,
+            semantic_rule_store=semantic_rule_store,
+            repair_fn=repair_fn,
+            task_name=task_name,
+            pivot_fn=pivot_fn,
+        )
+        self._phase = "t"
+        return result
+
+
 __all__ = [
-    "Episode", "TaskEpisode", "TeamProcessEpisode", "TaskworkEpisode",
-    "TaskworkParticipant", "L9", "blend_prior", "AgentPrior", "TeamPrior",
+    "Episode", "TaskEpisode", "TeamProcessEpisode",
+    "TaskworkParticipant", "L9", "L9Session", "blend_prior", "AgentPrior", "TeamPrior",
     "TeamProcessResult", "TaskworkResult", "TaskResult",
     "DebateRoundContext", "DebateRoundEpisode",
 ]

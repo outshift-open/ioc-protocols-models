@@ -70,13 +70,15 @@ def deliver_header(net: "NetworkHandle", header: Dict[str, Any]) -> None:
                 pass
             continue
 
-        emit_wire_received(
-            net,
-            msg_id=msg_id,
-            recipient_id=recipient_id,
-            sender_id=sender_id,
-            episode_id=episode_id,
-        )
+        kind = header.get("kind", "")
+        if kind not in ("commit", "convergence", "knowledge"):
+            emit_wire_received(
+                net,
+                msg_id=msg_id,
+                recipient_id=recipient_id,
+                sender_id=sender_id,
+                episode_id=episode_id,
+            )
 
         delivered = False
         last_exc: "BaseException | None" = None

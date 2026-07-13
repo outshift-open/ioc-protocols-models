@@ -567,6 +567,9 @@ class ConvergenceStore:
     def all_for_use_case(self, use_case: str) -> List[TeamGroundedTruth]:
         return [t for (_, uc, _), t in self._store.items() if uc == use_case]
 
+    def records(self) -> List[TeamGroundedTruth]:
+        return list(self._store.values())
+
 
 # ── AgentEpistemicStore ───────────────────────────────────────────────────────
 

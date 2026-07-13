@@ -115,115 +115,116 @@ class StarNegotiator:
         network: Any,
         panel_name: str,
         pivot_fn: Optional[Callable] = None,
-        specialist_l9s: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.context = context
         self.network = network
         self.panel_name = panel_name
         self._pivot_fn = pivot_fn
         self._round_ctx: Optional[_RoundCtx] = None
-        self._specialist_l9s: Dict[str, Any] = (
-            specialist_l9s if specialist_l9s is not None
-            else getattr(network, "specialist_l9s", {})
-        )
 
-    def _make_handler(self, member_id: str) -> Callable:
-        def _handler(propose_header: Dict[str, Any]) -> _HandlerResult:
-            ctx = self._round_ctx
-            assert ctx is not None
-            ctrl_pos = ctx.ctrl_pos
-            member_pos = ctx.specialist_positions[member_id]
-            ctrl_key = _position_key(ctrl_pos)
-            ctrl_conf = _confidence(ctrl_pos)
-            member_key = _position_key(member_pos)
+    def _dispatch_propose(self, member_id: str, propose_header: Dict[str, Any]) -> _HandlerResult:
+        """Route a propose header to the specialist's registered handler via the wire.
 
-            if self.context.tom_engine is not None:
-                listener_belief: Dict[str, Any] = self.context.tom_engine.agent(member_id).belief()
-            else:
-                listener_belief = {}
-            tom_pred = ctx.tom_predictions.get(member_id, {})
-            if tom_pred:
-                listener_belief = {**listener_belief, "tom_prediction": tom_pred}
+        Encodes the round context as a siep-ctx payload part on the header so the
+        specialist can reconstruct a DebateRoundContext from plain wire data.
+        Reads the specialist's response from messages appended during handler execution.
+        """
+        ctx = self._round_ctx
+        assert ctx is not None
+        ctrl_pos = ctx.ctrl_pos
+        member_pos = ctx.specialist_positions[member_id]
+        ctrl_key = _position_key(ctrl_pos)
+        ctrl_conf = _confidence(ctrl_pos)
 
-            member_conf_for_decision = _confidence(member_pos)
-            spec_threshold = ctx.accept_threshold
-            if tom_pred.get("reliability", 0.0) > 0.3 and tom_pred.get("predicted_confidence", 0.5) < 0.4:
-                spec_threshold = max(0.02, ctx.accept_threshold - 0.04)
+        if self.context.tom_engine is not None:
+            listener_belief: Dict[str, Any] = self.context.tom_engine.agent(member_id).belief()
+        else:
+            listener_belief = {}
+        tom_pred = ctx.tom_predictions.get(member_id, {})
+        if tom_pred:
+            listener_belief = {**listener_belief, "tom_prediction": tom_pred}
 
-            tom_ctx: Dict[str, Any] = {}
-            if tom_pred.get("predicted_contingency") == "repair_content":
-                tom_ctx["controller_preempts_objection"] = str(tom_pred.get("predicted_response", ""))
-            if tom_pred.get("predicted_derailment"):
-                tom_ctx["high_derailment_risk"] = True
+        tom_ctx: Dict[str, Any] = {}
+        if tom_pred.get("predicted_contingency") == "repair_content":
+            tom_ctx["controller_preempts_objection"] = str(tom_pred.get("predicted_response", ""))
+        if tom_pred.get("predicted_derailment"):
+            tom_ctx["high_derailment_risk"] = True
 
-            prop_wire_id = propose_header["message"]["id"]
+        prop_wire_id = propose_header["message"]["id"]
 
-            specialist_l9 = self._specialist_l9s.get(member_id)
-            if specialist_l9 is not None:
-                # Specialist owns its own accept/counter decision via on_debate_round hook.
-                from SSTP.subprotocol.siep.src.panel import DebateRoundContext
-                debate_ctx = DebateRoundContext(
-                    negotiation=self,
-                    controller_id=ctx.controller_id,
-                    turn=ctx.round_idx,
-                    ie_request_message_id=prop_wire_id,
-                    ctrl_position_key=ctrl_key,
-                    ctrl_conf=ctrl_conf,
-                    accept_threshold=ctx.accept_threshold,
-                    member_pos=member_pos,
-                    ctrl_pos=ctrl_pos,
-                    task_goal=ctx.task_goal,
-                    tom_ctx=tom_ctx,
-                )
-                round_ep = specialist_l9.dispatch_debate_round(debate_ctx)
-                operation = round_ep.operation if round_ep.operation else NegotiationOperation.ACCEPT
-                updated_pos = round_ep.position if round_ep.position is not None else ctrl_pos
-                resp_debate = round_ep.exchange_header or emit_specialist_response(
-                    self.context, self.network,
-                    specialist=member_id, controller=ctx.controller_id,
-                    position=updated_pos, operation=str(operation),
-                    turn=ctx.round_idx, ie_request_message_id=prop_wire_id,
-                    ctrl_position_key=ctrl_key, ctrl_conf=ctrl_conf,
-                    accept_threshold=ctx.accept_threshold,
-                )
-                forced_accept = False
-            else:
-                # No specialist L9 registered — fall back to confidence heuristic.
-                same = ctrl_key == member_key
-                ctrl_dominates = ctrl_conf >= member_conf_for_decision + spec_threshold
-                if same or ctrl_dominates:
-                    operation = NegotiationOperation.ACCEPT
-                    updated_pos = ctrl_pos
-                else:
-                    operation = NegotiationOperation.COUNTER_PROPOSAL
-                    updated_pos = member_pos
-                forced_accept = ctrl_dominates and not same
-                resp_debate = emit_specialist_response(
-                    self.context, self.network,
-                    specialist=member_id, controller=ctx.controller_id,
-                    position=updated_pos, operation=str(operation.value if hasattr(operation, "value") else operation),
-                    turn=ctx.round_idx, ie_request_message_id=prop_wire_id,
-                    ctrl_position_key=ctrl_key, ctrl_conf=ctrl_conf,
-                    accept_threshold=ctx.accept_threshold,
-                )
-
-            return _HandlerResult(
-                agent_id=member_id,
-                operation=operation,
-                position=updated_pos,
-                exchange_header=resp_debate,
-                prop_wire_id=prop_wire_id,
-                listener_belief=listener_belief,
-                forced_accept=forced_accept or ctx.is_tp_panel,
-            )
-
-        return _handler
-
-    def _run_handler(self, member_id: str, propose_header: Dict[str, Any]) -> _HandlerResult:
         handler = self.network.get_handler(member_id)
         if handler is None:
-            raise RuntimeError(f"No handler registered for {member_id}")
-        return handler(propose_header)
+            raise RuntimeError(f"No handler registered for specialist {member_id!r}")
+
+        # Encode round context as a siep-ctx payload part — plain serialisable data only.
+        siep_ctx_part: Dict[str, Any] = {
+            "type": "siep-ctx",
+            "location": "inline",
+            "content": {
+                "controller_id": ctx.controller_id,
+                "turn": ctx.round_idx,
+                "ie_request_message_id": prop_wire_id,
+                "ctrl_position_key": ctrl_key,
+                "ctrl_conf": ctrl_conf,
+                "accept_threshold": ctx.accept_threshold,
+                "member_pos": member_pos,
+                "ctrl_pos": ctrl_pos,
+                "task_goal": ctx.task_goal,
+                "tom_ctx": tom_ctx,
+                "use_case": self.context.use_case,
+                "debate_id": self.context._debate_id,
+                "panel_episode_id": self.context._episode_id(),
+            },
+        }
+        tagged_header = dict(propose_header)
+        tagged_header["payload"] = list(propose_header.get("payload", [])) + [siep_ctx_part]
+        msg_count_before = len(self.network.messages)
+        handler(tagged_header)
+
+        # Read the specialist's response from messages appended during handler execution.
+        new_msgs = self.network.messages[msg_count_before:]
+        resp_debate = next(
+            (m for m in reversed(new_msgs)
+             if (m.get("participants") or {}).get("actors", [{}])[0].get("id") == member_id),
+            None,
+        )
+        if resp_debate is None:
+            resp_debate = emit_specialist_response(
+                self.context, self.network,
+                specialist=member_id, controller=ctx.controller_id,
+                position=ctrl_pos, operation=str(NegotiationOperation.ACCEPT),
+                turn=ctx.round_idx, ie_request_message_id=prop_wire_id,
+                ctrl_position_key=ctrl_key, ctrl_conf=ctrl_conf,
+                accept_threshold=ctx.accept_threshold,
+            )
+
+        resp_siep = next(
+            (p.get("content", {}) for p in resp_debate.get("payload", [])
+             if p.get("type") == "siep"),
+            {},
+        )
+        op_str = str(resp_siep.get("operation") or NegotiationOperation.ACCEPT)
+        operation = (
+            NegotiationOperation.ACCEPT
+            if "accept" in op_str.lower()
+            else NegotiationOperation.COUNTER_PROPOSAL
+        )
+        resp_pos_raw = resp_siep.get("content_detail") or resp_siep.get("content")
+        updated_pos = (
+            resp_pos_raw if isinstance(resp_pos_raw, dict) else (
+                ctrl_pos if operation == NegotiationOperation.ACCEPT else member_pos
+            )
+        )
+
+        return _HandlerResult(
+            agent_id=member_id,
+            operation=operation,
+            position=updated_pos,
+            exchange_header=resp_debate,
+            prop_wire_id=prop_wire_id,
+            listener_belief=listener_belief,
+            forced_accept=ctx.is_tp_panel,
+        )
 
     def run(
         self,
@@ -288,7 +289,7 @@ class StarNegotiator:
             payload_parts=_intent_payload_parts,
             recipients=_all_panel_ids,
         )
-        self.network.messages.append(_intent_header)
+        self.network.send(_intent_header)
 
         initial_priors = {mid: _confidence(specialist_positions[mid]) for mid in member_ids}
         initial_priors[controller_id] = _confidence(controller_position)
@@ -296,8 +297,8 @@ class StarNegotiator:
         _is_tp_panel = bool(ctrl_pos.get("team_process_terms"))
         _intent_msg_id = _intent_header["message"]["id"]
 
-        for _mid in member_ids:
-            self.network.register_handler(_mid, self._make_handler(_mid))
+        # Do not register _make_handler per member — each specialist's own handler
+        # (registered in wire_up_l9 via the application) is the correct wire endpoint.
 
         for round_idx in range(max_rounds):
             _round_id = f"{self.context._debate_id}:star:round:{round_idx}"
@@ -380,7 +381,7 @@ class StarNegotiator:
             handler_results: Dict[str, _HandlerResult] = {}
             with ThreadPoolExecutor(max_workers=len(member_ids)) as _pool:
                 _futs = {
-                    _pool.submit(self._run_handler, mid, propose_headers[mid]): mid
+                    _pool.submit(self._dispatch_propose, mid, propose_headers[mid]): mid
                     for mid in member_ids
                 }
                 for _fut, _mid in ((f, _futs[f]) for f in _futs):
@@ -692,7 +693,7 @@ class RingNegotiator:
             kind_override="intent",
             payload_parts=[{"type": "utterance", "location": "inline", "content": _ring_intent_utterance}],
         )
-        self.network.messages.append(_ring_intent_header)
+        self.network.send(_ring_intent_header)
 
         initial_priors = {mid: _confidence(initial_positions[mid]) for mid in member_ids}
 

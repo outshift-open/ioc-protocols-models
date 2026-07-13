@@ -49,18 +49,16 @@ if TYPE_CHECKING:
 class NetworkHandle(abc.ABC):
     """Abstract network transport passed to episodes by the application.
 
-    Concrete subclasses must set these instance attributes in __init__:
-        messages:       List[Dict[str, Any]]  — ordered L9 wire headers
-        specialist_l9s: Dict[str, Any]        — agent_id → L9 dispatch object
+    Concrete subclasses must set this instance attribute in __init__:
+        messages: List[Dict[str, Any]]  — ordered L9 wire headers
 
-    And implement the two abstract methods below.  All other transport
+    And implement the abstract methods below.  All other transport
     behaviour (routing, delivery, IE repair) is the application's
     responsibility.
     """
 
-    # Expected instance attributes — set by concrete subclass __init__
+    # Expected instance attribute — set by concrete subclass __init__
     messages: List[Dict[str, Any]]
-    specialist_l9s: Dict[str, Any]
 
     @abc.abstractmethod
     def register_handler(self, agent_id: str, handler: Callable) -> None:
@@ -94,7 +92,6 @@ class NegotiationContext:
     ----------
     panel_name      : logical name of the panel (e.g. "diagnostics")
     use_case        : domain label written into L9 headers and episode URNs
-    specialist_l9s  : agent_id → specialist L9 dispatch object (from the network)
     tom_engine      : optional Theory-of-Mind engine handle (application-supplied)
     """
 
@@ -102,7 +99,6 @@ class NegotiationContext:
         self,
         panel_name: str,
         use_case: str,
-        specialist_l9s: Optional[Dict[str, Any]] = None,
         tom_engine: Any = None,
         repair_fn: Optional[Callable] = None,
         convergence_store: Optional[ConvergenceStore] = None,
@@ -112,7 +108,6 @@ class NegotiationContext:
     ) -> None:
         self.panel_name = panel_name
         self.use_case = use_case
-        self.specialist_l9s: Dict[str, Any] = specialist_l9s or {}
         self.tom_engine = tom_engine
         self.repair_fn = repair_fn
         self.convergence_store = convergence_store
@@ -164,8 +159,10 @@ class NegotiationContext:
 
 @dataclass
 class DebateRoundContext:
-    """Coordinator-computed context for one SIEP debate round, per specialist."""
-    negotiation: Any          # StarNegotiator that owns this round
+    """Coordinator-computed context for one SIEP debate round, per specialist.
+
+    All fields are plain serialisable data — no back-references to the negotiator.
+    """
     controller_id: str
     turn: int
     ie_request_message_id: str
@@ -176,6 +173,11 @@ class DebateRoundContext:
     ctrl_pos: Dict[str, Any]
     task_goal: str
     tom_ctx: Dict[str, Any]
+    # Plain-data substitutes for NegotiationContext back-ref
+    use_case: str = ""
+    debate_id: str = ""
+    panel_episode_id: str = ""
+    network: Any = None       # NetworkHandle — needed by respond() to append the header
 
 
 class DebateRoundEpisode:
@@ -212,24 +214,50 @@ class DebateRoundEpisode:
     def accept_threshold(self) -> float:
         return self._ctx.accept_threshold
 
+    @property
+    def panel_episode_id(self) -> str:
+        return self._ctx.panel_episode_id
+
     def respond(self, operation: str, position: Dict[str, Any]) -> None:
-        """Emit the SIEP accept/counter via builder.emit_specialist_response."""
+        """Emit the SIEP accept/counter response onto the network."""
         from SSTP.subprotocol.siep.src.builder import emit_specialist_response
         self.operation = operation
         self.position = position
-        neg = self._ctx.negotiation
+
+        class _CtxShim:
+            """Minimal shim exposing the three fields emit_specialist_response needs."""
+            def __init__(self, use_case: str, debate_id: str, episode_id: str, turn: int, panel_name: str = "") -> None:
+                self.use_case = use_case
+                self._debate_id = debate_id
+                self._panel_name = panel_name
+                self._ep_id = episode_id
+                self._turn = turn
+
+            def _proposal_id(self, t: int, sender: str) -> str:
+                return f"panel-{self._panel_name or 'panel'}-{self._debate_id[:8]}-t{t}-{sender}"
+
+            def _episode_id(self) -> str:
+                return self._ep_id
+
+        ctx = self._ctx
+        shim = _CtxShim(
+            use_case=ctx.use_case,
+            debate_id=ctx.debate_id,
+            episode_id=ctx.panel_episode_id,
+            turn=ctx.turn,
+        )
         self.exchange_header = emit_specialist_response(
-            neg.context,
-            neg.network,
+            shim,
+            ctx.network,
             specialist=self._agent_id,
-            controller=self._ctx.controller_id,
+            controller=ctx.controller_id,
             position=position,
             operation=operation,
-            turn=self._ctx.turn,
-            ie_request_message_id=self._ctx.ie_request_message_id,
-            ctrl_position_key=self._ctx.ctrl_position_key,
-            ctrl_conf=self._ctx.ctrl_conf,
-            accept_threshold=self._ctx.accept_threshold,
+            turn=ctx.turn,
+            ie_request_message_id=ctx.ie_request_message_id,
+            ctrl_position_key=ctx.ctrl_position_key,
+            ctrl_conf=ctx.ctrl_conf,
+            accept_threshold=ctx.accept_threshold,
         )
 
 

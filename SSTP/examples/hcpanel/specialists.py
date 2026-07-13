@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from SSTP.subprotocol.siep.src.tomcore.llm import LLMClient
 from SSTP.subprotocol.siep.src.builder import NegotiationOperation  # type: ignore[import]
-from SSTP.subprotocol.siep.src.panel import NetworkHandle
+from SSTP.subprotocol.siep.src.panel import NetworkHandle, DebateRoundContext
 from SSTP.examples.hcpanel.domain import PatientProfile
 from SSTP.examples.hcpanel.llm_backends import extract_findings
 
@@ -225,28 +225,14 @@ class SpecialistAgent:
         """Reset per-session state."""
         self.process_params = {}
 
-    def set_process_params(self, params: Dict[str, Any]) -> None:
-        """Receive committed team-process parameters from the coordinator."""
-        self.process_params = params
-
     def drain_llm_trace(self) -> list:
         """Return and clear LLM trace records for this agent."""
         return self.llm.drain_trace() if self.llm is not None else []
 
-    def set_patient(self, patient: "PatientProfile") -> None:
-        """Store the current patient so taskwork dispatch can access it."""
-        if self._session is not None:
-            self._session.patient = patient
-        else:
-            # Session not yet allocated — stash on a temporary attribute
-            self._pending_patient: Optional["PatientProfile"] = patient
-
     def wire_up_l9(self, bus: NetworkHandle) -> None:
         """Connect this specialist to the L9 episode API.
 
-        Must be called before the coordinator emits any intents. Registers
-        handlers and publishes this agent's L9 to bus.specialist_l9s for
-        debate-round dispatch routing only.
+        Must be called before the coordinator emits any intents.
         """
         from SSTP.l9.episode import L9  # type: ignore[import]
         self.bus = bus
@@ -257,18 +243,13 @@ class SpecialistAgent:
             peer_descriptions=self._peer_descriptions,
         )
         self._l9 = l9
-        # Publish to bus so episode API can read per-agent stores internally
-        specialist_l9s = getattr(bus, "specialist_l9s", None)
-        if specialist_l9s is not None:
-            specialist_l9s[self.agent_id] = l9
 
         l9.on_intent(self._on_intent)
         l9.on_debate_round(self._on_debate_round)
-        l9.on_taskwork(self._on_taskwork)
 
     def _on_debate_round(self, round_ep: Any) -> None:
-        is_tp_round = bool(round_ep.ctrl_pos.get("team_process_terms"))
-        if is_tp_round:
+        eid = round_ep.panel_episode_id
+        if ":tp" in eid:
             result = self.tp_accept_or_counter(
                 ctrl_pos=round_ep.ctrl_pos,
                 member_pos=round_ep.member_pos,
@@ -276,6 +257,8 @@ class SpecialistAgent:
                 session_objective=(self._session.session_objective if self._session else ""),
                 tom_ctx=round_ep.tom_ctx,
             )
+        elif "taskwork" in eid:
+            result = self._tw_accept_or_counter(round_ep)
         else:
             result = self.task_accept_or_counter(
                 ctrl_pos=round_ep.ctrl_pos,
@@ -294,6 +277,8 @@ class SpecialistAgent:
                 "likely_cause": str(result.get("counter_concept", round_ep.ctrl_position_key)),
                 "confidence": float(result.get("counter_confidence",
                                                round_ep.member_pos.get("confidence", 0.5))),
+                "posterior": float(result.get("counter_confidence",
+                                              round_ep.member_pos.get("confidence", 0.5))),
                 "rationale": str(result.get("rationale", "")),
                 "supporting_evidence": list(result.get("supporting_evidence", [])),
             }
@@ -302,14 +287,60 @@ class SpecialistAgent:
             position,
         )
 
-    def _on_taskwork(self, participant: Any) -> None:
-        """Fill in a TaskworkParticipant by running the LLM assessment."""
-        patient = (
-            self._session.patient if self._session is not None else None
-        ) or getattr(self, "_pending_patient", None)
+    def _tw_accept_or_counter(self, round_ep: Any) -> Dict[str, Any]:
+        """Handle a taskwork SIEP round.
+
+        Independently fetches the team prior from shared memory, blends with
+        agent prior, then runs the LLM to produce a task-framing position.
+        The specialist accepts the controller's framing or counter-proposes
+        with its own prior-informed position.
+        """
+        # Extract patient data from ctrl_pos team_process block
+        team_process = round_ep.ctrl_pos.get("team_process") or {}
+        concept_id = round_ep.ctrl_pos.get("concept_id", "")
+        patient_id = concept_id.split(":")[-1] if concept_id else "unknown"
+
+        # Set session patient from team_process if not already set
+        if self._session is not None and self._session.patient is None:
+            if team_process.get("symptoms") or team_process.get("medications"):
+                self._session.patient = PatientProfile(
+                    patient_id=patient_id,
+                    locality="",
+                    symptoms=list(team_process.get("symptoms") or []),
+                    health_history=[],
+                    current_medications=list(team_process.get("medications") or []),
+                    medication_allergies=[],
+                    insurance_plan="",
+                    chat_history=list(team_process.get("chat_history") or []),
+                    calendar_slots_day_offsets=[],
+                )
+
+        # Run independent patient assessment (same LLM call as before)
+        result = self._run_taskwork_assess()
+        if not result:
+            return {"decision": "accept"}
+
+        likely_cause = result.get("likely_cause", "")
+        confidence = float(result.get("posterior", 0.5))
+        ctrl_cause = round_ep.ctrl_pos.get("likely_cause", "")
+
+        # Accept if our position matches the controller's, else counter-propose
+        if likely_cause and ctrl_cause and likely_cause != ctrl_cause:
+            return {
+                "decision": "counter",
+                "counter_concept": likely_cause,
+                "counter_confidence": confidence,
+                "rationale": result.get("rationale", ""),
+                "supporting_evidence": result.get("evidence") or [],
+            }
+        return {"decision": "accept"}
+
+    def _run_taskwork_assess(self) -> Dict[str, Any]:
+        """Run the LLM patient assessment; return result dict."""
+        patient = self._session.patient if self._session is not None else None
         if patient is None:
             LOGGER.warning("taskwork_assess agent=%s: no patient set", self.agent_id)
-            return
+            return {}
         role_assignment = self.process_params.get("role_assignment") or []
         semantic_rules = (
             self.process_params.get("semantic_rules")
@@ -323,24 +354,88 @@ class SpecialistAgent:
             role_assignment=role_assignment,
             semantic_rules=semantic_rules,
         )
-        participant.utterance = result.get("utterance", "")
-        participant.rationale = result.get("rationale", "")
-        participant.likely_cause = result.get("likely_cause", "")
-        participant.posterior = float(result.get("posterior", result.get("confidence", 0.5)))
-        participant.thought_summary = result.get("thought_summary", "")
-        participant.evidence = result.get("supporting_evidence") or []
+        return {
+            "utterance": result.get("utterance", ""),
+            "rationale": result.get("rationale", ""),
+            "likely_cause": result.get("likely_cause", ""),
+            "posterior": float(result.get("posterior", result.get("confidence", 0.5))),
+            "thought_summary": result.get("thought_summary", ""),
+            "evidence": result.get("supporting_evidence") or [],
+        }
 
     def dispatch_intent(self, header: Any) -> None:
         """Route an incoming intent header through this agent's L9."""
         if self._l9 is not None:
             self._l9.dispatch_intent(header)
 
-    def _on_intent(self, episode: Any) -> None:
-        """Allocate or update session context on intent arrival.
+    def dispatch_propose(self, header: Any) -> None:
+        """Route a SIEP propose (exchange) header to the debate-round handler.
 
-        Does NOT emit any message — response is via assess_patient_in_episode
-        (taskwork) or tp_accept_or_counter (team process), both of which call
-        episode.say() / episode.done().
+        Reconstructs DebateRoundContext from the siep-ctx payload part.
+        """
+        if self._l9 is None or not isinstance(header, dict):
+            return
+        siep_ctx_part = next(
+            (p for p in header.get("payload", []) if p.get("type") == "siep-ctx"), None
+        )
+        if siep_ctx_part is None:
+            return
+        c = siep_ctx_part.get("content", {})
+        ctx = DebateRoundContext(
+            controller_id=c.get("controller_id", ""),
+            turn=int(c.get("turn", 0)),
+            ie_request_message_id=c.get("ie_request_message_id", ""),
+            ctrl_position_key=c.get("ctrl_position_key", ""),
+            ctrl_conf=float(c.get("ctrl_conf", 0.5)),
+            accept_threshold=float(c.get("accept_threshold", 0.1)),
+            member_pos=dict(c.get("member_pos") or {}),
+            ctrl_pos=dict(c.get("ctrl_pos") or {}),
+            task_goal=c.get("task_goal", ""),
+            tom_ctx=dict(c.get("tom_ctx") or {}),
+            use_case=c.get("use_case", ""),
+            debate_id=c.get("debate_id", ""),
+            panel_episode_id=c.get("panel_episode_id", ""),
+            network=self.bus,
+        )
+        self._l9.dispatch_debate_round(ctx)
+
+    def dispatch_commit(self, header: Any) -> None:
+        """Route an incoming commit header to _on_commit."""
+        self._on_commit(header)
+
+    def _on_commit(self, header: Any) -> None:
+        """Handle commit:converged delivery.
+
+        TP commit:  extract team_process_terms from payload and apply as process_params.
+        Task commit: clear per-session state (teardown).
+        """
+        episode_id = (header.get("message") or {}).get("episode", "") if isinstance(header, dict) else ""
+        payload = header.get("payload", []) if isinstance(header, dict) else []
+
+        if ":tp" in episode_id:
+            # V3: extract governance terms from TP commit and store as process_params
+            for part in payload:
+                if part.get("type") == "team_process":
+                    terms = part.get("content") or {}
+                    self.process_params = {
+                        "session_objective": terms.get("session_objective", ""),
+                        "debate_format": terms.get("debate_format", ""),
+                        "contingency_rules": terms.get("contingency_rules", {}),
+                        "no_convergence_handling": terms.get("no_convergence_handling", ""),
+                        "role_assignment": terms.get("role_assignment") or [],
+                        "governance_resolution": terms.get("governance_resolution", ""),
+                    }
+                    break
+        else:
+            # V5: task committed — clear session state
+            self._on_task_converged()
+
+    def _on_intent(self, episode: Any) -> None:
+        """Allocate session context on intent arrival.
+
+        Only handles :tp intents — session_objective is extracted if present.
+        :tw and :t intents are SIEP panel opens routed via _on_debate_round,
+        not through the generic intent handler.
         """
         eid = getattr(episode, "episode_id", "") or ""
         concept_id = getattr(episode, "concept_id", "") or ""
@@ -350,8 +445,6 @@ class SpecialistAgent:
                 concept_id=concept_id,
                 session_objective="",
             )
-        if ":tp" not in eid:
-            self._session.taskwork_episode = episode
 
     def _on_task_converged(self, knowledge_content: str = "") -> None:
         """Clear per-session state after commit:converged.
@@ -373,7 +466,7 @@ class SpecialistAgent:
     ) -> Dict[str, Any]:
         """Produce an independent position inside an open episode.
 
-        Called via the ``assess_fn`` callback injected into TaskworkEpisode.
+        Called from ``_tw_accept_or_counter`` during the taskwork SIEP round.
         Always runs the LLM (coordinator framing and role assignment are live).
         Returns a position dict with distinct ``utterance`` (short assertion)
         and ``rationale`` (full reasoning chain).

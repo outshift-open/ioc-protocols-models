@@ -32,7 +32,6 @@ load_dotenv(Path(__file__).parent / ".env")
 
 from langgraph.graph import END, START, StateGraph
 
-from SSTP.examples.hcpanel.tem import TeamEpistemicMemoryAgent
 from SSTP.examples.hcpanel.agent_bus import MessageBus
 from SSTP.examples.hcpanel.specialists import SpecialistAgent, DIAGNOSTICS_SPECIALISTS, PHARMACY_SPECIALISTS, ROLE_DESCRIPTIONS
 from SSTP.examples.hcpanel.domain import (
@@ -140,45 +139,35 @@ class HCPanelSystem:
         self._make_llm = _make_llm
         self.coordinator_llm = _make_llm("diagnostics-controller")
 
-        # Coordinator-level memory (no per-agent stores here)
         self.memory = HCPanelMemory(memory_store_file)
-        self.memory.load()
-
-        # Team Epistemic Memory agent (cross-episode knowledge)
-        self.team_epistemic_agent = TeamEpistemicMemoryAgent(
-            store_path=memory_store_file.parent / "hcpanel_team_epistemic.json",
-            use_case="healthcare",
-        )
 
         # Bus (minted fresh per session in run_session())
         self.bus: MessageBus = MessageBus(run_id="", conversation_id="")
 
+        # Build the full roster spec so we know every agent_id before constructing.
+        _roster_specs = (
+            [{"agent_id": f"physician-{s['id_suffix']}", "panel": "physician", **s}
+             for s in DIAGNOSTICS_SPECIALISTS]
+            + [{"agent_id": f"pharmacologist-{s['id_suffix']}", "panel": "pharmacology", **s}
+               for s in PHARMACY_SPECIALISTS]
+        )
+        _all_peer_desc = {
+            sp["agent_id"]: ROLE_DESCRIPTIONS.get(sp["role"], sp["role"])
+            for sp in _roster_specs
+        }
+
         # Flat specialist roster — each agent is independent, owns its own LLMClient
         self.specialists: List[SpecialistAgent] = [
             SpecialistAgent(
-                agent_id=f"physician-{s['id_suffix']}",
-                role=s["role"], focus=s["focus"],
-                prior_belief=s.get("prior_belief", ""), panel="physician",
-                llm=_make_llm(f"physician-{s['id_suffix']}"), bus=self.bus,
+                agent_id=sp["agent_id"],
+                role=sp["role"], focus=sp["focus"],
+                prior_belief=sp.get("prior_belief", ""), panel=sp["panel"],
+                llm=_make_llm(sp["agent_id"]), bus=self.bus,
                 llm_factory=_make_llm,
+                peer_descriptions={k: v for k, v in _all_peer_desc.items() if k != sp["agent_id"]},
             )
-            for s in DIAGNOSTICS_SPECIALISTS
-        ] + [
-            SpecialistAgent(
-                agent_id=f"pharmacologist-{s['id_suffix']}",
-                role=s["role"], focus=s["focus"],
-                prior_belief=s.get("prior_belief", ""), panel="pharmacology",
-                llm=_make_llm(f"pharmacologist-{s['id_suffix']}"), bus=self.bus,
-                llm_factory=_make_llm,
-            )
-            for s in PHARMACY_SPECIALISTS
+            for sp in _roster_specs
         ]
-
-        # Peer descriptions for ToM seeding — each specialist sees all others as peers.
-        # Set after the full roster is built so every agent gets the complete map.
-        _all_peer_desc = {a.agent_id: ROLE_DESCRIPTIONS.get(a.role, a.role) for a in self.specialists}
-        for _agent in self.specialists:
-            _agent._peer_descriptions = {k: v for k, v in _all_peer_desc.items() if k != _agent.agent_id}
 
         # Orchestrator for the joint panel — passes llm_factory so L9 owns ToM internally
         self.orchestrator = DebateOrchestrator(
@@ -188,6 +177,28 @@ class HCPanelSystem:
             llm_factory=_make_llm,
             llm=self.coordinator_llm,
         )
+
+        # Register all handlers once — they survive across sessions.
+        self.bus.register_handler(
+            HCPanelMemory.AGENT_ID,
+            lambda hdr, _m=self.memory, _b=self.bus: _m.handle(hdr, _b),
+        )
+        for _agent in self.specialists:
+            _agent.wire_up_l9(self.bus)
+            self.bus.register_handler(
+                _agent.agent_id,
+                lambda hdr, _a=_agent: (
+                    _a.dispatch_intent(hdr) if hdr.get("kind") == "intent"
+                    else _a.dispatch_commit(hdr) if (
+                        hdr.get("kind") == "commit" and hdr.get("subkind") == "converged"
+                    )
+                    else _a.dispatch_propose(hdr) if (
+                        hdr.get("kind") == "exchange"
+                        and any(p.get("type") == "siep-ctx" for p in hdr.get("payload", []))
+                    )
+                    else None
+                ),
+            )
 
         self.graph = self._build_graph()
 
@@ -260,13 +271,12 @@ class HCPanelSystem:
             log.append("coordination:outcome=missing error=no_outcome_produced")
             return {"orchestration_log": log, "error": "no_outcome_produced"}
 
-        # Emit kind=knowledge for each converged concept via the episode API,
-        # then route to TeamEpistemicMemoryAgent.handle_knowledge().
+        # Emit kind=knowledge for each converged concept; deliver_header routes to TEM.
         from SSTP.l9.episode import L9
         panel_episode_id = outcome.panel_episode_id or episode_id
         _CONTROLLER_ID = "diagnostics-controller"
         ctrl_l9 = L9(bus=self.bus, agent_id=_CONTROLLER_ID)
-        for truth in self.memory.convergence_store._store.values():
+        for truth in self.memory.convergence_store.records():
             ctrl_l9.announce_knowledge(
                 concept_id=truth.concept_id,
                 posterior=truth.consensus_posterior,
@@ -274,9 +284,7 @@ class HCPanelSystem:
                 scr=truth.social_compliance_ratio,
                 episode_id=panel_episode_id,
             )
-            # Route the header that was just appended to the bus to TEM
-            knowledge_envelope = self.bus.messages[-1]
-            self.team_epistemic_agent.handle_knowledge(knowledge_envelope)
+            # deliver_header routes kind=knowledge to TEM automatically
 
         log.append(
             f"coordination:knowledge_written=true"
@@ -317,31 +325,9 @@ class HCPanelSystem:
             patient.patient_id, episode_id,
         )
         try:
-            # Fresh bus and per-agent stores per session.
-            # Agent state is strictly private — no epistemic state survives across sessions.
-            # ToM engine is created fresh inside L9 on each run_joint_panel call.
-            self.bus = MessageBus(run_id=run_id, conversation_id=run_id)
-            # Initialise specialist_l9s before wire_up_l9 so each specialist
-            # self-registers its L9 into the map during wire_up_l9().
-            self.bus.specialist_l9s = {}
+            self.bus.messages = []
             for agent in self.specialists:
-                agent.bus = self.bus
                 agent.reset_session()
-            self.orchestrator.message_bus = self.bus
-
-            # Wire L9 episode API for each specialist and register delivery handlers.
-            # wire_up_l9 self-registers agent._l9 into bus.specialist_l9s.
-            all_specialists = self.specialists
-            for agent in all_specialists:
-                agent.wire_up_l9(self.bus)
-                self.bus.register_handler(
-                    agent.agent_id,
-                    lambda hdr, _a=agent: (
-                        _a.dispatch_intent(hdr)
-                        if hdr.get("kind") == "intent"
-                        else None
-                    ),
-                )
 
             initial_state: DebateGraphState = {
                 "patient": patient,
@@ -353,10 +339,6 @@ class HCPanelSystem:
                 "error": None,
             }
             final_state: DebateGraphState = self.graph.invoke(initial_state)
-
-            # Clear per-session state on all specialists; keep belief/peer stores
-            for agent in all_specialists:
-                agent._on_task_converged()
 
             outcome: Optional[ClinicalDebateOutcome] = final_state.get("outcome")
             all_messages = list(final_state.get("wire_trace", []))

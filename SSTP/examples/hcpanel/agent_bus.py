@@ -52,7 +52,6 @@ class MessageBus(NetworkHandle):
         self._handlers: Dict[str, Any] = {}
         self._max_delivery_attempts: int = 3
         self._dead_letter: List[Dict[str, Any]] = []
-        self.specialist_l9s: Dict[str, Any] = {}
         # Structured message identity counters (scoped to this session)
         self._session_id: str = run_id
         self._episode_seq: int = 0

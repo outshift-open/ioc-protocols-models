@@ -737,6 +737,7 @@ def _emit_knowledge_announcement(
                 "revision_cause": revision_cause,
             }},
         ],
+        recipients=["team-memory"],
     )
     net.send(header)
     return header

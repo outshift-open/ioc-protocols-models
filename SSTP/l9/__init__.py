@@ -5,8 +5,8 @@
 """SSTP.l9 — application-facing L9 episode API."""
 
 from SSTP.l9.episode import (
-    Episode, TaskEpisode, TeamProcessEpisode, TaskworkEpisode,
-    TaskworkParticipant, L9, AgentPrior, TeamPrior, blend_prior,
+    Episode, TaskEpisode, TeamProcessEpisode,
+    L9, L9Session, AgentPrior, TeamPrior, blend_prior,
 )
 from SSTP.l9.grounding import receive_peer_turn
 from SSTP.l9.emit import (
@@ -24,8 +24,8 @@ from SSTP.l9.emit import (
 
 __all__ = [
     "ProtocolViolation",
-    "Episode", "TaskEpisode", "TeamProcessEpisode", "TaskworkEpisode",
-    "TaskworkParticipant", "L9", "AgentPrior", "TeamPrior", "blend_prior",
+    "Episode", "TaskEpisode", "TeamProcessEpisode",
+    "L9", "L9Session", "AgentPrior", "TeamPrior", "blend_prior",
     "emit_peer_turn", "emit_request", "emit_response", "emit_error",
     "emit_semantic_repair", "emit_epistemic_clarification",
     "emit_task_assignment", "emit_taskwork_result",
