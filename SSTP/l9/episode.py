@@ -63,7 +63,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from SSTP.subprotocol.siep.src.panel import NetworkHandle as AgentBus
+from SSTP.subprotocol.siep.src.panel import NetworkHandle
 from SSTP.l9.emit import (
     emit_peer_turn as _emit_peer_turn,
     emit_semantic_repair as _emit_semantic_repair,
@@ -285,7 +285,7 @@ class Episode:
 
     def __init__(
         self,
-        bus: AgentBus,
+        bus: NetworkHandle,
         agent_id: str,
         concept_id: str,
         episode_id: str,
@@ -593,7 +593,7 @@ class TaskEpisode(Episode):
 
     def __init__(
         self,
-        bus: AgentBus,
+        bus: NetworkHandle,
         agent_id: str,
         concept_id: str,
         episode_id: str,
@@ -752,7 +752,7 @@ class TeamProcessEpisode(Episode):
 
     def __init__(
         self,
-        bus: AgentBus,
+        bus: NetworkHandle,
         agent_id: str,
         concept_id: str,
         episode_id: str,
@@ -904,7 +904,7 @@ class TaskworkEpisode(Episode):
 
     def __init__(
         self,
-        bus: AgentBus,
+        bus: NetworkHandle,
         agent_id: str,
         concept_id: str,
         episode_id: str,
@@ -1035,7 +1035,7 @@ class L9:
 
     def __init__(
         self,
-        bus: AgentBus,
+        bus: NetworkHandle,
         agent_id: str,
         belief_store: Any = None,
         peer_store: Any = None,

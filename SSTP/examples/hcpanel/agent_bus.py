@@ -5,17 +5,13 @@
 """
 SSTP/examples/hcpanel/agent_bus.py — Per-episode L9 message bus for hcpanel.
 
-MessageBus is the domain-agnostic base.  HCPanelAgentBus is the
-healthcare-specialised subclass used by the hcpanel application.
-
-All L9 wire-message construction lives in SSTP.l9.emit — the bus itself
+All L9 wire-message construction lives in SSTP.l9.emit — MessageBus itself
 knows nothing about L9 vocabulary.  Its only responsibilities are:
   - hold self.messages (ordered L9 header list)
   - implement NetworkHandle (register_handler / get_handler / send)
   - route inbound messages to per-agent handlers via _deliver
 
-CIP inbound grounding (receive_peer_turn) lives in SSTP.l9.grounding and
-is exposed through L9.receive_peer_turn().
+CIP inbound grounding lives in SSTP.l9.grounding, exposed via L9.receive_peer_turn().
 """
 
 from __future__ import annotations
@@ -107,8 +103,4 @@ class MessageBus(NetworkHandle):
         return msg_urn, ep_urn, self._msg_seq
 
 
-# Backward-compat aliases
-AgentBus = MessageBus
-HCPanelAgentBus = MessageBus
-
-__all__ = ["MessageBus", "AgentBus", "HCPanelAgentBus", "ProtocolViolation", "get_cip_repair"]
+__all__ = ["MessageBus", "ProtocolViolation", "get_cip_repair"]

@@ -165,7 +165,7 @@ class TeamEpistemicMemoryAgent:
         envelope carrying the team_prior. The caller should also emit
         commit:accepted to complete the degenerate lookup episode.
         """
-        from SSTP.examples.hcpanel.agent_bus import AgentBus
+        from SSTP.examples.hcpanel.agent_bus import MessageBus
 
         payload = envelope.get("payload", [])
         query_part = next((p for p in payload if p.get("type") in ("utterance", "query")), None)
@@ -200,7 +200,7 @@ class TeamEpistemicMemoryAgent:
         }
 
         from SSTP.l9.episode import L9
-        bus = AgentBus(run_id="tem", conversation_id=episode_id or "lookup", use_case=self.use_case)
+        bus = MessageBus(run_id="tem", conversation_id=episode_id or "lookup", use_case=self.use_case)
         l9 = L9(bus=bus, agent_id=self.AGENT_ID)
         ep = l9.join(envelope)
         msg_id = ep.say(

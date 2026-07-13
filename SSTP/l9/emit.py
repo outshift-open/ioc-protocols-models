@@ -89,7 +89,7 @@ def emit_peer_turn(
     _recipients = recipients if recipients is not None else (
         [receiver] if receiver and receiver != sender else []
     )
-    # taskwork_episode_id fallback — set on HCPanelAgentBus
+    # taskwork_episode_id fallback — set on MessageBus when opening a taskwork episode
     _eid = episode_id or getattr(net, "taskwork_episode_id", None) or ""
     _msg_id, _, _seq = net._next_msg_id(_eid)  # type: ignore[attr-defined]
     _parent_ids: "List[Any] | None" = None
