@@ -26,6 +26,10 @@ if TYPE_CHECKING:
     from SSTP.subprotocol.siep.src.panel import NetworkHandle
 
 
+class ProtocolViolation(RuntimeError):
+    """Raised when application code attempts to emit a lifecycle kind directly."""
+
+
 def _is_lifecycle_kind(kind_override: str) -> bool:
     base = kind_override.split(":")[0]
     return base in ("intent", "commit")
@@ -66,7 +70,6 @@ def emit_peer_turn(
     recipients: "List[str] | None" = None,
     **_: Any,
 ) -> Dict[str, Any]:
-    from SSTP.examples.hcpanel.agent_bus import ProtocolViolation
     if kind_override and _is_lifecycle_kind(kind_override) and not getattr(net, "_protocol_context", False):
         raise ProtocolViolation(
             f"kind_override={kind_override!r} is a lifecycle kind and may only be "

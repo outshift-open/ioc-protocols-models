@@ -22,9 +22,6 @@ from SSTP.l9.deliver import deliver_header
 from SSTP.subprotocol.siep.src.panel import NetworkHandle
 
 
-class ProtocolViolation(RuntimeError):
-    """Raised when application code attempts to emit a lifecycle kind directly."""
-
 
 
 class MessageBus(NetworkHandle):
@@ -96,4 +93,4 @@ class MessageBus(NetworkHandle):
         return msg_urn, ep_urn, self._msg_seq
 
 
-__all__ = ["MessageBus", "ProtocolViolation"]
+__all__ = ["MessageBus"]

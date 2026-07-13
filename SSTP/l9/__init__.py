@@ -10,6 +10,7 @@ from SSTP.l9.episode import (
 )
 from SSTP.l9.grounding import receive_peer_turn
 from SSTP.l9.emit import (
+    ProtocolViolation,
     emit_peer_turn, emit_request, emit_response, emit_error,
     emit_semantic_repair, emit_epistemic_clarification,
     emit_task_assignment, emit_taskwork_result,
@@ -22,6 +23,7 @@ from SSTP.l9.emit import (
 )
 
 __all__ = [
+    "ProtocolViolation",
     "Episode", "TaskEpisode", "TeamProcessEpisode", "TaskworkEpisode",
     "TaskworkParticipant", "L9", "AgentPrior", "TeamPrior", "blend_prior",
     "emit_peer_turn", "emit_request", "emit_response", "emit_error",
