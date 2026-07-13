@@ -38,7 +38,7 @@ Only `phase` + `sender` are required.
 ## Header (same every message)
 
 - `protocol`=`"SSTP"`, `subprotocol`=`"SAB"`, `version`=`"0"`.
-- `kind`/`subkind`: `open`/`round` → `contingency`/`negotiation`; `close` → `commit`/(`converged` | `disagreement` | `timeout`).
+- `kind`/`subkind`: `open`/`round` → `contingency`/`negotiation`; `close` → `commit`/(`resolved` | `unresolved` | `timeout`).
 - `participants.groups`=`null`; `actors` are always `agent-buyer` (`participant`), `agent-seller`
   (`participant`), `negotiation_server` (`facilitator`).
 - `message`: `id` = fresh UUID v4, `parents` = `[]`, `episode` (mint `urn:ioc:episode:<slug>` on `open`, else reuse).
@@ -66,8 +66,8 @@ opener). On **accept**, `origin` is the accepter but `current_offer`/`current_pr
 standing offer (don't flip); set `n_acceptances: 1`, `running: false`, `sao_state.agreement` = that
 offer. A timed-out final round keeps `"REJECT_OFFER"` with `timedout: true`, `running: false`.
 
-**Close** — `converged` → `outcome: "agreement"` + non-null `final_agreement` (list of
-`{issue_id, chosen_option}`); `disagreement`/`timeout` → `final_agreement: null`. Reuse the `open`
+**Close** — `resolved` → `outcome: "agreement"` + non-null `final_agreement` (list of
+`{issue_id, chosen_option}`); `unresolved`/`timeout` → `final_agreement: null`. Reuse the `open`
 `episode`/`session_id`.
 
 ## Output

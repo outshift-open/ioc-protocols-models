@@ -20,14 +20,14 @@ Two flows (mirroring `examples/demo_agreement.json` and `examples/demo_disagreem
 
 - **Agreement** → `open` → `agent-buyer` offer (`NO_RESPONSE`) → `agent-seller` counter
   (`REJECT_OFFER`) → `agent-buyer` counter (`REJECT_OFFER`) → `agent-seller` accept
-  (`ACCEPT_OFFER`) → `close` `converged`
+  (`ACCEPT_OFFER`) → `close` `resolved`
 - **Disagreement** → `open` → the same alternating counters until the step budget is
-  exhausted (the last round has `timedout: true`) → `close` `disagreement`
+  exhausted (the last round has `timedout: true`) → `close` `unresolved`
 
 ## SAB is special
 
 - **SAB does not define its own header.** A SAB message *is* a canonical L9 message: a standard `L9Header` (`protocol: "SSTP"`, `subprotocol: "SAB"`) plus `L9Payload` (`type: "json-schema"`, `data` = the SAB payload). The `sab_schema.json` models **only `payload.data`**.
-- Only two `kind`s: `contingency` (the open and every offer round, `subkind: "negotiation"`) and `commit` (the close, `subkind: "converged" | "disagreement" | "timeout"`). SAB never uses `intent`/`exchange`/`knowledge` as the L9 `kind`.
+- Only two `kind`s: `contingency` (the open and every offer round, `subkind: "negotiation"`) and `commit` (the close, `subkind: "resolved" | "unresolved" | "timeout"`). SAB never uses `intent`/`exchange`/`knowledge` as the L9 `kind`.
 - `payload.data` has three shapes, chosen by **phase**: `open` → `SABIntentPayloadData`, `round` → `SABNegotiatePayloadData`, `close` → `SABCommitPayloadData`.
 - The negotiation space (mission, `issues`, `options_per_issue`) is **not** in `payload.data` — it is encoded into `header.context.topic`, and `header.context.semantic.schema_id = "urn:ioc:schema:sab-l9:v1"` identifies the envelope. `msg_created_at` lives in `header.attributes`.
 
@@ -52,8 +52,8 @@ appear in your output, and nothing from these examples should carry over unchang
 The numbers in the examples (`time`, `relative_time`, `step`, the `nmi` limits) are
 placeholder magnitudes — set them for the real session. Only the outcome-defining values are
 fixed by the phase: an acceptance sets `n_acceptances: 1`, `running: false`, and `sao_state.agreement`;
-`close` `converged` needs `outcome: "agreement"` with a non-null `final_agreement`, while
-`close` `disagreement`/`timeout` needs `final_agreement: null`.
+`close` `resolved` needs `outcome: "agreement"` with a non-null `final_agreement`, while
+`close` `unresolved`/`timeout` needs `final_agreement: null`.
 
 ## Defaults — use only if the user doesn't supply a value
 
@@ -68,7 +68,7 @@ these — the "Quick Deal" sample taken verbatim from the reference dumps
 | options for `price` | `["low", "medium", "high"]` |
 | options for `delivery_speed` | `["express", "standard", "deferred"]` |
 | opening offer (step 0, `agent-buyer`) | `{ "price": "high", "delivery_speed": "express" }` |
-| agreed offer (converged) | `{ "price": "medium", "delivery_speed": "standard" }` |
+| agreed offer (resolved) | `{ "price": "medium", "delivery_speed": "standard" }` |
 | `episode` (agreement / disagreement) | `urn:ioc:episode:supply-order-urgent-2026-001` / `...-002` |
 | `session_id` (agreement / disagreement) | `urn:ioc:sab:session:qd-2026-06-22-001` / `...-002` |
 | ids (`message.id`, `payload_hash`) | **never default — always generate fresh** |
@@ -80,7 +80,7 @@ When invoked, do NOT emit a message immediately:
 1. **Ask which step to build**: `open | round | close`.
    - `open` — start the session; the mission, `issues`, and `options_per_issue` go into `header.context.topic`.
    - `round` — one alternating-offers turn: an **opening offer** (`NO_RESPONSE`), a **counter** (`REJECT_OFFER`), or an **acceptance** (`ACCEPT_OFFER`).
-   - `close` — commit the outcome: `converged` (agreement) or `disagreement` (no deal).
+   - `close` — commit the outcome: `resolved` (agreement) or `unresolved` (no deal).
 2. **Ask only that step's fields** (see the table), then show a pre-filled sample using the
    fixed cast (defaulting from the table above) and ask _"Use this as-is, or tell me what to change?"_
 3. **Confirm or collect edits**, then emit the full L9 JSON for that single step, reusing
@@ -119,12 +119,12 @@ facilitator), and the acting agent is named only in `payload.data.origin.actor_i
 Field guide by `phase`:
 - `open` → `contingency:negotiation`, `parents: []`. `payload_data` is just the intent envelope (`semantic_context` with `schema_version`/`encoding`).
 - `round` → `contingency:negotiation`, `parents: []`. `payload_data`: the `current_offer` (one option per issue), `current_proposer`, `step`, and `sao_response.response` — one of `"NO_RESPONSE"` (opening offer), `"REJECT_OFFER"` (counter), `"ACCEPT_OFFER"` (acceptance).
-- `close` → `commit`, `parents: []`. `payload_data`: `outcome` (`agreement`|`disagreement`), `final_agreement` (list of `{issue_id, chosen_option}` or `null`), and set `subkind` `converged` (agreement) / `disagreement`.
+- `close` → `commit`, `parents: []`. `payload_data`: `outcome` (`agreement`|`disagreement`), `final_agreement` (list of `{issue_id, chosen_option}` or `null`), and set `subkind` `resolved` (agreement) / `unresolved`.
 
 ## Fixed values
 
 - `header.protocol` = `"SSTP"`, `header.subprotocol` = `"SAB"`, `header.version` = `"0"`
-- `header.kind`/`subkind`: `open`/`round` → `contingency`/`negotiation`; `close` → `commit`/(`converged`|`disagreement`|`timeout`)
+- `header.kind`/`subkind`: `open`/`round` → `contingency`/`negotiation`; `close` → `commit`/(`resolved`|`unresolved`|`timeout`)
 - `header.attributes` = `{ "msg_created_at": "<ISO-8601>" }` (a plain dict); `header.participants.groups` = `null`
 - `header.context.topic` = `"<mission> | issues: <issues> | options_per_issue: <options_per_issue>"`; `header.context.epistemic` = `null`; `header.context.semantic` = `{ "schema_id": "urn:ioc:schema:sab-l9:v1", "ontology_ref": "urn:ioc:ontology:sab:v1", "provenance": null }`
 - `header.participants.actors` is the **same on every message**: `agent-buyer` and `agent-seller` as `{ "id": <agent>, "role": "participant", "attestation": null }`, followed by `{ "id": "negotiation_server", "role": "facilitator", "attestation": null }`
@@ -218,9 +218,9 @@ them from the user's `options_per_issue`.
   (because `offering_is_accepting = true`).
 - **Timed-out final round (disagreement path):** the last `round` keeps `response = "REJECT_OFFER"` but sets `sao_state.timedout = true` and `running = false` once the step budget is exhausted.
 
-## Success close — `converged` (full message)
+## Success close — `resolved` (full message)
 
-`kind:commit` / `subkind:converged`, same three-actor cast, `parents: []`, `outcome: "agreement"`
+`kind:commit` / `subkind:resolved`, same three-actor cast, `parents: []`, `outcome: "agreement"`
 with a non-null `final_agreement`.
 
 ```json
@@ -230,7 +230,7 @@ with a non-null `final_agreement`.
     "subprotocol": "SAB",
     "version": "0",
     "kind": "commit",
-    "subkind": "converged",
+    "subkind": "resolved",
     "participants": { "actors": [ { "id": "agent-buyer", "role": "participant", "attestation": null }, { "id": "agent-seller", "role": "participant", "attestation": null }, { "id": "negotiation_server", "role": "facilitator", "attestation": null } ], "groups": null },
     "message": { "id": "<uuid-v4>", "parents": [], "episode": "<same episode as open>" },
     "policy": null,
@@ -261,11 +261,11 @@ with a non-null `final_agreement`.
 }
 ```
 
-## Failure close — `disagreement` (full message)
+## Failure close — `unresolved` (full message)
 
-Identical envelope except `subkind: "disagreement"`, `outcome: "disagreement"`, and
-`final_agreement: null` (use `subkind: "timeout"` instead if the session ended purely on the
-time/step budget).
+Identical envelope except `subkind: "unresolved"`, `outcome: "disagreement"`, and
+`final_agreement: null` (`unresolved` is the no-deal / step-budget-exhausted close; use
+`subkind: "timeout"` instead only if a participant broke off or returned an invalid offer).
 
 ```json
 {
@@ -274,7 +274,7 @@ time/step budget).
     "subprotocol": "SAB",
     "version": "0",
     "kind": "commit",
-    "subkind": "disagreement",
+    "subkind": "unresolved",
     "participants": { "actors": [ { "id": "agent-buyer", "role": "participant", "attestation": null }, { "id": "agent-seller", "role": "participant", "attestation": null }, { "id": "negotiation_server", "role": "facilitator", "attestation": null } ], "groups": null },
     "message": { "id": "<uuid-v4>", "parents": [], "episode": "<same episode as open>" },
     "policy": null,
@@ -307,7 +307,7 @@ time/step budget).
 
 ## Session finality
 
-Once a `close` message is emitted (`converged`, `disagreement`, or `timeout`), the session
+Once a `close` message is emitted (`resolved`, `unresolved`, or `timeout`), the session
 is **terminal**. Do NOT offer or generate any further steps for that `episode`/`session_id`.
 If the user wants to continue negotiating, start a fresh session (new `open` with new ids).
 

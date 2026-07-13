@@ -35,9 +35,11 @@ If a fetch fails, say so and mark the report `"source": "cached-rules"`.
    - `sao_response.response` (when present) is a `ResponseType` **name** (`ACCEPT_OFFER`,
      `REJECT_OFFER`, …); the schema types it as an int, but the wire form in `examples/` is the
      name — accept the name (and a bare int), reject anything else.
-   - Phase = `header.kind`/`header.subkind`. The mapping is **not 1:1 by name**: a timed-out run
-     closes `commit`/`disagreement`; a broken run closes `commit`/`timeout`. Infer the required
-     `semantic_context` shape for that phase from the schema and check the pair is a valid combo.
+   - Phase = `header.kind`/`header.subkind`. The mapping is **not 1:1 by name**: an agreement
+     closes `commit`/`resolved`; a no-deal / step-budget-exhausted run closes `commit`/`unresolved`;
+     a broken or invalid-offer run closes `commit`/`timeout` (with `outcome` still one of
+     `agreement` | `disagreement` | `broken` | `error`). Infer the required `semantic_context`
+     shape for that phase from the schema and check the pair is a valid combo.
    - **Session-initiating negotiate messages**: the first negotiate-phase message
      (`kind='contingency'`, `subkind='negotiation'`) may use the plain `SemanticContext`
      (only `schema_version` + `encoding`, no `session_id`) because the session has not yet been
