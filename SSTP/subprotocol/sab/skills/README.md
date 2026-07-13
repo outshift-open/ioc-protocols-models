@@ -10,8 +10,9 @@ of issues and converge on one option per issue, then commit the outcome.
 ```
 skills/
   common/
-    message_generation/SKILL.md   # real skill (builds a full SAB L9 message)
-    message_validation/SKILL.md   # real skill (validates a SAB L9 message / session)
+    message_generation/SKILL.md   # real skill (guided SAB flow)
+    single_message/SKILL.md       # real skill (one message from explicit phase/sender inputs)
+    message_validation/SKILL.md   # real skill (validates a single SAB L9 message)
   codex/skills/SKILL.md           # placeholder wrapper
   openclaw/skills/SKILL.md        # placeholder wrapper
   claude/skills/SKILL.md          # placeholder wrapper
@@ -21,7 +22,8 @@ skills/
 
 | Skill | Description |
 |-------|-------------|
-| `common/message_generation` | Generates a complete SAB L9 message (header + SAB payload) as valid JSON |
+| `common/message_generation` | Guided generator for the agreement/disagreement flows (fixed 3-actor cast) |
+| `common/single_message` | Builds one SAB L9 message from explicit inputs (phase, sender, offer/outcome) — non-interactive |
 | `common/message_validation` | Validates that a single SAB L9 message follows the SAB format against the raw GitHub L9 + SAB schemas, plus SAB cross-field rules |
 
 ## Source of truth

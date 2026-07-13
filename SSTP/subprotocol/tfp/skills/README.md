@@ -11,7 +11,8 @@ accept/reject, and the episode commits (converged) or aborts (failed).
 ```
 skills/
   common/
-    message_generation/SKILL.md   # real skill (builds a full TFP L9 message)
+    message_generation/SKILL.md   # real skill (guided, fixed-cast TFP flow)
+    single_message/SKILL.md       # real skill (one message from explicit sender/receiver inputs)
     message_validation/SKILL.md   # real skill (validates a single TFP L9 message)
   codex/SKILLS.md                 # placeholder wrapper
   openclaw/SKILLS.md              # placeholder wrapper
@@ -22,7 +23,8 @@ skills/
 
 | Skill | Description |
 |-------|-------------|
-| `common/message_generation` | Generates a complete TFP L9 message (header + TFP payload) as valid JSON |
+| `common/message_generation` | Guided, fixed-cast (recruiter + 2 candidates) generator covering the success/failure flows |
+| `common/single_message` | Builds one TFP L9 message from explicit inputs (operation, sender, receiver, payload) — non-interactive, cast-agnostic |
 | `common/message_validation` | Validates that a single TFP L9 message follows the TFP format against the raw GitHub L9 + TFP schemas, plus TFP cross-field rules |
 
 ## Source of truth
