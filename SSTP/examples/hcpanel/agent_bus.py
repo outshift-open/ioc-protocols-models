@@ -26,13 +26,6 @@ class ProtocolViolation(RuntimeError):
     """Raised when application code attempts to emit a lifecycle kind directly."""
 
 
-def get_cip_repair(header: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Return the cip-repair payload content from an L9 header, or None."""
-    for part in header.get("payload") or []:
-        if part.get("type") == "cip-repair":
-            return part.get("content")
-    return None
-
 
 class MessageBus(NetworkHandle):
     """Per-episode L9 message bus shared by all agents in a session.
@@ -103,4 +96,4 @@ class MessageBus(NetworkHandle):
         return msg_urn, ep_urn, self._msg_seq
 
 
-__all__ = ["MessageBus", "ProtocolViolation", "get_cip_repair"]
+__all__ = ["MessageBus", "ProtocolViolation"]
