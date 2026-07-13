@@ -16,6 +16,7 @@ CIP inbound grounding lives in SSTP.l9.grounding, exposed via L9.receive_peer_tu
 
 from __future__ import annotations
 
+import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 from SSTP.l9.deliver import deliver_header
@@ -57,6 +58,7 @@ class MessageBus(NetworkHandle):
         self._episode_seq: int = 0
         self._msg_seq: int = 0
         self._episode_registry: Dict[str, int] = {}
+        self._lock = threading.RLock()
 
     # ── NetworkHandle implementation ──────────────────────────────────────
 
@@ -68,8 +70,9 @@ class MessageBus(NetworkHandle):
 
     def send(self, header: Dict[str, Any]) -> None:
         """Append a fully-constructed L9 header and deliver it."""
-        self.messages.append(header)
-        self._deliver(header)
+        with self._lock:
+            self.messages.append(header)
+            self._deliver(header)
 
     # ── Internal transport ────────────────────────────────────────────────
 
@@ -82,15 +85,16 @@ class MessageBus(NetworkHandle):
 
     def _next_msg_id(self, episode_id: str) -> Tuple[str, str, int]:
         """Return (message_id_urn, episode_urn, msg_seq) for the next message in episode_id."""
-        if episode_id not in self._episode_registry:
-            self._episode_seq += 1
-            self._episode_registry[episode_id] = self._episode_seq
-        ep_seq = self._episode_registry[episode_id]
-        phase = self._current_phase  # "team_process" | "taskwork" | "task"
-        self._msg_seq += 1
-        ep_urn = f"urn:session:{self._session_id}:phase:{phase}:episode:{ep_seq}"
-        msg_urn = f"{ep_urn}:msg:{self._msg_seq}"
-        return msg_urn, ep_urn, self._msg_seq
+        with self._lock:
+            if episode_id not in self._episode_registry:
+                self._episode_seq += 1
+                self._episode_registry[episode_id] = self._episode_seq
+            ep_seq = self._episode_registry[episode_id]
+            phase = self._current_phase  # "team_process" | "taskwork" | "task"
+            self._msg_seq += 1
+            ep_urn = f"urn:session:{self._session_id}:phase:{phase}:episode:{ep_seq}"
+            msg_urn = f"{ep_urn}:msg:{self._msg_seq}"
+            return msg_urn, ep_urn, self._msg_seq
 
 
 __all__ = ["MessageBus"]
