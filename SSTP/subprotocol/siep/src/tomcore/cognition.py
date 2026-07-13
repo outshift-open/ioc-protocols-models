@@ -152,21 +152,52 @@ class AgentTOM:
         if has_concepts:
             verified, score = contingency_check(listener_prior_epistemic, speaker_epistemic)
             repair = diagnose_repair_reason(listener_prior_epistemic, speaker_epistemic)
-            # Structural check covers scope/evidence contingency; call LLM for ambiguity
-            # which the structural path cannot detect.
-            amb = self.detect_ambiguity(utterance=utterance, task_goal=task_goal)
+            # Combined grounding+ambiguity judge: structural score is a prior fed to the LLM
+            # so it can enrich with semantic alignment and detect ambiguity in one call.
+            if utterance:
+                _judge = self._llm.complete_json("grounding_judge", {
+                    "utterance": utterance,
+                    "task_goal": task_goal,
+                    "speaker": speaker,
+                    "listener": listener or self.agent_id,
+                    "structural_contingency_score": score,
+                    "structural_contingency_verified": verified,
+                    "structural_repair_reason": repair.value if repair is not None else None,
+                    "speaker_scope": (speaker_epistemic or {}).get("scope") or [],
+                    "speaker_addresses_evidence": (speaker_epistemic or {}).get("addresses_evidence") or [],
+                    "listener_scope": (listener_prior_epistemic or {}).get("scope") or [],
+                })
+                _llm_score = round(max(0.0, min(1.0, float(
+                    _judge.get("contingency_score", score)))), 4)
+                _llm_verified = bool(_judge.get("aligned", verified))
+                # Blend: structural score is a lower bound; LLM can only lower it further
+                _final_score = round(min(score, _llm_score), 4)
+                _final_verified = verified and _llm_verified
+                _derailed = bool(_judge.get("derailed", not _final_verified))
+                _grounding_failure = bool(_judge.get("grounding_failure", not _final_verified))
+            else:
+                _final_score = score
+                _final_verified = verified
+                _derailed = not verified
+                _grounding_failure = not verified
+                _judge = {}
             return {
-                "aligned": verified,
-                "alignment_score": score,
-                "disagreement_score": round(1.0 - score, 4),
-                "derailed": not verified,
-                "derailment_cause": repair.value if repair is not None else None,
-                "grounding_failure": not verified,
-                "contingency_score": score,
-                "ambiguous": amb.get("ambiguous", False),
-                "ambiguity_score": amb.get("ambiguity_score", 0.0),
-                "judge_confidence": 1.0,
-                "critique": "structural_grounding_check",
+                "aligned": _final_verified,
+                "alignment_score": _final_score,
+                "disagreement_score": round(1.0 - _final_score, 4),
+                "derailed": _derailed,
+                "derailment_cause": (
+                    _judge.get("derailment_cause")
+                    or (repair.value if repair is not None else None)
+                ),
+                "grounding_failure": _grounding_failure,
+                "contingency_score": _final_score,
+                "ambiguous": bool(_judge.get("ambiguous", False)),
+                "ambiguity_score": round(max(0.0, min(1.0, float(
+                    _judge.get("ambiguity_score", 0.0)))), 4),
+                "judge_confidence": round(max(0.0, min(1.0, float(
+                    _judge.get("judge_confidence", 0.85 if utterance else 1.0)))), 4),
+                "critique": str(_judge.get("critique", "structural_grounding_check")),
             }
         # Fallback: LLM judge when no structured epistemic context is available
         payload: Dict[str, Any] = {

@@ -490,15 +490,23 @@ class StarNegotiator:
             _star_all = [controller_id] + list(member_ids)
             _star_final = {**{mid: specialist_positions[mid] for mid in member_ids},
                            controller_id: ctrl_pos}
+            _BELIEF_CHANGE_THRESHOLD = 0.05
             _genuine = sum(
                 1 for _gid in _star_all
-                if (_confidence(_star_final[_gid]) >= _cons_conf)
-                == (_cons_conf >= initial_priors.get(_gid, 0.5))
+                if abs(_confidence(_star_final[_gid]) - initial_priors.get(_gid, 0.5))
+                > _BELIEF_CHANGE_THRESHOLD
             )
             gar = round(_genuine / len(_star_all), 4) if _star_all else 1.0
             final_posteriors = {mid: _confidence(specialist_positions[mid]) for mid in member_ids}
             final_posteriors[controller_id] = _confidence(winning_position)
-            scr = 0.0
+            # SCR: fraction of agents who accepted without updating their belief
+            _rubber_stamped = sum(
+                1 for _gid in _star_all
+                if _gid not in countering
+                and abs(_confidence(_star_final[_gid]) - initial_priors.get(_gid, 0.5))
+                <= _BELIEF_CHANGE_THRESHOLD
+            )
+            scr = round(_rubber_stamped / len(_star_all), 4) if _star_all else 0.0
             mpc = round(sum(final_posteriors.values()) / len(final_posteriors), 4)
             outcome_map = {
                 "consensus": "accept", "majority": "accept",
