@@ -49,13 +49,15 @@ class MessageBus(NetworkHandle):
         self,
         run_id: str,
         conversation_id: str,
-        use_case: str,
+        use_case: str = "healthcare",
         sensitivity: str = "internal",
+        taskwork_episode_id: str = "",
     ) -> None:
         self.run_id = run_id
         self.conversation_id = conversation_id
         self.use_case = use_case
         self.sensitivity = sensitivity
+        self.taskwork_episode_id = taskwork_episode_id
         self.messages: List[Dict[str, Any]] = []
         self._current_phase: str = "taskwork"
         self._taskwork_store: Optional[Any] = None
@@ -105,27 +107,8 @@ class MessageBus(NetworkHandle):
         return msg_urn, ep_urn, self._msg_seq
 
 
-# Backward-compat alias — existing `from agent_bus import AgentBus` imports still work
+# Backward-compat aliases
 AgentBus = MessageBus
-
-
-# ── HCPanelAgentBus ───────────────────────────────────────────────────────────
-
-
-class HCPanelAgentBus(MessageBus):
-    """Healthcare-specialised agent bus for the hcpanel application."""
-
-    def __init__(self, run_id: str, conversation_id: str) -> None:
-        super().__init__(
-            run_id=run_id,
-            conversation_id=conversation_id,
-            use_case="healthcare",
-            sensitivity="internal",
-        )
-        # Set by orchestration before episode open so that emit_peer_turn
-        # calls that don't carry an explicit episode_id land on the right
-        # taskwork episode.
-        self.taskwork_episode_id: str = ""
-
+HCPanelAgentBus = MessageBus
 
 __all__ = ["MessageBus", "AgentBus", "HCPanelAgentBus", "ProtocolViolation", "get_cip_repair"]

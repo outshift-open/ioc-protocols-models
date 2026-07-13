@@ -33,7 +33,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from langgraph.graph import END, START, StateGraph
 
 from SSTP.examples.hcpanel.tem import TeamEpistemicMemoryAgent
-from SSTP.examples.hcpanel.agent_bus import HCPanelAgentBus
+from SSTP.examples.hcpanel.agent_bus import MessageBus
 from SSTP.examples.hcpanel.specialists import SpecialistAgent, DIAGNOSTICS_SPECIALISTS, PHARMACY_SPECIALISTS, ROLE_DESCRIPTIONS
 from SSTP.examples.hcpanel.domain import (
     ClinicalDebateOutcome,
@@ -151,7 +151,7 @@ class HCPanelSystem:
         )
 
         # Bus (minted fresh per session in run_session())
-        self.bus: HCPanelAgentBus = HCPanelAgentBus(run_id="", conversation_id="")
+        self.bus: MessageBus = MessageBus(run_id="", conversation_id="")
 
         # Flat specialist roster — each agent is independent, owns its own LLMClient
         self.specialists: List[SpecialistAgent] = [
@@ -320,7 +320,7 @@ class HCPanelSystem:
             # Fresh bus and per-agent stores per session.
             # Agent state is strictly private — no epistemic state survives across sessions.
             # ToM engine is created fresh inside L9 on each run_joint_panel call.
-            self.bus = HCPanelAgentBus(run_id=run_id, conversation_id=run_id)
+            self.bus = MessageBus(run_id=run_id, conversation_id=run_id)
             # Initialise specialist_l9s before wire_up_l9 so each specialist
             # self-registers its L9 into the map during wire_up_l9().
             self.bus.specialist_l9s = {}
