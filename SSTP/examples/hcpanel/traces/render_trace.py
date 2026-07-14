@@ -5,13 +5,14 @@
 """
 Render a run-result JSON into an interleaved L9+LLM markdown trace.
 
-Design: wire messages and LLM calls are interleaved structurally by phase
-and agent.  Within each phase, each agent's LLM thinking block appears
-immediately before their wire message — giving a full prompt → thought →
-response → wire-event reading order.  Utterances are shown in full.
+Every wire message and every LLM call is wrapped in a <details> block so
+the reader can expand exactly what they want.  All 287+ wire messages are
+rendered in chronological order — nothing dropped.
 
 Usage:
-    python3 render_trace.py <result.json> [--output output.md] [--combined]
+    python3 render_trace.py <result.json> [--output output.md]
+    python3 render_trace.py <result.json> --patient pt-1008
+    python3 render_trace.py <result.json> --combined
 """
 from __future__ import annotations
 
@@ -19,11 +20,22 @@ import json
 import sys
 import argparse
 import datetime
-from collections import defaultdict, Counter
+from collections import Counter, defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _ts(msg: Dict[str, Any]) -> str:
+    raw = (msg.get("attributes") or {}).get("msg_created") or msg.get("msg_created") or ""
+    if not raw:
+        return ""
+    try:
+        dt = datetime.datetime.fromisoformat(raw.rstrip("Z"))
+        return dt.strftime("%H:%M:%S.%f")[:-3]
+    except Exception:
+        return raw[:19]
+
 
 def _ts_llm(item: Dict[str, Any]) -> str:
     raw = item.get("msg_created", "")
@@ -31,14 +43,14 @@ def _ts_llm(item: Dict[str, Any]) -> str:
         return ""
     try:
         dt = datetime.datetime.fromisoformat(raw.rstrip("Z"))
-        return dt.strftime("%H:%M:%S.%f")[:-3]  # HH:MM:SS.mmm
+        return dt.strftime("%H:%M:%S.%f")[:-3]
     except Exception:
         return raw[:19]
 
 
 def _actor(msg: Dict[str, Any]) -> str:
     actors = (msg.get("participants") or {}).get("actors") or []
-    return actors[0].get("id", "?") if actors else "?"
+    return actors[0].get("id", "?") if actors else msg.get("sender", "?")
 
 
 def _recipients(msg: Dict[str, Any]) -> List[str]:
@@ -49,137 +61,241 @@ def _recipients(msg: Dict[str, Any]) -> List[str]:
 def _utterance(msg: Dict[str, Any]) -> str:
     for part in (msg.get("payload") or []):
         if part.get("type") == "utterance":
-            return str(part.get("content", ""))
+            return str(part.get("content", "") or "")
     return ""
 
 
 def _rationale(msg: Dict[str, Any]) -> str:
-    """Extract rationale from the utterance payload part."""
     for part in (msg.get("payload") or []):
         if part.get("type") == "utterance":
             return str(part.get("rationale", "") or "")
     return ""
 
 
-def _rich_payload(msg: Dict[str, Any]) -> List[Tuple[str, Any]]:
-    """Return (type, content) for all non-utterance payload parts."""
-    result = []
-    for part in (msg.get("payload") or []):
-        if part.get("type") != "utterance":
-            result.append((part.get("type", "?"), part.get("content")))
-    return result
-
-
-def _ep_id(msg: Dict[str, Any]) -> str:
-    return (msg.get("message") or {}).get("episode", "") or ""
+def _episode_id(msg: Dict[str, Any]) -> str:
+    return (msg.get("message") or {}).get("episode", "") or msg.get("episode_id") or ""
 
 
 def _msg_id(msg: Dict[str, Any]) -> str:
-    return (msg.get("message") or {}).get("id", "")[:8]
+    return (msg.get("message") or {}).get("id", "") or ""
 
 
-def _phase_of(msg: Dict[str, Any]) -> str:
-    eid = _ep_id(msg)
-    if eid.endswith(":tp"):
-        return "tp"
-    if eid.endswith(":tw"):
-        return "tw"
-    if eid.endswith(":t"):
-        return "t"
-    if msg.get("kind") == "knowledge":
-        return "knowledge"
-    return "other"
+def _epistemic(msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    return (msg.get("context") or {}).get("epistemic") or msg.get("epistemic")
 
 
-def _json_block(obj: Any, indent: int = 2) -> str:
-    return "```json\n" + json.dumps(obj, indent=indent, ensure_ascii=False) + "\n```"
+def _json_block(obj: Any) -> str:
+    return "```json\n" + json.dumps(obj, indent=2, ensure_ascii=False) + "\n```"
 
 
 def _hr() -> str:
     return "\n---\n\n"
 
 
-# ── partition ─────────────────────────────────────────────────────────────────
+# ── phase assignment ──────────────────────────────────────────────────────────
 
-def _partition(wire: List[Dict[str, Any]]) -> Tuple[list, list, list, list, list]:
-    """Split outer-envelope messages into tp / tw / t / knowledge / other."""
-    tp, tw, task, knowledge, other = [], [], [], [], []
-    for m in wire:
-        phase = _phase_of(m)
-        if phase == "tp":
-            tp.append(m)
-        elif phase == "tw":
-            tw.append(m)
-        elif phase == "t":
-            task.append(m)
-        elif phase == "knowledge":
-            knowledge.append(m)
+_PHASE_LABELS = {
+    "session":   "Session Open",
+    "tp":        "Team Process (TP)",
+    "tw":        "Taskwork (TW)",
+    "t":         "Task Panel (T)",
+    "knowledge": "Knowledge",
+}
+
+_PHASE_PREAMBLES = {
+    "session": (
+        "**Protocol:** SIEP  \n"
+        "**Grammar:** `intent → exchange* (one ACK per participant)`  \n"
+        "**Purpose:** Session plan announcement — controller declares phases (TP → TW → T), "
+        "subprotocol (SIEP), and contingency handling (CIP). All participants acknowledge."
+    ),
+    "tp": (
+        "**Protocol:** SIEP → CIP (on contingency)  \n"
+        "**Grammar:** `intent → exchange* → [contingency → repair]* → commit`  \n"
+        "**Purpose:** Case framing — controller opens the session; all specialists "
+        "acknowledge team process and roles. CIP fires bilaterally if grounding fails."
+    ),
+    "tw": (
+        "**Protocol:** SIEP → CIP (on contingency)  \n"
+        "**Grammar:** `intent → exchange* → [contingency → repair]* → commit`  \n"
+        "**Purpose:** Taskwork — each specialist independently assesses patient data "
+        "and declares a prior; controller verifies grounding. CIP fires bilaterally if grounding fails."
+    ),
+    "t": (
+        "**Protocol:** SIEP (star negotiation) → CIP (on contingency)  \n"
+        "**Grammar:** `intent → [propose → response]* → [contingency → repair]* → commit:converged`  \n"
+        "**Purpose:** Task panel — SIEP frames the session and runs the debate; "
+        "CIP fires bilaterally when grounding fails."
+    ),
+    "knowledge": (
+        "**Protocol:** SIEP  \n"
+        "**Purpose:** Persistent knowledge broadcast — controller announces new "
+        "common ground to the TeamEpistemicMemory."
+    ),
+}
+
+
+def _classify_phase(eid: str, kind: str = "", utterance: str = "") -> Optional[str]:
+    """Return phase label from episode URN and utterance content.
+
+    Phase detection rules:
+    - session:open utterance on bare session URN → "session"
+    - session:close utterance on bare session URN → "session"
+    - exchange (ACK) on bare session URN → "session"
+    - tp:open utterance on :tp URN → "tp"
+    - panel:open on panel:taskwork URN → "tw"
+    - panel:open on panel:hcpanel URN → "t"
+    """
+    import re as _re
+    _UUID_TAIL = _re.compile(r':[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', _re.I)
+
+    # Session open/close/ACK: bare session URN (no :tp/:tw/:t, no panel: segment)
+    if (_UUID_TAIL.search(eid) and "panel:" not in eid and "cip_repair" not in eid
+            and not eid.endswith(":tp") and not eid.endswith(":tw") and not eid.endswith(":t")
+            and kind in ("intent", "exchange", "commit")):
+        return "session"
+
+    # Team process: inner SIEP panel:open on panel:team_process URN
+    if "panel:team_process" in eid and utterance.startswith("panel:open"):
+        return "tp"
+
+    # Taskwork: inner SIEP panel:open on panel:taskwork URN
+    if "panel:taskwork" in eid and utterance.startswith("panel:open"):
+        return "tw"
+
+    # Task: inner SIEP panel:open on panel:hcpanel URN
+    if "panel:hcpanel" in eid and utterance.startswith("panel:open"):
+        return "t"
+
+    return None
+
+
+def _assign_phases(msgs: List[Dict[str, Any]]) -> List[Tuple[str, int, Dict[str, Any]]]:
+    """Assign (phase, depth, msg) to every wire message.
+
+    depth=0  outer SIEP session envelope (episode ends :tp/:tw/:t)
+    depth=1  inner SIEP panel (team_process/taskwork/hcpanel URNs)
+    depth=2  CIP repair burst (:cip_repair: in episode)
+    depth=0  knowledge broadcasts (same visual level as outer SIEP)
+
+    Knowledge messages do NOT change the current outer phase.
+    CIP repairs can occur inside any phase.
+    """
+    current = "session"
+    result: List[Tuple[str, int, Dict[str, Any]]] = []
+    for m in msgs:
+        kind = m.get("kind", "")
+        sub = m.get("subprotocol", "") or ""
+        eid = _episode_id(m)
+        utt = _utterance(m)
+        outer = _classify_phase(eid, kind, utt)
+        if outer is not None:
+            current = outer
+            result.append((current, 0, m))
+        elif kind == "knowledge":
+            result.append(("knowledge", 0, m))
+        elif ":cip_repair:" in eid:
+            result.append((current, 2, m))
+        elif sub == "CIP" or sub == "cip":
+            # CIP messages on the inner panel episode (repair_required / reaffirm etc.)
+            result.append((current, 2, m))
         else:
-            other.append(m)
-    return tp, tw, task, knowledge, other
+            # inner SIEP panel
+            result.append((current, 1, m))
+    return result
 
 
 # ── wire event block ──────────────────────────────────────────────────────────
 
-def _wire_event(seq: int, msg: Dict[str, Any], phase_label: str) -> str:
-    """Render one wire message as a headed block with full utterance + payload."""
+_DEPTH_PREFIX = {0: "", 1: "↳ SIEP &nbsp;", 2: "↳↳ CIP &nbsp;"}
+
+
+def _wire_event(seq: int, msg: Dict[str, Any], phase: str, depth: int = 0) -> str:
+    """One wire message as a <details> block.
+
+    depth=0 outer SIEP session envelope, depth=1 inner SIEP panel, depth=2 CIP repair.
+    """
     kind = msg.get("kind", "?")
     subkind = msg.get("subkind") or ""
+    sub = msg.get("subprotocol") or "—"
     actor = _actor(msg)
     recips = _recipients(msg)
     msg_id = _msg_id(msg)
+    ts = _ts(msg)
 
-    kind_display = kind.upper()
-    if subkind:
-        kind_display += f":{subkind}"
+    kind_str = kind.upper() + (f":{subkind}" if subkind else "")
+    to_str = ", ".join(f"`{r}`" for r in recips) if recips else "_multicast_"
+    ts_str = f" {ts}" if ts else ""
 
-    # Header line
-    to_str = ", ".join(f"`{r}`" for r in recips) if recips else "_(multicast)_"
-    lines = [
-        f"### [{seq}] `{actor}` → {to_str} &nbsp; **{kind_display}** &nbsp; `{phase_label}` &nbsp; `id={msg_id}`\n\n"
-    ]
-
-    # Utterance + rationale
     utt = _utterance(msg)
     rat = _rationale(msg)
+
+    is_ack = utt.startswith("received:") or utt.startswith("reaffirm:")
+
+    utt_preview = ""
+    if utt and not is_ack:
+        utt_preview = f' — "{utt[:90]}"' if len(utt) <= 90 else f' — "{utt[:87]}…"'
+
+    id_str = f"`{msg_id[:8]}`" if msg_id else ""
+    depth_prefix = _DEPTH_PREFIX.get(depth, "")
+    summary = (
+        f"[{seq}]{ts_str} &nbsp;{depth_prefix}<strong>{kind_str}</strong> &nbsp;"
+        f"<code>{actor}</code> → {to_str} &nbsp;"
+        f"<code>{sub}</code>"
+        + (f" &nbsp;{id_str}" if id_str else "")
+        + utt_preview
+    )
+
+    lines = [f"<details>\n<summary>{summary}</summary>\n\n"]
+
     if utt:
         lines.append(f"**Utterance:** {utt}\n\n")
-    if rat and not utt.startswith("received:"):
+    if rat and not is_ack:
         lines.append(f"**Rationale:** {rat}\n\n")
 
-    # Rich payload parts — extract inline reasoning from siep/cip blocks before dumping JSON
-    for ptype, pcontent in _rich_payload(msg):
+    # payload parts (excluding utterance already shown)
+    for part in (msg.get("payload") or []):
+        ptype = part.get("type", "?")
+        if ptype == "utterance":
+            continue
+        pcontent = part.get("content")
         if pcontent is None:
             continue
         if isinstance(pcontent, dict):
-            # Pull out reasoning fields from siep/cip proposal payloads
-            if ptype in ("siep", "cip"):
-                pp = (pcontent.get("proposal_payload") or {})
-                rs = pp.get("reasoning_summary") or pcontent.get("reasoning_summary") or ""
-                critique = pcontent.get("critique") or pp.get("critique") or ""
-                if rs:
-                    lines.append(f"**Reasoning:** {rs}\n\n")
-                if critique:
-                    lines.append(f"**Critique:** {critique}\n\n")
-            lines.append(f"**`{ptype}`**\n\n")
-            lines.append(_json_block(pcontent))
-            lines.append("\n\n")
+            # pull rich reasoning fields inline
+            for key in ("reasoning_summary", "critique", "thought_summary"):
+                val = pcontent.get(key) or (pcontent.get("proposal_payload") or {}).get(key)
+                if val:
+                    label = key.replace("_", " ").title()
+                    lines.append(f"**{label}:** {val}\n\n")
+            lines.append(
+                f"<details><summary><code>{ptype}</code> payload</summary>\n\n"
+                + _json_block(pcontent)
+                + "\n\n</details>\n\n"
+            )
         elif isinstance(pcontent, (list, bool, int, float)):
             lines.append(f"**`{ptype}`:** `{json.dumps(pcontent)}`\n\n")
         else:
             lines.append(f"**`{ptype}`:** {pcontent}\n\n")
 
-    # Epistemic block
-    ep_block = msg.get("epistemic")
+    # epistemic (from context.epistemic)
+    ep_block = _epistemic(msg)
     if ep_block:
-        lines.append(f"**epistemic:** `{json.dumps(ep_block)}`\n\n")
+        ep_str = " · ".join(f"{k}={v}" for k, v in ep_block.items() if v is not None)
+        lines.append(f"**Epistemic:** `{ep_str}`\n\n")
 
+    if msg_id:
+        eid = _episode_id(msg)
+        lines.append(f"**Episode:** `{eid}`  \n**Msg-id:** `{msg_id}`\n\n")
+
+    lines.append("</details>\n\n")
     return "".join(lines)
 
 
 # ── LLM call block ────────────────────────────────────────────────────────────
 
 def _llm_event(item: Dict[str, Any]) -> str:
+    """One LLM call as a <details> block."""
     task = item.get("task", "?")
     agent = item.get("agent_id", "?")
     ts = _ts_llm(item)
@@ -189,119 +305,68 @@ def _llm_event(item: Dict[str, Any]) -> str:
     response = item.get("response", {})
     error = item.get("error", "")
 
-    status = "OK" if success else f"**FAILED** — {error}"
-    ts_str = f" · {ts}" if ts else ""
+    status = "✓" if success else "✗"
+    ts_str = f" {ts}" if ts else ""
+    thought_preview = ""
+    if thought:
+        thought_preview = f' — "{thought[:80]}"' if len(thought) <= 80 else f' — "{thought[:77]}…"'
 
-    lines = [
-        f"<details>\n<summary>🧠 <strong>LLM: {task}</strong> · `{agent}`{ts_str} · {status}</summary>\n\n"
-    ]
+    summary = (
+        f"🧠 LLM:<strong>{task}</strong>"
+        f" &nbsp;<code>{agent}</code>{ts_str} {status}"
+        f"{thought_preview}"
+    )
+    lines = [f"<details>\n<summary>{summary}</summary>\n\n"]
 
-    # Thought summary + rationale — most important, shown before the JSON
+    if not success and error:
+        lines.append(f"**Error:** {error}\n\n")
+
     if thought:
         lines.append(f"**Thought:** {thought}\n\n")
+
     rationale = response.get("rationale") or response.get("reasoning_summary") or ""
     if rationale and rationale != thought:
         lines.append(f"**Rationale:** {rationale}\n\n")
 
-    # Full response as JSON (collapsed under reasoning above)
     if response:
-        resp_display = {k: v for k, v in response.items() if k not in ("rationale", "thought_summary")}
+        resp_display = {k: v for k, v in response.items()
+                        if k not in ("rationale", "thought_summary")}
         if resp_display:
-            lines.append("**Response:**\n\n")
-            lines.append(_json_block(resp_display))
-            lines.append("\n\n")
+            lines.append(
+                "<details><summary><strong>Response JSON</strong></summary>\n\n"
+                + _json_block(resp_display)
+                + "\n\n</details>\n\n"
+            )
 
-    # Prompt (payload only, not system prompt — it's boilerplate)
+    system_prompt = request.get("system_prompt") or ""
+    user_prompt = request.get("user_prompt") or ""
     user_payload = request.get("user_payload") or request.get("payload")
-    if user_payload:
-        lines.append("**Prompt payload:**\n\n")
-        lines.append(_json_block(user_payload))
-        lines.append("\n\n")
+    if system_prompt or user_prompt or user_payload:
+        lines.append("<details><summary><strong>Prompt</strong></summary>\n\n")
+        if system_prompt:
+            lines.append(f"**System:** {system_prompt[:400]}"
+                         + (" …_(truncated)_" if len(system_prompt) > 400 else "")
+                         + "\n\n")
+        if user_prompt:
+            lines.append(
+                "<details><summary>User prompt</summary>\n\n"
+                + f"```\n{user_prompt}\n```\n\n</details>\n\n"
+            )
+        if user_payload:
+            lines.append(
+                "<details><summary>Payload</summary>\n\n"
+                + _json_block(user_payload)
+                + "\n\n</details>\n\n"
+            )
+        lines.append("</details>\n\n")
 
     lines.append("</details>\n\n")
     return "".join(lines)
 
 
-# ── phase renderer ────────────────────────────────────────────────────────────
+# ── convergence block ─────────────────────────────────────────────────────────
 
-def _render_phase(
-    label: str,
-    msgs: List[Dict[str, Any]],
-    llm_by_agent: Dict[str, List[Dict[str, Any]]],
-    phase_key: str,
-    seq_start: int,
-    llm_tasks_for_phase: List[str],
-    preamble: str = "",
-) -> Tuple[str, int]:
-    """
-    Render one phase as a sequence of interleaved LLM + wire events.
-
-    For each wire message, if the sending agent has LLM calls for this phase
-    that haven't been emitted yet, emit them first, then the wire message.
-
-    Controller LLM calls (e.g. tp_case_frame) are emitted before the intent.
-    """
-    lines = [f"## Phase: {label}\n\n"]
-    if preamble:
-        lines.append(preamble + "\n\n")
-
-    # consumed[agent_id] = index of next LLM call to emit for this agent in this phase
-    consumed: Dict[str, int] = defaultdict(int)
-
-    # Filter per-agent LLM calls to only those relevant to this phase
-    phase_llm: Dict[str, List[Dict[str, Any]]] = {}
-    for agent_id, calls in llm_by_agent.items():
-        relevant = [c for c in calls if c.get("task") in llm_tasks_for_phase]
-        if relevant:
-            phase_llm[agent_id] = relevant
-
-    seq = seq_start
-
-    for msg in msgs:
-        actor = _actor(msg)
-        kind = msg.get("kind", "")
-
-        # Before the intent (first message), emit controller LLM calls
-        if kind == "intent" and actor in phase_llm:
-            for call in phase_llm[actor][consumed[actor]:]:
-                lines.append(_llm_event(call))
-                consumed[actor] += 1
-
-        # Before each specialist's exchange, emit their LLM calls
-        elif kind == "exchange":
-            if actor in phase_llm:
-                for call in phase_llm[actor][consumed[actor]:]:
-                    lines.append(_llm_event(call))
-                    consumed[actor] += 1
-
-        lines.append(_wire_event(seq, msg, phase_key))
-        seq += 1
-
-    # Any remaining LLM calls not yet emitted (e.g. controller synthesis after all exchanges)
-    for agent_id, calls in phase_llm.items():
-        remaining = calls[consumed[agent_id]:]
-        for call in remaining:
-            lines.append(_llm_event(call))
-
-    return "".join(lines), seq
-
-
-# ── knowledge section ─────────────────────────────────────────────────────────
-
-def _render_knowledge(msgs: List[Dict[str, Any]], seq_start: int) -> Tuple[str, int]:
-    if not msgs:
-        return "", seq_start
-    lines = ["## Knowledge Broadcast\n\n"]
-    seq = seq_start
-    for msg in msgs:
-        lines.append(_wire_event(seq, msg, "knowledge"))
-        seq += 1
-    return "".join(lines), seq
-
-
-# ── convergence + metrics ─────────────────────────────────────────────────────
-
-def _render_convergence(ep: Dict[str, Any], task_msgs: List[Dict[str, Any]]) -> str:
+def _render_convergence(ep: Dict[str, Any]) -> str:
     metrics = ep.get("convergence_metrics") or {}
     gar = metrics.get("gar", "?")
     scr = metrics.get("scr", "?")
@@ -309,53 +374,36 @@ def _render_convergence(ep: Dict[str, Any], task_msgs: List[Dict[str, Any]]) -> 
     resolution = ep.get("resolution_label", "?")
     cause = ep.get("symptom_conclusion", "?")
 
-    # Extract convergence payload from commit:converged
-    conv_block: Dict[str, Any] = {"mpc": mpc, "gar": gar, "scr": scr}
-    for m in task_msgs:
-        if m.get("kind") == "commit" and m.get("subkind") == "converged":
-            for part in (m.get("payload") or []):
-                if part.get("type") == "convergence":
-                    conv_block.update(part.get("content") or {})
-
     lines = ["## Convergence\n\n"]
     lines.append(f"**Resolution:** `{resolution}` → **`{cause}`**\n\n")
-    lines.append(f"| Metric | Value | Meaning |\n|--------|-------|---------|")
+    lines.append("| Metric | Value | Meaning |\n|--------|-------|---------|")
     lines.append(f"\n| GAR | `{gar}` | Genuine agreement ratio — fraction whose belief moved >5% |\n")
     lines.append(f"| SCR | `{scr}` | Social compliance ratio — fraction who rubber-stamped |\n")
     lines.append(f"| MPC | `{mpc}` | Mean posterior confidence across all specialists |\n\n")
-    lines.append("**Convergence block:**\n\n")
-    lines.append(_json_block(conv_block))
-    lines.append("\n\n")
     return "".join(lines)
 
 
-# ── specialist summary table ──────────────────────────────────────────────────
+# ── specialist table ──────────────────────────────────────────────────────────
 
-def _render_specialist_table(specialist_opinions: List[Dict[str, Any]]) -> str:
-    if not specialist_opinions:
+def _render_specialist_table(opinions: List[Dict[str, Any]]) -> str:
+    if not opinions:
         return ""
     lines = ["## Specialist Opinions\n\n"]
-    lines.append("| Panel | Agent | Cause | Conf | Interaction↑ | Disease↑ | Thought |\n")
-    lines.append("|-------|-------|-------|------|-------------|---------|--------|\n")
-    for op in specialist_opinions:
+    lines.append("| Panel | Agent | Cause | Conf | Thought |\n")
+    lines.append("|-------|-------|-------|------|---------|\n")
+    for op in opinions:
         panel = op.get("panel", "?")
         agent = op.get("specialist_id", "?")
         cause = op.get("likely_cause", "?")
         conf = op.get("confidence") or op.get("posterior") or "?"
-        inter = op.get("interaction_likelihood", "")
-        dis = op.get("new_disease_likelihood", "")
-        thought = op.get("rationale") or op.get("thought_summary") or ""
         conf_str = f"{conf:.3f}" if isinstance(conf, float) else str(conf)
-        inter_str = f"{inter:.3f}" if isinstance(inter, float) else str(inter)
-        dis_str = f"{dis:.3f}" if isinstance(dis, float) else str(dis)
-        lines.append(
-            f"| {panel} | `{agent}` | **{cause}** | {conf_str} | {inter_str} | {dis_str} | {thought[:80]} |\n"
-        )
+        thought = op.get("rationale") or op.get("thought_summary") or ""
+        lines.append(f"| {panel} | `{agent}` | **{cause}** | {conf_str} | {thought[:80]} |\n")
     lines.append("\n")
     return "".join(lines)
 
 
-# ── LLM call breakdown ────────────────────────────────────────────────────────
+# ── LLM summary ───────────────────────────────────────────────────────────────
 
 def _render_llm_breakdown(llm_trace: List[Dict[str, Any]]) -> str:
     task_counter: Counter = Counter()
@@ -365,20 +413,56 @@ def _render_llm_breakdown(llm_trace: List[Dict[str, Any]]) -> str:
         task_counter[t] += 1
         if not item.get("success", True):
             failed_counter[t] += 1
-
     total = sum(task_counter.values())
     total_failed = sum(failed_counter.values())
-
     lines = ["## LLM Call Summary\n\n"]
     lines.append("| Task | Calls | OK | Failed |\n|------|-------|----|--------|\n")
     for task, count in sorted(task_counter.items()):
         fail = failed_counter.get(task, 0)
         lines.append(f"| `{task}` | {count} | {count - fail} | {fail} |\n")
-    lines.append(f"| **Total** | **{total}** | **{total - total_failed}** | **{total_failed}** |\n\n")
+    lines.append(
+        f"| **Total** | **{total}** | **{total - total_failed}** | **{total_failed}** |\n\n"
+    )
     return "".join(lines)
 
 
-# ── main renderer ─────────────────────────────────────────────────────────────
+# ── LLM queue helpers ─────────────────────────────────────────────────────────
+
+def _build_llm_queues(llm_trace: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    queues: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for item in llm_trace:
+        queues[item.get("agent_id") or "__global__"].append(item)
+    return dict(queues)
+
+
+_PHASE_TASKS: Dict[str, List[str]] = {
+    "tp": ["tp_case_frame"],
+    "tw": ["diagnostics_assessment", "team_prior_reasoning", "team_prior_commit",
+           "grounding_judge"],
+    "t":  ["task_accept_or_counter", "debate_accept_or_counter",
+           "debate_controller_synthesis", "debate_pivot_synthesis", "grounding_judge"],
+}
+
+
+def _emit_llm_for_actor(
+    actor: str,
+    phase: str,
+    queues: Dict[str, List[Dict[str, Any]]],
+    consumed: Dict[str, int],
+) -> List[str]:
+    """Pop and render any pending LLM calls from actor for the current phase."""
+    queue = queues.get(actor, [])
+    idx = consumed.get(actor, 0)
+    phase_tasks = set(_PHASE_TASKS.get(phase, []) + _PHASE_TASKS.get("t", []))
+    result = []
+    while idx < len(queue) and queue[idx].get("task") in phase_tasks:
+        result.append(_llm_event(queue[idx]))
+        idx += 1
+    consumed[actor] = idx
+    return result
+
+
+# ── main render ───────────────────────────────────────────────────────────────
 
 def render(result_path: str, output_path: str, patient_filter: Optional[str] = None) -> None:
     with open(result_path) as f:
@@ -386,7 +470,7 @@ def render(result_path: str, output_path: str, patient_filter: Optional[str] = N
 
     episodes = data.get("episodes", [])
     if not episodes:
-        print("No episodes found in result JSON.", file=sys.stderr)
+        print("No episodes found.", file=sys.stderr)
         sys.exit(1)
 
     all_out: List[str] = []
@@ -396,7 +480,7 @@ def render(result_path: str, output_path: str, patient_filter: Optional[str] = N
         if patient_filter and patient_id != patient_filter:
             continue
 
-        episode_id = ep.get("episode_id", "?")
+        episode_urn = ep.get("episode_id", "?")
         cause = ep.get("symptom_conclusion", "?")
         resolution = ep.get("resolution_label", "?")
         metrics = ep.get("convergence_metrics") or {}
@@ -406,149 +490,118 @@ def render(result_path: str, output_path: str, patient_filter: Optional[str] = N
 
         wire: List[Dict[str, Any]] = ep.get("trace", [])
         llm_trace: List[Dict[str, Any]] = ep.get("llm_trace", [])
-        specialist_opinions: List[Dict[str, Any]] = ep.get("specialist_opinions", [])
-
-        tp_msgs, tw_msgs, task_msgs, knowledge_msgs, _ = _partition(wire)
-
-        # Group LLM trace by agent_id
-        llm_by_agent: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        for item in llm_trace:
-            llm_by_agent[item.get("agent_id") or ""].append(item)
+        opinions: List[Dict[str, Any]] = ep.get("specialist_opinions", [])
 
         today = datetime.date.today().isoformat()
+        backend = data.get("llm_backend") or data.get("backend", "?")
+        model = data.get("model", "?")
 
-        # ── document header ──
         out: List[str] = []
         if ep_idx > 0:
             out.append("\n\n---\n\n")
+
+        # ── document header ──────────────────────────────────────────────────
         out.append(f"# L9 Interleaved Trace — Patient `{patient_id}`\n\n")
         out.append(
             f"**Patient:** `{patient_id}` · **Outcome:** `{resolution}` · "
             f"**Cause:** `{cause}`  \n"
-            f"**Run date:** {today} · **Backend:** {data.get('llm_backend','?')} / {data.get('model','?')}  \n"
-            f"**Episode URN:** `{episode_id}`  \n\n"
+            f"**Run date:** {today} · **Backend:** {backend} / {model}  \n"
+            f"**Episode URN:** `{episode_urn}`  \n\n"
         )
-
-        # Totals
         n_wire = len(wire)
         n_llm = len(llm_trace)
         n_failed = sum(1 for x in llm_trace if not x.get("success", True))
-        n_contingency = sum(1 for m in tw_msgs + task_msgs if m.get("kind") == "contingency")
+        n_cip = sum(1 for m in wire if m.get("kind") == "contingency")
         out.append("| Metric | Value |\n|--------|-------|\n")
         out.append(f"| Wire messages | {n_wire} |\n")
-        out.append(f"| TP / TW / T | {len(tp_msgs)} / {len(tw_msgs)} / {len(task_msgs)+len(knowledge_msgs)} |\n")
         out.append(f"| LLM calls | {n_llm} |\n")
         out.append(f"| LLM failed | {n_failed} |\n")
-        out.append(f"| Contingency events | {n_contingency} |\n")
+        out.append(f"| CIP contingencies | {n_cip} |\n")
         out.append(f"| GAR / SCR / MPC | {gar} / {scr} / {mpc} |\n\n")
         out.append(_hr())
 
-        # ── Patient context ──
+        # ── patient context ──────────────────────────────────────────────────
         out.append("## Patient Context\n\n")
-        out.append(f"**Patient:** `{patient_id}`  \n")
-        meds = ep.get("proposed_drug_changes", [])
-        out.append(f"**Recommended changes:** {', '.join(meds) if meds else 'none'}  \n")
         rec = ep.get("joint_recommendation", "")
+        meds = ep.get("proposed_drug_changes", [])
         if rec:
             out.append(f"**Joint recommendation:** {rec}  \n")
+        if meds:
+            out.append(f"**Recommended changes:** {', '.join(meds)}  \n")
         out.append("\n")
         out.append(_hr())
 
+        # ── build LLM queues ─────────────────────────────────────────────────
+        llm_queues = _build_llm_queues(llm_trace)
+        llm_consumed: Dict[str, int] = {}
+
+        # ── chronological walk — all 287+ messages ───────────────────────────
+        phased = _assign_phases(wire)
+        current_phase = ""
         seq = 1
 
-        # ── Phase TP ──
-        tp_preamble = (
-            "**Protocol:** SNP  \n"
-            "**Grammar:** `intent → exchange* → commit`  \n"
-            "**Purpose:** Case framing — controller opens the session, "
-            "all specialists acknowledge team process and roles.\n"
-        )
-        tp_out, seq = _render_phase(
-            "Team Process (TP)",
-            tp_msgs,
-            llm_by_agent,
-            "tp",
-            seq,
-            llm_tasks_for_phase=["tp_case_frame", "tp_process_debate", "tp_escalation_debate",
-                                  "tp_process_synthesis", "tp_process_commit"],
-            preamble=tp_preamble,
-        )
-        out.append(tp_out)
-        out.append(_hr())
+        for phase, depth, msg in phased:
+            # phase header on transition — knowledge doesn't start a new section;
+            # it renders inline in the current outer phase.
+            render_phase = phase if phase != "knowledge" else current_phase
+            if render_phase != current_phase:
+                if current_phase:
+                    out.append(_hr())
+                label = _PHASE_LABELS.get(render_phase, render_phase.upper())
+                out.append(f"## Phase: {label}\n\n")
+                preamble = _PHASE_PREAMBLES.get(render_phase, "")
+                if preamble:
+                    out.append(preamble + "\n\n")
+                current_phase = render_phase
 
-        # ── Phase TW ──
-        tw_preamble = (
-            "**Protocol:** SNP  \n"
-            "**Grammar:** `intent → exchange* → commit`  \n"
-            "**Purpose:** Taskwork — each specialist independently assesses "
-            "patient data and declares a prior; controller verifies grounding.\n"
-        )
-        tw_out, seq = _render_phase(
-            "Taskwork (TW) — Prior Declaration",
-            tw_msgs,
-            llm_by_agent,
-            "tw",
-            seq,
-            llm_tasks_for_phase=["diagnostics_assessment", "team_prior_reasoning",
-                                  "team_prior_commit"],
-            preamble=tw_preamble,
-        )
-        out.append(tw_out)
-        out.append(_hr())
+            actor = _actor(msg)
+            kind = msg.get("kind", "")
+            utt = _utterance(msg)
+            is_ack = utt.startswith("received:") or utt.startswith("reaffirm:")
 
-        # ── Phase T (SIEP panel) ──
-        t_preamble = (
-            "**Protocol:** SNP → SIEP (star negotiation) → CIP (on contingency)  \n"
-            "**Grammar:** `intent → [propose → response]* → commit:converged`  \n"
-            "**Purpose:** Task panel — SNP frames the session; SIEP runs the debate; "
-            "CIP fires bilaterally only when a specialist contingency needs grounding repair.\n"
-        )
-        t_out, seq = _render_phase(
-            "Task Panel (T) — SIEP Negotiation",
-            task_msgs,
-            llm_by_agent,
-            "t",
-            seq,
-            llm_tasks_for_phase=["task_accept_or_counter", "debate_accept_or_counter",
-                                  "debate_controller_synthesis", "debate_pivot_synthesis"],
-            preamble=t_preamble,
-        )
-        out.append(t_out)
-        out.append(_hr())
+            # emit pending LLM calls before this agent's substantive wire message
+            if not is_ack and kind in ("intent", "exchange", "commit", "contingency"):
+                for block in _emit_llm_for_actor(actor, phase, llm_queues, llm_consumed):
+                    out.append(block)
 
-        # ── Knowledge ──
-        k_out, seq = _render_knowledge(knowledge_msgs, seq)
-        if k_out:
-            out.append(k_out)
+            out.append(_wire_event(seq, msg, phase, depth=depth))
+            seq += 1
+
+        # emit any LLM calls not yet consumed
+        for agent_id, queue in llm_queues.items():
+            idx = llm_consumed.get(agent_id, 0)
+            for item in queue[idx:]:
+                out.append(_llm_event(item))
+
+        out.append(_hr())
+        out.append(_render_convergence(ep))
+        out.append(_hr())
+        out.append(_render_specialist_table(opinions))
+        if opinions:
             out.append(_hr())
-
-        # ── Convergence ──
-        out.append(_render_convergence(ep, task_msgs))
-        out.append(_hr())
-
-        # ── Specialist opinions table ──
-        out.append(_render_specialist_table(specialist_opinions))
-        if specialist_opinions:
-            out.append(_hr())
-
-        # ── LLM summary ──
         out.append(_render_llm_breakdown(llm_trace))
 
         all_out.extend(out)
 
     with open(output_path, "w") as f:
         f.write("".join(all_out))
-    print(f"Wrote {output_path}  ({len(all_out)} sections, {len(episodes)} episode(s))")
+
+    n_details = sum(1 for s in all_out if s.lstrip().startswith("<details>"))
+    print(f"Wrote {output_path}  ({n_details} collapsible blocks, {len(episodes)} episode(s))")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Render hcpanel result JSON to interleaved trace markdown")
+    parser = argparse.ArgumentParser(
+        description="Render hcpanel result JSON to interleaved trace markdown"
+    )
     parser.add_argument("result", help="Path to run-result JSON")
-    parser.add_argument("--output", "-o", default=None, help="Output .md path (default: replace .json with -trace.md)")
+    parser.add_argument("--output", "-o", default=None,
+                        help="Output .md path (default: <result>-trace.md)")
     parser.add_argument("--patient", default=None, help="Filter to a single patient_id")
-    parser.add_argument("--combined", action="store_true", help="Render all episodes into one file")
+    parser.add_argument("--combined", action="store_true",
+                        help="Render all episodes into one file")
     args = parser.parse_args()
 
     output = args.output or args.result.replace(".json", "-trace.md")

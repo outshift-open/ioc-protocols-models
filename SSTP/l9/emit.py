@@ -365,7 +365,7 @@ def emit_grounding_phase_converged(
             episode_id=episode_id, kind_override="commit:converged",
             epistemic=_epistemic, payload_parts=payload_parts,
             recipients=recipients or [],
-            subprotocol="SNP",
+            subprotocol="SIEP",
         )
     net.send(header)
     return header
@@ -416,7 +416,7 @@ def emit_taskwork_phase_intent(
             episode_id=episode_id, kind_override="intent",
             epistemic=_epistemic, payload_parts=payload_parts,
             role=role, recipients=recipients or [],
-            subprotocol="SNP",
+            subprotocol="SIEP",
         )
     net.send(header)
     return header
@@ -461,7 +461,7 @@ def emit_knowledge_rule(
         timestamp_ms=int(time.time() * 1000),
         sensitivity=net.sensitivity,  # type: ignore[attr-defined]
         utterance=_utterance, episode_id=episode_id, topic=concept_id,
-        subprotocol="SNP",
+        subprotocol="SIEP",
         epistemic=make_epistemic_block(
             speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
             belief_status=BeliefStatus.ASSERTED,
@@ -555,7 +555,7 @@ def _emit_episode_open(
             episode_id=episode_id, kind_override="intent",
             epistemic=_epistemic, payload_parts=_payload_parts,
             recipients=recipients or [],
-            subprotocol="SNP",
+            subprotocol="SIEP",
         )
     net.send(header)
     return header
@@ -572,9 +572,10 @@ def _emit_episode_close(
     thought_summary: str = "",
     summary: "Dict[str, Any] | None" = None,
     recipients: "List[str] | None" = None,
+    label: str = "episode:close",
 ) -> Dict[str, Any]:
     _outcome = "commit:converged" if accepted else "commit:rejected"
-    _utterance = f"session:close subject={subject} accepted={accepted}"
+    _utterance = f"{label} subject={subject} accepted={accepted}"
     payload_parts: List[Dict[str, Any]] = [
         {"type": "utterance", "location": "inline", "content": _utterance}
     ]
@@ -598,7 +599,7 @@ def _emit_episode_close(
             episode_id=episode_id, kind_override=_outcome,
             epistemic=_epistemic, payload_parts=payload_parts,
             recipients=recipients or [],
-            subprotocol="SNP",
+            subprotocol="SIEP",
         )
     net.send(header)
     return header
@@ -613,12 +614,14 @@ def _emit_intent(
     episode_id: "str | None" = None,
     team_prior: "Dict[str, Any] | None" = None,
     team_process: "Dict[str, Any] | None" = None,
+    session_plan: "Dict[str, Any] | None" = None,
     rationale: str = "",
     thought_summary: str = "",
     role: "str | None" = None,
     recipients: "List[str] | None" = None,
+    label: str = "episode:open",
 ) -> Dict[str, Any]:
-    _utterance = f"episode:open subject={subject}"
+    _utterance = f"{label} subject={subject}"
     _utt_part: Dict[str, Any] = {"type": "utterance", "location": "inline", "content": _utterance}
     if rationale:
         _utt_part["rationale"] = rationale
@@ -629,6 +632,8 @@ def _emit_intent(
         payload_parts.append({"type": "team_prior", "location": "inline", "content": team_prior})
     if team_process:
         payload_parts.append({"type": "team_process", "location": "inline", "content": team_process})
+    if session_plan:
+        payload_parts.append({"type": "session_plan", "location": "inline", "content": session_plan})
     _receiver = receiver or sender
     _recipients = recipients if recipients is not None else ([_receiver] if _receiver != sender else [])
     with _lifecycle_emit(net):
@@ -646,7 +651,7 @@ def _emit_intent(
                 belief_status=BeliefStatus.ASSERTED,
             ),
             payload_parts=payload_parts, role=role, recipients=_recipients,
-            subprotocol="SNP",
+            subprotocol="SIEP",
         )
     net.send(header)
     return header
@@ -676,7 +681,7 @@ def _emit_exchange_ready(
         speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
         parent_id=parent_id, episode_id=episode_id, kind_override="exchange:ready",
         topic=concept_id, epistemic=epistemic, rationale=rationale,
-        thought_summary=thought_summary, subprotocol="SNP",
+        thought_summary=thought_summary, subprotocol="SIEP",
     )
 
 
@@ -700,7 +705,7 @@ def _emit_ready(
             net, sender=sender, receiver=receiver or sender, utterance=_utterance,
             speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
             parent_id=parent_id, episode_id=episode_id, kind_override="commit:ready",
-            topic=concept_id, epistemic=epistemic, subprotocol="SNP",
+            topic=concept_id, epistemic=epistemic, subprotocol="SIEP",
         )
 
 
@@ -733,7 +738,7 @@ def _emit_knowledge_announcement(
         parent_ids=[], episode_id=episode_id,
         kind_override="knowledge", topic=concept_id,
         message_id=_msg_id,
-        subprotocol="SNP",
+        subprotocol="SIEP",
         epistemic=make_epistemic_block(
             speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
             belief_status=BeliefStatus.ASSERTED, uncertainty=round(1.0 - posterior, 4),
@@ -775,7 +780,7 @@ def emit_wire_received(
         parent_ids=[msg_id] if msg_id else None,
         episode_id=episode_id,
         kind_override="exchange",
-        subprotocol="SNP",
+        subprotocol="SIEP",
         payload_parts=[{
             "type": "utterance", "location": "inline",
             "content": _recv_utt,

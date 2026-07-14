@@ -66,6 +66,7 @@ from SSTP.l9.emit import (
     emit_taskwork_result as _emit_taskwork_result,
     emit_repair_resolved as _emit_repair_resolved,
     emit_grounding_turn as _emit_grounding_turn,
+    emit_wire_received as _emit_wire_received,
     _emit_exchange_ready,
     _emit_ready,
     _emit_episode_close,
@@ -77,6 +78,40 @@ from SSTP.l9.grounding import receive_peer_turn as _receive_peer_turn
 
 _LOGGER = logging.getLogger("sstp.l9")
 
+
+
+# ── Session plan and errors ───────────────────────────────────────────────────
+
+
+@dataclass
+class SessionPlan:
+    """Describes how a multi-phase session will be conducted.
+
+    Carried on the wire opening intent and available via L9Session.plan.
+    """
+    phases: List[str] = field(default_factory=lambda: ["team_process", "taskwork", "task"])
+    subprotocol: str = "SIEP"
+    contingency: str = "CIP"
+
+
+class SessionAbortedError(RuntimeError):
+    """Raised when a session phase fails to reach commit before close."""
+
+    def __init__(self, phase: str, resolution_label: str) -> None:
+        self.phase = phase
+        self.resolution_label = resolution_label
+        super().__init__(
+            f"Session aborted at phase={phase!r} resolution={resolution_label!r}"
+        )
+
+
+class PlanAdherenceError(RuntimeError):
+    """Raised by a participant that receives a message violating the agreed SessionPlan."""
+
+    def __init__(self, agent_id: str, violation: str) -> None:
+        self.agent_id = agent_id
+        self.violation = violation
+        super().__init__(f"plan adherence violation by {agent_id!r}: {violation}")
 
 
 # ── Prior representation ──────────────────────────────────────────────────────
@@ -689,18 +724,6 @@ class TaskEpisode(Episode):
             self._gar = gar
             self._scr = scr
 
-        # Emit episode-level commit:converged to all group members so their registered
-        # handlers can react (teardown, session reset, etc.) without direct method calls.
-        _emit_episode_close(
-            self._bus,
-            coordinator=self._agent_id,
-            subject=self._concept_id,
-            accepted=True,
-            episode_id=self._episode_id,
-            rationale="task converged",
-            recipients=self._group or None,
-        )
-
     def close(self, **kwargs: Any) -> str:
         raise RuntimeError(
             "TaskEpisode does not support close() — the task loop calls it internally. "
@@ -939,7 +962,7 @@ class L9:
         """Open a team-process episode as initiator.
 
         Emits kind=intent. Returns a :class:`TeamProcessEpisode`; call
-        :meth:`TeamProcessEpisode.run` to execute the SNP governance debate,
+        :meth:`TeamProcessEpisode.run` to execute the SIEP governance debate,
         then :meth:`Episode.close`.
 
         The per-member accept/counter decision is owned by each specialist via
@@ -948,37 +971,16 @@ class L9:
         ``pivot_fn(ctrl_pos, counter_list, accept_list, task_goal)``
             — coordinator revises governance terms in response to counters.
         ``commit_fn(winning_position, resolution_label)``
-            — called after SNP convergence; store process_params per specialist.
+            — called after SIEP convergence; store process_params per specialist.
         """
         self._seed_tom_peers(group, task_goal or self._task_goal)
-        team_prior_obj = self._get_team_prior(concept_id)
+        team_prior_obj = self._get_team_prior(concept_id, convergence_store=convergence_store)
         agent_prior_obj = self._get_agent_prior(concept_id)
         blended = blend_prior(agent_prior_obj, team_prior_obj)
 
         eid = episode_id or (
             f"urn:ioc:{self._bus.use_case}:tp"
             f":{concept_id.replace(':', '-')}:{int(time.time() * 1000)}"
-        )
-
-        team_prior_payload: Optional[Dict[str, Any]] = None
-        if team_prior_obj:
-            team_prior_payload = {
-                "concept_id": concept_id,
-                "confidence": team_prior_obj.confidence,
-                "provenance_weight": team_prior_obj.provenance_weight,
-                "episode_count": team_prior_obj.episode_count,
-            }
-
-        _emit_intent(self._bus,
-            sender=self._agent_id,
-            receiver=None,
-            subject=concept_id,
-            episode_id=eid,
-            team_prior=team_prior_payload,
-            team_process=team_process,
-            rationale=rationale,
-            thought_summary=thought_summary,
-            recipients=group,
         )
 
         return TeamProcessEpisode(
@@ -1026,26 +1028,6 @@ class L9:
         if not eid.endswith(":tw"):
             eid = f"{eid}:tw" if ":tw" not in eid else eid
 
-        team_prior_obj = self._get_team_prior(concept_id)
-        team_prior_payload: Optional[Dict[str, Any]] = None
-        if team_prior_obj:
-            team_prior_payload = {
-                "concept_id": concept_id,
-                "confidence": team_prior_obj.confidence,
-                "provenance_weight": team_prior_obj.provenance_weight,
-                "episode_count": team_prior_obj.episode_count,
-            }
-
-        _emit_intent(self._bus,
-            sender=self._agent_id,
-            receiver=None,
-            subject=concept_id,
-            episode_id=eid,
-            team_prior=team_prior_payload,
-            rationale=f"Opening taskwork episode for {concept_id}",
-            recipients=group,
-        )
-
         return TaskEpisode(
             bus=self._bus,
             agent_id=self._agent_id,
@@ -1081,7 +1063,7 @@ class L9:
         ``team_process`` is forwarded as payload[type=team_process] on the intent.
         ``rationale`` and ``thought_summary`` go into payload[type=utterance].
         """
-        team_prior_obj = self._get_team_prior(concept_id)
+        team_prior_obj = self._get_team_prior(concept_id, convergence_store=convergence_store)
         agent_prior_obj = self._get_agent_prior(concept_id)
         blended = blend_prior(agent_prior_obj, team_prior_obj)
 
@@ -1142,32 +1124,13 @@ class L9:
         Emits kind=intent on the outer :t episode to all group members before
         the inner SIEP panel opens inside TaskEpisode.run().
         """
-        team_prior_obj = self._get_team_prior(concept_id)
+        team_prior_obj = self._get_team_prior(concept_id, convergence_store=convergence_store)
         agent_prior_obj = self._get_agent_prior(concept_id)
         blended = blend_prior(agent_prior_obj, team_prior_obj)
 
         eid = episode_id or (
             f"urn:ioc:{self._bus.use_case}:task"
             f":{concept_id.replace(':', '-')}:{int(time.time() * 1000)}:t"
-        )
-
-        team_prior_payload: Optional[Dict[str, Any]] = None
-        if team_prior_obj:
-            team_prior_payload = {
-                "concept_id": concept_id,
-                "confidence": team_prior_obj.confidence,
-                "provenance_weight": team_prior_obj.provenance_weight,
-                "episode_count": team_prior_obj.episode_count,
-            }
-
-        _emit_intent(self._bus,
-            sender=self._agent_id,
-            receiver=None,
-            subject=concept_id,
-            episode_id=eid,
-            team_prior=team_prior_payload,
-            rationale=f"Opening task episode for {concept_id}",
-            recipients=group,
         )
 
         return TaskEpisode(
@@ -1201,8 +1164,6 @@ class L9:
         repair_fn: Optional[Callable] = None,
         convergence_store: Any = None,
         semantic_rule_store: Any = None,
-        close_rationale: str = "",
-        close_thought_summary: str = "",
     ) -> "TeamProcessResult":
         """Open, run, and close a team-process episode in one call."""
         ep = self.open_team_process(
@@ -1220,7 +1181,6 @@ class L9:
             semantic_rule_store=semantic_rule_store,
         )
         ep.run()
-        ep.close(rationale=close_rationale, thought_summary=close_thought_summary)
         return TeamProcessResult(
             mpc=ep.mpc,
             gar=ep.gar,
@@ -1514,48 +1474,77 @@ class L9:
         concept_id: str,
         group: List[str],
         task_goal: str = "",
+        session_plan: Optional["SessionPlan"] = None,
     ) -> "L9Session":
-        """Create a three-phase session wrapper for TP → TW → T episode sequences.
+        """Emit the session-level SIEP opening intent and return an L9Session.
 
-        Seeds ToM peer models for the full group, then returns an
-        :class:`L9Session` that enforces phase ordering and forwards
-        the shared outer episode ID to each run_* call automatically.
+        The opening intent carries the :class:`SessionPlan` (phases, subprotocol,
+        contingency protocol) as a payload part.  Each participant in *group*
+        receives an exchange:received ACK on the same session URN immediately
+        after.  Seeds ToM peer models for the full group.
         """
         self._seed_tom_peers(group, task_goal or self._task_goal)
+        plan = session_plan or SessionPlan()
+        _emit_intent(
+            self._bus,
+            sender=self._agent_id,
+            receiver=None,
+            subject=concept_id,
+            episode_id=session_id,
+            rationale=task_goal or self._task_goal,
+            thought_summary=(
+                f"Opening session {session_id}: "
+                f"phases={plan.phases} subprotocol={plan.subprotocol} "
+                f"contingency={plan.contingency}"
+            ),
+            recipients=group,
+            session_plan={
+                "phases": plan.phases,
+                "subprotocol": plan.subprotocol,
+                "contingency": plan.contingency,
+            },
+            label="session:open",
+        )
+        # Each participant acknowledges the session plan (exchange:received).
+        opening_header = self._bus.messages[-1]
+        opening_msg_id = (opening_header.get("message") or {}).get("id", "")
+        for recipient in group:
+            _emit_wire_received(
+                self._bus,
+                msg_id=opening_msg_id,
+                recipient_id=recipient,
+                sender_id=self._agent_id,
+                episode_id=session_id,
+            )
         return L9Session(
             session_id=session_id,
             concept_id=concept_id,
             group=group,
             task_goal=task_goal or self._task_goal,
+            plan=plan,
             _l9=self,
         )
 
     # ── Prior helpers ──────────────────────────────────────────────────────
 
-    def _get_team_prior(self, concept_id: str) -> Optional[TeamPrior]:
-        _TEM_ID = "team-memory"
-        handler = self._bus.get_handler(_TEM_ID)
-        if handler is None:
-            return None
-        msg_count_before = len(self._bus.messages)
-        handler({
-            "kind": "intent",
-            "sender": self._agent_id,
-            "payload": [{"type": "utterance", "location": "inline",
-                         "content": f"episode:open subject={concept_id}"}],
-        })
-        for msg in self._bus.messages[msg_count_before:]:
-            if msg.get("kind") == "exchange" and msg.get("sender") == _TEM_ID:
-                for part in msg.get("payload", []):
-                    if part.get("type") == "team_prior":
-                        content = part.get("content") or {}
-                        if not content.get("found"):
-                            return None
-                        return TeamPrior(
-                            confidence=content["confidence"],
-                            provenance_weight=content["provenance_weight"],
-                            episode_count=content["episode_count"],
-                        )
+    def _get_team_prior(
+        self, concept_id: str, convergence_store: Any = None
+    ) -> Optional[TeamPrior]:
+        # Prefer direct store access — no bus involvement, no trace pollution.
+        if convergence_store is not None:
+            truth = convergence_store.latest(concept_id)
+            if truth is None:
+                return None
+            gar = getattr(truth, "genuine_agreement_ratio", 0.0)
+            scr = getattr(truth, "social_compliance_ratio", 0.0)
+            posterior = getattr(truth, "consensus_posterior", 0.5)
+            records = list(convergence_store.records() or [])
+            episode_count = sum(1 for t in records if t.concept_id == concept_id)
+            return TeamPrior(
+                confidence=posterior,
+                provenance_weight=round((1.0 - scr) * gar, 4),
+                episode_count=episode_count,
+            )
         return None
 
     def _get_agent_prior(self, concept_id: str) -> Optional[AgentPrior]:
@@ -1654,13 +1643,17 @@ class L9Session:
         group: List[str],
         task_goal: str,
         _l9: "L9",
+        plan: Optional["SessionPlan"] = None,
     ) -> None:
         self.session_id = session_id
         self.concept_id = concept_id
         self.group = group
         self.task_goal = task_goal
         self._l9 = _l9
+        self.plan: SessionPlan = plan or SessionPlan()
         self._phase: str = ""  # "" | "tp" | "tw" | "t"
+
+    _COMMIT_SUFFIXES = ("majority", "consensus", "casting_vote", "converged")
 
     @property
     def tp_episode_id(self) -> str:
@@ -1685,8 +1678,6 @@ class L9Session:
         repair_fn: Any = None,
         rationale: str = "",
         thought_summary: str = "",
-        close_rationale: str = "",
-        close_thought_summary: str = "",
     ) -> "TeamProcessResult":
         """Run the team-process phase. Must be called first."""
         if self._phase != "":
@@ -1704,9 +1695,9 @@ class L9Session:
             repair_fn=repair_fn,
             rationale=rationale,
             thought_summary=thought_summary,
-            close_rationale=close_rationale,
-            close_thought_summary=close_thought_summary,
         )
+        if not any(result.resolution_label.endswith(s) for s in self._COMMIT_SUFFIXES):
+            raise SessionAbortedError("team_process", result.resolution_label)
         self._phase = "tp"
         return result
 
@@ -1739,6 +1730,8 @@ class L9Session:
             repair_fn=repair_fn,
             pivot_fn=pivot_fn,
         )
+        if not any(result.resolution_label.endswith(s) for s in self._COMMIT_SUFFIXES):
+            raise SessionAbortedError("taskwork", result.resolution_label)
         self._phase = "tw"
         return result
 
@@ -1774,7 +1767,19 @@ class L9Session:
             task_name=task_name,
             pivot_fn=pivot_fn,
         )
+        if not any(result.resolution_label.endswith(s) for s in self._COMMIT_SUFFIXES):
+            raise SessionAbortedError("task", result.resolution_label)
         self._phase = "t"
+        _emit_episode_close(
+            self._l9._bus,
+            coordinator=self._l9._agent_id,
+            subject=self.concept_id,
+            accepted=True,
+            episode_id=self.session_id,
+            rationale=f"Session complete: {result.resolution_label}",
+            recipients=self.group,
+            label="session:close",
+        )
         return result
 
 
@@ -1782,5 +1787,6 @@ __all__ = [
     "Episode", "TaskEpisode", "TeamProcessEpisode",
     "TaskworkParticipant", "L9", "L9Session", "blend_prior", "AgentPrior", "TeamPrior",
     "TeamProcessResult", "TaskworkResult", "TaskResult",
+    "SessionPlan", "SessionAbortedError", "PlanAdherenceError",
     "DebateRoundContext", "DebateRoundEpisode",
 ]

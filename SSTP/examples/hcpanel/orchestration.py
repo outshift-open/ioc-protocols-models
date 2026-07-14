@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from SSTP.subprotocol.siep.src.panel import NetworkHandle
 from SSTP.examples.hcpanel.domain import ClinicalDebateOutcome, SpecialistOpinion
-from SSTP.l9 import L9
+from SSTP.l9 import L9, SessionAbortedError, PlanAdherenceError
 
 
 if TYPE_CHECKING:
@@ -130,7 +130,7 @@ class DebateOrchestrator:
         )
 
         # ── EPISODE A: team process ──────────────────────────────────────
-        # TP-2: SNP callbacks for TeamProcessEpisode governance debate
+        # TP-2: SIEP callbacks for TeamProcessEpisode governance debate
         current_team_process: Dict[str, Any] = {
                 "session_objective": session_objective,
                 "primary_question": primary_question,
@@ -142,7 +142,7 @@ class DebateOrchestrator:
                     "any exchange occurs."
                 ),
                 "debate_format": (
-                    "Debate is a structured negotiation protocol (SNP). The coordinator "
+                    "Debate is a structured negotiation protocol (SIEP). The coordinator "
                     "synthesises all priors into a controller position and opens a panel. "
                     "Each specialist may accept or counter the controller position with a "
                     "competing proposal. Rounds continue until consensus is reached or the "
@@ -161,7 +161,7 @@ class DebateOrchestrator:
                     "human_escalation_threshold": 0.6,
                 },
                 "no_convergence_handling": (
-                    f"If the panel fails to reach full consensus after all SNP rounds, "
+                    f"If the panel fails to reach full consensus after all SIEP rounds, "
                     f"the session resolves by majority rule: the position held by the "
                     f"largest coalition of specialists is adopted. If no majority exists "
                     f"(tie), the casting vote of {_CONTROLLER_ID} is applied. "
@@ -211,25 +211,24 @@ class DebateOrchestrator:
             task_goal=session_objective,
         )
 
-        session.run_team_process(
-            team_process=current_team_process,
-            pivot_fn=_tp_pivot_fn,
-            commit_fn=_tp_commit_fn,
-            convergence_store=self.memory.convergence_store,
-            semantic_rule_store=self.memory.semantic_rule_store,
-            rationale=(
-                f"Opening team process for patient {patient.patient_id}: "
-                f"governance debate with {len(all_ids)} specialists."
-            ),
-            thought_summary=(
-                f"SNP governance debate: {len(all_ids)} specialists converge on team process."
-            ),
-            close_rationale=(
-                f"Team process governance converged for patient {patient.patient_id}. "
-                f"All {len(all_ids)} specialists have agreed process terms."
-            ),
-            close_thought_summary="Governance SNP complete; proceeding to taskwork.",
-        )
+        try:
+            session.run_team_process(
+                team_process=current_team_process,
+                pivot_fn=_tp_pivot_fn,
+                commit_fn=_tp_commit_fn,
+                convergence_store=self.memory.convergence_store,
+                semantic_rule_store=self.memory.semantic_rule_store,
+                rationale=(
+                    f"Opening team process for patient {patient.patient_id}: "
+                    f"governance debate with {len(all_ids)} specialists."
+                ),
+                thought_summary=(
+                    f"SIEP governance debate: {len(all_ids)} specialists converge on team process."
+                ),
+            )
+        except (SessionAbortedError, PlanAdherenceError) as exc:
+            LOGGER.error("session failed during team-process: %s", exc)
+            raise
 
         # ── EPISODE B: taskwork SIEP debate ─────────────────────────────
         # Controller opens with patient data embedded so each specialist can
@@ -260,15 +259,19 @@ class DebateOrchestrator:
             for a in all_specialists
         }
 
-        tw_result = session.run_taskwork(
-            tw_controller_position,
-            tw_specialist_positions,
-            accept_threshold=0.15,
-            max_rounds=2,
-            convergence_store=self.memory.convergence_store,
-            semantic_rule_store=self.memory.semantic_rule_store,
-            repair_fn=self.repair_fn,
-        )
+        try:
+            tw_result = session.run_taskwork(
+                tw_controller_position,
+                tw_specialist_positions,
+                accept_threshold=0.15,
+                max_rounds=2,
+                convergence_store=self.memory.convergence_store,
+                semantic_rule_store=self.memory.semantic_rule_store,
+                repair_fn=self.repair_fn,
+            )
+        except (SessionAbortedError, PlanAdherenceError) as exc:
+            LOGGER.error("session failed during taskwork: %s", exc)
+            raise
 
         # SIEP winning position becomes the Episode C controller position.
         # Specialist positions are updated in tw_result.specialist_positions
@@ -342,18 +345,22 @@ class DebateOrchestrator:
                 LOGGER.warning("debate_pivot_synthesis failed: %s", exc)
                 return ctrl_pos
 
-        task_result = session.run_task(
-            controller_position,
-            all_positions,
-            concept_id=f"urn:concept:healthcare:{controller_position.get('likely_cause', 'unknown')}",
-            accept_threshold=0.1,
-            max_rounds=2,
-            convergence_store=self.memory.convergence_store,
-            semantic_rule_store=self.memory.semantic_rule_store,
-            repair_fn=self.repair_fn,
-            task_name="hcpanel",
-            pivot_fn=_pivot_fn,
-        )
+        try:
+            task_result = session.run_task(
+                controller_position,
+                all_positions,
+                concept_id=f"urn:concept:healthcare:{controller_position.get('likely_cause', 'unknown')}",
+                accept_threshold=0.1,
+                max_rounds=2,
+                convergence_store=self.memory.convergence_store,
+                semantic_rule_store=self.memory.semantic_rule_store,
+                repair_fn=self.repair_fn,
+                task_name="hcpanel",
+                pivot_fn=_pivot_fn,
+            )
+        except (SessionAbortedError, PlanAdherenceError) as exc:
+            LOGGER.error("session failed during task: %s", exc)
+            raise
 
         winning_position = task_result.winning_position
         resolution_label = task_result.resolution_label

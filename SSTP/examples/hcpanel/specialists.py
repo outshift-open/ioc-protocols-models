@@ -9,6 +9,7 @@ from SSTP.subprotocol.siep.src.builder import NegotiationOperation  # type: igno
 from SSTP.subprotocol.siep.src.panel import NetworkHandle, DebateRoundContext
 from SSTP.examples.hcpanel.domain import PatientProfile
 from SSTP.examples.hcpanel.llm_backends import extract_findings
+from SSTP.l9 import PlanAdherenceError
 
 LOGGER = logging.getLogger("healthcare2")
 
@@ -220,6 +221,7 @@ class SpecialistAgent:
         # L9 episode API — wired up by wire_up_l9()
         self._l9: Optional[Any] = None
         self._session: Optional[SpecialistSessionContext] = None
+        self._agreed_plan: Optional[Dict[str, Any]] = None
 
     def reset_session(self) -> None:
         """Reset per-session state."""
@@ -365,6 +367,12 @@ class SpecialistAgent:
 
     def dispatch_intent(self, header: Any) -> None:
         """Route an incoming intent header through this agent's L9."""
+        if isinstance(header, dict) and self._agreed_plan is None:
+            for part in (header.get("payload") or []):
+                if part.get("type") == "session_plan":
+                    self._agreed_plan = part.get("content")
+                    break
+        self._check_plan_adherence(header, expected_kind="intent")
         if self._l9 is not None:
             self._l9.dispatch_intent(header)
 
@@ -373,6 +381,7 @@ class SpecialistAgent:
 
         Reconstructs DebateRoundContext from the siep-ctx payload part.
         """
+        self._check_plan_adherence(header, expected_kind="exchange")
         if self._l9 is None or not isinstance(header, dict):
             return
         siep_ctx_part = next(
@@ -401,19 +410,20 @@ class SpecialistAgent:
 
     def dispatch_commit(self, header: Any) -> None:
         """Route an incoming commit header to _on_commit."""
+        self._check_plan_adherence(header, expected_kind="commit")
         self._on_commit(header)
 
     def _on_commit(self, header: Any) -> None:
         """Handle commit:converged delivery.
 
-        TP commit:  extract team_process_terms from payload and apply as process_params.
-        Task commit: clear per-session state (teardown).
+        panel:team_process commit — extract governance terms into process_params.
+        panel:hcpanel commit (final task) — clear per-session state (teardown).
+        All other commits (panel:taskwork, outer :tw/:t intents) — no-op.
         """
         episode_id = (header.get("message") or {}).get("episode", "") if isinstance(header, dict) else ""
         payload = header.get("payload", []) if isinstance(header, dict) else []
 
-        if ":tp" in episode_id:
-            # V3: extract governance terms from TP commit and store as process_params
+        if "panel:team_process" in episode_id:
             for part in payload:
                 if part.get("type") == "team_process":
                     terms = part.get("content") or {}
@@ -426,8 +436,7 @@ class SpecialistAgent:
                         "governance_resolution": terms.get("governance_resolution", ""),
                     }
                     break
-        else:
-            # V5: task committed — clear session state
+        elif "panel:hcpanel" in episode_id:
             self._on_task_converged()
 
     def _on_intent(self, episode: Any) -> None:
@@ -444,6 +453,46 @@ class SpecialistAgent:
                 episode_id=eid,
                 concept_id=concept_id,
                 session_objective="",
+            )
+
+    def _check_plan_adherence(self, header: Any, expected_kind: str) -> None:
+        """Raise PlanAdherenceError if header violates the agreed session plan.
+
+        CIP repair messages are allowed only when plan.contingency == "CIP".
+        All other messages must use the agreed subprotocol (default SIEP).
+        """
+        if not isinstance(header, dict):
+            return
+        if self._agreed_plan is None:
+            return
+        plan = self._agreed_plan
+        header_subprotocol = header.get("subprotocol", "")
+        header_kind = (header.get("context") or {}).get("kind", "")
+        if header_subprotocol == "CIP":
+            if plan.get("contingency") != "CIP":
+                raise PlanAdherenceError(
+                    agent_id=self.agent_id,
+                    violation=(
+                        f"received CIP message but plan.contingency="
+                        f"{plan.get('contingency')!r}"
+                    ),
+                )
+            return
+        if header_subprotocol and header_subprotocol != plan.get("subprotocol", "SIEP"):
+            raise PlanAdherenceError(
+                agent_id=self.agent_id,
+                violation=(
+                    f"subprotocol mismatch: got {header_subprotocol!r}, "
+                    f"plan={plan.get('subprotocol')!r}"
+                ),
+            )
+        if expected_kind and header_kind and header_kind != expected_kind:
+            raise PlanAdherenceError(
+                agent_id=self.agent_id,
+                violation=(
+                    f"kind mismatch: got {header_kind!r}, "
+                    f"expected {expected_kind!r}"
+                ),
             )
 
     def _on_task_converged(self, knowledge_content: str = "") -> None:
@@ -570,7 +619,7 @@ class SpecialistAgent:
         session_objective: str,
         tom_ctx: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Decide accept/counter on a clinical SNP proposal."""
+        """Decide accept/counter on a clinical SIEP proposal."""
         if self.llm is None:
             return {"decision": "accept", "rationale": "auto-accept (no LLM)"}
 
