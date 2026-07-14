@@ -312,9 +312,12 @@ class DebateOrchestrator:
                 "reasoning_summary": f"Plurality position: {leading_cause}",
             }
 
+        _ctrl_conf = float(
+            controller_position.get("confidence") or controller_position.get("posterior") or 0.5
+        )
         LOGGER.info(
             "debate.panel_open episode=%s controller_position=%s confidence=%.4f members=%d",
-            episode_id, controller_position.get("likely_cause"), controller_position.get("confidence"), len(all_ids),
+            episode_id, controller_position.get("likely_cause"), _ctrl_conf, len(all_ids),
         )
 
         def _pivot_fn(
