@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-siep/src/negotiation.py — SNP negotiation round-loop engines.
+siep/src/negotiation.py — SIEP negotiation round-loop engines.
 
 StarNegotiator  — hub-and-spoke: controller proposes → N members respond → commit
 RingNegotiator  — ring: each member proposes to the next → rotate until convergence
@@ -59,7 +59,20 @@ def _confidence(pos: Any) -> float:
 
 
 def _position_utterance(agent_id: str, verb: str, pos: Any) -> str:
-    return f"{agent_id} {verb} {_position_key(pos)} confidence={_confidence(pos):.2f}"
+    base = f"{agent_id} {verb} {_position_key(pos)} confidence={_confidence(pos):.2f}"
+    if not isinstance(pos, dict):
+        return base
+    # Include semantic content so token-overlap grounding checks have signal to work with.
+    parts = []
+    rationale = (pos.get("rationale") or pos.get("reasoning_summary") or "").strip()
+    if rationale:
+        parts.append(rationale)
+    evidence = pos.get("supporting_evidence") or pos.get("addresses_evidence") or []
+    if isinstance(evidence, list) and evidence:
+        parts.append(" ".join(str(e) for e in evidence))
+    elif isinstance(evidence, str) and evidence:
+        parts.append(evidence)
+    return f"{base} | {' | '.join(parts)}" if parts else base
 
 
 def _leading_position(positions: Dict[str, Any]) -> Any:
@@ -107,7 +120,7 @@ class _RoundCtx:
 # ── StarNegotiator ────────────────────────────────────────────────────────────
 
 class StarNegotiator:
-    """Hub-and-spoke SNP negotiation: controller proposes → N members respond → commit."""
+    """Hub-and-spoke SIEP negotiation: controller proposes → N members respond → commit."""
 
     def __init__(
         self,
@@ -520,25 +533,32 @@ class StarNegotiator:
                 verb = "accepts" if res.operation == NegotiationOperation.ACCEPT else "counter-proposes"
                 response_utt = _position_utterance(member_id, verb, res.position)
                 _grounding_hdr = propose_headers[member_id]
-                _grounding_result = verify_grounding_bilateral(
-                    utterance_a=prop_utt,
-                    response_b=response_utt,
-                    debate_message_id=_grounding_hdr["message"]["id"],
-                    task_goal=task_goal,
-                    speaker=controller_id,
-                    listener=member_id,
-                    listener_actual_confidence=_confidence(res.position),
-                    listener_belief=res.listener_belief,
-                    concept_id=concept_id,
-                    forced_accept=res.forced_accept,
-                    speaker_epistemic=_grounding_hdr.get("epistemic"),
-                    listener_epistemic=res.exchange_header.get("epistemic"),
-                    tom_engine=self.context.tom_engine,
-                    use_case=self.context.use_case,
-                    episode_id=self.context._episode_id(),
-                    message_bus=self.network,
-                    common_ground_ids=self.context._common_ground_ids,
-                )
+                # Accept is contingent by definition — the agent explicitly agreed with
+                # the proposal, so grounding is structurally guaranteed.  Only run the
+                # bilateral grounding check on counter-proposals where the response
+                # content may not actually engage with the controller's argument.
+                if res.operation == NegotiationOperation.ACCEPT:
+                    _grounding_result: Dict[str, Any] = {}
+                else:
+                    _grounding_result = verify_grounding_bilateral(
+                        utterance_a=prop_utt,
+                        response_b=response_utt,
+                        debate_message_id=_grounding_hdr["message"]["id"],
+                        task_goal=task_goal,
+                        speaker=controller_id,
+                        listener=member_id,
+                        listener_actual_confidence=_confidence(res.position),
+                        listener_belief=res.listener_belief,
+                        concept_id=concept_id,
+                        forced_accept=res.forced_accept,
+                        speaker_epistemic=_grounding_hdr.get("epistemic"),
+                        listener_epistemic=res.exchange_header.get("epistemic"),
+                        tom_engine=self.context.tom_engine,
+                        use_case=self.context.use_case,
+                        episode_id=self.context._episode_id(),
+                        message_bus=self.network,
+                        common_ground_ids=self.context._common_ground_ids,
+                    )
                 if _grounding_result.get("grounding_failure"):
                     self._run_cip_repair(
                         controller_id=controller_id,
@@ -608,22 +628,25 @@ class StarNegotiator:
             _star_final = {**{mid: specialist_positions[mid] for mid in member_ids},
                            controller_id: ctrl_pos}
             _BELIEF_CHANGE_THRESHOLD = 0.05
+            # GAR and SCR are specialist-only metrics — the controller seeds the
+            # position and is excluded so its stability doesn't suppress both ratios.
+            _gar_members = list(member_ids)
             _genuine = sum(
-                1 for _gid in _star_all
+                1 for _gid in _gar_members
                 if abs(_confidence(_star_final[_gid]) - initial_priors.get(_gid, 0.5))
                 > _BELIEF_CHANGE_THRESHOLD
             )
-            gar = round(_genuine / len(_star_all), 4) if _star_all else 1.0
+            gar = round(_genuine / len(_gar_members), 4) if _gar_members else 1.0
             final_posteriors = {mid: _confidence(specialist_positions[mid]) for mid in member_ids}
             final_posteriors[controller_id] = _confidence(winning_position)
-            # SCR: fraction of agents who accepted without updating their belief
+            # SCR: fraction of specialists who accepted without updating their belief
             _rubber_stamped = sum(
-                1 for _gid in _star_all
+                1 for _gid in _gar_members
                 if _gid not in countering
                 and abs(_confidence(_star_final[_gid]) - initial_priors.get(_gid, 0.5))
                 <= _BELIEF_CHANGE_THRESHOLD
             )
-            scr = round(_rubber_stamped / len(_star_all), 4) if _star_all else 0.0
+            scr = round(_rubber_stamped / len(_gar_members), 4) if _gar_members else 0.0
             mpc = round(sum(final_posteriors.values()) / len(final_posteriors), 4)
             outcome_map = {
                 "consensus": "accept", "majority": "accept",

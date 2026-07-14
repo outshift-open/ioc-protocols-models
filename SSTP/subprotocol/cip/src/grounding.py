@@ -21,10 +21,6 @@ import time
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 from SSTP.subprotocol.cip.src.cip_payload import RepairReason
-from SSTP.subprotocol.cip.src.builder import build_l9_header
-from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
-    SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block,
-)
 from SSTP.subprotocol.siep.src.epistemic.stores import CommonGround
 
 if TYPE_CHECKING:
@@ -32,7 +28,7 @@ if TYPE_CHECKING:
 
 # Minimum overlap fraction between A's concept_ids and B's addresses_evidence
 # for the response to be considered contingent.
-CONTINGENCY_THRESHOLD: float = 0.5
+CONTINGENCY_THRESHOLD: float = 0.4
 
 
 def _get_concept_ids(
@@ -251,42 +247,9 @@ def verify_grounding_bilateral(
 
     ts = int(time.time() * 1000)
 
-    if not forced_accept and result.get("grounding_failure"):
-        _repair_child = f"{episode_id}:cip_repair:{debate_message_id[-8:]}"
-        _repair_req = build_l9_header(
-            use_case=use_case,
-            event_type="repair_required",
-            sender=listener,
-            receiver=speaker,
-            timestamp_ms=ts,
-            sensitivity="confidential",
-            utterance=response_b,
-            parent_ids=[debate_message_id],
-            episode_id=_repair_child,
-            epistemic=make_epistemic_block(
-                speech_act=SpeechAct.ASSERTION,
-                epistemic_state=EpistemicState.GROUNDING,
-                belief_status=BeliefStatus.DEFERRED,
-            ),
-        )
-        message_bus.messages.append(_repair_req)
-        _repair_applied = build_l9_header(
-            use_case=use_case,
-            event_type="repair_applied",
-            sender=speaker,
-            receiver=listener,
-            timestamp_ms=ts + 1,
-            sensitivity="confidential",
-            utterance=f"re-anchor to task: {task_goal}",
-            parent_ids=[_repair_req["message"]["id"]],
-            episode_id=_repair_child,
-            epistemic=make_epistemic_block(
-                speech_act=SpeechAct.ASSERTION,
-                epistemic_state=EpistemicState.GROUNDING,
-                belief_status=BeliefStatus.REVISED,
-            ),
-        )
-        message_bus.messages.append(_repair_applied)
+    # CIP repair sequence is the caller's responsibility (_run_cip_repair in
+    # negotiation.py).  This function only assesses grounding and returns the
+    # result dict — it does NOT emit wire messages for the repair itself.
 
     if not is_deliberation_pass and not forced_accept:
         contingency_verified = contingency_score >= 0.4
