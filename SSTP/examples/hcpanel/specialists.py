@@ -268,6 +268,7 @@ class SpecialistAgent:
                 task_goal=round_ep.task_goal,
                 session_objective=(self._session.session_objective if self._session else ""),
                 tom_ctx=round_ep.tom_ctx,
+                round_idx=getattr(round_ep, "turn", 1),
             )
         if result.get("decision") == "accept":
             operation = NegotiationOperation.ACCEPT
@@ -597,7 +598,7 @@ class SpecialistAgent:
         if self.llm is None:
             return {"decision": "accept", "rationale": "auto-accept (no LLM)"}
         try:
-            return self.llm.complete_json("tp_task_accept_or_counter", {
+            return self.llm.complete_json("tp_debate_accept_or_counter", {
                 "agent_id": self.agent_id,
                 "role": self.role,
                 "governance_terms": ctrl_pos.get("team_process_terms", {}),
@@ -618,29 +619,33 @@ class SpecialistAgent:
         task_goal: str,
         session_objective: str,
         tom_ctx: Optional[Dict[str, Any]] = None,
+        round_idx: int = 1,
     ) -> Dict[str, Any]:
         """Decide accept/counter on a clinical SIEP proposal."""
         if self.llm is None:
             return {"decision": "accept", "rationale": "auto-accept (no LLM)"}
 
-        my_confidence: float = member_pos.get("confidence", 0.5)
+        my_confidence: float = float(
+            member_pos.get("confidence") or member_pos.get("posterior") or 0.5
+        )
         prior_args: List[Dict[str, Any]] = list((tom_ctx or {}).get("prior_argument_history", []))[-4:]
 
         try:
-            return self.llm.complete_json("task_accept_or_counter", {
+            return self.llm.complete_json("debate_accept_or_counter", {
                 "agent_id": self.agent_id,
                 "role": self.role,
-                "my_taskwork_rationale": member_pos.get("rationale", ""),
+                "my_taskwork_rationale": member_pos.get("rationale", "") or member_pos.get("reasoning_summary", ""),
                 "my_supporting_evidence": member_pos.get("supporting_evidence", []),
                 "my_confidence": my_confidence,
                 "prior_argument_history": prior_args,
                 "proposal_concept": ctrl_pos.get("likely_cause", ""),
-                "proposal_confidence": ctrl_pos.get("confidence", 0.5),
-                "proposal_rationale": ctrl_pos.get("rationale", ""),
+                "proposal_confidence": float(ctrl_pos.get("confidence") or ctrl_pos.get("posterior") or 0.5),
+                "proposal_rationale": ctrl_pos.get("rationale") or ctrl_pos.get("reasoning_summary") or "",
                 "proposal_evidence": ctrl_pos.get("supporting_evidence", []),
                 "proposal_addresses_evidence": ctrl_pos.get("addresses_evidence", []),
                 "task_goal": task_goal,
                 "session_objective": session_objective,
+                "round": round_idx,
                 **(tom_ctx or {}),
             })
         except Exception as exc:
