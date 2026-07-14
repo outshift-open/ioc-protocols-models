@@ -222,11 +222,22 @@ class StarNegotiator:
             if "accept" in op_str.lower()
             else NegotiationOperation.COUNTER_PROPOSAL
         )
-        resp_pos_raw = (
-            resp_siep.get("content_detail")
-            or (resp_siep.get("content") if isinstance(resp_siep.get("content"), dict) else None)
-            or resp_siep.get("proposal_payload")
+        _content_dict = resp_siep.get("content_detail") or (
+            resp_siep.get("content") if isinstance(resp_siep.get("content"), dict) else None
         )
+        _proposal_payload = resp_siep.get("proposal_payload") or {}
+        if _content_dict:
+            resp_pos_raw = _content_dict
+        elif _proposal_payload:
+            # Merge the concept key (siep.content string) into the proposal_payload dict
+            # so _position_key and _confidence can both read from one object.
+            _concept_key = resp_siep.get("content") if isinstance(resp_siep.get("content"), str) else None
+            resp_pos_raw = {
+                "likely_cause": _concept_key or _proposal_payload.get("likely_cause"),
+                **_proposal_payload,
+            }
+        else:
+            resp_pos_raw = None
         updated_pos = (
             resp_pos_raw if isinstance(resp_pos_raw, dict) else (
                 ctrl_pos if operation == NegotiationOperation.ACCEPT else member_pos
