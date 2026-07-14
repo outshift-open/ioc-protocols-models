@@ -184,7 +184,7 @@ def verify_grounding_bilateral(
     episode_id: str,
     message_bus: Any,
     common_ground_ids: List[str],
-) -> None:
+) -> Dict[str, Any]:
     """Verify bilateral grounding using B's actual response (CIP §3.1).
 
     Called AFTER listener has responded with response_b. Assesses whether
@@ -195,14 +195,14 @@ def verify_grounding_bilateral(
     genuine agreement. Suppresses CommonGround to avoid polluting SCR.
     """
     if tom_engine is None:
-        return
+        return {}
 
     # Team-process tokens carry epistemic_state=TEAM_PROCESS and no clinical
     # content — grounding is structurally guaranteed by the auto-accept contract.
     _spk_ep_state = (speaker_epistemic or {}).get("state", "")
     _lst_ep_state = (listener_epistemic or {}).get("state", "")
     if _spk_ep_state == "team_process" or _lst_ep_state == "team_process":
-        return
+        return {}
 
     cid = concept_id or f"urn:concept:{use_case}:{task_goal[:32]}"
     confidence_before = 0.5
@@ -309,6 +309,8 @@ def verify_grounding_bilateral(
         common_ground_ids.append(
             ground.grounding_message_ids[0] if ground.grounding_message_ids else episode_id
         )
+
+    return result
 
 
 __all__ = [

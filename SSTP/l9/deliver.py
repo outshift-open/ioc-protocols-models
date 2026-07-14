@@ -15,8 +15,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, TYPE_CHECKING
 
-from SSTP.l9.emit import emit_semantic_repair, emit_wire_received
-from SSTP.subprotocol.siep.src.epistemic.vocabulary import RepairReason
+import time
+from SSTP.l9.emit import emit_wire_received
+from SSTP.subprotocol.cip.src.builder import build_l9_header
+from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
+    RepairReason, SpeechAct, EpistemicState, BeliefStatus, make_epistemic_block,
+)
 
 if TYPE_CHECKING:
     from SSTP.subprotocol.siep.src.panel import NetworkHandle
@@ -58,14 +62,28 @@ def deliver_header(net: "NetworkHandle", header: Dict[str, Any]) -> None:
                     "message_id": msg_id, "recipient_id": recipient_id,
                     "reason": "no_handler",
                 })
+            # Append repair record directly — do NOT call net.send() which would
+            # re-enter deliver_header() and cause an infinite delivery loop.
             try:
-                emit_semantic_repair(
-                    net,
+                _reason = RepairReason.DELIVERY_FAILURE.value
+                _utt = f"repair_required:reason={_reason}:target={msg_id}"
+                _repair = build_l9_header(
+                    use_case=getattr(net, "use_case", ""),
+                    event_type="repair_required",
                     sender=sender_id, receiver=recipient_id,
-                    target_message_id=msg_id,
-                    repair_reason=RepairReason.DELIVERY_FAILURE,
+                    timestamp_ms=int(time.time() * 1000),
+                    sensitivity=getattr(net, "sensitivity", "confidential"),
+                    utterance=_utt,
+                    parent_ids=[msg_id],
                     episode_id=episode_id,
+                    epistemic=make_epistemic_block(
+                        speech_act=SpeechAct.ASSERTION,
+                        epistemic_state=EpistemicState.GROUNDING,
+                        belief_status=BeliefStatus.CHALLENGED,
+                    ),
+                    payload_parts=[{"type": "utterance", "location": "inline", "content": _utt}],
                 )
+                net.messages.append(_repair)
             except Exception:
                 pass
             continue
@@ -100,14 +118,27 @@ def deliver_header(net: "NetworkHandle", header: Dict[str, Any]) -> None:
                     "message_id": msg_id, "recipient_id": recipient_id,
                     "reason": "handler_exhausted", "error": str(last_exc),
                 })
+            # Same as above — append directly, do NOT call net.send().
             try:
-                emit_semantic_repair(
-                    net,
+                _reason = RepairReason.DELIVERY_FAILURE.value
+                _utt = f"repair_required:reason={_reason}:target={msg_id}"
+                _repair = build_l9_header(
+                    use_case=getattr(net, "use_case", ""),
+                    event_type="repair_required",
                     sender=sender_id, receiver=recipient_id,
-                    target_message_id=msg_id,
-                    repair_reason=RepairReason.DELIVERY_FAILURE,
+                    timestamp_ms=int(time.time() * 1000),
+                    sensitivity=getattr(net, "sensitivity", "confidential"),
+                    utterance=_utt,
+                    parent_ids=[msg_id],
                     episode_id=episode_id,
+                    epistemic=make_epistemic_block(
+                        speech_act=SpeechAct.ASSERTION,
+                        epistemic_state=EpistemicState.GROUNDING,
+                        belief_status=BeliefStatus.CHALLENGED,
+                    ),
+                    payload_parts=[{"type": "utterance", "location": "inline", "content": _utt}],
                 )
+                net.messages.append(_repair)
             except Exception:
                 pass
 

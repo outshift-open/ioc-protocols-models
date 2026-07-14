@@ -226,6 +226,112 @@ class StarNegotiator:
             forced_accept=ctx.is_tp_panel,
         )
 
+    def _run_cip_repair(
+        self,
+        *,
+        controller_id: str,
+        member_id: str,
+        concept_id: str,
+        task_goal: str,
+        proposal_msg_id: str,
+        response_utt: str,
+        assessment: Dict[str, Any],
+        specialist_positions: Dict[str, Any],
+    ) -> None:
+        """Emit a CIP contingency → clarification → resolve sequence on grounding failure.
+
+        If context.repair_fn is set, delegate to it (application-level repair).
+        Otherwise emit the minimal CIP wire sequence: contingency → epistemic_clarification
+        → specialist re-assertion → commit:resolved, all on a child episode ID.
+        """
+        from SSTP.l9.emit import (
+            emit_semantic_repair,
+            emit_epistemic_clarification,
+            emit_repair_resolved,
+        )
+        episode_id = self.context._episode_id()
+        repair_reason = assessment.get("repair_reason") or "grounding_failure"
+        critique = assessment.get("critique") or ""
+
+        if self.context.repair_fn is not None:
+            try:
+                self.context.repair_fn(
+                    controller_id=controller_id,
+                    member_id=member_id,
+                    concept_id=concept_id,
+                    task_goal=task_goal,
+                    proposal_msg_id=proposal_msg_id,
+                    assessment=assessment,
+                    specialist_positions=specialist_positions,
+                    network=self.network,
+                    episode_id=episode_id,
+                )
+            except Exception:
+                pass
+            return
+
+        # Built-in minimal CIP repair sequence
+        contingency_hdr = emit_semantic_repair(
+            self.network,
+            sender=controller_id,
+            receiver=member_id,
+            target_message_id=proposal_msg_id,
+            repair_reason=repair_reason,
+            episode_id=episode_id,
+        )
+        contingency_id = contingency_hdr["message"]["id"]
+
+        clarif_utt = (
+            f"Clarification requested: {critique[:120]}"
+            if critique else f"Re-anchor to task goal: {task_goal[:80]}"
+        )
+        emit_epistemic_clarification(
+            self.network,
+            sender=controller_id,
+            receiver=member_id,
+            target_message_id=contingency_id,
+            reason=f"grounding_failure:score={assessment.get('contingency_score', 0):.2f}",
+            episode_id=episode_id,
+        )
+
+        # Specialist re-asserts their position — appended directly to avoid routing
+        # through net.send() → deliver_header() which would fail (controller has no
+        # grounding-turn handler) and trigger another delivery_failure repair loop.
+        _pos = specialist_positions.get(member_id, {})
+        reaffirm_utt = f"reaffirm:{concept_id}:posterior={_confidence(_pos):.4f}"
+        from SSTP.subprotocol.cip.src.builder import build_l9_header as _build
+        _reaffirm_hdr = _build(
+            use_case=self.context.use_case,
+            event_type="peer_turn",
+            sender=member_id,
+            receiver=controller_id,
+            timestamp_ms=int(time.time() * 1000),
+            sensitivity=getattr(self.network, "sensitivity", "confidential"),
+            utterance=reaffirm_utt,
+            parent_ids=[contingency_id],
+            episode_id=episode_id,
+            kind_override="exchange",
+            subprotocol="CIP",
+            epistemic=make_epistemic_block(
+                speech_act=SpeechAct.ASSERTION,
+                epistemic_state=EpistemicState.GROUNDING,
+                belief_status=BeliefStatus.REVISED,
+            ),
+            payload_parts=[{"type": "utterance", "location": "inline",
+                            "content": reaffirm_utt,
+                            "rationale": "reaffirm_after_repair"}],
+        )
+        self.network.messages.append(_reaffirm_hdr)
+
+        emit_repair_resolved(
+            self.network,
+            sender=controller_id,
+            receiver=member_id,
+            utterance=f"repair_resolved:{concept_id}:partial",
+            parent_id=contingency_id,
+            episode_id=episode_id,
+        )
+
     def run(
         self,
         controller_id: str,
@@ -414,7 +520,7 @@ class StarNegotiator:
                 verb = "accepts" if res.operation == NegotiationOperation.ACCEPT else "counter-proposes"
                 response_utt = _position_utterance(member_id, verb, res.position)
                 _grounding_hdr = propose_headers[member_id]
-                verify_grounding_bilateral(
+                _grounding_result = verify_grounding_bilateral(
                     utterance_a=prop_utt,
                     response_b=response_utt,
                     debate_message_id=_grounding_hdr["message"]["id"],
@@ -433,6 +539,17 @@ class StarNegotiator:
                     message_bus=self.network,
                     common_ground_ids=self.context._common_ground_ids,
                 )
+                if _grounding_result.get("grounding_failure"):
+                    self._run_cip_repair(
+                        controller_id=controller_id,
+                        member_id=member_id,
+                        concept_id=concept_id,
+                        task_goal=task_goal,
+                        proposal_msg_id=_grounding_hdr["message"]["id"],
+                        response_utt=response_utt,
+                        assessment=_grounding_result,
+                        specialist_positions=specialist_positions,
+                    )
 
             if accept_count == n:
                 resolution_label = "consensus"

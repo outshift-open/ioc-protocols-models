@@ -53,6 +53,14 @@ def _utterance(msg: Dict[str, Any]) -> str:
     return ""
 
 
+def _rationale(msg: Dict[str, Any]) -> str:
+    """Extract rationale from the utterance payload part."""
+    for part in (msg.get("payload") or []):
+        if part.get("type") == "utterance":
+            return str(part.get("rationale", "") or "")
+    return ""
+
+
 def _rich_payload(msg: Dict[str, Any]) -> List[Tuple[str, Any]]:
     """Return (type, content) for all non-utterance payload parts."""
     result = []
@@ -131,16 +139,28 @@ def _wire_event(seq: int, msg: Dict[str, Any], phase_label: str) -> str:
         f"### [{seq}] `{actor}` → {to_str} &nbsp; **{kind_display}** &nbsp; `{phase_label}` &nbsp; `id={msg_id}`\n\n"
     ]
 
-    # Utterance
+    # Utterance + rationale
     utt = _utterance(msg)
+    rat = _rationale(msg)
     if utt:
         lines.append(f"**Utterance:** {utt}\n\n")
+    if rat and not utt.startswith("received:"):
+        lines.append(f"**Rationale:** {rat}\n\n")
 
-    # Rich payload parts
+    # Rich payload parts — extract inline reasoning from siep/cip blocks before dumping JSON
     for ptype, pcontent in _rich_payload(msg):
         if pcontent is None:
             continue
         if isinstance(pcontent, dict):
+            # Pull out reasoning fields from siep/cip proposal payloads
+            if ptype in ("siep", "cip"):
+                pp = (pcontent.get("proposal_payload") or {})
+                rs = pp.get("reasoning_summary") or pcontent.get("reasoning_summary") or ""
+                critique = pcontent.get("critique") or pp.get("critique") or ""
+                if rs:
+                    lines.append(f"**Reasoning:** {rs}\n\n")
+                if critique:
+                    lines.append(f"**Critique:** {critique}\n\n")
             lines.append(f"**`{ptype}`**\n\n")
             lines.append(_json_block(pcontent))
             lines.append("\n\n")
@@ -176,15 +196,20 @@ def _llm_event(item: Dict[str, Any]) -> str:
         f"<details>\n<summary>🧠 <strong>LLM: {task}</strong> · `{agent}`{ts_str} · {status}</summary>\n\n"
     ]
 
-    # Thought summary first — most important
+    # Thought summary + rationale — most important, shown before the JSON
     if thought:
         lines.append(f"**Thought:** {thought}\n\n")
+    rationale = response.get("rationale") or response.get("reasoning_summary") or ""
+    if rationale and rationale != thought:
+        lines.append(f"**Rationale:** {rationale}\n\n")
 
-    # Response
+    # Full response as JSON (collapsed under reasoning above)
     if response:
-        lines.append("**Response:**\n\n")
-        lines.append(_json_block(response))
-        lines.append("\n\n")
+        resp_display = {k: v for k, v in response.items() if k not in ("rationale", "thought_summary")}
+        if resp_display:
+            lines.append("**Response:**\n\n")
+            lines.append(_json_block(resp_display))
+            lines.append("\n\n")
 
     # Prompt (payload only, not system prompt — it's boilerplate)
     user_payload = request.get("user_payload") or request.get("payload")
