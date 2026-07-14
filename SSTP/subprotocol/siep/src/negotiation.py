@@ -54,7 +54,7 @@ def _position_key(pos: Any) -> str:
 
 def _confidence(pos: Any) -> float:
     if isinstance(pos, dict):
-        return float(pos.get("confidence") or pos.get("roi_score") or 0.5)
+        return float(pos.get("confidence") or pos.get("posterior") or pos.get("roi_score") or 0.5)
     return 0.5
 
 
@@ -222,7 +222,11 @@ class StarNegotiator:
             if "accept" in op_str.lower()
             else NegotiationOperation.COUNTER_PROPOSAL
         )
-        resp_pos_raw = resp_siep.get("content_detail") or resp_siep.get("content")
+        resp_pos_raw = (
+            resp_siep.get("content_detail")
+            or (resp_siep.get("content") if isinstance(resp_siep.get("content"), dict) else None)
+            or resp_siep.get("proposal_payload")
+        )
         updated_pos = (
             resp_pos_raw if isinstance(resp_pos_raw, dict) else (
                 ctrl_pos if operation == NegotiationOperation.ACCEPT else member_pos
