@@ -68,6 +68,7 @@ def emit_peer_turn(
     thought_summary: str = "",
     role: "str | None" = None,
     recipients: "List[str] | None" = None,
+    subprotocol: "str | None" = None,
     **_: Any,
 ) -> Dict[str, Any]:
     if kind_override and _is_lifecycle_kind(kind_override) and not getattr(net, "_protocol_context", False):
@@ -104,7 +105,7 @@ def emit_peer_turn(
                 _parent_ids = [parent_id]
         else:
             _parent_ids = [parent_id]
-    header = build_l9_header(
+    _build_kwargs: Dict[str, Any] = dict(
         use_case=net.use_case,  # type: ignore[attr-defined]
         event_type="peer_turn",
         sender=sender,
@@ -122,6 +123,9 @@ def emit_peer_turn(
         recipients=_recipients,
         message_id=_msg_id,
     )
+    if subprotocol is not None:
+        _build_kwargs["subprotocol"] = subprotocol
+    header = build_l9_header(**_build_kwargs)
     if error is not None:
         header["error"] = error
     net.send(header)
@@ -361,6 +365,7 @@ def emit_grounding_phase_converged(
             episode_id=episode_id, kind_override="commit:converged",
             epistemic=_epistemic, payload_parts=payload_parts,
             recipients=recipients or [],
+            subprotocol="SNP",
         )
     net.send(header)
     return header
@@ -411,6 +416,7 @@ def emit_taskwork_phase_intent(
             episode_id=episode_id, kind_override="intent",
             epistemic=_epistemic, payload_parts=payload_parts,
             role=role, recipients=recipients or [],
+            subprotocol="SNP",
         )
     net.send(header)
     return header
@@ -455,6 +461,7 @@ def emit_knowledge_rule(
         timestamp_ms=int(time.time() * 1000),
         sensitivity=net.sensitivity,  # type: ignore[attr-defined]
         utterance=_utterance, episode_id=episode_id, topic=concept_id,
+        subprotocol="SNP",
         epistemic=make_epistemic_block(
             speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
             belief_status=BeliefStatus.ASSERTED,
@@ -548,6 +555,7 @@ def _emit_episode_open(
             episode_id=episode_id, kind_override="intent",
             epistemic=_epistemic, payload_parts=_payload_parts,
             recipients=recipients or [],
+            subprotocol="SNP",
         )
     net.send(header)
     return header
@@ -590,6 +598,7 @@ def _emit_episode_close(
             episode_id=episode_id, kind_override=_outcome,
             epistemic=_epistemic, payload_parts=payload_parts,
             recipients=recipients or [],
+            subprotocol="SNP",
         )
     net.send(header)
     return header
@@ -637,6 +646,7 @@ def _emit_intent(
                 belief_status=BeliefStatus.ASSERTED,
             ),
             payload_parts=payload_parts, role=role, recipients=_recipients,
+            subprotocol="SNP",
         )
     net.send(header)
     return header
@@ -666,7 +676,7 @@ def _emit_exchange_ready(
         speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
         parent_id=parent_id, episode_id=episode_id, kind_override="exchange:ready",
         topic=concept_id, epistemic=epistemic, rationale=rationale,
-        thought_summary=thought_summary,
+        thought_summary=thought_summary, subprotocol="SNP",
     )
 
 
@@ -690,7 +700,7 @@ def _emit_ready(
             net, sender=sender, receiver=receiver or sender, utterance=_utterance,
             speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.GROUNDING,
             parent_id=parent_id, episode_id=episode_id, kind_override="commit:ready",
-            topic=concept_id, epistemic=epistemic,
+            topic=concept_id, epistemic=epistemic, subprotocol="SNP",
         )
 
 
@@ -723,6 +733,7 @@ def _emit_knowledge_announcement(
         parent_ids=[], episode_id=episode_id,
         kind_override="knowledge", topic=concept_id,
         message_id=_msg_id,
+        subprotocol="SNP",
         epistemic=make_epistemic_block(
             speech_act=SpeechAct.ASSERTION, epistemic_state=EpistemicState.TASKWORK,
             belief_status=BeliefStatus.ASSERTED, uncertainty=round(1.0 - posterior, 4),
@@ -764,6 +775,7 @@ def emit_wire_received(
         parent_ids=[msg_id] if msg_id else None,
         episode_id=episode_id,
         kind_override="exchange",
+        subprotocol="SNP",
         payload_parts=[{
             "type": "utterance", "location": "inline",
             "content": _recv_utt,
