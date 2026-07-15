@@ -27,6 +27,13 @@ skills/
 | `common/single_message` | Builds one TFP L9 message from explicit inputs (operation, sender, receiver, payload) — non-interactive, cast-agnostic |
 | `common/message_validation` | Validates that a single TFP L9 message follows the TFP format against the raw GitHub L9 + TFP schemas, plus TFP cross-field rules |
 
+## Tested With
+
+| Agent | Haiku 4.5 | Opus 4.6 |
+|-------|-----------|----------|
+| Claude | ✓ | ✓ |
+| OpenClaw | ✓ | ✓ |
+
 ## Source of truth
 
 - L9 envelope: `SSTP/spec/l9_schema.json`
