@@ -337,6 +337,15 @@
         },
         "semantic_context": {
           "$ref": "#/$defs/NegotiateSemanticContext"
+        },
+        "round_messages": {
+          "description": "Pending per-round SAB L9 envelopes the recipient must dispatch to the participant agents this round. Each item is itself a full SAB contingency/negotiation message (header + payload). Named distinctly from the header's own ``message`` field. Populated on an ongoing negotiation response; empty when there is nothing to dispatch.",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Round Messages",
+          "type": "array"
         }
       },
       "required": [
@@ -892,7 +901,7 @@
   "description": "Union of the three SAB ``payload.data`` variants.\n\nThis is the root the schema generator dumps. Variants are discriminated by\nthe shape of ``semantic_context`` (commit and negotiate carry ``session_id``;\ncommit additionally carries ``outcome``). Ordered most-constrained first so\nPydantic's smart-union matching stays unambiguous.",
   "title": "SABPayloadData",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "protocol": "SSTP",
   "subprotocol": "SAB"
 }

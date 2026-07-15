@@ -629,12 +629,21 @@ type SABNegotiatePayloadData struct {
 	// SHA-256 hex digest of the original payload.
 	PayloadHash string `json:"payload_hash" yaml:"payload_hash" mapstructure:"payload_hash"`
 
+	// Pending per-round SAB L9 envelopes the recipient must dispatch to the
+	// participant agents this round. Each item is itself a full SAB
+	// contingency/negotiation message (header + payload). Named distinctly from the
+	// header's own ``message`` field. Populated on an ongoing negotiation response;
+	// empty when there is nothing to dispatch.
+	RoundMessages []SABNegotiatePayloadDataRoundMessagesElem `json:"round_messages,omitempty,omitzero" yaml:"round_messages,omitempty" mapstructure:"round_messages,omitempty"`
+
 	// SemanticContext corresponds to the JSON schema field "semantic_context".
 	SemanticContext NegotiateSemanticContext `json:"semantic_context" yaml:"semantic_context" mapstructure:"semantic_context"`
 
 	// SSTP protocol version.
 	Version string `json:"version,omitempty,omitzero" yaml:"version,omitempty" mapstructure:"version,omitempty"`
 }
+
+type SABNegotiatePayloadDataRoundMessagesElem map[string]interface{}
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *SABNegotiatePayloadData) UnmarshalJSON(value []byte) error {
@@ -1219,9 +1228,9 @@ func (j *ThreadStateNewOffer_0) UnmarshalJSON(value []byte) error {
 
 type ThreadStateNewOffer_1 []interface{}
 
-type NegotiateSemanticContextSaoState_0 = SAOState
-
 type ThreadStateNewResponses map[string]ResponseType
+
+type NegotiateSemanticContextSaoState_0 = SAOState
 
 type NegotiateSemanticContextSaoResponse_0 = SAOResponse
 

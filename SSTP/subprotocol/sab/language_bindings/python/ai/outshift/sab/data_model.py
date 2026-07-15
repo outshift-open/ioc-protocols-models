@@ -241,6 +241,17 @@ class SABNegotiatePayloadData(BaseModel):
         title="Payload Hash",
     )
     semantic_context: NegotiateSemanticContext
+    round_messages: list[dict[str, Any]] | None = Field(
+        None,
+        description=(
+            "Pending per-round SAB L9 envelopes the recipient must dispatch to the"
+            " participant agents this round. Each item is itself a full SAB"
+            " contingency/negotiation message (header + payload). Named distinctly from"
+            " the header's own ``message`` field. Populated on an ongoing negotiation"
+            " response; empty when there is nothing to dispatch."
+        ),
+        title="Round Messages",
+    )
 
 
 class SABPayloadData(

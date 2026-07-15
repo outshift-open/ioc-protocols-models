@@ -354,6 +354,16 @@ class SABNegotiatePayloadData(SABPayloadBase):
     """``payload.data`` when the wrapped SSTP message is kind=negotiate."""
 
     semantic_context: NegotiateSemanticContext
+    round_messages: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description=(
+            "Pending per-round SAB L9 envelopes the recipient must dispatch to the "
+            "participant agents this round. Each item is itself a full SAB "
+            "contingency/negotiation message (header + payload). Named distinctly "
+            "from the header's own ``message`` field. Populated on an ongoing "
+            "negotiation response; empty when there is nothing to dispatch."
+        ),
+    )
 
 
 class SABCommitPayloadData(SABPayloadBase):
