@@ -140,6 +140,8 @@ def _negotiate_data(
         payload_hash=PAYLOAD_HASH,
         semantic_context=NegotiateSemanticContext(
             session_id=session_id,
+            issues=ISSUES,
+            options_per_issue=OPTIONS,
             sao_state=sao_state,
             sao_response=SAOResponse(response=ResponseType(response), outcome=offer),
             nmi=nmi,
@@ -166,6 +168,8 @@ def _commit_data(
             outcome=outcome,
             content_text=CONTENT_TEXT,
             agents_negotiating=AGENTS,
+            issues=ISSUES,
+            options_per_issue=OPTIONS,
             final_agreement=final_agreement,
         ),
     )
@@ -176,7 +180,9 @@ def _builder(session_id: str, episode: str, msg_id: str, dt: str) -> SABMessageB
     return (
         SABMessageBuilder(session_id)
         .participants(AGENTS)
-        .topic(CONTENT_TEXT, issues=ISSUES, options_per_issue=OPTIONS)
+        # topic carries the mission summary only; issues/options ride in the
+        # canonical semantic_context (set on the negotiate/commit payload data).
+        .topic(CONTENT_TEXT)
         .message(msg_id, parents=[], episode=episode)
         .created_at(dt)
     )

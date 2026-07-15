@@ -36,7 +36,7 @@
         "msg_created_at": "2026-06-22T10:00:00Z"
       },
       "context": {
-        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
+        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order.",
         "epistemic": null,
         "semantic": {
           "schema_id": "urn:ioc:schema:sab-l9:v1",
@@ -100,7 +100,7 @@
         "msg_created_at": "2026-06-22T10:00:02Z"
       },
       "context": {
-        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
+        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order.",
         "epistemic": null,
         "semantic": {
           "schema_id": "urn:ioc:schema:sab-l9:v1",
@@ -124,6 +124,22 @@
           "schema_version": "1.0",
           "encoding": "json",
           "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
+          "issues": [
+            "price",
+            "delivery_speed"
+          ],
+          "options_per_issue": {
+            "price": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "delivery_speed": [
+              "express",
+              "standard",
+              "deferred"
+            ]
+          },
           "sao_state": {
             "running": true,
             "waiting": false,
@@ -186,7 +202,8 @@
             "allow_negotiators_to_leave": true
           },
           "offer_validation_failure": null
-        }
+        },
+        "round_messages": []
       }
     }
   },
@@ -227,7 +244,7 @@
         "msg_created_at": "2026-06-22T10:00:08Z"
       },
       "context": {
-        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
+        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order.",
         "epistemic": null,
         "semantic": {
           "schema_id": "urn:ioc:schema:sab-l9:v1",
@@ -251,6 +268,22 @@
           "schema_version": "1.0",
           "encoding": "json",
           "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
+          "issues": [
+            "price",
+            "delivery_speed"
+          ],
+          "options_per_issue": {
+            "price": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "delivery_speed": [
+              "express",
+              "standard",
+              "deferred"
+            ]
+          },
           "sao_state": {
             "running": true,
             "waiting": false,
@@ -294,7 +327,8 @@
           },
           "nmi": null,
           "offer_validation_failure": null
-        }
+        },
+        "round_messages": []
       }
     }
   },
@@ -335,7 +369,7 @@
         "msg_created_at": "2026-06-22T10:00:14Z"
       },
       "context": {
-        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
+        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order.",
         "epistemic": null,
         "semantic": {
           "schema_id": "urn:ioc:schema:sab-l9:v1",
@@ -359,6 +393,22 @@
           "schema_version": "1.0",
           "encoding": "json",
           "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
+          "issues": [
+            "price",
+            "delivery_speed"
+          ],
+          "options_per_issue": {
+            "price": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "delivery_speed": [
+              "express",
+              "standard",
+              "deferred"
+            ]
+          },
           "sao_state": {
             "running": true,
             "waiting": false,
@@ -402,7 +452,8 @@
           },
           "nmi": null,
           "offer_validation_failure": null
-        }
+        },
+        "round_messages": []
       }
     }
   },
@@ -443,7 +494,7 @@
         "msg_created_at": "2026-06-22T10:00:20Z"
       },
       "context": {
-        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
+        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order.",
         "epistemic": null,
         "semantic": {
           "schema_id": "urn:ioc:schema:sab-l9:v1",
@@ -467,6 +518,22 @@
           "schema_version": "1.0",
           "encoding": "json",
           "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
+          "issues": [
+            "price",
+            "delivery_speed"
+          ],
+          "options_per_issue": {
+            "price": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "delivery_speed": [
+              "express",
+              "standard",
+              "deferred"
+            ]
+          },
           "sao_state": {
             "running": false,
             "waiting": false,
@@ -513,7 +580,8 @@
           },
           "nmi": null,
           "offer_validation_failure": null
-        }
+        },
+        "round_messages": []
       }
     }
   },
@@ -554,7 +622,7 @@
         "msg_created_at": "2026-06-22T10:00:25Z"
       },
       "context": {
-        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
+        "topic": "Two parties need to agree on price and delivery speed for an urgent supply order.",
         "epistemic": null,
         "semantic": {
           "schema_id": "urn:ioc:schema:sab-l9:v1",
@@ -585,6 +653,22 @@
             "agent-buyer",
             "agent-seller"
           ],
+          "issues": [
+            "price",
+            "delivery_speed"
+          ],
+          "options_per_issue": {
+            "price": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "delivery_speed": [
+              "express",
+              "standard",
+              "deferred"
+            ]
+          },
           "final_agreement": [
             {
               "issue_id": "price",
