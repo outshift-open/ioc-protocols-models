@@ -110,6 +110,7 @@ class DebateOrchestrator:
             "drug change proposals, and joint recommendation",
         )
         primary_question: str = case_frame.get("primary_question", "")
+        responsible_for: Dict[str, Any] = case_frame.get("responsible_for") or {}
 
         # Build peer-description map for L9 ToM seeding — role descriptions
         # are domain knowledge; L9 handles all seed_peer calls internally.
@@ -134,6 +135,7 @@ class DebateOrchestrator:
         current_team_process: Dict[str, Any] = {
                 "session_objective": session_objective,
                 "primary_question": primary_question,
+                "role_assignments": responsible_for,
                 "prior_establishment": (
                     "Before debate, each specialist independently declares a taskwork prior: "
                     "their initial likelihood estimate for the primary question based on their "
@@ -201,8 +203,30 @@ class DebateOrchestrator:
                 LOGGER.warning("tp_debate_pivot_synthesis failed: %s", exc)
                 return ctrl_pos
 
-        def _tp_commit_fn(_winning_position: Dict[str, Any], _resolution_label: str) -> None:
-            pass  # Specialists receive governance terms via commit:converged wire delivery
+        def _tp_commit_fn(winning_position: Dict[str, Any], _resolution_label: str) -> None:
+            # commit:converged fires before this callback (synchronous bus), so we cannot
+            # rely on _on_commit reading process_params from the wire.  Write directly.
+            terms = winning_position.get("team_process_terms") or current_team_process
+            role_assignments = terms.get("role_assignments") or responsible_for
+            for _aid, _spec in specialist_map.items():
+                _role = role_assignments.get(_aid) or []
+                _spec.process_params = {
+                    "role_assignment": _role,
+                    "session_objective": terms.get("session_objective", session_objective),
+                    "debate_format": terms.get("debate_format", ""),
+                    "contingency_rules": terms.get("contingency_rules", {}),
+                    "no_convergence_handling": terms.get("no_convergence_handling", ""),
+                }
+                if _spec.llm is not None:
+                    try:
+                        _spec.llm.complete_json("tp_process_commit", {
+                            "agent_id": _aid,
+                            "role": _spec.role,
+                            "final_team_process": _spec.process_params,
+                            "role_assignment": _role,
+                        })
+                    except Exception as _exc:
+                        LOGGER.warning("tp_process_commit %s: %s", _aid, _exc)
 
         session = ctrl_l9.open_session(
             session_id=episode_id,

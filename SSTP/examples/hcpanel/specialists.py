@@ -431,27 +431,13 @@ class SpecialistAgent:
     def _on_commit(self, header: Any) -> None:
         """Handle commit:converged delivery.
 
-        panel:team_process commit — extract governance terms into process_params.
         panel:hcpanel commit (final task) — clear per-session state (teardown).
-        All other commits (panel:taskwork, outer :tw/:t intents) — no-op.
+        All other commits (panel:team_process, panel:taskwork, etc.) — no-op;
+        process_params is written directly by _tp_commit_fn in the orchestrator.
         """
         episode_id = (header.get("message") or {}).get("episode", "") if isinstance(header, dict) else ""
-        payload = header.get("payload", []) if isinstance(header, dict) else []
 
-        if "panel:team_process" in episode_id:
-            for part in payload:
-                if part.get("type") == "team_process":
-                    terms = part.get("content") or {}
-                    self.process_params = {
-                        "session_objective": terms.get("session_objective", ""),
-                        "debate_format": terms.get("debate_format", ""),
-                        "contingency_rules": terms.get("contingency_rules", {}),
-                        "no_convergence_handling": terms.get("no_convergence_handling", ""),
-                        "role_assignment": terms.get("role_assignment") or [],
-                        "governance_resolution": terms.get("governance_resolution", ""),
-                    }
-                    break
-        elif "panel:hcpanel" in episode_id:
+        if "panel:hcpanel" in episode_id:
             self._on_task_converged()
 
     def _on_intent(self, episode: Any) -> None:
@@ -612,14 +598,16 @@ class SpecialistAgent:
         if self.llm is None:
             return {"decision": "accept", "rationale": "auto-accept (no LLM)"}
         try:
+            _role_assignments = (ctrl_pos.get("team_process_terms") or {}).get("role_assignments") or {}
+            _role = _role_assignments.get(self.agent_id) or role_assignment or []
             return self.llm.complete_json("tp_debate_accept_or_counter", {
                 "agent_id": self.agent_id,
                 "role": self.role,
                 "governance_terms": ctrl_pos.get("team_process_terms", {}),
-                "session_objective": ctrl_pos.get("team_process_terms", {}).get(
+                "session_objective": (ctrl_pos.get("team_process_terms") or {}).get(
                     "session_objective", session_objective),
                 "task_goal": task_goal,
-                "role_assignment": role_assignment or [],
+                "role_assignment": _role,
                 **(tom_ctx or {}),
             })
         except Exception as exc:
