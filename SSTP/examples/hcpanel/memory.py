@@ -159,7 +159,14 @@ class HCPanelMemory:
         })
 
     def _handle_knowledge(self, header: Dict[str, Any]) -> None:
-        """Write a converged knowledge announcement into convergence_store."""
+        """Write a converged knowledge announcement into convergence_store.
+
+        negotiation.py already records the full TeamGroundedTruth (with
+        individual_priors and individual_posteriors) directly into the same
+        convergence_store object before this wire message is dispatched.
+        Only write the fallback record when no full entry exists for this
+        episode yet — prevents the empty-dict skeleton from clobbering it.
+        """
         knowledge_part = next(
             (p for p in header.get("payload", []) if p.get("type") == "knowledge"), None
         )
@@ -169,10 +176,18 @@ class HCPanelMemory:
         concept_id = content.get("concept_id") or (header.get("semantic") or {}).get("ontology_ref")
         if not concept_id:
             return
+        episode_id = (header.get("message") or {}).get("episode") or ""
+        # If negotiation already wrote a rich entry for this concept (any episode),
+        # skip — don't let the wire knowledge message overwrite with empty dicts.
+        # The negotiation episode_id (panel-scoped) differs from the wire message
+        # episode_id (session-scoped), so we match on concept_id alone.
+        existing = self.convergence_store.latest(concept_id)
+        if existing is not None and existing.individual_posteriors:
+            self.save()
+            return
         posterior = float(content.get("posterior", 0.5))
         gar = float(content.get("gar", 0.0))
         scr = float(content.get("scr", 0.0))
-        episode_id = (header.get("message") or {}).get("episode") or ""
         truth = TeamGroundedTruth(
             concept_id=concept_id,
             use_case="healthcare",
