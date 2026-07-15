@@ -49,7 +49,7 @@ def _positions_to_opinions(
             panel=str(pos.get("panel") or ""),
             symptom_assessment=str(pos.get("reasoning_summary") or pos.get("rationale") or ""),
             drug_change_proposal=str(pos.get("drug_change_proposal") or ""),
-            confidence=float(pos.get("confidence") or 0.5),
+            confidence=float(pos.get("posterior") or pos.get("confidence") or 0.5),
             reasoning=str(pos.get("reasoning_summary") or ""),
             likely_cause=str(pos.get("likely_cause") or "drug_interaction"),
             posterior=float(pos.get("posterior") or pos.get("confidence") or 0.5),

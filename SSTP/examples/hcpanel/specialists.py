@@ -272,7 +272,16 @@ class SpecialistAgent:
             )
         if result.get("decision") == "accept":
             operation = NegotiationOperation.ACCEPT
-            position = round_ep.ctrl_pos
+            _cp = round_ep.ctrl_pos
+            _post = float(_cp.get("posterior") or _cp.get("confidence") or 0.5)
+            # Preserve the specialist's own identity/evidence fields; only adopt
+            # the agreed concept, confidence and posterior from the winning position.
+            position = {
+                **round_ep.member_pos,
+                "likely_cause": _cp.get("likely_cause", round_ep.ctrl_position_key),
+                "confidence": _post,
+                "posterior": _post,
+            }
         else:
             operation = NegotiationOperation.COUNTER_PROPOSAL
             position = {
