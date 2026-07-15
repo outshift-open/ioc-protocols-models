@@ -79,6 +79,8 @@ When invoked, do NOT emit a message immediately:
    the fixed cast and ask _"Use this as-is, or tell me what to change?"_
 3. **Confirm or collect edits**, then emit the full L9 JSON for that single turn,
    reusing the poll's `episode` and `poll_id`.
+4. **Repeat from step 1.** The session is not over until the user completes a
+   `form_converged` or `form_failed` turn. Keep prompting for the next turn.
 
 ## Source of truth (fetch raw content every time)
 
