@@ -222,10 +222,12 @@ class SpecialistAgent:
         self._l9: Optional[Any] = None
         self._session: Optional[SpecialistSessionContext] = None
         self._agreed_plan: Optional[Dict[str, Any]] = None
+        self._taskwork_assessment: Dict[str, Any] = {}  # populated during TW phase
 
     def reset_session(self) -> None:
         """Reset per-session state."""
         self.process_params = {}
+        self._taskwork_assessment = {}
 
     def drain_llm_trace(self) -> list:
         """Return and clear LLM trace records for this agent."""
@@ -331,6 +333,9 @@ class SpecialistAgent:
         result = self._run_taskwork_assess()
         if not result:
             return {"decision": "accept"}
+
+        # Persist so the orchestrator can enrich all_positions before T phase
+        self._taskwork_assessment = result
 
         likely_cause = result.get("likely_cause", "")
         confidence = float(result.get("posterior", 0.5))

@@ -276,13 +276,30 @@ class DebateOrchestrator:
         # SIEP winning position becomes the Episode C controller position.
         # Specialist positions are updated in tw_result.specialist_positions
         # by each agent's _on_debate_round response.
-        all_positions: Dict[str, Any] = {
-            agent_id: {
-                **pos,
-                "panel": specialist_map[agent_id].panel if agent_id in specialist_map else "",
-            }
-            for agent_id, pos in tw_result.specialist_positions.items()
-        }
+        # Merge each specialist's taskwork assessment so that rationale,
+        # supporting_evidence and posterior reflect the actual assessment,
+        # not the empty seed — this matters for agents who accepted in TW
+        # and whose seed position was never overwritten by a counter-proposal.
+        all_positions: Dict[str, Any] = {}
+        for agent_id, pos in tw_result.specialist_positions.items():
+            sp = specialist_map.get(agent_id)
+            assessment = sp._taskwork_assessment if sp is not None else {}
+            merged: Dict[str, Any] = {**pos}
+            if assessment:
+                merged.setdefault("rationale", assessment.get("rationale", ""))
+                merged.setdefault("reasoning_summary", assessment.get("rationale", ""))
+                if not merged.get("supporting_evidence"):
+                    merged["supporting_evidence"] = assessment.get("evidence") or []
+                # Only overwrite posterior/confidence from assessment if the pos
+                # is still at the seed value (0.5), meaning no counter-proposal ran.
+                if merged.get("posterior", 0.5) == 0.5 and assessment.get("posterior"):
+                    merged["posterior"] = assessment["posterior"]
+                    merged["confidence"] = assessment["posterior"]
+                if not merged.get("likely_cause") or merged["likely_cause"] == "drug_interaction":
+                    if assessment.get("likely_cause"):
+                        merged["likely_cause"] = assessment["likely_cause"]
+            merged["panel"] = sp.panel if sp is not None else ""
+            all_positions[agent_id] = merged
 
         # ── EPISODE C: SIEP panel negotiation ───────────────────────────
         # Winning taskwork position is the controller's starting point for the task debate.
