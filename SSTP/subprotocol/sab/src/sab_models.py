@@ -258,6 +258,14 @@ class NegotiateSemanticContext(BaseModel):
     schema_version: str = "1.0"
     encoding: EncodingType = "json"
     session_id: str
+    issues: List[str] = Field(
+        default_factory=list,
+        description="Ordered list of negotiable issue identifiers for this session.",
+    )
+    options_per_issue: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
+    )
     sao_state: Optional[SAOState] = None
     sao_response: Optional[SAOResponse] = None
     nmi: Optional[SAONMI] = None
@@ -296,6 +304,14 @@ class NegotiateCommitSemanticContext(BaseModel):
     agents_negotiating: Optional[List[str]] = Field(
         default=None,
         description="Agent IDs that participated in this negotiation.",
+    )
+    issues: List[str] = Field(
+        default_factory=list,
+        description="Ordered list of negotiable issue identifiers for this session.",
+    )
+    options_per_issue: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
     )
     final_agreement: Optional[List[Dict[str, Any]]] = Field(
         default=None,

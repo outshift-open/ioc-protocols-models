@@ -47,6 +47,16 @@ class NegotiateCommitSemanticContext(BaseModel):
         description="Agent IDs that participated in this negotiation.",
         title="Agents Negotiating",
     )
+    issues: list[str] | None = Field(
+        None,
+        description="Ordered list of negotiable issue identifiers for this session.",
+        title="Issues",
+    )
+    options_per_issue: dict[str, list[str]] | None = Field(
+        None,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
+        title="Options Per Issue",
+    )
     final_agreement: list[dict[str, Any]] | None = Field(
         None,
         description=(
@@ -194,6 +204,16 @@ class NegotiateSemanticContext(BaseModel):
     schema_version: str = Field("1.0", title="Schema Version")
     encoding: Encoding = Field("json", title="Encoding")
     session_id: str = Field(..., title="Session Id")
+    issues: list[str] | None = Field(
+        None,
+        description="Ordered list of negotiable issue identifiers for this session.",
+        title="Issues",
+    )
+    options_per_issue: dict[str, list[str]] | None = Field(
+        None,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
+        title="Options Per Issue",
+    )
     sao_state: SAOState | None = None
     sao_response: SAOResponse | None = None
     nmi: SAONMI | None = None

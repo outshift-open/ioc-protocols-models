@@ -29,6 +29,12 @@ type NegotiateCommitSemanticContext struct {
 	// negotiation ended without agreement.
 	FinalAgreement *NegotiateCommitSemanticContextFinalAgreement `json:"final_agreement,omitempty,omitzero" yaml:"final_agreement,omitempty" mapstructure:"final_agreement,omitempty"`
 
+	// Ordered list of negotiable issue identifiers for this session.
+	Issues []string `json:"issues,omitempty,omitzero" yaml:"issues,omitempty" mapstructure:"issues,omitempty"`
+
+	// Candidate options per issue: {issue_id: [option, ...]}.
+	OptionsPerIssue NegotiateCommitSemanticContextOptionsPerIssue `json:"options_per_issue,omitempty,omitzero" yaml:"options_per_issue,omitempty" mapstructure:"options_per_issue,omitempty"`
+
 	// High-level outcome: 'agreement' — consensus reached; 'disagreement' — step
 	// budget exhausted; 'broken' — a participant dropped out or returned an invalid
 	// offer; 'error' — pipeline exception.
@@ -88,6 +94,9 @@ type NegotiateCommitSemanticContextFinalAgreement []map[string]interface{}
 
 type NegotiateCommitSemanticContextFinalAgreement_0 []map[string]interface{}
 
+// Candidate options per issue: {issue_id: [option, ...]}.
+type NegotiateCommitSemanticContextOptionsPerIssue map[string][]string
+
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *NegotiateCommitSemanticContext) UnmarshalJSON(value []byte) error {
 	var raw map[string]interface{}
@@ -123,6 +132,9 @@ type NegotiateSemanticContext struct {
 	// Encoding corresponds to the JSON schema field "encoding".
 	Encoding NegotiateSemanticContextEncoding `json:"encoding,omitempty,omitzero" yaml:"encoding,omitempty" mapstructure:"encoding,omitempty"`
 
+	// Ordered list of negotiable issue identifiers for this session.
+	Issues []string `json:"issues,omitempty,omitzero" yaml:"issues,omitempty" mapstructure:"issues,omitempty"`
+
 	// Nmi corresponds to the JSON schema field "nmi".
 	Nmi *NegotiateSemanticContextNmi `json:"nmi,omitempty,omitzero" yaml:"nmi,omitempty" mapstructure:"nmi,omitempty"`
 
@@ -130,6 +142,9 @@ type NegotiateSemanticContext struct {
 	// keys/option values (validation failure, not a strategic reject). Shape:
 	// {rejected_agent_id, round, problems, hint}.
 	OfferValidationFailure *NegotiateSemanticContextOfferValidationFailure `json:"offer_validation_failure,omitempty,omitzero" yaml:"offer_validation_failure,omitempty" mapstructure:"offer_validation_failure,omitempty"`
+
+	// Candidate options per issue: {issue_id: [option, ...]}.
+	OptionsPerIssue NegotiateSemanticContextOptionsPerIssue `json:"options_per_issue,omitempty,omitzero" yaml:"options_per_issue,omitempty" mapstructure:"options_per_issue,omitempty"`
 
 	// SaoResponse corresponds to the JSON schema field "sao_response".
 	SaoResponse *NegotiateSemanticContextSaoResponse `json:"sao_response,omitempty,omitzero" yaml:"sao_response,omitempty" mapstructure:"sao_response,omitempty"`
@@ -280,6 +295,9 @@ func (j *NegotiateSemanticContextOfferValidationFailure_0) UnmarshalJSON(value [
 	*j = NegotiateSemanticContextOfferValidationFailure_0(plain)
 	return nil
 }
+
+// Candidate options per issue: {issue_id: [option, ...]}.
+type NegotiateSemanticContextOptionsPerIssue map[string][]string
 
 // A single negotiator response in one SAO round.
 type NegotiateSemanticContextSaoResponse struct {
@@ -1173,6 +1191,17 @@ type ThreadStateNewData map[string]interface{}
 
 type ThreadStateNewData_0 map[string]interface{}
 
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ThreadStateNewData_0) UnmarshalJSON(value []byte) error {
+	type Plain ThreadStateNewData_0
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = ThreadStateNewData_0(plain)
+	return nil
+}
+
 type ThreadStateNewOffer map[string]interface{}
 
 type ThreadStateNewOffer_0 map[string]interface{}
@@ -1190,20 +1219,9 @@ func (j *ThreadStateNewOffer_0) UnmarshalJSON(value []byte) error {
 
 type ThreadStateNewOffer_1 []interface{}
 
-type ThreadStateNewResponses map[string]ResponseType
-
 type NegotiateSemanticContextSaoState_0 = SAOState
 
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *ThreadStateNewData_0) UnmarshalJSON(value []byte) error {
-	type Plain ThreadStateNewData_0
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = ThreadStateNewData_0(plain)
-	return nil
-}
+type ThreadStateNewResponses map[string]ResponseType
 
 type NegotiateSemanticContextSaoResponse_0 = SAOResponse
 

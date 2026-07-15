@@ -69,6 +69,25 @@
           "description": "Agent IDs that participated in this negotiation.",
           "title": "Agents Negotiating"
         },
+        "issues": {
+          "description": "Ordered list of negotiable issue identifiers for this session.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "options_per_issue": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Candidate options per issue: {issue_id: [option, ...]}.",
+          "title": "Options Per Issue",
+          "type": "object"
+        },
         "final_agreement": {
           "anyOf": [
             {
@@ -115,6 +134,25 @@
         "session_id": {
           "title": "Session Id",
           "type": "string"
+        },
+        "issues": {
+          "description": "Ordered list of negotiable issue identifiers for this session.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "options_per_issue": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Candidate options per issue: {issue_id: [option, ...]}.",
+          "title": "Options Per Issue",
+          "type": "object"
         },
         "sao_state": {
           "anyOf": [
