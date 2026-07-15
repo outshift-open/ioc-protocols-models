@@ -253,7 +253,7 @@ class SpecialistAgent:
 
     def _on_debate_round(self, round_ep: Any) -> None:
         eid = round_ep.panel_episode_id
-        if ":tp" in eid:
+        if "team_process" in eid:
             result = self.tp_accept_or_counter(
                 ctrl_pos=round_ep.ctrl_pos,
                 member_pos=round_ep.member_pos,

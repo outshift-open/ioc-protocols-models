@@ -480,11 +480,8 @@ class StarNegotiator:
 
             propose_headers: Dict[str, Dict[str, Any]] = {}
             for member_id in member_ids:
-                if _is_tp_panel:
-                    propose_headers[member_id] = _intent_header
-                else:
-                    debate_hdr = emit_propose(self.context, self.network, controller_id, member_id, ctrl_pos, round_idx)
-                    propose_headers[member_id] = debate_hdr
+                debate_hdr = emit_propose(self.context, self.network, controller_id, member_id, ctrl_pos, round_idx)
+                propose_headers[member_id] = debate_hdr
                 _prop_id = self.context._proposal_id(round_idx, controller_id)
                 _prop_msg = NegotiationMessage(
                     negotiation_id=self.context._debate_id,
