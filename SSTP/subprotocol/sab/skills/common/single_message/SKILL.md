@@ -67,8 +67,8 @@ standing offer (don't flip); set `n_acceptances: 1`, `running: false`, `sao_stat
 offer. A timed-out final round keeps `"REJECT_OFFER"` with `timedout: true`, `running: false`.
 
 **Close** — `resolved` → `outcome: "agreement"` + non-null `final_agreement` (list of
-`{issue_id, chosen_option}`); `unresolved`/`timeout` → `final_agreement: null`. Reuse the `open`
-`episode`/`session_id`.
+`{issue_id, chosen_option}`); `unresolved`/`timeout` → `outcome: "disagreement"` +
+`final_agreement: null`. Reuse the `open` `episode`/`session_id`.
 
 ## Output
 

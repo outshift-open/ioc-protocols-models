@@ -85,6 +85,8 @@ When invoked, do NOT emit a message immediately:
    fixed cast (defaulting from the table above) and ask _"Use this as-is, or tell me what to change?"_
 3. **Confirm or collect edits**, then emit the full L9 JSON for that single step, reusing
    the session's `episode` and `session_id`.
+4. **Repeat from step 1.** The session is not over until the user completes a
+   `close` turn (`resolved` or `unresolved`). Keep prompting for the next step.
 
 ## Source of truth (fetch raw content every time)
 
@@ -263,9 +265,11 @@ with a non-null `final_agreement`.
 
 ## Failure close — `unresolved` (full message)
 
-Identical envelope except `subkind: "unresolved"`, `outcome: "disagreement"`, and
+Identical envelope except `subkind: "unresolved"`, `outcome: "disagreement"`,
 `final_agreement: null` (`unresolved` is the no-deal / step-budget-exhausted close; use
 `subkind: "timeout"` instead only if a participant broke off or returned an invalid offer).
+The `outcome` field must always be set: `"agreement"` for `resolved`, `"disagreement"` for
+`unresolved` or `timeout`.
 
 ```json
 {
