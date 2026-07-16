@@ -149,4 +149,6 @@ cip_episodes.db
 episodes.db
 llm.env
 *_run.json
-SSTP/documentation/L9-old.md
+
+# IDE
+.idea/

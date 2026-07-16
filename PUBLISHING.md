@@ -222,13 +222,13 @@ Before the first release, register both packages as pending publishers on PyPI:
 ```python
 # With ioc-l9-all-models (full package):
 from ai.outshift.data_model import L9, L9Header, L9Payload
-from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind
+from ai.outshift.sab.data_model import SABNegotiatePayloadData, NegotiateSemanticContext
 from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
 from ai.outshift.siep.data_model import SIEPPayload
 from ai.outshift.cip.data_model import CIPPayload
 
 # With ioc-l9-subprotocols (subprotocols only):
-from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind
+from ai.outshift.sab.data_model import SABNegotiatePayloadData, NegotiateSemanticContext
 from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
 from ai.outshift.siep.data_model import SIEPPayload
 from ai.outshift.cip.data_model import CIPPayload

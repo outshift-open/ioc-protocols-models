@@ -97,7 +97,7 @@ this is a session-lifecycle message.
 ```json
 {
   "protocol": "SSTP",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "kind": "intent",
   "subprotocol": "CIP",
   "subkind": null,
@@ -209,7 +209,7 @@ the team-process episode. The `team_process` payload records that all
 ```json
 {
   "protocol": "SSTP",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "kind": "commit",
   "subprotocol": "CIP",
   "subkind": "converged",
@@ -334,7 +334,7 @@ individual task assignment messages.
 ```json
 {
   "protocol": "SSTP",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "kind": "intent",
   "subprotocol": "CIP",
   "subkind": null,
@@ -457,7 +457,7 @@ engage yet).
 ```json
 {
   "protocol": "SSTP",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "kind": "exchange",
   "subprotocol": "CIP",
   "subkind": null,
@@ -544,7 +544,7 @@ and the panel debate can begin.
 ```json
 {
   "protocol": "SSTP",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "kind": "commit",
   "subprotocol": "CIP",
   "subkind": "converged",
@@ -662,7 +662,7 @@ ID is a flat UUID (no `:tp`/`:tw` suffix) distinct from the CIP episode.
 ```json
 {
   "protocol": "SSTP",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "kind": "intent",
   "subprotocol": "SIEP",
   "subkind": null,
@@ -779,7 +779,7 @@ the specialist is engaging the coordinator's evidence directly.
 ```json
 {
   "protocol": "SSTP",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "kind": "exchange",
   "subprotocol": "SIEP",
   "subkind": null,
@@ -866,7 +866,7 @@ The listener owns this branch until it emits `commit:resolved`.
 ```json
 {
   "protocol": "SSTP",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "kind": "contingency",
   "subprotocol": "CIP",
   "subkind": null,
@@ -933,7 +933,7 @@ carries the final MPC, GAR, and SCR for this episode.
 ```json
 {
   "protocol": "SSTP",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "kind": "commit",
   "subprotocol": "SIEP",
   "subkind": "converged",

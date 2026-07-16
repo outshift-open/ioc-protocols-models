@@ -18,7 +18,7 @@ This repository contains:
 - Language bindings for Python and Go
 - PyPI packages for Python consumers
 - Documentation and examples
-- Subprotocols: SIEP (Semantic Interoperability and Epistemic Protocol), CIP (Cognition and Interoperability Protocol), SAB (Semantic Alignment Broadcast), TFP (Team Formation via Polling)
+- Subprotocols: SIEP (Semantic Information Exchange Protocol), CIP (Cognition and Interoperability Protocol), SAB (Semantic Alignment Broadcast), TFP (Team Formation via Polling)
 - SKILL file representations for autonomous agentic frameworks (OpenClaw, Claude, Codex)
 
 ---
@@ -39,8 +39,8 @@ pip install ioc-l9-all-models
 # import L9 protocol models
 from ai.outshift.data_model import L9, L9Header, L9Payload, Message, Actor, ParticipantSet, Kind
 
-# import SAB subprotocol models
-# from ai.outshift.sab.data_model import SAB, SABActors, SABHeader, SABPayload, SABIntentPayloadData
+# import SAB subprotocol models + builder (SAB reuses the canonical L9 header)
+# from ai.outshift.subprotocols.sab import SABMessageBuilder, SABNegotiatePayloadData
 
 # Create an L9 message
 msg = L9(
@@ -134,7 +134,7 @@ You edit the schema, then run the tooling to regenerate everything else.
 │   ├── subprotocol/
 │   │   ├── sab/                         # Semantic Alignment Broadcast
 │   │   ├── tfp/                         # Team Formation via Polling
-│   │   ├── siep/                        # Semantic Interoperability and Epistemic Protocol
+│   │   ├── siep/                        # Semantic Information Exchange Protocol
 │   │   └── cip/                         # Cognition and Interoperability Protocol
 │   ├── documentation/
 │   │   ├── protocol_reference.html      # Generated HTML reference

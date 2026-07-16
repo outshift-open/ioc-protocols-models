@@ -2,48 +2,44 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""SAB subprotocol public API — re-exports from ai.outshift.sab."""
+"""SAB subprotocol public API — re-exports from SSTP.subprotocol.sab.src."""
 
-from ai.outshift.sab.data_model import (
-    SAB,
-    SABHeader,
-    SABPayload,
-    SABActors,
-    SABAttributes,
-    SABOrigin,
-    SABIntentPayloadData,
-    SABNegotiatePayloadData,
-    SABCommitPayloadData,
-    NegotiateSemanticContext,
+from SSTP.subprotocol.sab.src.builder import SABMessageBuilder
+from SSTP.subprotocol.sab.src.sab_models import (
     NegotiateCommitSemanticContext,
-    SemanticContext,
-    SAOState,
-    SAOResponse,
-    SAONMI,
-    Outcome,
+    NegotiateSemanticContext,
     ResponseType,
-    Kind,
-    Subkind,
+    SABCommitPayloadData,
+    SABIntentPayloadData,
+    SABKind,
+    SABNegotiatePayloadData,
+    SABOrigin,
+    SABPayloadData,
+    SABSubkind,
+    SAONMI,
+    SAOResponse,
+    SAOState,
+    SemanticContext,
 )
 
 __all__ = [
-    "SAB",
-    "SABHeader",
-    "SABPayload",
-    "SABActors",
-    "SABAttributes",
+    "SABMessageBuilder",
+    # vocab
+    "SABKind",
+    "SABSubkind",
+    # payload.data models
     "SABOrigin",
     "SABIntentPayloadData",
     "SABNegotiatePayloadData",
     "SABCommitPayloadData",
+    "SABPayloadData",
+    # semantic contexts
+    "SemanticContext",
     "NegotiateSemanticContext",
     "NegotiateCommitSemanticContext",
-    "SemanticContext",
+    # SAO snapshot models
     "SAOState",
     "SAOResponse",
     "SAONMI",
-    "Outcome",
     "ResponseType",
-    "Kind",
-    "Subkind",
 ]

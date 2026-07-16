@@ -786,4 +786,4 @@ Returns a `type=siep` payload dict for inclusion in `payload_parts`.
 - [L9lifecycle.md](./L9lifecycle.md) — episode grammar and kind vocabulary
 - [L9teamtasks.md](./L9teamtasks.md) — annotated wire examples for every message kind
 - [CIP.md](../subprotocol/cip/docs/CIP.md) — Contingency Interaction Protocol
-- [SIEP.md](../subprotocol/siep/docs/SIEP.md) — Semantic Interaction Exchange Protocol
+- [SIEP.md](../subprotocol/siep/docs/SIEP.md) — Semantic Information Exchange Protocol
