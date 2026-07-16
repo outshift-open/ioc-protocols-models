@@ -18,7 +18,7 @@ This repository contains:
 - Language bindings for Python and Go
 - PyPI packages for Python consumers
 - Documentation and examples
-- Subprotocols: SIEP (Semantic Interoperability and Epistemic Protocol), CIP (Cognition and Interoperability Protocol), SAB (Semantic Alignment Broadcast), TFP (Team Formation via Polling)
+- Subprotocols: SIEP (Semantic Information Exchange Protocol), CIP (Cognition and Interoperability Protocol), SAB (Semantic Alignment Broadcast), TFP (Team Formation via Polling)
 - SKILL file representations for autonomous agentic frameworks (OpenClaw, Claude, Codex)
 
 ---
@@ -134,7 +134,7 @@ You edit the schema, then run the tooling to regenerate everything else.
 │   ├── subprotocol/
 │   │   ├── sab/                         # Semantic Alignment Broadcast
 │   │   ├── tfp/                         # Team Formation via Polling
-│   │   ├── siep/                        # Semantic Interoperability and Epistemic Protocol
+│   │   ├── siep/                        # Semantic Information Exchange Protocol
 │   │   └── cip/                         # Cognition and Interoperability Protocol
 │   ├── documentation/
 │   │   ├── protocol_reference.html      # Generated HTML reference
