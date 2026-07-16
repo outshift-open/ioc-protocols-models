@@ -82,12 +82,15 @@ from ai.outshift.subprotocols.cip import (
     CIPEngineConfig, CIPProcessor,
 )
 from ai.outshift.subprotocols.sab import (
-    SAB, SABHeader, SABPayload, SABActors, SABAttributes, SABOrigin,
+    SABMessageBuilder, SABOrigin,
     SABIntentPayloadData, SABNegotiatePayloadData, SABCommitPayloadData,
     NegotiateSemanticContext, NegotiateCommitSemanticContext, SemanticContext,
-    SAOState, SAOResponse, SAONMI, Outcome, ResponseType,
-    Kind as SABKind, Subkind as SABSubkind,
+    SAOState, SAOResponse, SAONMI, ResponseType,
+    SABKind, SABSubkind,
 )
+
+# A SAB message is a canonical L9.
+SAB = L9
 
 # ── Episode constants ─────────────────────────────────────────────────────────
 C_SCOPE    = "concept:material_breach"
@@ -196,7 +199,7 @@ def _envelope_label(l9: L9) -> str:
 
 
 def _sab_label(sab: SAB) -> str:
-    kind = sab.header.kind.value + (f":{sab.header.subkind.value}" if sab.header.subkind else "")
+    kind = sab.header.kind.value + (f":{sab.header.subkind}" if sab.header.subkind else "")
     return f"L9/SAB/{kind}"
 
 
@@ -402,26 +405,25 @@ def _print_pipeline(phase: str, step: str, a2a: A2AMessage, note: str = "") -> N
         actors   = h.participants.actors if h.participants else []
         sender   = actors[0].id if actors else "?"
         receiver = actors[1].id if len(actors) > 1 else "\u2014"
-        kind_str = h.kind.value + (f":{h.subkind.value}" if h.subkind else "")
+        kind_str = h.kind.value + (f":{h.subkind}" if h.subkind else "")
+        # A SAB message is a canonical L9: payload.data is a plain dict.
         d        = sab.payload.data if sab.payload else None
 
-        print(f"  ④ SAB = SABHeader + SABPayload  (unpacked from part[1])")
-        print(f"     \u250c\u2500 SABHeader")
+        print(f"  ④ SAB = L9Header + L9Payload  (canonical L9, unpacked from part[1])")
+        print(f"     \u250c\u2500 L9Header")
         print(f"     \u2502   .subprotocol = {h.subprotocol}")
         print(f"     \u2502   .kind        = {kind_str}")
         print(f"     \u2502   .message.id  = {h.message.id[:8]}\u2026")
         print(f"     \u2502   .participants.sender   = {sender}")
         print(f"     \u2502   .participants.receiver = {receiver}")
-        print(f"     \u2514\u2500 SABPayload")
-        if d and hasattr(d, "semantic_context"):
-            sc = d.semantic_context
-            if hasattr(sc, "sao_state") and sc.sao_state:
-                st = sc.sao_state
-                print(f"         .data.sao_state.step     = {st.step}")
-                print(f"         .data.sao_state.proposer = {st.current_proposer}")
-                if st.current_offer:
-                    for k, v in st.current_offer.items():
-                        print(f"         .data.current_offer.{k} = {v}")
+        print(f"     \u2514\u2500 L9Payload")
+        sc = d.get("semantic_context") if isinstance(d, dict) else None
+        st = sc.get("sao_state") if isinstance(sc, dict) else None
+        if isinstance(st, dict):
+            print(f"         .data.sao_state.step     = {st.get('step')}")
+            print(f"         .data.sao_state.proposer = {st.get('current_proposer')}")
+            for k, v in (st.get("current_offer") or {}).items():
+                print(f"         .data.current_offer.{k} = {v}")
         print(f"     \u2713 unpack_sab(part[1]) \u2192 SAB.model_validate(MessageToDict(part.data))")
 
 
@@ -744,7 +746,7 @@ def run_demo() -> None:  # noqa: C901
 
     # 2a  intent
     # ① BUILD
-    l9_intent = _siep("commercial-agent").intent().team_process().concept(C_SCOPE).build()
+    l9_intent = _siep("commercial-agent").to("liability-agent").intent().team_process().concept(C_SCOPE).build()
     # ②③ PACK + SEND
     siep_task_id, a2a = bus.open_l9_task(l9_intent, Role.ROLE_USER, ctx_id)
     rec("SIEP", "2a · intent  (commercial-agent opens alignment session)", a2a)
@@ -754,6 +756,7 @@ def run_demo() -> None:  # noqa: C901
     # 2b  commercial-agent aligns — LLM
     # ① BUILD L9 (with LLM-generated utterance)
     l9 = (_siep("commercial-agent")
+          .to("liability-agent")
           .exchange().taskwork().asserted().concept(C_SCOPE)
           .parents(l9_intent.header.message.id)
           .payload(SIEPPayload(
@@ -774,6 +777,7 @@ def run_demo() -> None:  # noqa: C901
     # 2c  liability-agent drifts — LLM
     # ① BUILD L9 (with LLM-generated drift utterance)
     l9_drift = (_siep("liability-agent")
+                .to("commercial-agent")
                 .exchange().taskwork().asserted().concept(C_TIMELINE)
                 .parents(l9_intent.header.message.id)
                 .payload(SIEPPayload(
@@ -801,7 +805,7 @@ def run_demo() -> None:  # noqa: C901
     _hr("═")
 
     cip_episode = f"urn:ioc:cip:{uuid.uuid4()}"
-    cip_proc    = CIPProcessor("cip-engine", cip_episode, CIPEngineConfig(
+    cip_proc    = CIPProcessor("repair-cognition-engine", cip_episode, CIPEngineConfig(
         derailment_causes={
             "scope_mismatch":    ["{listener}, your reply applied the wrong legal doctrine."],
             "alignment_failure": ["{listener}, your reply did not engage the agreed legal standard."],
@@ -823,6 +827,7 @@ def run_demo() -> None:  # noqa: C901
     # 3a  commercial-agent raises contingency
     # ① BUILD
     l9_req = (_cip("commercial-agent")
+              .to("liability-agent")
               .contingency().grounding().challenged().concept(C_SCOPE)
               .parents(l9_drift.header.message.id)
               .payload(CIPPayload(grounding=CIPGrounding(
@@ -834,22 +839,23 @@ def run_demo() -> None:  # noqa: C901
     # ②③ PACK + SEND
     cip_task_id, a2a = bus.open_l9_task(l9_req, Role.ROLE_USER, ctx_id)
     rec("CIP", "3a · contingency  (commercial-agent raises repair request)", a2a)
-    # ④ RECV → cip-engine processes
+    # ④ RECV → repair-cognition-engine processes
     l9_recv = bus.recv_l9(cip_task_id)
 
-    # cip-engine: ① BUILD repair guidance (LLM via CIPProcessor)
+    # repair-cognition-engine: ① BUILD repair guidance (LLM via CIPProcessor)
     l9_guidance = cip_proc.process(l9_recv)[0]
     guidance_text = (l9_guidance.payload.data or {}).get("utterance", {}).get("text", "") if l9_guidance.payload else ""
     # ②③ PACK + SEND
     a2a = bus.send_l9(cip_task_id, l9_guidance, Role.ROLE_AGENT, ctx_id)
-    rec("CIP", "3b · repair_guidance  (cip-engine issues hard-stop — LLM)", a2a,
-        "cip-engine (future Cognition Engine)")
+    rec("CIP", "3b · repair_guidance  (repair-cognition-engine issues hard-stop — LLM)", a2a,
+        "repair-cognition-engine")
     # ④ RECV → liability-agent receives guidance
     _ = bus.recv_l9(cip_task_id)
 
     # 3c  liability-agent re-anchors — LLM
     # ① BUILD L9 (informed by guidance_text from 3b)
     l9_reanchor = (_cip("liability-agent")
+                   .to("repair-cognition-engine")
                    .contingency().grounding().revised().concept(C_SCOPE)
                    .parents(l9_guidance.header.message.id)
                    .payload(CIPPayload(
@@ -860,7 +866,7 @@ def run_demo() -> None:  # noqa: C901
                                      f"Re-anchoring on {C_SCOPE}: SLA clause 14.2 breach is material breach under contract law. Tort doctrine set aside."),
                            evidence=[C_SCOPE, C_CRITERIA],
                            addresses_evidence=[C_SCOPE, C_CRITERIA],
-                           turn_depth=1),
+                           repair_depth=1),
                        belief=CIPBelief(prior=0.68, posterior=0.75,
                                         revision_cause=CIPRevisionCause.repair_resolution)))
                    .text("Re-anchoring on contract-law material breach.")
@@ -868,14 +874,14 @@ def run_demo() -> None:  # noqa: C901
     # ②③ PACK + SEND
     a2a = bus.send_l9(cip_task_id, l9_reanchor, Role.ROLE_AGENT, ctx_id)
     rec("CIP", "3c · contingency_response  (liability-agent re-anchors)", a2a)
-    # ④ RECV → cip-engine processes
+    # ④ RECV → repair-cognition-engine processes
     l9_recv = bus.recv_l9(cip_task_id)
 
-    # cip-engine: ① BUILD commit:resolved (LLM via CIPProcessor)
+    # repair-cognition-engine: ① BUILD commit:resolved (LLM via CIPProcessor)
     l9_resolved = cip_proc.process(l9_recv)[0]
     # ②③ PACK + SEND (close task)
     a2a = bus.close_l9_task(cip_task_id, l9_resolved, Role.ROLE_AGENT, ctx_id)
-    rec("CIP", "3d · commit:resolved  (cip-engine closes — alignment restored)", a2a)
+    rec("CIP", "3d · commit:resolved  (repair-cognition-engine closes — alignment restored)", a2a)
     # ④ RECV → all parties receive resolution
     _ = bus.recv_l9(cip_task_id)
 
@@ -890,46 +896,36 @@ def run_demo() -> None:  # noqa: C901
     session_id    = f"urn:ioc:sab:session:{uuid.uuid4()}"
     origin_buyer  = SABOrigin(actor_id="commercial-agent", attestation=None)
     origin_seller = SABOrigin(actor_id="liability-agent",  attestation=None)
-    attrs         = SABAttributes(msg_created_at="2026-06-24T10:00:00Z")
     payload_hash  = "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1"
     content_text  = "Consequential damages clause resolved: governing interpretation and liability cap."
-    sab_topic     = f"{content_text} | issues: {json.dumps(ISSUES)} | options: {json.dumps(OPTIONS)}"
     agreed        = {"governing_interpretation": "hybrid", "damages_cap": "12_months_fees"}
 
-    def _actors(s: str, r: str) -> SABActors:
-        return SABActors(actors=[Actor(id=s, role="sender",   attestation=None),
-                                 Actor(id=r, role="receiver", attestation=None)])
+    def _sab(mid: str, parents: List[str], s: str, r: str, dt: str) -> SABMessageBuilder:
+        """Canonical-L9 builder pre-wired with sender/receiver actors + topic."""
+        return (
+            SABMessageBuilder(session_id)
+            .actors(Actor(id=s, role="sender", attestation=None),
+                    Actor(id=r, role="receiver", attestation=None))
+            .topic(content_text, issues=ISSUES, options_per_issue=OPTIONS)
+            .message(mid, parents=parents, episode=sab_episode)
+            .created_at(dt)
+        )
 
-    def _sab_hdr(mid: str, parents: List[str], s: str, r: str,
-                 kind: SABKind, subkind: SABSubkind) -> SABHeader:
-        return SABHeader(
-            protocol="SSTP", subprotocol="SAB", version="0",
-            kind=kind, subkind=subkind,
-            participants=_actors(s, r),
-            message=L9Msg(id=mid, parents=parents, episode=sab_episode),
-            policy=None,
-            context=Context(topic=sab_topic, epistemic=None,
-                            semantic=Semantic(schema_id="urn:ioc:schema:sab-l9:v1",
-                                             ontology_ref="urn:ioc:ontology:sab:v1")),
-            attributes=attrs)
-
-    def _neg(mid, dt, origin, step_n, t, offer, proposer, last_neg, resp, nmi=None):
-        return SABPayload(type="json-schema",
-                          data=SABNegotiatePayloadData(
-                              message_id=mid, version="0", dt_created=dt,
-                              origin=origin, payload_hash=payload_hash,
-                              semantic_context=NegotiateSemanticContext(
-                                  session_id=session_id,
-                                  sao_state=SAOState(
-                                      running=True, started=True, step=step_n, time=t,
-                                      relative_time=round(t/60, 3), timedout=False,
-                                      agreement=None, n_negotiators=2,
-                                      current_offer=offer, current_proposer=proposer,
-                                      current_proposer_agent=proposer,
-                                      n_acceptances=0, last_negotiator=last_neg),
-                                  sao_response=SAOResponse(
-                                      response=ResponseType(resp), outcome=offer),
-                                  nmi=nmi)))
+    def _neg_data(mid, dt, origin, step_n, t, offer, proposer, last_neg, resp, nmi=None):
+        return SABNegotiatePayloadData(
+            message_id=mid, version="0", dt_created=dt,
+            origin=origin, payload_hash=payload_hash,
+            semantic_context=NegotiateSemanticContext(
+                session_id=session_id,
+                sao_state=SAOState(
+                    running=True, started=True, step=step_n, time=t,
+                    relative_time=round(t/60, 3), timedout=False,
+                    agreement=None, n_negotiators=2,
+                    current_offer=offer, current_proposer=proposer,
+                    current_proposer_agent=proposer,
+                    n_acceptances=0, last_negotiator=last_neg),
+                sao_response=SAOResponse(response=ResponseType(resp), outcome=offer),
+                nmi=nmi))
 
     nmi   = SAONMI(id=session_id, n_outcomes=N_OUTCOMES,
                    shared_time_limit=60.0, shared_n_steps=20,
@@ -941,15 +937,14 @@ def run_demo() -> None:  # noqa: C901
     id_c  = str(uuid.uuid4())
 
     # 4a  SAB open — ① BUILD
-    sab = SAB(
-        header=_sab_hdr(id_i, [], "commercial-agent", "topic:sab/sessions",
-                        SABKind.contingency, SABSubkind.negotiate),
-        payload=SABPayload(type="json-schema",
-                           data=SABIntentPayloadData(
-                               message_id=id_i, version="0",
-                               dt_created="2026-06-24T10:00:00Z",
-                               origin=origin_buyer, payload_hash=payload_hash,
-                               semantic_context=SemanticContext(schema_version="1.0"))))
+    sab = (
+        _sab(id_i, [], "commercial-agent", "topic:sab/sessions", "2026-06-24T10:00:00Z")
+        .intent(SABIntentPayloadData(
+            message_id=id_i, version="0", dt_created="2026-06-24T10:00:00Z",
+            origin=origin_buyer, payload_hash=payload_hash,
+            semantic_context=SemanticContext(schema_version="1.0")))
+        .build()
+    )
     # ②③ PACK + SEND
     sab_task_id, a2a = bus.open_sab_task(sab, Role.ROLE_USER, ctx_id)
     rec("SAB", "4a · negotiate_open  (commercial-agent opens SAB)", a2a,
@@ -979,35 +974,37 @@ def run_demo() -> None:  # noqa: C901
          "liability-agent accepts ✓"),
     ]:
         # ① BUILD SAB
-        sab = SAB(header=_sab_hdr(mid, [id_i], s, r, SABKind.contingency, SABSubkind.negotiate),
-                  payload=_neg(mid, dt, origin, sn, t, offer, proposer, last_neg, resp, nmi_arg))
+        sab = (
+            _sab(mid, [id_i], s, r, dt)
+            .negotiate(_neg_data(mid, dt, origin, sn, t, offer, proposer, last_neg, resp, nmi_arg))
+            .build()
+        )
         # ②③ PACK + SEND
         a2a = bus.send_sab(sab_task_id, sab, role, ctx_id)
         rec("SAB", f"{tag} · negotiate  ({note})", a2a)
         # ④ RECV
         _ = bus.recv_sab(sab_task_id)
 
-    # 4f  commit:converged — ① BUILD
-    sab = SAB(
-        header=_sab_hdr(id_c, [id_i], "commercial-agent", "topic:sab/sessions",
-                        SABKind.commit, SABSubkind.converged),
-        payload=SABPayload(type="json-schema",
-                           data=SABCommitPayloadData(
-                               message_id=id_c, version="0",
-                               dt_created="2026-06-24T10:00:25Z",
-                               origin=origin_buyer, payload_hash=payload_hash,
-                               semantic_context=NegotiateCommitSemanticContext(
-                                   session_id=session_id,
-                                   outcome=Outcome("agreement"),
-                                   content_text=content_text,
-                                   agents_negotiating=["commercial-agent", "liability-agent"],
-                                   final_agreement=[
-                                       {"issue_id": "governing_interpretation", "chosen_option": "hybrid"},
-                                       {"issue_id": "damages_cap",              "chosen_option": "12_months_fees"},
-                                   ]))))
+    # 4f  commit:resolved — ① BUILD
+    sab = (
+        _sab(id_c, [id_i], "commercial-agent", "topic:sab/sessions", "2026-06-24T10:00:25Z")
+        .resolved(SABCommitPayloadData(
+            message_id=id_c, version="0", dt_created="2026-06-24T10:00:25Z",
+            origin=origin_buyer, payload_hash=payload_hash,
+            semantic_context=NegotiateCommitSemanticContext(
+                session_id=session_id,
+                outcome="agreement",
+                content_text=content_text,
+                agents_negotiating=["commercial-agent", "liability-agent"],
+                final_agreement=[
+                    {"issue_id": "governing_interpretation", "chosen_option": "hybrid"},
+                    {"issue_id": "damages_cap",              "chosen_option": "12_months_fees"},
+                ])))
+        .build()
+    )
     # ②③ PACK + SEND (close task)
     a2a = bus.close_sab_task(sab_task_id, sab, Role.ROLE_AGENT, ctx_id)
-    rec("SAB", "4f · commit:converged  (damages clause agreed ✓)", a2a,
+    rec("SAB", "4f · commit:resolved  (damages clause agreed ✓)", a2a,
         "governing=hybrid  cap=12_months_fees")
     # ④ RECV
     _ = bus.recv_sab(sab_task_id)

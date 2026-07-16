@@ -1,6 +1,6 @@
-# Publishing to PyPI
+# Publishing Python and Go Bindings
 
-This document covers how the build and publish pipeline works for the ai.outshift protocol model packages.
+This document covers how the automated build and publish pipeline works for the ai.outshift protocol model packages (Python to PyPI, Go module tags to GitHub).
 
 ## Overview
 
@@ -65,15 +65,28 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-This triggers the publish workflow which builds and uploads both packages to PyPI.
+This triggers the automated publish workflow ([.github/workflows/publish.yaml](.github/workflows/publish.yaml)) which:
+1. Builds and uploads Python packages to PyPI
+2. Creates and pushes a Go module tag (`SSTP/language_bindings/golang/v0.2.0`)
 
 ### 4. Verify
 
 Check the workflow run at: `https://github.com/outshift-open/ioc-protocols-models/actions/workflows/publish.yaml`
 
-Once complete, verify on PyPI:
+Once complete, verify:
+
+**Python (PyPI):**
 - https://pypi.org/project/ioc-l9-all-models/
 - https://pypi.org/project/ioc-l9-subprotocols/
+
+**Go (Module Tags):**
+```bash
+# Check published Go tags
+git ls-remote --tags origin | grep "SSTP/language_bindings/golang"
+
+# Verify Go module is accessible
+go get github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang@v0.2.0
+```
 
 ## Build Script (`scripts/package_models.sh`)
 
@@ -161,15 +174,29 @@ ai/
 
 ### Trigger
 
-Runs on `v*` tag pushes (e.g. `v0.1.0`, `v1.2.3`). Also triggers on PRs to main for CI validation, but the publish job is skipped on PRs.
+Runs on `v*` tag pushes (e.g. `v0.1.0`, `v1.2.3`). Also triggers on PRs to main for CI validation, but the publish jobs are skipped on PRs.
 
-### Steps
+### Jobs
+
+The workflow runs two jobs in parallel:
+
+#### Job 1: `publish-python` (PyPI)
 
 1. **Checkout** — clones the repo at the tagged commit
 2. **Setup Python + Poetry** — installs Python 3.11 and Poetry 2.3.2
 3. **Version validation** — ensures git tag (e.g. `v0.2.0`) matches `pyproject.toml` version (`0.2.0`). Fails fast if mismatched.
-4. **Build wheels** — runs `package_models.sh --all`, `--sstp`, and `--subprotocol`, producing three wheels in `dist/`
-5. **Publish** — uploads all wheels in `dist/` to PyPI using OIDC trusted publishing
+4. **Build wheels** — runs `package_models.sh --all`, producing the full package wheel in `dist/`
+5. **Publish** — uploads wheel to PyPI using OIDC trusted publishing
+
+#### Job 2: `publish-go` (Git Tags)
+
+1. **Checkout** — clones the repo with full history
+2. **Setup Go** — installs Go 1.21 and go-jsonschema
+3. **Extract version** — derives version from the git tag (e.g., `v0.2.0` → `0.2.0`)
+4. **Validate** — checks Go module path, bindings exist, and runs tests
+5. **Create tag** — creates `SSTP/language_bindings/golang/v{version}` and pushes it (skips if already exists)
+
+Both jobs run independently and in parallel for faster releases.
 
 ### Authentication
 
@@ -195,13 +222,13 @@ Before the first release, register both packages as pending publishers on PyPI:
 ```python
 # With ioc-l9-all-models (full package):
 from ai.outshift.data_model import L9, L9Header, L9Payload
-from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind
+from ai.outshift.sab.data_model import SABNegotiatePayloadData, NegotiateSemanticContext
 from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
 from ai.outshift.siep.data_model import SIEPPayload
 from ai.outshift.cip.data_model import CIPPayload
 
 # With ioc-l9-subprotocols (subprotocols only):
-from ai.outshift.sab.data_model import Protocol, Subprotocol, Kind
+from ai.outshift.sab.data_model import SABNegotiatePayloadData, NegotiateSemanticContext
 from ai.outshift.tfp.data_model import TFPOperation, TFPPayload
 from ai.outshift.siep.data_model import SIEPPayload
 from ai.outshift.cip.data_model import CIPPayload

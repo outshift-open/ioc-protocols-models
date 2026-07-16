@@ -154,6 +154,7 @@ class CIPProcessor:
         text = f"{guidance} reason={repair_reason}; address={challenges or ['current_concept']}"
         return (
             self._builder()
+            .to(listener)
             .contingency().grounding().challenged()
             .concept(concept_id)
             .parents(msg.header.message.id)
@@ -185,8 +186,10 @@ class CIPProcessor:
         concept_id = _concept(msg) or ""
         payload = _cip_payload(msg)
         text = f"repair_verified:{_sender_id(msg)} re-anchored to {concept_id or 'shared scope'}"
+        listener = _sender_id(msg)
         return (
             self._builder()
+            .to(listener)
             .commit_resolved().grounding().revised()
             .concept(concept_id)
             .parents(msg.header.message.id)

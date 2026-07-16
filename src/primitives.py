@@ -28,7 +28,6 @@ class ParticipantSet(BaseModel):
 class PolicyLabel(BaseModel):
     """
     Data governance and access-control labels applied to the message.
-    ## TODO Nandu, Peter please review
     """
     sensitivity: str        # data sensitivity level e.g. "public" | "confidential" | "restricted"
     propagation: str        # how far this label propagates to downstream messages

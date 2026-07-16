@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""TFP subprotocol public API — re-exports from SSTP.subprotocol.tfp."""
+"""TFP subprotocol public API — re-exports from ai.outshift.tfp."""
 
-from SSTP.subprotocol.tfp.language_bindings.python.data_model import (
+from ai.outshift.tfp.data_model import (
     CandidateOffer,
     RoleAssignment,
     SkillClaim,

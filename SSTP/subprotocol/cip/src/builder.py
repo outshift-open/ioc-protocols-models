@@ -90,6 +90,7 @@ class CIPMessageBuilder:
     def __init__(self, episode_urn: str, sender: str) -> None:
         self._ep = episode_urn
         self._sender = sender
+        self._receivers: List[str] = []
         self._kind: Optional[Kind] = None
         self._subkind: Optional[str] = None
         self._parents: List[str] = []
@@ -103,6 +104,11 @@ class CIPMessageBuilder:
 
     def contingency(self) -> "CIPMessageBuilder":
         self._kind = Kind.contingency
+        return self
+
+    def to(self, *receivers: str) -> "CIPMessageBuilder":
+        """Set one or more receiver agent IDs."""
+        self._receivers = list(receivers)
         return self
 
     def commit_resolved(self) -> "CIPMessageBuilder":
@@ -167,7 +173,10 @@ class CIPMessageBuilder:
                 version="0.0.3",
                 kind=self._kind.value,
                 subkind=self._subkind,
-                participants=ParticipantSet(actors=[Actor(id=self._sender, role="sender")], groups=None),
+                participants=ParticipantSet(actors=[
+                    Actor(id=self._sender, role="sender"),
+                    *[Actor(id=r, role="receiver") for r in self._receivers],
+                ], groups=None),
                 message={"id": msg_id, "parents": list(self._parents), "episode": self._ep},
                 attributes=attributes,
                 context=Context(

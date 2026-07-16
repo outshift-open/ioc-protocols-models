@@ -18,7 +18,7 @@ This repository contains:
 - Language bindings for Python and Go
 - PyPI packages for Python consumers
 - Documentation and examples
-- Subprotocols: SIEP (Semantic Interoperability and Epistemic Protocol), CIP (Cognition and Interoperability Protocol), SAB (Semantic Alignment Broadcast), TFP (Team Formation via Polling)
+- Subprotocols: SIEP (Semantic Information Exchange Protocol), CIP (Cognition and Interoperability Protocol), SAB (Semantic Alignment Broadcast), TFP (Team Formation via Polling)
 - SKILL file representations for autonomous agentic frameworks (OpenClaw, Claude, Codex)
 
 ---
@@ -39,8 +39,8 @@ pip install ioc-l9-all-models
 # import L9 protocol models
 from ai.outshift.data_model import L9, L9Header, L9Payload, Message, Actor, ParticipantSet, Kind
 
-# import SAB subprotocol models
-# from ai.outshift.sab.data_model import SAB, SABActors, SABHeader, SABPayload, SABIntentPayloadData
+# import SAB subprotocol models + builder (SAB reuses the canonical L9 header)
+# from ai.outshift.subprotocols.sab import SABMessageBuilder, SABNegotiatePayloadData
 
 # Create an L9 message
 msg = L9(
@@ -119,7 +119,7 @@ You edit the schema, then run the tooling to regenerate everything else.
 ├── Makefile                              # All build targets (start here)
 ├── pyproject.toml                        # PyPI package definition (ioc-l9-all-models)
 ├── PACKAGE.md                            # PyPI package long description
-├── PUBLISHING.md                         # PyPI publish guide
+├── PUBLISHING.md                         # PyPI + Go publishing guide
 ├── SSTP/
 │   ├── spec/l9_schema.json              # THE schema (single source of truth)
 │   ├── language_bindings/
@@ -130,11 +130,11 @@ You edit the schema, then run the tooling to regenerate everything else.
 │   │   ├── golang/
 │   │   │   ├── data_model.go            # Generated Go structs
 │   │   │   └── go.mod                   # Go module definition
-│   │   └── publish_bindings.sh          # Go module publisher (--tag to push)
+│   │   └── publish_bindings.sh          # Optional: Manual validation script (automated via GitHub Actions)
 │   ├── subprotocol/
 │   │   ├── sab/                         # Semantic Alignment Broadcast
 │   │   ├── tfp/                         # Team Formation via Polling
-│   │   ├── siep/                        # Semantic Interoperability and Epistemic Protocol
+│   │   ├── siep/                        # Semantic Information Exchange Protocol
 │   │   └── cip/                         # Cognition and Interoperability Protocol
 │   ├── documentation/
 │   │   ├── protocol_reference.html      # Generated HTML reference
@@ -249,36 +249,36 @@ make generate_docs                       # Just docs
 
 ---
 
-## Release Workflow (Full)
+## Release Workflow (Automated)
 
-When you're ready to cut a release, run these steps in order:
+When you're ready to cut a release:
 
 ```bash
-# Step 0: Get the version from the schema
-VERSION=$(make -s print-version)
+# 1. Bump version in pyproject.toml
+#    Example: version = "0.0.7"
 
-# Step 1: Generate + validate everything (bindings, docs, tests)
-./scripts/generate_artifacts.sh
+# 2. Commit and push to main
+git add pyproject.toml
+git commit -m "chore: bump version to 0.0.7"
+git push origin main
 
-# Step 2: Build the Python wheel (version stamped from schema)
-make build_wheel
+# 3. Create and push version tag
+git tag v0.0.7
+git push origin v0.0.7
 
-# Step 3: Publish artifacts (finalize docs, validate bindings)
-./scripts/publish_artifacts.sh "$VERSION"
-
-# Step 4: Create the repository git tag (e.g. 0.0.2)
-./scripts/release_artifacts.sh "$VERSION"
-
-# Step 5: Create the Go module tag and push it
-./SSTP/language_bindings/publish_bindings.sh golang --tag
+# 4. GitHub Actions automatically publishes:
+#    - Python package to PyPI
+#    - Go module tag (SSTP/language_bindings/golang/v0.0.7)
 ```
 
-After this, two tags exist on the remote:
+After the automated workflow completes, two tags exist on the remote:
 
 | Tag | Example | Purpose |
 |-----|---------|---------|
-| `v{version}` | `v0.0.2` | PyPI publish trigger + repository release |
-| `SSTP/language_bindings/golang/v{version}` | `SSTP/language_bindings/golang/v0.0.2` | Go module tag (enables `go get`) |
+| `v{version}` | `v0.0.7` | Triggers automated PyPI + Go publishing |
+| `SSTP/language_bindings/golang/v{version}` | `SSTP/language_bindings/golang/v0.0.7` | Go module tag (enables `go get`) |
+
+The GitHub Actions workflow ([.github/workflows/publish.yaml](.github/workflows/publish.yaml)) handles both Python and Go publishing automatically.
 
 ---
 
@@ -332,19 +332,27 @@ git ls-remote --tags origin | grep "SSTP/language_bindings/golang"
 
 ---
 
-## Go Module Publishing (Maintainers)
+## Go Module Publishing (Automated)
+
+Go module tags are **automatically created** when you push a version tag (e.g., `v0.0.7`). The GitHub Actions workflow ([.github/workflows/publish.yaml](.github/workflows/publish.yaml)) handles this.
+
+Tag format: `SSTP/language_bindings/golang/v{version}`
+
+### Manual Validation (Optional)
+
+If you want to validate Go bindings locally before publishing:
 
 ```bash
 # Validate only (no tag created, nothing pushed)
 make publish_bindings LANGUAGE=golang
 
-# Validate + create + push the versioned git tag
-./SSTP/language_bindings/publish_bindings.sh golang --tag
+# Or run tests directly
+make test_bindings LANGUAGE=golang
 ```
 
-Tag format: `SSTP/language_bindings/golang/v{version}`
+### Local Development
 
-Without tagging, local development uses `replace` directives in `go.mod`:
+For local development without published tags, use `replace` directives in `go.mod`:
 
 ```go
 replace github.com/outshift-open/ioc-protocols-models/SSTP/language_bindings/golang => ../path/to/local/copy
@@ -392,6 +400,8 @@ VERSION=$(make -s print-version)
 ## Skills
 
 Skills live in `SSTP/skills/` and are **hand-authored**. They must be updated manually whenever the schema or bindings change.
+
+**Common Skills** — Reusable skills for working with L9 protocol messages are available in `SSTP/skills/common/`. See [SSTP/skills/common/README.md](SSTP/skills/common/README.md) for the complete list of skills (header generation, message generation, validation, text conversion) and supported models/agents (Claude Haiku 4.5, Opus 4.6, OpenClaw).
 
 ## Contributing
 

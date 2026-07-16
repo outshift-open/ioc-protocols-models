@@ -8,53 +8,9 @@
 from __future__ import annotations
 
 from enum import Enum, IntEnum
-from typing import Any, Literal
+from typing import Any
 
-from ai.outshift.data_model import L9Header, L9Payload, Actor, Context
 from pydantic import BaseModel, Field, RootModel
-from SSTP.subprotocol.common.data_models.drift_detection import DriftDetectionOutput
-
-
-class Protocol(RootModel[Literal["SSTP"]]):
-    root: Literal["SSTP"] = Field(..., title="Protocol")
-
-
-class Subprotocol(RootModel[Literal["SAB"]]):
-    root: Literal["SAB"] = Field(..., title="Subprotocol")
-
-
-class Kind(Enum):
-    contingency = "contingency"
-    commit = "commit"
-
-
-class Subkind(Enum):
-    negotiate = "negotiate"
-    converged = "converged"
-    disagreement = "disagreement"
-    timeout = "timeout"
-
-
-class Type(RootModel[Literal["json-schema"]]):
-    root: Literal["json-schema"] = Field(..., title="Type")
-
-
-class SABActors(BaseModel):
-    actors: list[Actor] = Field(..., title="Actors")
-    groups: dict[str, Any] | None = Field(None, title="Groups")
-
-
-class SABAttributes(BaseModel):
-    msg_created_at: str = Field(
-        ...,
-        description="dt_created from the wrapped SSTP message (ISO 8601).",
-        title="Msg Created At",
-    )
-
-
-class SABOrigin(BaseModel):
-    actor_id: str = Field(..., title="Actor Id")
-    attestation: str | None = Field(None, title="Attestation")
 
 
 class Encoding(Enum):
@@ -63,61 +19,15 @@ class Encoding(Enum):
     hybrid = "hybrid"
 
 
-class SemanticContext(BaseModel):
-    schema_version: str = Field(..., title="Schema Version")
-    encoding: Encoding = Field("json", title="Encoding")
-    drift_detection: DriftDetectionOutput | None = Field(None, title="Drift Detection", description="Optional drift detection output associated with this context.")
-
-
-class Outcome(Enum):
-    agreement = "agreement"
-    disagreement = "disagreement"
-    broken = "broken"
-    error = "error"
-
-
-class NegotiateCommitSemanticContext(BaseModel):
-    schema_version: str = Field("1.0", title="Schema Version")
-    encoding: Encoding = Field("json", title="Encoding")
-    session_id: str = Field(..., title="Session Id")
-    outcome: Outcome = Field(
-        ...,
-        description=(
-            "High-level outcome of the negotiation. 'agreement' - all agents reached"
-            " consensus; 'disagreement' - step budget exhausted without agreement;"
-            " 'broken' - a participant dropped out or returned an invalid offer;"
-            " 'error' - pipeline exception during execution."
-        ),
-        title="Outcome",
-    )
-    error_message: str | None = Field(
-        None,
-        description=(
-            "Populated only when outcome='error'. Human-readable exception summary."
-        ),
-        title="Error Message",
-    )
-    content_text: str | None = Field(
-        None,
-        description=(
-            "Original natural-language mission description passed to /initiate."
-        ),
-        title="Content Text",
-    )
-    agents_negotiating: list[str] | None = Field(
-        None,
-        description="List of agent IDs that participated in this negotiation.",
-        title="Agents Negotiating",
-    )
-    final_agreement: list[dict[str, Any]] | None = Field(
-        None,
-        description=(
-            "Agreed option per issue. Each entry is {'issue_id': str, 'chosen_option':"
-            " str}. None when negotiation ended without agreement."
-        ),
-        title="Final Agreement",
-    )
-    drift_detection: DriftDetectionOutput | None = Field(None, title="Drift Detection", description="Optional drift detection output associated with this context.")
+class ProcessFailureMode(Enum):
+    Unclassified = "Unclassified"
+    Persistent_Divergence = "Persistent Divergence"
+    Dominant_Narrative = "Dominant Narrative"
+    Repetition = "Repetition"
+    Reasoning_Breakdown = "Reasoning Breakdown"
+    Task_Deviation = "Task Deviation"
+    Constraint_Violation = "Constraint Violation"
+    Ambiguity = "Ambiguity"
 
 
 class ResponseType(IntEnum):
@@ -129,10 +39,9 @@ class ResponseType(IntEnum):
     LEAVE = 5
 
 
-class SAOResponse(BaseModel):
-    response: ResponseType = 3
-    outcome: dict[str, Any] | list[Any] | None = Field(None, title="Outcome")
-    data: dict[str, Any] | None = Field(None, title="Data")
+class SABOrigin(BaseModel):
+    actor_id: str = Field(..., title="Actor Id")
+    attestation: str | None = Field(None, title="Attestation")
 
 
 class SAONMI(BaseModel):
@@ -160,16 +69,13 @@ class SAONMI(BaseModel):
     allow_negotiators_to_leave: bool = Field(True, title="Allow Negotiators To Leave")
 
 
-class ThreadState(BaseModel):
-    new_offer: dict[str, Any] | list[Any] | None = Field(None, title="New Offer")
-    new_data: dict[str, Any] | None = Field(None, title="New Data")
-    new_responses: dict[str, ResponseType] | None = Field(None, title="New Responses")
-    accepted_offers: list[dict[str, Any] | list[Any] | None] | None = Field(
-        None, title="Accepted Offers"
-    )
+class SAOResponse(BaseModel):
+    response: ResponseType = 3
+    outcome: dict[str, Any] | list[Any] | None = Field(None, title="Outcome")
+    data: dict[str, Any] | None = Field(None, title="Data")
 
 
-class NewOffer1(RootModel[tuple[str, dict[str, Any] | list[Any] | None]]):
+class NewOffer(RootModel[tuple[str, dict[str, Any] | list[Any] | None]]):
     root: tuple[str, dict[str, Any] | list[Any] | None] = Field(
         ..., max_length=2, min_length=2
     )
@@ -177,6 +83,21 @@ class NewOffer1(RootModel[tuple[str, dict[str, Any] | list[Any] | None]]):
 
 class NewDatum(RootModel[tuple[str, dict[str, Any] | None]]):
     root: tuple[str, dict[str, Any] | None] = Field(..., max_length=2, min_length=2)
+
+
+class SeverityLevel(Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+
+
+class ThreadState(BaseModel):
+    new_offer: dict[str, Any] | list[Any] | None = Field(None, title="New Offer")
+    new_data: dict[str, Any] | None = Field(None, title="New Data")
+    new_responses: dict[str, ResponseType] | None = Field(None, title="New Responses")
+    accepted_offers: list[dict[str, Any] | list[Any] | None] | None = Field(
+        None, title="Accepted Offers"
+    )
 
 
 class SAOState(BaseModel):
@@ -204,7 +125,7 @@ class SAOState(BaseModel):
     current_proposer: str | None = Field(None, title="Current Proposer")
     current_proposer_agent: str | None = Field(None, title="Current Proposer Agent")
     n_acceptances: int = Field(0, title="N Acceptances")
-    new_offers: list[NewOffer1] | None = Field(None, title="New Offers")
+    new_offers: list[NewOffer] | None = Field(None, title="New Offers")
     new_offerer_agents: list[str | None] | None = Field(
         None, title="New Offerer Agents"
     )
@@ -213,19 +134,106 @@ class SAOState(BaseModel):
     new_data: list[NewDatum] | None = Field(None, title="New Data")
 
 
-class SABIntentPayloadData(BaseModel):
-    message_id: str = Field(..., title="Message Id")
-    version: str = Field("0", description="SSTP protocol version.", title="Version")
-    dt_created: str = Field(
-        ..., description="ISO 8601 creation timestamp.", title="Dt Created"
+class Severity(BaseModel):
+    type: SeverityLevel = Field(..., description="Assigned severity bucket")
+    high: float = Field(
+        ..., description="Score ≤ this → HIGH", ge=0.0, le=1.0, title="High"
     )
-    origin: SABOrigin
-    payload_hash: str = Field(
+    medium: float = Field(
+        ..., description="Score ≤ this → MEDIUM", ge=0.0, le=1.0, title="Medium"
+    )
+
+
+class FailureMode(BaseModel):
+    type: ProcessFailureMode = Field(..., description="Detected failure-mode category")
+    score: float = Field(
         ...,
-        description="SHA-256 hex digest of the original payload.",
-        title="Payload Hash",
+        description="Confidence score in [0,1]; lower = stronger evidence of drift",
+        ge=0.0,
+        le=1.0,
+        title="Score",
     )
-    semantic_context: SemanticContext
+    severity: Severity
+    description: str = Field(
+        ..., description="Static taxonomy description for ``type``", title="Description"
+    )
+    reasoning: str = Field(
+        ...,
+        description="Engine's per-instance justification for flagging this mode",
+        title="Reasoning",
+    )
+
+
+class DriftDetectionOutput(BaseModel):
+    failure_modes: list[FailureMode] | None = Field(
+        None,
+        description="Detected process failure modes; empty list = no drift detected",
+        title="Failure Modes",
+    )
+
+
+class NegotiateCommitSemanticContext(BaseModel):
+    schema_version: str = Field("1.0", title="Schema Version")
+    encoding: Encoding = Field("json", title="Encoding")
+    session_id: str = Field(..., title="Session Id")
+    drift_detection: DriftDetectionOutput | None = Field(
+        None,
+        description="Optional drift detection output associated with this context.",
+    )
+    outcome: str = Field(
+        ...,
+        description=(
+            "High-level outcome: 'agreement' — consensus reached; 'disagreement' — step"
+            " budget exhausted; 'broken' — a participant dropped out or returned an"
+            " invalid offer; 'error' — pipeline exception."
+        ),
+        title="Outcome",
+    )
+    error_message: str | None = Field(
+        None, description="Populated only when outcome='error'.", title="Error Message"
+    )
+    content_text: str | None = Field(
+        None,
+        description=(
+            "Original natural-language mission description passed to /initiate."
+        ),
+        title="Content Text",
+    )
+    agents_negotiating: list[str] | None = Field(
+        None,
+        description="Agent IDs that participated in this negotiation.",
+        title="Agents Negotiating",
+    )
+    final_agreement: list[dict[str, Any]] | None = Field(
+        None,
+        description=(
+            "Agreed option per issue: {'issue_id': str, 'chosen_option': str}. None"
+            " when the negotiation ended without agreement."
+        ),
+        title="Final Agreement",
+    )
+
+
+class NegotiateSemanticContext(BaseModel):
+    schema_version: str = Field("1.0", title="Schema Version")
+    encoding: Encoding = Field("json", title="Encoding")
+    session_id: str = Field(..., title="Session Id")
+    sao_state: SAOState | None = None
+    sao_response: SAOResponse | None = None
+    nmi: SAONMI | None = None
+    drift_detection: DriftDetectionOutput | None = Field(
+        None,
+        description="Optional drift detection output associated with this context.",
+    )
+    offer_validation_failure: dict[str, Any] | None = Field(
+        None,
+        description=(
+            "Set when the previous counter_offer was rejected for unrecognised issue"
+            " keys/option values (validation failure, not a strategic reject). Shape:"
+            " {rejected_agent_id, round, problems, hint}."
+        ),
+        title="Offer Validation Failure",
+    )
 
 
 class SABCommitPayloadData(BaseModel):
@@ -243,37 +251,6 @@ class SABCommitPayloadData(BaseModel):
     semantic_context: NegotiateCommitSemanticContext
 
 
-class NegotiateSemanticContext(BaseModel):
-    schema_version: str = Field("1.0", title="Schema Version")
-    encoding: Encoding = Field("json", title="Encoding")
-    session_id: str = Field(..., title="Session Id")
-    sao_state: SAOState | None = None
-    sao_response: SAOResponse | None = None
-    nmi: SAONMI | None = None
-    offer_validation_failure: dict[str, Any] | None = Field(
-        None, title="Offer Validation Failure"
-    )
-    drift_detection: DriftDetectionOutput | None = Field(None, title="Drift Detection", description="Optional drift detection output associated with this context.")
-
-
-class SABHeader(L9Header):
-    protocol: Literal["SSTP"] = Field("SSTP", title="Protocol")
-    subprotocol: Literal["SAB"] = Field("SAB", title="Subprotocol")
-    kind: Kind | None = Field(None, title="Kind")
-    subkind: Subkind | None = Field(None, title="Subkind")
-    participants: SABActors | None = None
-    attributes: SABAttributes | None = Field(None, title="Attributes")
-    context: Context | None = Field(
-        None,
-        description=(
-            "Present when a topic, issues, or options_per_issue are available."
-            " context.topic encodes: '<mission> | issues: [...] | options_per_issue:"
-            " {...}'. context.semantic.schema_id = 'urn:ioc:schema:sab-l9:v1'"
-            " identifies this envelope."
-        ),
-    )
-
-
 class SABNegotiatePayloadData(BaseModel):
     message_id: str = Field(..., title="Message Id")
     version: str = Field("0", description="SSTP protocol version.", title="Version")
@@ -289,22 +266,41 @@ class SABNegotiatePayloadData(BaseModel):
     semantic_context: NegotiateSemanticContext
 
 
-class SABPayload(L9Payload):
-    type: Literal["json-schema"] = Field("json-schema", title="Type")
-    data: (
-        SABIntentPayloadData | SABNegotiatePayloadData | SABCommitPayloadData | None
-    ) = Field(
+class SemanticContext(BaseModel):
+    schema_version: str = Field("1.0", title="Schema Version")
+    encoding: Encoding = Field("json", title="Encoding")
+    drift_detection: DriftDetectionOutput | None = Field(
         None,
-        description=(
-            "The stripped SSTP message body. Discriminate by"
-            " semantic_context.schema_id: 'urn:ioc:schema:intent:v1' -> intent,"
-            " 'urn:ioc:schema:negotiate:negmas-sao:v1' -> negotiate,"
-            " 'urn:ioc:schema:negotiate:commit:v1' -> commit."
-        ),
-        title="Data",
+        description="Optional drift detection output associated with this context.",
     )
 
 
-class SAB(BaseModel):
-    header: SABHeader
-    payload: SABPayload
+class SABIntentPayloadData(BaseModel):
+    message_id: str = Field(..., title="Message Id")
+    version: str = Field("0", description="SSTP protocol version.", title="Version")
+    dt_created: str = Field(
+        ..., description="ISO 8601 creation timestamp.", title="Dt Created"
+    )
+    origin: SABOrigin
+    payload_hash: str = Field(
+        ...,
+        description="SHA-256 hex digest of the original payload.",
+        title="Payload Hash",
+    )
+    semantic_context: SemanticContext
+
+
+class SABPayloadData(
+    RootModel[SABCommitPayloadData | SABNegotiatePayloadData | SABIntentPayloadData]
+):
+    root: SABCommitPayloadData | SABNegotiatePayloadData | SABIntentPayloadData = Field(
+        ...,
+        description=(
+            "Union of the three SAB ``payload.data`` variants.\n\nThis is the root the"
+            " schema generator dumps. Variants are discriminated by\nthe shape of"
+            " ``semantic_context`` (commit and negotiate carry ``session_id``;\ncommit"
+            " additionally carries ``outcome``). Ordered most-constrained first"
+            " so\nPydantic's smart-union matching stays unambiguous."
+        ),
+        title="SABPayloadData",
+    )

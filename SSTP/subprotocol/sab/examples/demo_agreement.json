@@ -5,17 +5,22 @@
       "subprotocol": "SAB",
       "version": "0",
       "kind": "contingency",
-      "subkind": "negotiate",
+      "subkind": "negotiation",
       "participants": {
         "actors": [
           {
             "id": "agent-buyer",
-            "role": "sender",
+            "role": "participant",
             "attestation": null
           },
           {
-            "id": "topic:sab/sessions",
-            "role": "receiver",
+            "id": "agent-seller",
+            "role": "participant",
+            "attestation": null
+          },
+          {
+            "id": "negotiation_server",
+            "role": "facilitator",
             "attestation": null
           }
         ],
@@ -28,7 +33,7 @@
       },
       "policy": null,
       "attributes": {
-        "msg_created_at": "2026-06-22T09:58:00Z"
+        "msg_created_at": "2026-06-22T10:00:00Z"
       },
       "context": {
         "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
@@ -64,17 +69,22 @@
       "subprotocol": "SAB",
       "version": "0",
       "kind": "contingency",
-      "subkind": "negotiate",
+      "subkind": "negotiation",
       "participants": {
         "actors": [
           {
             "id": "agent-buyer",
-            "role": "sender",
+            "role": "participant",
             "attestation": null
           },
           {
             "id": "agent-seller",
-            "role": "receiver",
+            "role": "participant",
+            "attestation": null
+          },
+          {
+            "id": "negotiation_server",
+            "role": "facilitator",
             "attestation": null
           }
         ],
@@ -82,14 +92,12 @@
       },
       "message": {
         "id": "b2c3d4e5-f6a7-8901-bcde-f01234567890",
-        "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
-        ],
+        "parents": [],
         "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
       },
       "policy": null,
       "attributes": {
-        "msg_created_at": "2026-06-22T09:58:00Z"
+        "msg_created_at": "2026-06-22T10:00:02Z"
       },
       "context": {
         "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
@@ -132,9 +140,9 @@
             "error_details": "",
             "erred_negotiator": "",
             "erred_agent": "",
-            "threads": null,
+            "threads": {},
             "last_thread": "",
-            "left_negotiators": null,
+            "left_negotiators": [],
             "current_offer": {
               "price": "high",
               "delivery_speed": "express"
@@ -142,14 +150,15 @@
             "current_proposer": "agent-buyer",
             "current_proposer_agent": "agent-buyer",
             "n_acceptances": 0,
-            "new_offers": null,
-            "new_offerer_agents": null,
+            "new_offers": [],
+            "new_offerer_agents": [],
             "last_negotiator": null,
             "current_data": null,
-            "new_data": null
+            "new_data": [],
+            "n_participating": 2
           },
           "sao_response": {
-            "response": 3,
+            "response": "NO_RESPONSE",
             "outcome": {
               "price": "high",
               "delivery_speed": "express"
@@ -169,7 +178,7 @@
             "negotiator_time_limit": 5.0,
             "dynamic_entry": false,
             "max_n_negotiators": null,
-            "annotation": null,
+            "annotation": {},
             "end_on_no_response": true,
             "one_offer_per_step": false,
             "offering_is_accepting": true,
@@ -187,17 +196,22 @@
       "subprotocol": "SAB",
       "version": "0",
       "kind": "contingency",
-      "subkind": "negotiate",
+      "subkind": "negotiation",
       "participants": {
         "actors": [
           {
-            "id": "agent-seller",
-            "role": "sender",
+            "id": "agent-buyer",
+            "role": "participant",
             "attestation": null
           },
           {
-            "id": "agent-buyer",
-            "role": "receiver",
+            "id": "agent-seller",
+            "role": "participant",
+            "attestation": null
+          },
+          {
+            "id": "negotiation_server",
+            "role": "facilitator",
             "attestation": null
           }
         ],
@@ -205,14 +219,12 @@
       },
       "message": {
         "id": "c3d4e5f6-a7b8-9012-cdef-012345678901",
-        "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
-        ],
+        "parents": [],
         "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
       },
       "policy": null,
       "attributes": {
-        "msg_created_at": "2026-06-22T09:58:00Z"
+        "msg_created_at": "2026-06-22T10:00:08Z"
       },
       "context": {
         "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
@@ -255,9 +267,9 @@
             "error_details": "",
             "erred_negotiator": "",
             "erred_agent": "",
-            "threads": null,
+            "threads": {},
             "last_thread": "",
-            "left_negotiators": null,
+            "left_negotiators": [],
             "current_offer": {
               "price": "low",
               "delivery_speed": "deferred"
@@ -265,14 +277,15 @@
             "current_proposer": "agent-seller",
             "current_proposer_agent": "agent-seller",
             "n_acceptances": 0,
-            "new_offers": null,
-            "new_offerer_agents": null,
+            "new_offers": [],
+            "new_offerer_agents": [],
             "last_negotiator": "agent-buyer",
             "current_data": null,
-            "new_data": null
+            "new_data": [],
+            "n_participating": 2
           },
           "sao_response": {
-            "response": 1,
+            "response": "REJECT_OFFER",
             "outcome": {
               "price": "low",
               "delivery_speed": "deferred"
@@ -291,17 +304,22 @@
       "subprotocol": "SAB",
       "version": "0",
       "kind": "contingency",
-      "subkind": "negotiate",
+      "subkind": "negotiation",
       "participants": {
         "actors": [
           {
             "id": "agent-buyer",
-            "role": "sender",
+            "role": "participant",
             "attestation": null
           },
           {
             "id": "agent-seller",
-            "role": "receiver",
+            "role": "participant",
+            "attestation": null
+          },
+          {
+            "id": "negotiation_server",
+            "role": "facilitator",
             "attestation": null
           }
         ],
@@ -309,14 +327,12 @@
       },
       "message": {
         "id": "d4e5f6a7-b8c9-0123-def0-123456789012",
-        "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
-        ],
+        "parents": [],
         "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
       },
       "policy": null,
       "attributes": {
-        "msg_created_at": "2026-06-22T09:58:00Z"
+        "msg_created_at": "2026-06-22T10:00:14Z"
       },
       "context": {
         "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
@@ -359,9 +375,9 @@
             "error_details": "",
             "erred_negotiator": "",
             "erred_agent": "",
-            "threads": null,
+            "threads": {},
             "last_thread": "",
-            "left_negotiators": null,
+            "left_negotiators": [],
             "current_offer": {
               "price": "medium",
               "delivery_speed": "standard"
@@ -369,14 +385,15 @@
             "current_proposer": "agent-buyer",
             "current_proposer_agent": "agent-buyer",
             "n_acceptances": 0,
-            "new_offers": null,
-            "new_offerer_agents": null,
+            "new_offers": [],
+            "new_offerer_agents": [],
             "last_negotiator": "agent-seller",
             "current_data": null,
-            "new_data": null
+            "new_data": [],
+            "n_participating": 2
           },
           "sao_response": {
-            "response": 1,
+            "response": "REJECT_OFFER",
             "outcome": {
               "price": "medium",
               "delivery_speed": "standard"
@@ -395,17 +412,22 @@
       "subprotocol": "SAB",
       "version": "0",
       "kind": "contingency",
-      "subkind": "negotiate",
+      "subkind": "negotiation",
       "participants": {
         "actors": [
           {
-            "id": "agent-seller",
-            "role": "sender",
+            "id": "agent-buyer",
+            "role": "participant",
             "attestation": null
           },
           {
-            "id": "agent-buyer",
-            "role": "receiver",
+            "id": "agent-seller",
+            "role": "participant",
+            "attestation": null
+          },
+          {
+            "id": "negotiation_server",
+            "role": "facilitator",
             "attestation": null
           }
         ],
@@ -413,14 +435,12 @@
       },
       "message": {
         "id": "e5f6a7b8-c9d0-1234-ef01-234567890123",
-        "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
-        ],
+        "parents": [],
         "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
       },
       "policy": null,
       "attributes": {
-        "msg_created_at": "2026-06-22T09:58:00Z"
+        "msg_created_at": "2026-06-22T10:00:20Z"
       },
       "context": {
         "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",
@@ -466,9 +486,9 @@
             "error_details": "",
             "erred_negotiator": "",
             "erred_agent": "",
-            "threads": null,
+            "threads": {},
             "last_thread": "",
-            "left_negotiators": null,
+            "left_negotiators": [],
             "current_offer": {
               "price": "medium",
               "delivery_speed": "standard"
@@ -476,14 +496,15 @@
             "current_proposer": "agent-buyer",
             "current_proposer_agent": "agent-buyer",
             "n_acceptances": 1,
-            "new_offers": null,
-            "new_offerer_agents": null,
+            "new_offers": [],
+            "new_offerer_agents": [],
             "last_negotiator": "agent-buyer",
             "current_data": null,
-            "new_data": null
+            "new_data": [],
+            "n_participating": 2
           },
           "sao_response": {
-            "response": 0,
+            "response": "ACCEPT_OFFER",
             "outcome": {
               "price": "medium",
               "delivery_speed": "standard"
@@ -502,17 +523,22 @@
       "subprotocol": "SAB",
       "version": "0",
       "kind": "commit",
-      "subkind": "converged",
+      "subkind": "resolved",
       "participants": {
         "actors": [
           {
             "id": "agent-buyer",
-            "role": "sender",
+            "role": "participant",
             "attestation": null
           },
           {
-            "id": "topic:sab/sessions",
-            "role": "receiver",
+            "id": "agent-seller",
+            "role": "participant",
+            "attestation": null
+          },
+          {
+            "id": "negotiation_server",
+            "role": "facilitator",
             "attestation": null
           }
         ],
@@ -520,14 +546,12 @@
       },
       "message": {
         "id": "f6a7b8c9-d0e1-2345-f012-345678901234",
-        "parents": [
-          "f1a2b3c4-d5e6-f780-9abc-def012345678"
-        ],
+        "parents": [],
         "episode": "urn:ioc:episode:supply-order-urgent-2026-001"
       },
       "policy": null,
       "attributes": {
-        "msg_created_at": "2026-06-22T09:58:00Z"
+        "msg_created_at": "2026-06-22T10:00:25Z"
       },
       "context": {
         "topic": "Two parties need to agree on price and delivery speed for an urgent supply order. | issues: [\"price\", \"delivery_speed\"] | options_per_issue: {\"price\": [\"low\", \"medium\", \"high\"], \"delivery_speed\": [\"express\", \"standard\", \"deferred\"]}",

@@ -39,7 +39,10 @@ echo ""
 echo "Running Python binding tests..."
 FAILED=0
 
-poetry run pytest tests/language_bindings/python/test_model_validation.py -v || FAILED=1
+poetry run pytest \
+    tests/language_bindings/python/test_model_validation.py \
+    tests/language_bindings/python/test_sab.py \
+    -v || FAILED=1
 
 echo ""
 if [ $FAILED -eq 1 ]; then

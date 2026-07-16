@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-SSTP/subprotocol/siep/src/l9.py — SIEP/SNP specialisation of the L9 header builder.
+SSTP/examples/hcpanel/siep_l9.py — SIEP/SNP specialisation of the L9 header builder.
 
 SIEP (Semantic Interaction & Epistemic Protocol) is the target-repo name for what
 the source repo calls SNP (Semantic Negotiation Protocol).  This module is the
@@ -29,7 +29,7 @@ from SSTP.subprotocol.siep.src.epistemic.vocabulary import (
     EpistemicState,
     make_epistemic_block,
 )
-from SSTP.l9_base import (
+from SSTP.examples.hcpanel.l9_base import (
     L9HeaderBuilder,
     L9_PROTOCOL,
     L9_VERSION,
