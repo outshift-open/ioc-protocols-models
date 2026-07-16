@@ -191,7 +191,10 @@ class StarNegotiator:
         # panel, reasoning_summary, thought_summary, concept_id) are not used by handlers
         # and inflate the per-specialist wire payload significantly.
         _POS_KEYS = {"likely_cause", "confidence", "posterior", "rationale",
-                     "supporting_evidence", "addresses_evidence", "case_summary"}
+                     "supporting_evidence", "addresses_evidence", "case_summary",
+                     "team_process",   # TW: carries patient data for specialist prior formation
+                     "concept_id",     # TW: patient URN used to set _session.patient
+                     }
         siep_ctx_part: Dict[str, Any] = {
             "type": "siep-ctx",
             "location": "inline",
