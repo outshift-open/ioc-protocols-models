@@ -59,6 +59,11 @@ from pydantic import (
     field_validator,
 )
 
+# Drift Detection output lives in the shared common data models; SAB references it
+# as an optional field on every semantic_context (see generate_sab_schema.py, which
+# puts the repo root on sys.path so this resolves when the generator imports us flat).
+from SSTP.subprotocol.common.data_models.drift_detection import DriftDetectionOutput
+
 # ---------------------------------------------------------------------------
 # Literals / type aliases
 # ---------------------------------------------------------------------------
@@ -246,6 +251,10 @@ class SemanticContext(BaseModel):
 
     schema_version: str = "1.0"
     encoding: EncodingType = "json"
+    drift_detection: Optional[DriftDetectionOutput] = Field(
+        default=None,
+        description="Optional drift detection output associated with this context.",
+    )
 
 
 class NegotiateSemanticContext(BaseModel):
@@ -261,6 +270,10 @@ class NegotiateSemanticContext(BaseModel):
     sao_state: Optional[SAOState] = None
     sao_response: Optional[SAOResponse] = None
     nmi: Optional[SAONMI] = None
+    drift_detection: Optional[DriftDetectionOutput] = Field(
+        default=None,
+        description="Optional drift detection output associated with this context.",
+    )
     offer_validation_failure: Optional[Dict[str, Any]] = Field(
         default=None,
         description=(
@@ -277,6 +290,10 @@ class NegotiateCommitSemanticContext(BaseModel):
     schema_version: str = "1.0"
     encoding: EncodingType = "json"
     session_id: str
+    drift_detection: Optional[DriftDetectionOutput] = Field(
+        default=None,
+        description="Optional drift detection output associated with this context.",
+    )
     outcome: str = Field(
         ...,
         description=(

@@ -43,8 +43,12 @@ from pathlib import Path
 
 _SPEC_DIR = Path(__file__).resolve().parent
 _SRC_DIR = _SPEC_DIR.parent / "src"
-if str(_SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(_SRC_DIR))
+# Repo root so sab_models' absolute import of the shared drift model
+# (SSTP.subprotocol.common.data_models.drift_detection) resolves.
+_REPO_ROOT = _SPEC_DIR.parents[3]
+for _p in (str(_SRC_DIR), str(_REPO_ROOT)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import sab_models as m  # noqa: E402
 
