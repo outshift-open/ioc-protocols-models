@@ -9,6 +9,7 @@ from SSTP.l9.episode import (
     L9, L9Session, AgentPrior, TeamPrior, blend_prior,
     SessionPlan, SessionAbortedError, PlanAdherenceError,
 )
+from SSTP.subprotocol.siep.src.negotiation import DebateTimeoutError
 from SSTP.l9.grounding import receive_peer_turn
 from SSTP.l9.emit import (
     ProtocolViolation,
@@ -27,7 +28,7 @@ __all__ = [
     "ProtocolViolation",
     "Episode", "TaskEpisode", "TeamProcessEpisode",
     "L9", "L9Session", "AgentPrior", "TeamPrior", "blend_prior",
-    "SessionPlan", "SessionAbortedError", "PlanAdherenceError",
+    "SessionPlan", "SessionAbortedError", "PlanAdherenceError", "DebateTimeoutError",
     "emit_peer_turn", "emit_request", "emit_response", "emit_error",
     "emit_semantic_repair", "emit_epistemic_clarification",
     "emit_task_assignment", "emit_taskwork_result",

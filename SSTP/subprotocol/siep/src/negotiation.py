@@ -44,6 +44,23 @@ from SSTP.subprotocol.cip.src.message import get_part as _get_part
 from SSTP.subprotocol.cip.src.grounding import verify_grounding_bilateral
 
 
+class DebateTimeoutError(RuntimeError):
+    """Raised when SIEP rounds exhaust without convergence or majority.
+
+    This is a system-level error: it means the pivot produced no movement
+    across all allowed rounds.  Callers should treat it as an unrecoverable
+    session fault, not a normal clinical outcome.
+    """
+    def __init__(self, rounds_run: int, gar: float, mpc: float) -> None:
+        super().__init__(
+            f"SIEP debate timed out after {rounds_run} round(s) "
+            f"with no convergence (GAR={gar:.2f} MPC={mpc:.2f})"
+        )
+        self.rounds_run = rounds_run
+        self.gar = gar
+        self.mpc = mpc
+
+
 # ── Shared position/confidence helpers ────────────────────────────────────────
 
 def _position_key(pos: Any) -> str:
@@ -368,6 +385,7 @@ class StarNegotiator:
         specialist_positions: Dict[str, Any],
         accept_threshold: float = 0.1,
         max_rounds: int = 2,
+        max_extra_rounds: int = 3,
         task_goal: str = "",
         agent_beliefs: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Any, str]:
@@ -434,7 +452,27 @@ class StarNegotiator:
         # Do not register _make_handler per member — each specialist's own handler
         # (registered in wire_up_l9 via the application) is the correct wire endpoint.
 
-        for round_idx in range(max_rounds):
+        _hard_limit = max_rounds + max_extra_rounds
+        _prev_ctrl_key = _position_key(ctrl_pos)
+        _prev_ctrl_conf = _confidence(ctrl_pos)
+        round_idx = -1
+        while True:
+            round_idx += 1
+            if round_idx >= _hard_limit:
+                break
+            if round_idx >= max_rounds:
+                # Only continue past max_rounds if the pivot is still moving:
+                # position key changed OR confidence shifted by >5pp last round.
+                _cur_key = _position_key(ctrl_pos)
+                _cur_conf = _confidence(ctrl_pos)
+                _still_shifting = (
+                    _cur_key != _prev_ctrl_key
+                    or abs(_cur_conf - _prev_ctrl_conf) > 0.05
+                )
+                if not _still_shifting:
+                    break
+            _prev_ctrl_key = _position_key(ctrl_pos)
+            _prev_ctrl_conf = _confidence(ctrl_pos)
             _round_id = f"{self.context._debate_id}:star:round:{round_idx}"
             _round_positions = {
                 **{mid: _confidence(specialist_positions[mid]) for mid in member_ids},
@@ -624,13 +662,6 @@ class StarNegotiator:
                 else:
                     ctrl_pos = leading_counter
 
-        if resolution_label == "timeout_majority":
-            all_positions = {**specialist_positions, controller_id: ctrl_pos}
-            keys = [_position_key(p) for p in all_positions.values()]
-            top_count = max(Counter(keys).values())
-            if top_count > n / 2:
-                resolution_label = "timeout_majority"
-
         winning_position = _leading_position(specialist_positions)
         win_key = _position_key(winning_position)
 
@@ -793,6 +824,20 @@ class StarNegotiator:
 
         if self.context.persistence_path:
             self.context._save_cross_episode_state(self.context.persistence_path)
+
+        if resolution_label == "timeout_majority":
+            _tmpc = round(
+                sum(_confidence(specialist_positions[m]) for m in member_ids) / max(1, len(member_ids)),
+                4,
+            )
+            _tgar = round(
+                sum(
+                    1 for m in member_ids
+                    if abs(_confidence(specialist_positions[m]) - initial_priors.get(m, 0.5)) > 0.05
+                ) / max(1, len(member_ids)),
+                4,
+            )
+            raise DebateTimeoutError(rounds_run=round_idx + 1, gar=_tgar, mpc=_tmpc)
 
         return winning_position, resolution_label
 

@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from SSTP.subprotocol.siep.src.panel import NetworkHandle
 from SSTP.examples.hcpanel.domain import ClinicalDebateOutcome, SpecialistOpinion
-from SSTP.l9 import L9, SessionAbortedError, PlanAdherenceError
+from SSTP.l9 import L9, SessionAbortedError, PlanAdherenceError, DebateTimeoutError
 
 
 if TYPE_CHECKING:
@@ -410,6 +410,7 @@ class DebateOrchestrator:
                 concept_id=f"urn:concept:healthcare:{controller_position.get('likely_cause', 'unknown')}",
                 accept_threshold=0.1,
                 max_rounds=2,
+                max_extra_rounds=3,
                 convergence_store=self.memory.convergence_store,
                 semantic_rule_store=self.memory.semantic_rule_store,
                 repair_fn=self.repair_fn,
@@ -418,6 +419,13 @@ class DebateOrchestrator:
             )
         except (SessionAbortedError, PlanAdherenceError) as exc:
             LOGGER.error("session failed during task: %s", exc)
+            raise
+        except DebateTimeoutError as exc:
+            LOGGER.error(
+                "debate.timeout_error rounds=%d gar=%.2f mpc=%.2f — "
+                "pivot did not converge; treat as system fault",
+                exc.rounds_run, exc.gar, exc.mpc,
+            )
             raise
 
         winning_position = task_result.winning_position

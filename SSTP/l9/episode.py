@@ -656,6 +656,7 @@ class TaskEpisode(Episode):
         task_goal: str = "",
         accept_threshold: float = 0.1,
         max_rounds: int = 2,
+        max_extra_rounds: int = 3,
     ) -> None:
         """Execute the SIEP star negotiation and close the episode.
 
@@ -693,6 +694,7 @@ class TaskEpisode(Episode):
             task_goal=task_goal,
             accept_threshold=accept_threshold,
             max_rounds=max_rounds,
+            max_extra_rounds=max_extra_rounds,
         )
 
         self._winning_position = winning_position
@@ -1247,6 +1249,7 @@ class L9:
         task_goal: str = "",
         accept_threshold: float = 0.1,
         max_rounds: int = 2,
+        max_extra_rounds: int = 3,
         convergence_store: Any = None,
         semantic_rule_store: Any = None,
         repair_fn: Any = None,
@@ -1270,6 +1273,7 @@ class L9:
             task_goal=task_goal,
             accept_threshold=accept_threshold,
             max_rounds=max_rounds,
+            max_extra_rounds=max_extra_rounds,
         )
         ep.announce(
             concept_id=ep.winning_position_key,
@@ -1743,6 +1747,7 @@ class L9Session:
         concept_id: Optional[str] = None,
         accept_threshold: float = 0.1,
         max_rounds: int = 2,
+        max_extra_rounds: int = 3,
         convergence_store: Any = None,
         semantic_rule_store: Any = None,
         repair_fn: Any = None,
@@ -1761,6 +1766,7 @@ class L9Session:
             task_goal=self.task_goal,
             accept_threshold=accept_threshold,
             max_rounds=max_rounds,
+            max_extra_rounds=max_extra_rounds,
             convergence_store=convergence_store,
             semantic_rule_store=semantic_rule_store,
             repair_fn=repair_fn,
