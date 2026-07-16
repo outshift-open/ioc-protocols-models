@@ -325,6 +325,42 @@ class DebateOrchestrator:
             merged["panel"] = sp.panel if sp is not None else ""
             all_positions[agent_id] = merged
 
+        # ── Build compact case_summary from TW output ───────────────────
+        # Used by T-phase specialist calls instead of raw patient data.
+        # Built deterministically — no extra LLM call.
+        _cause_spread: Dict[str, int] = {}
+        for _pos in all_positions.values():
+            _c = _pos.get("likely_cause") or "drug_interaction"
+            _cause_spread[_c] = _cause_spread.get(_c, 0) + 1
+        _spread_str = ", ".join(
+            f"{_c}({_n})" for _c, _n in sorted(_cause_spread.items(), key=lambda x: -x[1])
+        )
+        _all_evidence: List[str] = []
+        for _pos in all_positions.values():
+            _all_evidence.extend((list(_pos.get("supporting_evidence") or []))[:2])
+        # Deduplicate preserving order
+        _seen: set = set()
+        _deduped_evidence: List[str] = []
+        for _e in _all_evidence:
+            if _e not in _seen:
+                _seen.add(_e)
+                _deduped_evidence.append(_e)
+        case_summary: str = (
+            f"Patient {patient.patient_id}: "
+            f"symptoms=[{', '.join(str(s) for s in patient.symptoms[:3])}]; "
+            f"meds=[{', '.join(str(m) for m in patient.current_medications[:4])}]; "
+            f"TW prior spread: {_spread_str}; "
+            f"key evidence: {'; '.join(_deduped_evidence[:6])}"
+        )
+
+        # Strip heavy fields from all_positions before T-phase — specialists only
+        # need their own clinical position, not patient raw data or identity metadata.
+        _T_STRIP = {"team_process", "role", "panel", "reasoning_summary", "thought_summary"}
+        all_positions = {
+            _aid: {k: v for k, v in _pos.items() if k not in _T_STRIP}
+            for _aid, _pos in all_positions.items()
+        }
+
         # ── EPISODE C: SIEP panel negotiation ───────────────────────────
         # Winning taskwork position is the controller's starting point for the task debate.
         controller_position: Dict[str, Any] = dict(tw_result.winning_position) if tw_result.winning_position else {}
@@ -352,6 +388,14 @@ class DebateOrchestrator:
                 "rationale": f"Plurality position: {leading_cause} ({len(matching)}/{len(all_ids)})",
                 "reasoning_summary": f"Plurality position: {leading_cause}",
             }
+
+        # Attach case_summary to controller position — propagated via ctrl_pos to every
+        # specialist call so they have compact patient context without raw patient data.
+        controller_position["case_summary"] = case_summary
+        # Strip heavy fields from controller position too
+        for _k in list(controller_position.keys()):
+            if _k in _T_STRIP:
+                del controller_position[_k]
 
         _ctrl_conf = float(
             controller_position.get("confidence") or controller_position.get("posterior") or 0.5

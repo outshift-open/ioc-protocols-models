@@ -187,6 +187,11 @@ class StarNegotiator:
             raise RuntimeError(f"No handler registered for specialist {member_id!r}")
 
         # Encode round context as a siep-ctx payload part — plain serialisable data only.
+        # Strip position dicts to essential debate keys; heavy fields (team_process, role,
+        # panel, reasoning_summary, thought_summary, concept_id) are not used by handlers
+        # and inflate the per-specialist wire payload significantly.
+        _POS_KEYS = {"likely_cause", "confidence", "posterior", "rationale",
+                     "supporting_evidence", "addresses_evidence", "case_summary"}
         siep_ctx_part: Dict[str, Any] = {
             "type": "siep-ctx",
             "location": "inline",
@@ -197,8 +202,8 @@ class StarNegotiator:
                 "ctrl_position_key": ctrl_key,
                 "ctrl_conf": ctrl_conf,
                 "accept_threshold": ctx.accept_threshold,
-                "member_pos": member_pos,
-                "ctrl_pos": ctrl_pos,
+                "member_pos": {k: v for k, v in member_pos.items() if k in _POS_KEYS},
+                "ctrl_pos": {k: v for k, v in ctrl_pos.items() if k in _POS_KEYS},
                 "task_goal": ctx.task_goal,
                 "tom_ctx": tom_ctx,
                 "use_case": self.context.use_case,

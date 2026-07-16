@@ -268,7 +268,6 @@ class SpecialistAgent:
                 ctrl_pos=round_ep.ctrl_pos,
                 member_pos=round_ep.member_pos,
                 task_goal=round_ep.task_goal,
-                session_objective=(self._session.session_objective if self._session else ""),
                 tom_ctx=round_ep.tom_ctx,
                 round_idx=getattr(round_ep, "turn", 1),
             )
@@ -619,7 +618,6 @@ class SpecialistAgent:
         ctrl_pos: Dict[str, Any],
         member_pos: Dict[str, Any],
         task_goal: str,
-        session_objective: str,
         tom_ctx: Optional[Dict[str, Any]] = None,
         round_idx: int = 1,
     ) -> Dict[str, Any]:
@@ -630,25 +628,24 @@ class SpecialistAgent:
         my_confidence: float = float(
             member_pos.get("confidence") or member_pos.get("posterior") or 0.5
         )
-        prior_args: List[Dict[str, Any]] = list((tom_ctx or {}).get("prior_argument_history", []))[-4:]
+        _tom = tom_ctx or {}
 
         try:
             return self.llm.complete_json("debate_accept_or_counter", {
                 "agent_id": self.agent_id,
                 "role": self.role,
-                "my_taskwork_rationale": member_pos.get("rationale", "") or member_pos.get("reasoning_summary", ""),
-                "my_supporting_evidence": member_pos.get("supporting_evidence", []),
+                "case_summary": ctrl_pos.get("case_summary", ""),
+                "my_taskwork_rationale": member_pos.get("rationale", ""),
+                "my_supporting_evidence": (member_pos.get("supporting_evidence") or [])[:3],
                 "my_confidence": my_confidence,
-                "prior_argument_history": prior_args,
                 "proposal_concept": ctrl_pos.get("likely_cause", ""),
                 "proposal_confidence": float(ctrl_pos.get("confidence") or ctrl_pos.get("posterior") or 0.5),
-                "proposal_rationale": ctrl_pos.get("rationale") or ctrl_pos.get("reasoning_summary") or "",
-                "proposal_evidence": ctrl_pos.get("supporting_evidence", []),
-                "proposal_addresses_evidence": ctrl_pos.get("addresses_evidence", []),
+                "proposal_rationale": str(ctrl_pos.get("rationale") or "")[:200],
+                "proposal_evidence": (ctrl_pos.get("supporting_evidence") or [])[:3],
+                "proposal_addresses_evidence": (ctrl_pos.get("addresses_evidence") or [])[:3],
                 "task_goal": task_goal,
-                "session_objective": session_objective,
                 "round": round_idx,
-                **(tom_ctx or {}),
+                **({k: _tom[k] for k in ("controller_preempts_objection", "high_derailment_risk") if k in _tom}),
             })
         except Exception as exc:
             LOGGER.warning("task_accept_or_counter specialist=%s: %s", self.agent_id, exc)
