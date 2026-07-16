@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Semantic Interaction and Epistemic Protocol (SIEP) Python implementation."""
+"""Semantic Information Exchange Protocol (SIEP) Python implementation."""
 
 from . import epistemic, tomcore
 from .builder import *

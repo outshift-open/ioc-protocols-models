@@ -50,7 +50,7 @@ The L9 header is the envelope every message carries. Sub-protocol-specific conte
 | Value | Used for |
 |---|---|
 | `"CIP"` | Message carries grounding/belief content, processed by the Contingency Interaction Protocol. |
-| `"SIEP"` | Message carries negotiation content, processed by the Semantic Interaction Exchange Protocol. |
+| `"SIEP"` | Message carries negotiation content, processed by the Semantic Information Exchange Protocol. |
 
 The field is extensible: any implementation may introduce a new sub-protocol by choosing a unique string identifier not already in use. A formal sub-protocol registry will be published in a future revision of this specification.
 

@@ -419,7 +419,7 @@ _HTML = r"""<!DOCTYPE html>
   <div>
     <h1>⚡ demo_a2a_l9 · Sequence Diagram</h1>
     <div class="subtitle">TFP → SIEP → CIP → SAB · A2A transport · L9 messages between agents
-      <span style="font-size:.85rem;color:var(--muted);margin-left:.5rem">TFP = Team Formation Protocol · SIEP = Semantic Interaction Exchange Protocol · CIP = Contingency Interaction Protocols · SAB = Semantic Alignment via Bargaining</span>
+      <span style="font-size:.85rem;color:var(--muted);margin-left:.5rem">TFP = Team Formation Protocol · SIEP = Semantic Information Exchange Protocol · CIP = Contingency Interaction Protocols · SAB = Semantic Alignment via Bargaining</span>
     </div>
   </div>
 </header>
@@ -537,7 +537,7 @@ _HTML = r"""<!DOCTYPE html>
     <h2>Subprotocol colours</h2>
     <div class="legend-grid">
       <span class="badge" style="background:var(--tfp-bg);color:var(--tfp)" title="Team Formation Protocol">TFP</span>
-      <span class="badge" style="background:var(--siep-bg);color:var(--siep)" title="Semantic Interaction Exchange Protocol">SIEP</span>
+      <span class="badge" style="background:var(--siep-bg);color:var(--siep)" title="Semantic Information Exchange Protocol">SIEP</span>
       <span class="badge" style="background:var(--cip-bg);color:var(--cip)" title="Contingency Interaction Protocols">CIP</span>
       <span class="badge" style="background:var(--sab-bg);color:var(--sab)" title="Semantic Alignment via Bargaining">SAB</span>
     </div>
@@ -1285,7 +1285,7 @@ function renderSequence(msgs, autoPlay) {
   // Message rows
   let html = '';
   let lastPhase = '';
-  const PHASE_NAMES = { TFP:'Team Formation Protocol', SIEP:'Semantic Interaction Exchange Protocol', CIP:'Contingency Interaction Protocols', SAB:'Semantic Alignment via Bargaining' };
+  const PHASE_NAMES = { TFP:'Team Formation Protocol', SIEP:'Semantic Information Exchange Protocol', CIP:'Contingency Interaction Protocols', SAB:'Semantic Alignment via Bargaining' };
 
   msgs.forEach((m, i) => {
     const info = extractL9Info(m);
