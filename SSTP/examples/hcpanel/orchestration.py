@@ -370,10 +370,24 @@ class DebateOrchestrator:
             if self.llm is None:
                 return ctrl_pos
             try:
+                trimmed_counters = [
+                    {
+                        "agent_id": c.get("agent_id", ""),
+                        "likely_cause": c.get("counter_concept") or c.get("likely_cause", ""),
+                        "confidence": c.get("counter_confidence") or c.get("confidence", 0.5),
+                        "rationale": str(c.get("rationale", ""))[:200],
+                        "supporting_evidence": (c.get("supporting_evidence") or [])[:2],
+                    }
+                    for c in counter_list
+                ]
                 result = self.llm.complete_json("debate_pivot_synthesis", {
-                    "original_position": ctrl_pos,
-                    "counter_proposals": counter_list,
-                    "accept_positions": accept_list,
+                    "original_position": {
+                        "likely_cause": ctrl_pos.get("likely_cause", ""),
+                        "confidence": ctrl_pos.get("confidence", 0.5),
+                        "rationale": str(ctrl_pos.get("rationale", ""))[:200],
+                    },
+                    "counter_proposals": trimmed_counters,
+                    "accept_count": len(accept_list),
                     "task_goal": task_goal,
                 })
                 return {
