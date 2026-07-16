@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-siep/src/panel.py — SNP panel session abstractions.
+siep/src/panel.py — SIEP panel session abstractions.
 
 NetworkHandle
     Abstract base class for the per-episode network transport.  Concrete
@@ -12,7 +12,7 @@ NetworkHandle
     network handle.
 
 NegotiationContext
-    State bag for one SNP panel session: stores, use_case, ID generators,
+    State bag for one SIEP panel session: stores, use_case, ID generators,
     ToM engine, persistence.  The "how to debate" half — carries no network
     or transport logic.
 
@@ -81,7 +81,7 @@ class NetworkHandle(abc.ABC):
 # ── Negotiation context ───────────────────────────────────────────────────────
 
 class NegotiationContext:
-    """State bag for one SNP panel negotiation session.
+    """State bag for one SIEP panel negotiation session.
 
     Holds the debate-layer state: stores, use_case, ID generators, ToM engine,
     and persistence path.  Carries no network or transport logic — the

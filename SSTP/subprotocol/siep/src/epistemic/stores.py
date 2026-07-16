@@ -165,7 +165,7 @@ class CommonGround:
 
 @dataclass
 class TeamGroundedTruth:
-    """Output of a completed SNP multi-party convergence round.
+    """Output of a completed SIEP multi-party convergence round.
 
     Written to SemanticMemory as a new rule. SCR and GAR are provenance weights:
     prior_weight = (1.0 - social_compliance_ratio) × genuine_agreement_ratio.
@@ -540,7 +540,7 @@ class CommonGroundStore:
 
 
 class ConvergenceStore:
-    """Cross-episode store of SNP convergence results (TeamGroundedTruth).
+    """Cross-episode store of SIEP convergence results (TeamGroundedTruth).
 
     Keyed by (concept_id, use_case, episode_id).
     Written to SemanticMemory as new rules at episode close.
@@ -695,8 +695,8 @@ class SemanticRuleStore:
                 pass
 
 
-# ── SNP Proposal and Negotiation stores ──────────────────────────────────────
-# Spec SNP §2.6: ProposalStore, NegotiationStore, NegotiationIndex, RoundStore
+# ── SIEP Proposal and Negotiation stores ──────────────────────────────────────
+# Spec SIEP §2.6: ProposalStore, NegotiationStore, NegotiationIndex, RoundStore
 
 
 @dataclass

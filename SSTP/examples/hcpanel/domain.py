@@ -44,7 +44,7 @@ class ClinicalDebateOutcome:
     resolution_label: str        # "consensus" | "majority" | "timeout_majority"
     specialist_opinions: List[SpecialistOpinion] = field(default_factory=list)
     debate_log: List[str] = field(default_factory=list)
-    panel_episode_id: str = ""    # PanelBus URN — used by _node_coordination to cite the SNP episode
+    panel_episode_id: str = ""    # PanelBus URN — used by _node_coordination to cite the SIEP episode
 
 
 @dataclass

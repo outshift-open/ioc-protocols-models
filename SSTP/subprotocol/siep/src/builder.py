@@ -104,7 +104,7 @@ def snp_event_type_for_operation(operation: str) -> str:
     op = operation.value if hasattr(operation, "value") else str(operation)
     result = _SNP_OPERATION_TO_EVENT_TYPE.get(op)
     if result is None:
-        raise ValueError(f"Unknown SNP operation: {operation!r}")
+        raise ValueError(f"Unknown SIEP operation: {operation!r}")
     return result
 
 
@@ -143,9 +143,9 @@ def build_snp_payload(
     op = operation.value if hasattr(operation, "value") else str(operation)
     st = status.value if hasattr(status, "value") else str(status)
     if op not in NegotiationOperation.ALL:
-        raise ValueError(f"Invalid SNP operation: {operation!r}")
+        raise ValueError(f"Invalid SIEP operation: {operation!r}")
     if st not in NegotiationStatus.ALL:
-        raise ValueError(f"Invalid SNP status: {status!r}")
+        raise ValueError(f"Invalid SIEP status: {status!r}")
     out: Dict[str, Any] = {
         "profile": SNP_PROFILE,
         "operation": op,
@@ -312,7 +312,7 @@ class SIEPMessageBuilder:
         self._uncertainty: float = 0.0
         self._siep_payload: Optional[SIEPPayload] = None
         self._text: Optional[str] = None
-        # Additive fields for the full SNP operation vocabulary (see .operation()).
+        # Additive fields for the full SIEP operation vocabulary (see .operation()).
         # Unused by engine.py's narrower usage; None means "use the fixed
         # SIEP_SCHEMA_URN / no policy block", preserving today's behaviour.
         self._operation: Optional[str] = None
@@ -340,7 +340,7 @@ class SIEPMessageBuilder:
         return self
 
     def operation(self, operation: str) -> "SIEPMessageBuilder":
-        """Configure kind/epistemic defaults for an SNP ``operation``."""
+        """Configure kind/epistemic defaults for a SIEP ``operation``."""
         op = operation.value if hasattr(operation, "value") else str(operation)
         self._operation = op
         event_type = snp_event_type_for_operation(op)
@@ -629,7 +629,7 @@ def build_snp_l9_header(
 
 
 
-# ── SNP emit helpers ───────────────────────────────────────────────────────────
+# ── SIEP emit helpers ───────────────────────────────────────────────────────────
 # Each function takes two objects:
 #   context : NegotiationContext  — debate state (use_case, stores, ID generators)
 #   network : NetworkHandle       — transport (appends headers to network.messages)
@@ -654,7 +654,7 @@ def emit_wire_received(
     debate_header: Dict[str, Any],
     recipient: str,
 ) -> None:
-    """Append a WIRE received trace entry to the network for the recipient of an SNP message."""
+    """Append a WIRE received trace entry to the network for the recipient of a SIEP message."""
     from SSTP.subprotocol.cip.src.builder import build_l9_header
     msg_id = (debate_header.get("message") or {}).get("id", "")
     episode_id = (debate_header.get("message") or {}).get("episode")
@@ -672,6 +672,7 @@ def emit_wire_received(
         parent_ids=[msg_id] if msg_id else None,
         episode_id=episode_id,
         kind_override="exchange",
+        subprotocol="SIEP",
         payload_parts=[{
             "type": "utterance", "location": "inline",
             "content": _recv_utt,
