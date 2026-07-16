@@ -7,7 +7,8 @@ import logging
 import os
 import random
 import re
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict, List, Optional
 
 from SSTP.subprotocol.siep.src.tomcore.llm import LLMClient
 from SSTP.examples.hcpanel.interaction_semantics import KNOWN_INTERACTION_PAIRS
@@ -278,6 +279,14 @@ def _extract_json_candidate(content: str) -> str:
 
 _MAX_RETRIES = 2
 
+# Tasks whose payloads are large enough that Bedrock cross-region routing can return
+# empty HTTP 200 bodies when token generation starts late. For these we allow more
+# retries with exponential backoff and a per-call timeout.
+_HEAVY_TASK_RETRIES = 5
+_HEAVY_TASKS: set[str] = {"debate_pivot_synthesis", "tp_debate_pivot_synthesis"}
+_CALL_TIMEOUT = 90       # seconds — prevents indefinite blocking on hung Bedrock calls
+_HEAVY_CALL_TIMEOUT = 150
+
 
 def _parse_jsonish_object(raw_content: Any) -> Dict[str, Any]:
     content = _strip_code_fences(_coerce_text_content(raw_content))
@@ -316,7 +325,44 @@ def _parse_jsonish_object(raw_content: Any) -> Dict[str, Any]:
 def _fallback_response_for_task(task: str, payload: Dict[str, Any]) -> Dict[str, Any] | None:
     if task == "pharmacy_interaction_review":
         return _deterministic_pharmacy_review(payload)
+    if task == "debate_pivot_synthesis":
+        return _deterministic_pivot_synthesis(payload)
     return None
+
+
+def _deterministic_pivot_synthesis(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Weighted-confidence vote across counter_proposals — last-resort fallback when
+    the LLM call fails after all retries.  Mirrors the SimulatedHealthcareLLMClient
+    implementation so the session can continue with a meaningful pivot rather than
+    returning the stale controller position unchanged."""
+    counters = payload.get("counter_proposals", [])
+    original = payload.get("original_position", {})
+    if counters:
+        by_concept: Dict[str, float] = {}
+        for c in counters:
+            cpt = str(c.get("likely_cause") or c.get("counter_concept") or "")
+            if not cpt:
+                continue
+            cft = float(c.get("confidence", 0.5))
+            by_concept[cpt] = by_concept.get(cpt, 0.0) + cft
+        if by_concept:
+            revised_concept = max(by_concept, key=lambda k: by_concept[k])
+            n = max(1, len(counters))
+            revised_confidence = round(by_concept[revised_concept] / n, 4)
+        else:
+            revised_concept = str(original.get("likely_cause") or "unknown")
+            revised_confidence = float(original.get("confidence", 0.5))
+    else:
+        revised_concept = str(original.get("likely_cause") or "unknown")
+        revised_confidence = float(original.get("confidence", 0.5))
+    return {
+        "revised_concept": revised_concept,
+        "revised_confidence": revised_confidence,
+        "rationale": f"Deterministic pivot to {revised_concept} based on {len(counters)} counter-proposals (LLM unavailable).",
+        "supporting_evidence": [],
+        "addresses_evidence": [str(c.get("rationale", ""))[:80] for c in counters[:3]],
+        "thought_summary": f"Fallback pivot: {revised_concept} (weighted confidence sum, no LLM).",
+    }
 
 
 def _response_has_required_keys(task: str, parsed: Dict[str, Any]) -> bool:
@@ -1729,17 +1775,24 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
             {"role": "user", "content": user_prompt},
         ]
         last_exc: Optional[Exception] = None
-        for _attempt in range(_MAX_RETRIES + 1):
+        _is_heavy = task in _HEAVY_TASKS
+        _max_attempts = _HEAVY_TASK_RETRIES + 1 if _is_heavy else _MAX_RETRIES + 1
+        _timeout = _HEAVY_CALL_TIMEOUT if _is_heavy else _CALL_TIMEOUT
+        for _attempt in range(_max_attempts):
             try:
-                response = self.client.chat.completions.create(model=self.model, max_tokens=2048, messages=messages)
+                response = self.client.chat.completions.create(
+                    model=self.model, max_tokens=2048, timeout=_timeout, messages=messages,
+                )
                 parsed = _parse_jsonish_object(response.choices[0].message.content)
                 if not _response_has_required_keys(task, parsed):
-                    if _attempt < _MAX_RETRIES:
+                    if _attempt < _max_attempts - 1:
                         LOGGER.info(
                             "azure_healthcare_llm.retry task=%s attempt=%d reason=missing_required_keys",
                             task, _attempt + 1,
                         )
                         last_exc = ValueError("missing_required_keys")
+                        if _is_heavy:
+                            time.sleep(min(2 ** _attempt, 30))
                         continue
                     break
                 thought_summary = str(parsed.get("thought_summary", ""))
@@ -1755,16 +1808,18 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
                 return parsed
             except Exception as exc:
                 last_exc = exc
-                if _attempt < _MAX_RETRIES:
+                if _attempt < _max_attempts - 1:
                     LOGGER.info(
                         "azure_healthcare_llm.retry task=%s attempt=%d reason=%s",
                         task, _attempt + 1, exc,
                     )
+                    if _is_heavy:
+                        time.sleep(min(2 ** _attempt, 30))
                     continue
                 break
         fallback_response = _fallback_response_for_task(task, payload)
         if fallback_response is not None:
-            thought_summary = "Used deterministic pharmacy fallback after unparseable model response."
+            thought_summary = "Used deterministic fallback after unparseable model response."
             LOGGER.info("azure_healthcare_llm.task_fallback task=%s reason=%s", task, last_exc)
             self._record_trace(
                 task=task,
@@ -2194,11 +2249,15 @@ class AnthropicHealthcareLLMClient(LLMClient):
         system_prompt = base + self._instruction_for_task(task)
         user_prompt = json.dumps({"task": task, "payload": payload}, ensure_ascii=False)
         last_exc: Optional[Exception] = None
-        for _attempt in range(_MAX_RETRIES + 1):
+        _is_heavy = task in _HEAVY_TASKS
+        _max_attempts = _HEAVY_TASK_RETRIES + 1 if _is_heavy else _MAX_RETRIES + 1
+        _timeout = _HEAVY_CALL_TIMEOUT if _is_heavy else _CALL_TIMEOUT
+        for _attempt in range(_max_attempts):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
                     max_tokens=2048,
+                    timeout=_timeout,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt},
@@ -2206,12 +2265,14 @@ class AnthropicHealthcareLLMClient(LLMClient):
                 )
                 parsed = _parse_jsonish_object(response.choices[0].message.content)
                 if not _response_has_required_keys(task, parsed):
-                    if _attempt < _MAX_RETRIES:
+                    if _attempt < _max_attempts - 1:
                         LOGGER.info(
                             "anthropic_healthcare_llm.retry task=%s attempt=%d reason=missing_required_keys",
                             task, _attempt + 1,
                         )
                         last_exc = ValueError("missing_required_keys")
+                        if _is_heavy:
+                            time.sleep(min(2 ** _attempt, 30))
                         continue
                     break
                 thought_summary = str(parsed.get("thought_summary", ""))
@@ -2227,16 +2288,18 @@ class AnthropicHealthcareLLMClient(LLMClient):
                 return parsed
             except Exception as exc:
                 last_exc = exc
-                if _attempt < _MAX_RETRIES:
+                if _attempt < _max_attempts - 1:
                     LOGGER.info(
                         "anthropic_healthcare_llm.retry task=%s attempt=%d reason=%s",
                         task, _attempt + 1, exc,
                     )
+                    if _is_heavy:
+                        time.sleep(min(2 ** _attempt, 30))
                     continue
                 break
         fallback_response = _fallback_response_for_task(task, payload)
         if fallback_response is not None:
-            thought_summary = "Used deterministic pharmacy fallback after unparseable model response."
+            thought_summary = "Used deterministic fallback after unparseable model response."
             LOGGER.info("anthropic_healthcare_llm.task_fallback task=%s reason=%s", task, last_exc)
             self._record_trace(
                 task=task,
