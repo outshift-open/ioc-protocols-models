@@ -353,11 +353,12 @@ class DebateOrchestrator:
             f"key evidence: {'; '.join(_deduped_evidence[:6])}"
         )
 
-        # Strip heavy fields from all_positions before T-phase — specialists only
-        # need their own clinical position, not patient raw data or identity metadata.
-        _T_STRIP = {"team_process", "role", "panel", "reasoning_summary", "thought_summary"}
+        # Strip team_process (raw patient data) from all_positions — it was needed in TW
+        # for patient context but must not be forwarded into T-phase where it bloats every
+        # specialist call. Other metadata (role, panel, etc.) is filtered at the siep-ctx
+        # wire boundary by _POS_KEYS in negotiation.py.
         all_positions = {
-            _aid: {k: v for k, v in _pos.items() if k not in _T_STRIP}
+            _aid: {k: v for k, v in _pos.items() if k != "team_process"}
             for _aid, _pos in all_positions.items()
         }
 
@@ -392,10 +393,7 @@ class DebateOrchestrator:
         # Attach case_summary to controller position — propagated via ctrl_pos to every
         # specialist call so they have compact patient context without raw patient data.
         controller_position["case_summary"] = case_summary
-        # Strip heavy fields from controller position too
-        for _k in list(controller_position.keys()):
-            if _k in _T_STRIP:
-                del controller_position[_k]
+        controller_position.pop("team_process", None)
 
         _ctrl_conf = float(
             controller_position.get("confidence") or controller_position.get("posterior") or 0.5
