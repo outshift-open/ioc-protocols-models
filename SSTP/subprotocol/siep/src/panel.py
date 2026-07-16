@@ -218,6 +218,10 @@ class DebateRoundEpisode:
     def panel_episode_id(self) -> str:
         return self._ctx.panel_episode_id
 
+    @property
+    def turn(self) -> int:
+        return self._ctx.turn
+
     def respond(self, operation: str, position: Dict[str, Any]) -> None:
         """Emit the SIEP accept/counter response onto the network."""
         from SSTP.subprotocol.siep.src.builder import emit_specialist_response

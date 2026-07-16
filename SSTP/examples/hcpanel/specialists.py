@@ -269,7 +269,7 @@ class SpecialistAgent:
                 member_pos=round_ep.member_pos,
                 task_goal=round_ep.task_goal,
                 tom_ctx=round_ep.tom_ctx,
-                round_idx=getattr(round_ep, "turn", 0) + 1,
+                round_idx=round_ep.turn + 1,
             )
         if result.get("decision") == "accept":
             operation = NegotiationOperation.ACCEPT
