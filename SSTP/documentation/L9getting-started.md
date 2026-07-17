@@ -468,4 +468,4 @@ full L9 envelope with header + typed payload parts.
 - [L9A2A.md](./L9A2A.md) — the A2A target architecture (replacing
   AgentBus/PanelBus with CIP-CE and SIEP-CE cognitive engines)
 - [CIP.md](../subprotocol/cip/docs/CIP.md) — Contingency Interaction Protocol
-- [SIEP.md](../subprotocol/siep/docs/SIEP.md) — Semantic Interaction Exchange Protocol
+- [SIEP.md](../subprotocol/siep/docs/SIEP.md) — Semantic Information Exchange Protocol

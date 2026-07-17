@@ -41,7 +41,7 @@ print(msg.model_dump_json(indent=2))
 ## What's Included
 
 - **L9/SSTP** — Core protocol Pydantic models (L9, L9Header, L9Payload, Actor, Message, etc.)
-- **SIEP** — Semantic Interoperability and Epistemic Protocol
+- **SIEP** — Semantic Information Exchange Protocol
 - **CIP** — Cognition and Interoperability Protocol
 - **SAB** — Semantic Alignment Broadcast
 - **TFP** — Team Formation via Polling

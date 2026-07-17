@@ -58,7 +58,8 @@
         "payload_hash": "a3f8e2d1c9b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1",
         "semantic_context": {
           "schema_version": "1.0",
-          "encoding": "json"
+          "encoding": "json",
+          "drift_detection": null
         }
       }
     }
@@ -202,6 +203,7 @@
             "allow_none_with_data": true,
             "allow_negotiators_to_leave": true
           },
+          "drift_detection": null,
           "offer_validation_failure": null
         },
         "round_messages": []
@@ -328,6 +330,7 @@
             "data": null
           },
           "nmi": null,
+          "drift_detection": null,
           "offer_validation_failure": null
         },
         "round_messages": []
@@ -454,6 +457,7 @@
             "data": null
           },
           "nmi": null,
+          "drift_detection": null,
           "offer_validation_failure": null
         },
         "round_messages": []
@@ -583,6 +587,7 @@
             "data": null
           },
           "nmi": null,
+          "drift_detection": null,
           "offer_validation_failure": null
         },
         "round_messages": []
@@ -650,6 +655,7 @@
           "schema_version": "1.0",
           "encoding": "json",
           "session_id": "urn:ioc:sab:session:qd-2026-06-22-001",
+          "drift_detection": null,
           "outcome": "agreement",
           "error_message": null,
           "content_text": "Two parties need to agree on price and delivery speed for an urgent supply order.",

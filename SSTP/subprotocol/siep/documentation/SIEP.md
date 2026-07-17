@@ -1,4 +1,4 @@
-# Semantic Interaction Exchange Protocol (SIEP)
+# Semantic Information Exchange Protocol (SIEP)
 
 SIEP is the sub-protocol of SSTP that turns a collection of independent agent beliefs into a single team decision. It is the SSTP rename of what was previously called the Semantic Negotiation Protocol (SNP).
 

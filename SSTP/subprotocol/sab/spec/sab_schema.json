@@ -1,5 +1,58 @@
 {
   "$defs": {
+    "DriftDetectionOutput": {
+      "description": "Top-level Drift Detection output (formerly SAVOutput).\n\nPlaced in the L9 response message at the dotted path the caller\nspecified in ``header.attributes['drift']``. Empty\n``failure_modes`` list means no drift was detected.",
+      "properties": {
+        "failure_modes": {
+          "description": "Detected process failure modes; empty list = no drift detected",
+          "items": {
+            "$ref": "#/$defs/FailureMode"
+          },
+          "title": "Failure Modes",
+          "type": "array"
+        }
+      },
+      "title": "DriftDetectionOutput",
+      "type": "object"
+    },
+    "FailureMode": {
+      "description": "A single detected process failure mode.",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/ProcessFailureMode",
+          "description": "Detected failure-mode category"
+        },
+        "score": {
+          "description": "Confidence score in [0,1]; lower = stronger evidence of drift",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "description": {
+          "description": "Static taxonomy description for ``type``",
+          "title": "Description",
+          "type": "string"
+        },
+        "reasoning": {
+          "description": "Engine's per-instance justification for flagging this mode",
+          "title": "Reasoning",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "score",
+        "severity",
+        "description",
+        "reasoning"
+      ],
+      "title": "FailureMode",
+      "type": "object"
+    },
     "NegotiateCommitSemanticContext": {
       "description": "Semantic context for ``kind='commit'`` messages that finalize a negotiation.",
       "properties": {
@@ -21,6 +74,18 @@
         "session_id": {
           "title": "Session Id",
           "type": "string"
+        },
+        "drift_detection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DriftDetectionOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional drift detection output associated with this context."
         },
         "outcome": {
           "description": "High-level outcome: 'agreement' \u2014 consensus reached; 'disagreement' \u2014 step budget exhausted; 'broken' \u2014 a participant dropped out or returned an invalid offer; 'error' \u2014 pipeline exception.",
@@ -200,6 +265,18 @@
           ],
           "default": null
         },
+        "drift_detection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DriftDetectionOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional drift detection output associated with this context."
+        },
         "offer_validation_failure": {
           "anyOf": [
             {
@@ -220,6 +297,21 @@
       ],
       "title": "NegotiateSemanticContext",
       "type": "object"
+    },
+    "ProcessFailureMode": {
+      "description": "PM-* \u2014 process-level failure modes detected from the interaction history.\n\nPM_0 (Unclassified) is emitted when the issue does not cleanly fit\none of PM_1 to PM_7.",
+      "enum": [
+        "Unclassified",
+        "Persistent Divergence",
+        "Dominant Narrative",
+        "Repetition",
+        "Reasoning Breakdown",
+        "Task Deviation",
+        "Constraint Violation",
+        "Ambiguity"
+      ],
+      "title": "ProcessFailureMode",
+      "type": "string"
     },
     "ResponseType": {
       "description": "Possible responses to offers during a NegMAS SAO negotiation round. Mirrors negmas.gb.common.ResponseType.",
@@ -831,10 +923,62 @@
           ],
           "title": "Encoding",
           "type": "string"
+        },
+        "drift_detection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DriftDetectionOutput"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional drift detection output associated with this context."
         }
       },
       "title": "SemanticContext",
       "type": "object"
+    },
+    "Severity": {
+      "description": "Severity verdict for one failure mode.\n\n``type`` is the bucket the engine assigned. ``high`` and ``medium``\nare the score thresholds the engine used: score \u2264 high \u2192 HIGH,\nscore \u2264 medium \u2192 MEDIUM, otherwise LOW. Thresholds are returned so\ncallers can re-bucket under their own policy.",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/SeverityLevel",
+          "description": "Assigned severity bucket"
+        },
+        "high": {
+          "description": "Score \u2264 this \u2192 HIGH",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "High",
+          "type": "number"
+        },
+        "medium": {
+          "description": "Score \u2264 this \u2192 MEDIUM",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Medium",
+          "type": "number"
+        }
+      },
+      "required": [
+        "type",
+        "high",
+        "medium"
+      ],
+      "title": "Severity",
+      "type": "object"
+    },
+    "SeverityLevel": {
+      "description": "Discrete severity bucket for a detected failure mode.",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "SeverityLevel",
+      "type": "string"
     },
     "ThreadState": {
       "description": "Per-thread state in a GB (Generalized Bargaining) round.",
