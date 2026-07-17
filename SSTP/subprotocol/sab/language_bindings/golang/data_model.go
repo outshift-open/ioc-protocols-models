@@ -32,10 +32,6 @@ type NegotiateCommitSemanticContext struct {
 	// Ordered list of negotiable issue identifiers for this session.
 	Issues []string `json:"issues,omitempty,omitzero" yaml:"issues,omitempty" mapstructure:"issues,omitempty"`
 
-	// Fabric-memory cache (JSON string) used to warm-start options generation; null
-	// for LLM-only or when no memory hit occurred.
-	OptionsMemoryBlob interface{} `json:"options_memory_blob,omitempty,omitzero" yaml:"options_memory_blob,omitempty" mapstructure:"options_memory_blob,omitempty"`
-
 	// Candidate options per issue: {issue_id: [option, ...]}.
 	OptionsPerIssue NegotiateCommitSemanticContextOptionsPerIssue `json:"options_per_issue,omitempty,omitzero" yaml:"options_per_issue,omitempty" mapstructure:"options_per_issue,omitempty"`
 
@@ -97,8 +93,6 @@ type NegotiateCommitSemanticContextErrorMessage_0 *string
 type NegotiateCommitSemanticContextFinalAgreement []map[string]interface{}
 
 type NegotiateCommitSemanticContextFinalAgreement_0 []map[string]interface{}
-
-type NegotiateCommitSemanticContextOptionsMemoryBlob_0 *string
 
 // Candidate options per issue: {issue_id: [option, ...]}.
 type NegotiateCommitSemanticContextOptionsPerIssue map[string][]string
