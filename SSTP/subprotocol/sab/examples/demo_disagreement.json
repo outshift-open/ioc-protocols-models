@@ -140,6 +140,7 @@
               "deferred"
             ]
           },
+          "options_memory_blob": null,
           "sao_state": {
             "running": true,
             "waiting": false,
@@ -284,6 +285,7 @@
               "deferred"
             ]
           },
+          "options_memory_blob": null,
           "sao_state": {
             "running": true,
             "waiting": false,
@@ -409,6 +411,7 @@
               "deferred"
             ]
           },
+          "options_memory_blob": null,
           "sao_state": {
             "running": true,
             "waiting": false,
@@ -534,6 +537,7 @@
               "deferred"
             ]
           },
+          "options_memory_blob": null,
           "sao_state": {
             "running": true,
             "waiting": false,
@@ -659,6 +663,7 @@
               "deferred"
             ]
           },
+          "options_memory_blob": null,
           "sao_state": {
             "running": true,
             "waiting": false,
@@ -784,6 +789,7 @@
               "deferred"
             ]
           },
+          "options_memory_blob": null,
           "sao_state": {
             "running": false,
             "waiting": false,
@@ -916,6 +922,7 @@
               "deferred"
             ]
           },
+          "options_memory_blob": null,
           "final_agreement": null
         }
       }

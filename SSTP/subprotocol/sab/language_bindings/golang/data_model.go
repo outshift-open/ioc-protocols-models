@@ -32,6 +32,10 @@ type NegotiateCommitSemanticContext struct {
 	// Ordered list of negotiable issue identifiers for this session.
 	Issues []string `json:"issues,omitempty,omitzero" yaml:"issues,omitempty" mapstructure:"issues,omitempty"`
 
+	// Fabric-memory cache (JSON string) used to warm-start options generation; null
+	// for LLM-only or when no memory hit occurred.
+	OptionsMemoryBlob interface{} `json:"options_memory_blob,omitempty,omitzero" yaml:"options_memory_blob,omitempty" mapstructure:"options_memory_blob,omitempty"`
+
 	// Candidate options per issue: {issue_id: [option, ...]}.
 	OptionsPerIssue NegotiateCommitSemanticContextOptionsPerIssue `json:"options_per_issue,omitempty,omitzero" yaml:"options_per_issue,omitempty" mapstructure:"options_per_issue,omitempty"`
 
@@ -94,6 +98,8 @@ type NegotiateCommitSemanticContextFinalAgreement []map[string]interface{}
 
 type NegotiateCommitSemanticContextFinalAgreement_0 []map[string]interface{}
 
+type NegotiateCommitSemanticContextOptionsMemoryBlob_0 *string
+
 // Candidate options per issue: {issue_id: [option, ...]}.
 type NegotiateCommitSemanticContextOptionsPerIssue map[string][]string
 
@@ -142,6 +148,10 @@ type NegotiateSemanticContext struct {
 	// keys/option values (validation failure, not a strategic reject). Shape:
 	// {rejected_agent_id, round, problems, hint}.
 	OfferValidationFailure *NegotiateSemanticContextOfferValidationFailure `json:"offer_validation_failure,omitempty,omitzero" yaml:"offer_validation_failure,omitempty" mapstructure:"offer_validation_failure,omitempty"`
+
+	// Fabric-memory cache (JSON string) used to warm-start options generation; null
+	// for LLM-only or when no memory hit occurred.
+	OptionsMemoryBlob interface{} `json:"options_memory_blob,omitempty,omitzero" yaml:"options_memory_blob,omitempty" mapstructure:"options_memory_blob,omitempty"`
 
 	// Candidate options per issue: {issue_id: [option, ...]}.
 	OptionsPerIssue NegotiateSemanticContextOptionsPerIssue `json:"options_per_issue,omitempty,omitzero" yaml:"options_per_issue,omitempty" mapstructure:"options_per_issue,omitempty"`
@@ -295,6 +305,8 @@ func (j *NegotiateSemanticContextOfferValidationFailure_0) UnmarshalJSON(value [
 	*j = NegotiateSemanticContextOfferValidationFailure_0(plain)
 	return nil
 }
+
+type NegotiateSemanticContextOptionsMemoryBlob_0 *string
 
 // Candidate options per issue: {issue_id: [option, ...]}.
 type NegotiateSemanticContextOptionsPerIssue map[string][]string
@@ -1228,9 +1240,9 @@ func (j *ThreadStateNewOffer_0) UnmarshalJSON(value []byte) error {
 
 type ThreadStateNewOffer_1 []interface{}
 
-type ThreadStateNewResponses map[string]ResponseType
-
 type NegotiateSemanticContextSaoState_0 = SAOState
+
+type ThreadStateNewResponses map[string]ResponseType
 
 type NegotiateSemanticContextSaoResponse_0 = SAOResponse
 

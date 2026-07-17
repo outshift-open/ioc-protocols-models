@@ -84,11 +84,12 @@ Every variant extends `SABPayloadBase` (`message_id`, `version`, `dt_created`,
 
 - **`SemanticContext`** (intent) — `schema_version`, `encoding`.
 - **`NegotiateSemanticContext`** — adds `session_id`, the negotiation space
-  (`issues`, `options_per_issue`), and the NegMAS SAO snapshot (`sao_state`,
-  `sao_response`, `nmi`, `offer_validation_failure`).
+  (`issues`, `options_per_issue`, `options_memory_blob`), and the NegMAS SAO
+  snapshot (`sao_state`, `sao_response`, `nmi`, `offer_validation_failure`).
 - **`NegotiateCommitSemanticContext`** — adds `session_id`, `outcome`
   (`agreement` | `disagreement` | `broken` | `error`), `content_text`,
-  `agents_negotiating`, `issues`, `options_per_issue`, `final_agreement`.
+  `agents_negotiating`, `issues`, `options_per_issue`, `options_memory_blob`,
+  `final_agreement`.
 
 `SABNegotiatePayloadData` additionally carries **`round_messages`** — the pending
 per-round SAB L9 envelopes the recipient dispatches to the participant agents this

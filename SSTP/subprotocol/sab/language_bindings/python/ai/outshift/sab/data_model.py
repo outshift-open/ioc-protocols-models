@@ -57,6 +57,14 @@ class NegotiateCommitSemanticContext(BaseModel):
         description="Candidate options per issue: {issue_id: [option, ...]}.",
         title="Options Per Issue",
     )
+    options_memory_blob: str | None = Field(
+        None,
+        description=(
+            "Fabric-memory cache (JSON string) used to warm-start options generation;"
+            " null for LLM-only or when no memory hit occurred."
+        ),
+        title="Options Memory Blob",
+    )
     final_agreement: list[dict[str, Any]] | None = Field(
         None,
         description=(
@@ -213,6 +221,14 @@ class NegotiateSemanticContext(BaseModel):
         None,
         description="Candidate options per issue: {issue_id: [option, ...]}.",
         title="Options Per Issue",
+    )
+    options_memory_blob: str | None = Field(
+        None,
+        description=(
+            "Fabric-memory cache (JSON string) used to warm-start options generation;"
+            " null for LLM-only or when no memory hit occurred."
+        ),
+        title="Options Memory Blob",
     )
     sao_state: SAOState | None = None
     sao_response: SAOResponse | None = None
