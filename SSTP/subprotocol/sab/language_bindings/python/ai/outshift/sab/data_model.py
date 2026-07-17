@@ -204,6 +204,16 @@ class NegotiateCommitSemanticContext(BaseModel):
         description="Agent IDs that participated in this negotiation.",
         title="Agents Negotiating",
     )
+    issues: list[str] | None = Field(
+        None,
+        description="Ordered list of negotiable issue identifiers for this session.",
+        title="Issues",
+    )
+    options_per_issue: dict[str, list[str]] | None = Field(
+        None,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
+        title="Options Per Issue",
+    )
     final_agreement: list[dict[str, Any]] | None = Field(
         None,
         description=(
@@ -218,6 +228,24 @@ class NegotiateSemanticContext(BaseModel):
     schema_version: str = Field("1.0", title="Schema Version")
     encoding: Encoding = Field("json", title="Encoding")
     session_id: str = Field(..., title="Session Id")
+    issues: list[str] | None = Field(
+        None,
+        description="Ordered list of negotiable issue identifiers for this session.",
+        title="Issues",
+    )
+    options_per_issue: dict[str, list[str]] | None = Field(
+        None,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
+        title="Options Per Issue",
+    )
+    options_memory_blob: str | None = Field(
+        None,
+        description=(
+            "Fabric-memory cache (JSON string) used to warm-start options generation;"
+            " null for LLM-only or when no memory hit occurred."
+        ),
+        title="Options Memory Blob",
+    )
     sao_state: SAOState | None = None
     sao_response: SAOResponse | None = None
     nmi: SAONMI | None = None
@@ -264,6 +292,17 @@ class SABNegotiatePayloadData(BaseModel):
         title="Payload Hash",
     )
     semantic_context: NegotiateSemanticContext
+    round_messages: list[dict[str, Any]] | None = Field(
+        None,
+        description=(
+            "Pending per-round SAB L9 envelopes the recipient must dispatch to the"
+            " participant agents this round. Each item is itself a full SAB"
+            " contingency/negotiation message (header + payload). Named distinctly from"
+            " the header's own ``message`` field. Populated on an ongoing negotiation"
+            " response; empty when there is nothing to dispatch."
+        ),
+        title="Round Messages",
+    )
 
 
 class SemanticContext(BaseModel):

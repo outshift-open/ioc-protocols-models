@@ -267,6 +267,21 @@ class NegotiateSemanticContext(BaseModel):
     schema_version: str = "1.0"
     encoding: EncodingType = "json"
     session_id: str
+    issues: List[str] = Field(
+        default_factory=list,
+        description="Ordered list of negotiable issue identifiers for this session.",
+    )
+    options_per_issue: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
+    )
+    options_memory_blob: Optional[str] = Field(
+        default=None,
+        description=(
+            "Fabric-memory cache (JSON string) used to warm-start options "
+            "generation; null for LLM-only or when no memory hit occurred."
+        ),
+    )
     sao_state: Optional[SAOState] = None
     sao_response: Optional[SAOResponse] = None
     nmi: Optional[SAONMI] = None
@@ -314,6 +329,14 @@ class NegotiateCommitSemanticContext(BaseModel):
         default=None,
         description="Agent IDs that participated in this negotiation.",
     )
+    issues: List[str] = Field(
+        default_factory=list,
+        description="Ordered list of negotiable issue identifiers for this session.",
+    )
+    options_per_issue: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
+    )
     final_agreement: Optional[List[Dict[str, Any]]] = Field(
         default=None,
         description=(
@@ -355,6 +378,16 @@ class SABNegotiatePayloadData(SABPayloadBase):
     """``payload.data`` when the wrapped SSTP message is kind=negotiate."""
 
     semantic_context: NegotiateSemanticContext
+    round_messages: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description=(
+            "Pending per-round SAB L9 envelopes the recipient must dispatch to the "
+            "participant agents this round. Each item is itself a full SAB "
+            "contingency/negotiation message (header + payload). Named distinctly "
+            "from the header's own ``message`` field. Populated on an ongoing "
+            "negotiation response; empty when there is nothing to dispatch."
+        ),
+    )
 
 
 class SABCommitPayloadData(SABPayloadBase):

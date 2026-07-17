@@ -72,7 +72,7 @@ def main() -> None:
 
     # Top-level metadata (mirrors the other subprotocol schemas).
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["version"] = "0.1.0"
+    schema["version"] = "0.1.1"
     schema["protocol"] = "SSTP"
     schema["subprotocol"] = "SAB"
     schema.setdefault("title", "SABPayloadData")

@@ -134,6 +134,25 @@
           "description": "Agent IDs that participated in this negotiation.",
           "title": "Agents Negotiating"
         },
+        "issues": {
+          "description": "Ordered list of negotiable issue identifiers for this session.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "options_per_issue": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Candidate options per issue: {issue_id: [option, ...]}.",
+          "title": "Options Per Issue",
+          "type": "object"
+        },
         "final_agreement": {
           "anyOf": [
             {
@@ -180,6 +199,38 @@
         "session_id": {
           "title": "Session Id",
           "type": "string"
+        },
+        "issues": {
+          "description": "Ordered list of negotiable issue identifiers for this session.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "options_per_issue": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "Candidate options per issue: {issue_id: [option, ...]}.",
+          "title": "Options Per Issue",
+          "type": "object"
+        },
+        "options_memory_blob": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fabric-memory cache (JSON string) used to warm-start options generation; null for LLM-only or when no memory hit occurred.",
+          "title": "Options Memory Blob"
         },
         "sao_state": {
           "anyOf": [
@@ -391,6 +442,15 @@
         },
         "semantic_context": {
           "$ref": "#/$defs/NegotiateSemanticContext"
+        },
+        "round_messages": {
+          "description": "Pending per-round SAB L9 envelopes the recipient must dispatch to the participant agents this round. Each item is itself a full SAB contingency/negotiation message (header + payload). Named distinctly from the header's own ``message`` field. Populated on an ongoing negotiation response; empty when there is nothing to dispatch.",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Round Messages",
+          "type": "array"
         }
       },
       "required": [
@@ -998,7 +1058,7 @@
   "description": "Union of the three SAB ``payload.data`` variants.\n\nThis is the root the schema generator dumps. Variants are discriminated by\nthe shape of ``semantic_context`` (commit and negotiate carry ``session_id``;\ncommit additionally carries ``outcome``). Ordered most-constrained first so\nPydantic's smart-union matching stays unambiguous.",
   "title": "SABPayloadData",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "protocol": "SSTP",
   "subprotocol": "SAB"
 }
