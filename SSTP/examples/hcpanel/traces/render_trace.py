@@ -306,6 +306,8 @@ def _wire_event(seq: int, msg: Dict[str, Any], phase: str, depth: int = 0) -> st
                 lines.append("**Individual positions:**\n\n" + "\n".join(rows) + "\n\n")
         elif ptype == "knowledge" and isinstance(pcontent, dict):
             cid = pcontent.get("concept_id", "?")
+            value = pcontent.get("value", "")
+            value_detail = pcontent.get("value_detail") or {}
             post = pcontent.get("posterior")
             gar = pcontent.get("gar")
             scr = pcontent.get("scr")
@@ -315,10 +317,18 @@ def _wire_event(seq: int, msg: Dict[str, Any], phase: str, depth: int = 0) -> st
             gar_str = f"{gar:.4f}" if isinstance(gar, float) else str(gar)
             scr_str = f"{scr:.4f}" if isinstance(scr, float) else str(scr)
             pw_str = f"{pw:.4f}" if isinstance(pw, float) else str(pw)
+            value_line = f"value=`{value}`  \n" if value and value != cid.split(":")[-1] else ""
             lines.append(
                 f"**Knowledge record:** `{cid}`  \n"
+                f"{value_line}"
                 f"posterior={post_str} · gar={gar_str} · scr={scr_str} · provenance_weight={pw_str} · cause=`{cause}`\n\n"
             )
+            if value_detail:
+                lines.append(
+                    f"<details><summary><code>value_detail</code></summary>\n\n"
+                    + _json_block(value_detail)
+                    + "\n</details>\n\n"
+                )
         elif isinstance(pcontent, dict):
             # pull rich reasoning fields inline
             for key in ("reasoning_summary", "critique", "thought_summary"):
