@@ -192,8 +192,9 @@ class StarNegotiator:
         # and inflate the per-specialist wire payload significantly.
         _POS_KEYS = {"likely_cause", "confidence", "posterior", "rationale",
                      "supporting_evidence", "addresses_evidence", "case_summary",
-                     "team_process",   # TW: carries patient data for specialist prior formation
-                     "concept_id",     # TW: patient URN used to set _session.patient
+                     "team_process",       # TW: carries patient data for specialist prior formation
+                     "concept_id",         # TW: patient URN used to set _session.patient
+                     "team_process_terms", # TP: full governance terms for specialist accept/counter
                      }
         siep_ctx_part: Dict[str, Any] = {
             "type": "siep-ctx",
@@ -268,6 +269,17 @@ class StarNegotiator:
                 ctrl_pos if operation == NegotiationOperation.ACCEPT else member_pos
             )
         )
+        # For TP accepts: carry team_process_terms from ctrl_pos into updated_pos so the
+        # agreed governance terms survive into winning_position and downstream commit payloads.
+        # For TP accepts: carry team_process_terms from ctrl_pos into updated_pos so the
+        # agreed governance terms survive into winning_position and downstream commit payloads.
+        if (
+            isinstance(updated_pos, dict)
+            and operation == NegotiationOperation.ACCEPT
+            and ctrl_pos.get("team_process_terms")
+            and not updated_pos.get("team_process_terms")
+        ):
+            updated_pos = {**updated_pos, "team_process_terms": ctrl_pos["team_process_terms"]}
 
         return _HandlerResult(
             agent_id=member_id,
@@ -478,6 +490,14 @@ class StarNegotiator:
                     or abs(_cur_conf - _prev_ctrl_conf) > 0.05
                 )
                 if not _still_shifting:
+                    # Position has stabilised — resolve by majority before exiting.
+                    _stale_accepts = sum(
+                        1 for mid in member_ids
+                        if _position_key(specialist_positions[mid]) == _cur_key
+                    )
+                    resolution_label = (
+                        "majority" if _stale_accepts > len(member_ids) / 2 else "stale_majority"
+                    )
                     break
             _prev_ctrl_key = _position_key(ctrl_pos)
             _prev_ctrl_conf = _confidence(ctrl_pos)
@@ -672,6 +692,24 @@ class StarNegotiator:
 
         winning_position = _leading_position(specialist_positions)
         win_key = _position_key(winning_position)
+        _conv_concept_id = f"urn:concept:{self.context.use_case}:{win_key}"
+
+        # Substantive content of the agreed position — included in commit and knowledge payloads.
+        _win_content: Dict[str, Any] = {
+            k: v for k, v in winning_position.items()
+            if v is not None and k != "thought_summary"
+        }
+        _individual_positions: Dict[str, Any] = {
+            mid: {
+                "position": _position_key(specialist_positions[mid]),
+                "posterior": _confidence(specialist_positions[mid]),
+                **({
+                    "rationale": str(specialist_positions[mid].get("rationale", ""))[:200]
+                } if isinstance(specialist_positions[mid], dict)
+                  and specialist_positions[mid].get("rationale") else {}),
+            }
+            for mid in member_ids
+        }
 
         if self.context.convergence_store is not None:
             _cons_conf = _confidence(winning_position)
@@ -699,13 +737,25 @@ class StarNegotiator:
             )
             scr = round(_rubber_stamped / len(_gar_members), 4) if _gar_members else 0.0
             mpc = round(sum(final_posteriors.values()) / len(final_posteriors), 4)
+            # Replace the proposing-specialist's stale posterior with the team consensus.
+            _win_content["posterior"] = mpc
             outcome_map = {
                 "consensus": "accept", "majority": "accept",
-                "timeout_majority": "accept", "stale_majority": "deferred",
+                "timeout_majority": "accept", "stale_majority": "accept",
                 "deferred_to_human": "deferred_to_human", "casting_vote": "casting_vote",
             }
+            _team_process_ctx = ctrl_pos.get("team_process") or {}
+            _clinical_context: Dict[str, Any] = {}
+            if _team_process_ctx:
+                _syms = _team_process_ctx.get("symptoms") or []
+                _meds = _team_process_ctx.get("medications") or []
+                if _syms or _meds:
+                    _clinical_context = {
+                        "symptoms": list(_syms),
+                        "medications": list(_meds),
+                    }
             truth = TeamGroundedTruth(
-                concept_id=win_key,
+                concept_id=_conv_concept_id,
                 use_case=self.context.use_case,
                 episode_id=self.context._episode_id(),
                 participant_ids=[controller_id] + list(member_ids),
@@ -717,6 +767,7 @@ class StarNegotiator:
                 common_ground_ids=list(self.context._common_ground_ids),
                 outcome=outcome_map.get(resolution_label, "deferred"),
                 formed_at_ms=int(time.time() * 1000),
+                clinical_context=_clinical_context,
             )
             self.context.convergence_store.record(truth)
 
@@ -759,6 +810,17 @@ class StarNegotiator:
                 "scr": truth.social_compliance_ratio,
                 "episode_id": truth.episode_id,
             }
+            _commit_payload_parts: List[Dict[str, Any]] = [
+                _conv_utt_part,
+                {"type": "snp-convergence", "location": "inline", "content": _snp_convergence},
+                {"type": "winning-position", "location": "inline", "content": _win_content},
+            ]
+            if _individual_positions:
+                _commit_payload_parts.append({
+                    "type": "individual-positions",
+                    "location": "inline",
+                    "content": _individual_positions,
+                })
             convergence_header = build_snp_l9_header(
                 operation=NegotiationOperation.ACCEPT,
                 use_case=self.context.use_case,
@@ -769,15 +831,10 @@ class StarNegotiator:
                 utterance=_conv_utterance,
                 episode_id=truth.episode_id,
                 kind_override="commit:converged",
-                payload_parts=[
-                    _conv_utt_part,
-                    {"type": "snp-convergence", "location": "inline", "content": _snp_convergence},
-                ],
+                payload_parts=_commit_payload_parts,
                 recipients=list(truth.participant_ids),
             )
             self.network.messages.append(convergence_header)
-
-            _conv_concept_id = f"urn:concept:{self.context.use_case}:{win_key}"
 
             if (
                 self.context.semantic_rule_store is not None
@@ -798,6 +855,8 @@ class StarNegotiator:
                         "individual_posteriors": truth.individual_posteriors,
                         "gar": truth.genuine_agreement_ratio,
                         "scr": truth.social_compliance_ratio,
+                        "winning_position": _win_content,
+                        "individual_positions": _individual_positions,
                     },
                     recorded_at_ms=truth.formed_at_ms,
                     description=f"Team converged: {win_key} at posterior={truth.consensus_posterior:.2f}",
@@ -809,6 +868,34 @@ class StarNegotiator:
                     f"gar={truth.genuine_agreement_ratio:.2f}, "
                     f"scr={truth.social_compliance_ratio:.2f})"
                 )
+                _provenance_weight = round(
+                    (1.0 - truth.social_compliance_ratio) * truth.genuine_agreement_ratio, 4
+                )
+                _knowledge_value: Dict[str, Any] = {
+                    k: v for k, v in _win_content.items()
+                    if k not in ("posterior", "thought_summary", "likely_cause")
+                }
+                _knowledge_payload_parts: List[Dict[str, Any]] = [
+                    {"type": "utterance", "location": "inline", "content": _rule_utterance},
+                    {"type": "knowledge", "location": "inline", "content": {
+                        "concept_id": _conv_concept_id,
+                        "value": win_key,
+                        "value_detail": _knowledge_value,
+                        "source": _conv_proposal_id,
+                        "posterior": truth.consensus_posterior,
+                        "gar": truth.genuine_agreement_ratio,
+                        "scr": truth.social_compliance_ratio,
+                        "provenance_weight": _provenance_weight,
+                        "revision_cause": "converged_episode",
+                    }},
+                    {"type": "winning-position", "location": "inline", "content": _win_content},
+                ]
+                if _individual_positions:
+                    _knowledge_payload_parts.append({
+                        "type": "individual-positions",
+                        "location": "inline",
+                        "content": _individual_positions,
+                    })
                 _rule_header = build_snp_l9_header(
                     operation=NegotiationOperation.ACCEPT,
                     use_case=self.context.use_case,
@@ -824,9 +911,7 @@ class StarNegotiator:
                         speech_act=SpeechAct.ASSERTION,
                         epistemic_state=EpistemicState.TASKWORK,
                     ),
-                    payload_parts=[
-                        {"type": "utterance", "location": "inline", "content": _rule_utterance},
-                    ],
+                    payload_parts=_knowledge_payload_parts,
                 )
                 self.network.messages.append(_rule_header)
 
@@ -1063,11 +1148,12 @@ class RingNegotiator:
             mpc = round(sum(final_posteriors.values()) / len(final_posteriors), 4) if final_posteriors else 0.5
             outcome_map = {
                 "consensus": "accept", "majority": "accept",
-                "timeout_majority": "accept", "stale_majority": "deferred",
+                "timeout_majority": "accept", "stale_majority": "accept",
             }
             formed_at = int(time.time() * 1000)
+            _ring_concept_id = f"urn:concept:{self.context.use_case}:{win_key}"
             truth = TeamGroundedTruth(
-                concept_id=win_key,
+                concept_id=_ring_concept_id,
                 use_case=self.context.use_case,
                 episode_id=self.context._episode_id(),
                 participant_ids=list(member_ids),
@@ -1139,33 +1225,6 @@ class RingNegotiator:
                     description=f"Team converged: {win_key} at posterior={truth.consensus_posterior:.2f}",
                 )
                 self.context.semantic_rule_store.record(rule)
-                _ring_sender = member_ids[0] if member_ids else "ring-controller"
-                _rule_utterance_r = (
-                    f"team agreed: {win_key} "
-                    f"(posterior={truth.consensus_posterior:.2f}, "
-                    f"gar={truth.genuine_agreement_ratio:.2f}, "
-                    f"scr={truth.social_compliance_ratio:.2f})"
-                )
-                _rule_header_r = build_snp_l9_header(
-                    operation=NegotiationOperation.ACCEPT,
-                    use_case=self.context.use_case,
-                    sender=_ring_sender,
-                    receiver=None,
-                    timestamp_ms=truth.formed_at_ms + 1,
-                    proposal_id=f"rule-{self.context._debate_id[:8]}",
-                    utterance=_rule_utterance_r,
-                    episode_id=truth.episode_id,
-                    kind_override="knowledge",
-                    topic=f"urn:concept:{self.context.use_case}:{win_key}",
-                    epistemic=make_epistemic_block(
-                        speech_act=SpeechAct.ASSERTION,
-                        epistemic_state=EpistemicState.TASKWORK,
-                    ),
-                    payload_parts=[
-                        {"type": "utterance", "location": "inline", "content": _rule_utterance_r},
-                    ],
-                )
-                self.network.messages.append(_rule_header_r)
 
         if self.context.persistence_path:
             self.context._save_cross_episode_state(self.context.persistence_path)

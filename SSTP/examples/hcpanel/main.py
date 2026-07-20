@@ -262,7 +262,7 @@ class HCPanelSystem:
         }
 
     def _node_coordination(self, state: DebateGraphState) -> Dict[str, Any]:
-        """Write kind=knowledge, promote per-agent stores, store episode."""
+        """Promote per-agent stores, store episode."""
         episode_id = state["episode_id"]
         outcome: Optional[ClinicalDebateOutcome] = state.get("outcome")
         log: List[str] = list(state.get("orchestration_log", []))
@@ -271,23 +271,8 @@ class HCPanelSystem:
             log.append("coordination:outcome=missing error=no_outcome_produced")
             return {"orchestration_log": log, "error": "no_outcome_produced"}
 
-        # Emit kind=knowledge for each converged concept; deliver_header routes to TEM.
-        from SSTP.l9.episode import L9
-        panel_episode_id = outcome.panel_episode_id or episode_id
-        _CONTROLLER_ID = "diagnostics-controller"
-        ctrl_l9 = L9(bus=self.bus, agent_id=_CONTROLLER_ID)
-        for truth in self.memory.convergence_store.records():
-            ctrl_l9.announce_knowledge(
-                concept_id=truth.concept_id,
-                posterior=truth.consensus_posterior,
-                gar=truth.genuine_agreement_ratio,
-                scr=truth.social_compliance_ratio,
-                episode_id=panel_episode_id,
-            )
-            # deliver_header routes kind=knowledge to TEM automatically
-
         log.append(
-            f"coordination:knowledge_written=true"
+            f"coordination:complete"
             f":resolution={outcome.resolution_label}"
             f":specialists={len(outcome.specialist_opinions)}"
         )

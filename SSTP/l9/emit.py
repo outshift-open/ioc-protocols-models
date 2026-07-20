@@ -721,6 +721,8 @@ def _emit_knowledge_announcement(
     commit_message_id: str = "",
     revision_cause: str = "converged_episode",
     episode_id: "str | None" = None,
+    value: str = "",
+    value_detail: "Dict[str, Any] | None" = None,
 ) -> Dict[str, Any]:
     _utterance = (
         f"knowledge:{concept_id}:posterior={posterior:.4f}"
@@ -728,6 +730,15 @@ def _emit_knowledge_announcement(
     )
     _eid = episode_id or ""
     _msg_id, _, _ = net._next_msg_id(_eid)  # type: ignore[attr-defined]
+    _knowledge_content: Dict[str, Any] = {
+        "concept_id": concept_id,
+        "value": value or concept_id.split(":")[-1],
+        "value_detail": value_detail or {},
+        "source": commit_message_id,
+        "posterior": posterior,
+        "gar": gar, "scr": scr, "provenance_weight": provenance_weight,
+        "revision_cause": revision_cause,
+    }
     header = build_l9_header(
         use_case=net.use_case,  # type: ignore[attr-defined]
         event_type="peer_turn",
@@ -745,13 +756,7 @@ def _emit_knowledge_announcement(
         ),
         payload_parts=[
             {"type": "utterance", "location": "inline", "content": _utterance},
-            {"type": "knowledge", "location": "inline", "content": {
-                "concept_id": concept_id,
-                "source": commit_message_id,
-                "posterior": posterior,
-                "gar": gar, "scr": scr, "provenance_weight": provenance_weight,
-                "revision_cause": revision_cause,
-            }},
+            {"type": "knowledge", "location": "inline", "content": _knowledge_content},
         ],
         recipients=["team-memory"],
     )

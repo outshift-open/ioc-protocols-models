@@ -125,7 +125,34 @@ class HCPanelMemory:
         return None
 
     def _handle_intent(self, header: Dict[str, Any], bus: Any) -> None:
-        """Respond to a prior-lookup intent with an exchange:ready on the bus."""
+        """Respond to a prior-lookup or relevance-query intent with exchange:ready."""
+        episode_id = (header.get("message") or {}).get("episode")
+
+        # Check for a relevance query (symptoms + medications) first.
+        query_part = next(
+            (p for p in header.get("payload", []) if p.get("type") == "query:relevant"),
+            None,
+        )
+        if query_part:
+            q = query_part.get("content") or {}
+            results = self._query_relevant(
+                symptoms=q.get("symptoms") or [],
+                medications=q.get("medications") or [],
+            )
+            bus.send({
+                "kind": "exchange",
+                "subkind": "ready",
+                "sender": self.AGENT_ID,
+                "participants": {"actors": [
+                    {"id": self.AGENT_ID, "role": self.AGENT_ID, "participant_type": "sender"},
+                    {"id": "diagnostics-controller", "role": "diagnostics-controller", "participant_type": "recipient"},
+                ]},
+                "episode_id": episode_id,
+                "payload": [{"type": "prior:relevant", "location": "inline", "content": results}],
+            })
+            return
+
+        # Fallback: exact concept-id lookup.
         concept_id = self._parse_concept_id(header)
         truth = self.convergence_store.latest(concept_id or "") if concept_id else None
         found = truth is not None
@@ -149,14 +176,71 @@ class HCPanelMemory:
             "episode_count": episode_count,
             "found": found,
         }
-        episode_id = (header.get("message") or {}).get("episode")
-        bus.messages.append({
+        bus.send({
             "kind": "exchange",
             "subkind": "ready",
             "sender": self.AGENT_ID,
+            "participants": {"actors": [
+                {"id": self.AGENT_ID, "role": self.AGENT_ID, "participant_type": "sender"},
+                {"id": "diagnostics-controller", "role": "diagnostics-controller", "participant_type": "recipient"},
+            ]},
             "episode_id": episode_id,
             "payload": [{"type": "team_prior", "location": "inline", "content": prior_payload}],
         })
+
+    def _query_relevant(
+        self,
+        symptoms: List[str],
+        medications: List[str],
+        min_score: float = 0.1,
+    ) -> List[Dict[str, Any]]:
+        """Rank convergence records by Jaccard similarity to the patient's clinical context.
+
+        Returns a list of dicts sorted by score descending:
+          [{"concept_id": ..., "value": ..., "posterior": ...,
+            "gar": ..., "scr": ..., "provenance_weight": ..., "score": ...}, ...]
+        Only accepted records with clinical_context and score >= min_score are included.
+        """
+        query_tokens = {
+            t.lower().strip()
+            for t in (symptoms or []) + (medications or [])
+            if t and t.strip()
+        }
+        if not query_tokens:
+            return []
+
+        results = []
+        for truth in self.convergence_store.records():
+            if truth.outcome not in ("accept", "accepted"):
+                continue
+            ctx = truth.clinical_context
+            if not ctx:
+                continue
+            record_tokens = {
+                t.lower().strip()
+                for t in (ctx.get("symptoms") or []) + (ctx.get("medications") or [])
+                if t and t.strip()
+            }
+            if not record_tokens:
+                continue
+            intersection = len(query_tokens & record_tokens)
+            union = len(query_tokens | record_tokens)
+            score = round(intersection / union, 4) if union else 0.0
+            if score >= min_score:
+                gar = truth.genuine_agreement_ratio
+                scr = truth.social_compliance_ratio
+                results.append({
+                    "concept_id": truth.concept_id,
+                    "value": truth.concept_id.split(":")[-1],
+                    "posterior": truth.consensus_posterior,
+                    "gar": gar,
+                    "scr": scr,
+                    "provenance_weight": round((1.0 - scr) * gar, 4),
+                    "score": score,
+                })
+
+        results.sort(key=lambda r: (-r["score"], -r.get("posterior", 0.0)))
+        return results
 
     def _handle_knowledge(self, header: Dict[str, Any]) -> None:
         """Write a converged knowledge announcement into convergence_store.

@@ -184,6 +184,9 @@ class TeamGroundedTruth:
     common_ground_ids: List[str]            # CommonGround episode_ids that fed this
     outcome: str                             # accept | reject | deferred | deferred_to_human | casting_vote
     formed_at_ms: int
+    clinical_context: Dict[str, List[str]] = field(default_factory=dict)
+    # {"symptoms": [...], "medications": [...]} — patient context at episode open;
+    # used by ConvergenceStore.query_relevant() to seed priors for similar patients.
 
 
 # ── AgentBeliefStore ──────────────────────────────────────────────────────────

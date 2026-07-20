@@ -520,6 +520,8 @@ class Episode:
         posterior: float,
         gar: float,
         scr: float,
+        value: str = "",
+        value_detail: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Write a knowledge announcement after close().
 
@@ -540,6 +542,8 @@ class Episode:
             commit_message_id=self._commit_message_id or "",
             revision_cause="converged_episode",
             episode_id=self._episode_id,
+            value=value,
+            value_detail=value_detail,
         )
         self._last_message_id = h["message"]["id"]
         return self._last_message_id
@@ -1189,6 +1193,7 @@ class L9:
             scr=ep.scr,
             winning_position=ep._winning_position or {},
             resolution_label=ep._resolution_label or "",
+            episode_id=ep.episode_id,
         )
 
     def run_taskwork(
@@ -1275,12 +1280,6 @@ class L9:
             max_rounds=max_rounds,
             max_extra_rounds=max_extra_rounds,
         )
-        ep.announce(
-            concept_id=ep.winning_position_key,
-            posterior=ep.mpc,
-            gar=ep.gar,
-            scr=ep.scr,
-        )
         return TaskResult(
             winning_position=ep.winning_position or {},
             winning_position_key=ep.winning_position_key,
@@ -1298,6 +1297,8 @@ class L9:
         gar: float,
         scr: float,
         episode_id: Optional[str] = None,
+        value: str = "",
+        value_detail: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Emit a standalone kind=knowledge announcement outside a task episode.
 
@@ -1316,6 +1317,8 @@ class L9:
             provenance_weight=provenance_weight,
             revision_cause="converged_episode",
             episode_id=episode_id,
+            value=value,
+            value_detail=value_detail,
         )
         return h["message"]["id"]
 
@@ -1590,6 +1593,7 @@ class TeamProcessResult:
     scr: float
     winning_position: Dict[str, Any]
     resolution_label: str
+    episode_id: str = ""
 
 
 @dataclass
@@ -1787,6 +1791,32 @@ class L9Session:
             label="session:close",
         )
         return result
+
+    def announce_knowledge(
+        self,
+        concept_id: str,
+        value: str,
+        value_detail: Dict[str, Any],
+        posterior: float,
+        gar: float,
+        scr: float,
+        episode_id: Optional[str] = None,
+    ) -> str:
+        """Emit a knowledge announcement on behalf of this session.
+
+        The application calls this after each phase (TP, TW, T) with the
+        full content it wants to announce — concept_id, value, value_detail,
+        and convergence metrics. Returns the knowledge message id.
+        """
+        return self._l9.announce_knowledge(
+            concept_id=concept_id,
+            posterior=posterior,
+            gar=gar,
+            scr=scr,
+            episode_id=episode_id,
+            value=value,
+            value_detail=value_detail,
+        )
 
 
 __all__ = [

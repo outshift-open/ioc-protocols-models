@@ -261,7 +261,65 @@ def _wire_event(seq: int, msg: Dict[str, Any], phase: str, depth: int = 0) -> st
         pcontent = part.get("content")
         if pcontent is None:
             continue
-        if isinstance(pcontent, dict):
+        if ptype == "winning-position" and isinstance(pcontent, dict):
+            tp_terms = pcontent.get("team_process_terms")
+            if tp_terms and isinstance(tp_terms, dict):
+                # TP phase: render governance terms inline
+                lines.append("**Agreed governance terms:**\n\n")
+                for field in ("session_objective", "debate_format", "contingency_rules",
+                              "no_convergence_handling"):
+                    val = tp_terms.get(field)
+                    if val:
+                        label = field.replace("_", " ").title()
+                        if isinstance(val, dict):
+                            lines.append(f"- **{label}:** {json.dumps(val)}\n")
+                        else:
+                            lines.append(f"- **{label}:** {val}\n")
+                ra = tp_terms.get("role_assignments")
+                if ra and isinstance(ra, dict):
+                    lines.append("- **Role assignments:**\n")
+                    for agent, roles in ra.items():
+                        lines.append(f"  - `{agent}`: {', '.join(roles) if isinstance(roles, list) else roles}\n")
+                lines.append("\n")
+            else:
+                # TW/T phase: render winning cause inline
+                lc = pcontent.get("likely_cause")
+                post = pcontent.get("posterior")
+                rat = pcontent.get("rationale") or pcontent.get("reasoning_summary")
+                ev = pcontent.get("supporting_evidence") or pcontent.get("addresses_evidence")
+                if lc:
+                    conf_str = f" (posterior={post:.2f})" if isinstance(post, float) else ""
+                    lines.append(f"**Agreed position:** `{lc}`{conf_str}\n\n")
+                if rat:
+                    lines.append(f"**Rationale:** {rat}\n\n")
+                if ev and isinstance(ev, list) and ev:
+                    lines.append(f"**Evidence:** {', '.join(str(e) for e in ev[:5])}\n\n")
+        elif ptype == "individual-positions" and isinstance(pcontent, dict):
+            rows = []
+            for agent, pos in pcontent.items():
+                short = agent.split("-", 1)[-1] if "-" in agent else agent
+                p = pos.get("posterior", "?")
+                p_str = f"{p:.2f}" if isinstance(p, float) else str(p)
+                position = pos.get("position", "?")
+                rows.append(f"  - `{short}`: **{position}** @ {p_str}")
+            if rows:
+                lines.append("**Individual positions:**\n\n" + "\n".join(rows) + "\n\n")
+        elif ptype == "knowledge" and isinstance(pcontent, dict):
+            cid = pcontent.get("concept_id", "?")
+            post = pcontent.get("posterior")
+            gar = pcontent.get("gar")
+            scr = pcontent.get("scr")
+            pw = pcontent.get("provenance_weight")
+            cause = pcontent.get("revision_cause", "?")
+            post_str = f"{post:.4f}" if isinstance(post, float) else str(post)
+            gar_str = f"{gar:.4f}" if isinstance(gar, float) else str(gar)
+            scr_str = f"{scr:.4f}" if isinstance(scr, float) else str(scr)
+            pw_str = f"{pw:.4f}" if isinstance(pw, float) else str(pw)
+            lines.append(
+                f"**Knowledge record:** `{cid}`  \n"
+                f"posterior={post_str} · gar={gar_str} · scr={scr_str} · provenance_weight={pw_str} · cause=`{cause}`\n\n"
+            )
+        elif isinstance(pcontent, dict):
             # pull rich reasoning fields inline
             for key in ("reasoning_summary", "critique", "thought_summary"):
                 val = pcontent.get(key) or (pcontent.get("proposal_payload") or {}).get(key)

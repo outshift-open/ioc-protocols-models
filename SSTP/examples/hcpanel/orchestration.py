@@ -236,7 +236,7 @@ class DebateOrchestrator:
         )
 
         try:
-            session.run_team_process(
+            tp_result = session.run_team_process(
                 team_process=current_team_process,
                 pivot_fn=_tp_pivot_fn,
                 commit_fn=_tp_commit_fn,
@@ -253,17 +253,69 @@ class DebateOrchestrator:
         except (SessionAbortedError, PlanAdherenceError) as exc:
             LOGGER.error("session failed during team-process: %s", exc)
             raise
+        _tp_win = tp_result.winning_position
+        session.announce_knowledge(
+            concept_id="urn:concept:healthcare:team_process",
+            value="team_process",
+            value_detail={k: v for k, v in _tp_win.items() if k not in ("likely_cause", "posterior")},
+            posterior=tp_result.mpc,
+            gar=tp_result.gar,
+            scr=tp_result.scr,
+            episode_id=tp_result.episode_id,
+        )
 
         # ── EPISODE B: taskwork SIEP debate ─────────────────────────────
         # Controller opens with patient data embedded so each specialist can
         # independently assess and declare its prior during _on_debate_round.
+        #
+        # Query team-memory via the wire for relevant prior knowledge.
+        # team-memory scores stored convergence records by Jaccard similarity
+        # against this patient's symptoms + medications and returns the best
+        # match.  If nothing is relevant the seed falls back to 0.5.
+        _prior_query_msg: Dict[str, Any] = {
+            "kind": "intent",
+            "sender": "diagnostics-controller",
+            "receiver": "team-memory",
+            "participants": {"actors": [
+                {"id": "diagnostics-controller", "role": "diagnostics-controller", "participant_type": "sender"},
+                {"id": "team-memory", "role": "team-memory", "participant_type": "recipient"},
+            ]},
+            "payload": [{
+                "type": "query:relevant",
+                "location": "inline",
+                "content": {
+                    "symptoms": patient.symptoms,
+                    "medications": patient.current_medications,
+                },
+            }],
+        }
+        _prior_before = len(self.message_bus.messages)
+        self.message_bus.send(_prior_query_msg)
+        _prior_results: List[Dict[str, Any]] = []
+        for _m in self.message_bus.messages[_prior_before:]:
+            for _p in _m.get("payload", []):
+                if _p.get("type") == "prior:relevant":
+                    _prior_results = _p.get("content") or []
+        _tw_seed = _prior_results[0] if _prior_results else None
+
+        _tw_seed_concept = _tw_seed["concept_id"] if _tw_seed else f"urn:concept:healthcare:{patient.patient_id}"
+        _tw_seed_cause = _tw_seed["value"] if _tw_seed else "drug_interaction"
+        _tw_seed_conf = round(float(_tw_seed["posterior"]), 4) if _tw_seed else 0.5
+        _tw_seed_score = _tw_seed["score"] if _tw_seed else 0.0
+        _tw_seed_rationale = (
+            f"team-memory: prior knowledge (Jaccard={_tw_seed_score:.2f}): {_tw_seed_cause} "
+            f"posterior={_tw_seed_conf:.2f} "
+            f"gar={_tw_seed['gar']:.2f} scr={_tw_seed['scr']:.2f}"
+            if _tw_seed else f"team-memory: no relevant prior — uninformed prior for {patient.patient_id}"
+        )
+
         tw_controller_position: Dict[str, Any] = {
-            "likely_cause": "drug_interaction",
-            "confidence": 0.5,
-            "posterior": 0.5,
-            "rationale": f"Initial controller framing for {patient.patient_id}",
+            "likely_cause": _tw_seed_cause,
+            "confidence": _tw_seed_conf,
+            "posterior": _tw_seed_conf,
+            "rationale": _tw_seed_rationale,
             "supporting_evidence": [],
-            "concept_id": f"urn:concept:healthcare:{patient.patient_id}",
+            "concept_id": _tw_seed_concept,
             "team_process": {
                 "symptoms": patient.symptoms,
                 "medications": patient.current_medications,
@@ -272,9 +324,9 @@ class DebateOrchestrator:
         }
         tw_specialist_positions: Dict[str, Any] = {
             a.agent_id: {
-                "likely_cause": "drug_interaction",
-                "confidence": 0.5,
-                "posterior": 0.5,
+                "likely_cause": _tw_seed_cause,
+                "confidence": _tw_seed_conf,
+                "posterior": _tw_seed_conf,
                 "rationale": "",
                 "supporting_evidence": [],
                 "role": a.role,
@@ -282,6 +334,10 @@ class DebateOrchestrator:
             }
             for a in all_specialists
         }
+
+        # Update the session concept_id so _get_team_prior in run_taskwork
+        # looks up the clinical concept, not the patient-scoped key.
+        session.concept_id = _tw_seed_concept
 
         try:
             tw_result = session.run_taskwork(
@@ -296,6 +352,17 @@ class DebateOrchestrator:
         except (SessionAbortedError, PlanAdherenceError) as exc:
             LOGGER.error("session failed during taskwork: %s", exc)
             raise
+        _tw_win = tw_result.winning_position
+        _tw_concept_id = f"urn:concept:healthcare:{_tw_win.get('likely_cause', 'unknown')}"
+        session.announce_knowledge(
+            concept_id=_tw_concept_id,
+            value=_tw_win.get("likely_cause", "unknown"),
+            value_detail={k: v for k, v in _tw_win.items() if k not in ("likely_cause", "posterior")},
+            posterior=tw_result.mpc,
+            gar=tw_result.gar,
+            scr=tw_result.scr,
+            episode_id=tw_result.episode_id,
+        )
 
         # SIEP winning position becomes the Episode C controller position.
         # Specialist positions are updated in tw_result.specialist_positions
@@ -475,6 +542,19 @@ class DebateOrchestrator:
         task_episode_id = task_result.episode_id
         metrics = {"gar": task_result.gar, "scr": task_result.scr, "mpc": task_result.mpc}
         opinions = _positions_to_opinions(all_positions)
+
+        _t_cause = winning_position.get("likely_cause", "unknown") if isinstance(winning_position, dict) else "unknown"
+        _t_concept_id = f"urn:concept:healthcare:{_t_cause}"
+        _t_value_detail = {k: v for k, v in winning_position.items() if k not in ("likely_cause", "posterior")} if isinstance(winning_position, dict) else {}
+        session.announce_knowledge(
+            concept_id=_t_concept_id,
+            value=_t_cause,
+            value_detail=_t_value_detail,
+            posterior=task_result.mpc,
+            gar=task_result.gar,
+            scr=task_result.scr,
+            episode_id=task_result.episode_id,
+        )
 
         win_key = str(
             winning_position.get("likely_cause")

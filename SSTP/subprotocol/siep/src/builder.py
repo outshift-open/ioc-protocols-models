@@ -705,6 +705,7 @@ def emit_propose(
         belief_status=_BeliefStatusVocab.ASSERTED,
         uncertainty=round(1.0 - conf, 4),
     )
+    _tp_terms = pos_dict.get("team_process_terms")
     _debate_payload = build_snp_payload(
         operation=NegotiationOperation.PROPOSE,
         proposal_id=proposal_id,
@@ -715,6 +716,7 @@ def emit_propose(
         supporting_evidence=pos_dict.get("supporting_evidence"),
         against_evidence=pos_dict.get("against_evidence"),
         reasoning_summary=pos_dict.get("reasoning_summary") or pos_dict.get("rationale"),
+        proposal_payload=_tp_terms if _tp_terms else None,
     )
     _ctrl_rationale = str(pos_dict.get("rationale") or pos_dict.get("reasoning_summary") or "").strip()
     _ctrl_thought = str(pos_dict.get("thought_summary") or "").strip()
