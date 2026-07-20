@@ -381,11 +381,14 @@ class DebateOrchestrator:
                 merged.setdefault("reasoning_summary", assessment.get("rationale", ""))
                 if not merged.get("supporting_evidence"):
                     merged["supporting_evidence"] = assessment.get("evidence") or []
-                # Only overwrite posterior/confidence from assessment if the pos
-                # is still at the seed value (0.5), meaning no counter-proposal ran.
-                if merged.get("posterior", 0.5) == 0.5 and assessment.get("posterior"):
-                    merged["posterior"] = assessment["posterior"]
-                    merged["confidence"] = assessment["posterior"]
+                # Always apply the specialist's own assessment confidence as their
+                # starting T-phase position — the TW seed is a team prior, not
+                # the specialist's individual belief.
+                _aconf_raw = assessment.get("confidence") or assessment.get("posterior")
+                if _aconf_raw is not None:
+                    _aconf = float(_aconf_raw)
+                    merged["posterior"] = _aconf
+                    merged["confidence"] = _aconf
                 if not merged.get("likely_cause") or merged["likely_cause"] == "drug_interaction":
                     if assessment.get("likely_cause"):
                         merged["likely_cause"] = assessment["likely_cause"]

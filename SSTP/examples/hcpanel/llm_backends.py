@@ -2254,6 +2254,10 @@ class AnthropicHealthcareLLMClient(LLMClient):
         _timeout = _HEAVY_CALL_TIMEOUT if _is_heavy else _CALL_TIMEOUT
         for _attempt in range(_max_attempts):
             try:
+                LOGGER.info(
+                    "anthropic_healthcare_llm.call task=%s attempt=%d timeout=%s prompt_chars=%d",
+                    task, _attempt, _timeout, len(system_prompt) + len(user_prompt),
+                )
                 response = self.client.chat.completions.create(
                     model=self.model,
                     max_tokens=2048,

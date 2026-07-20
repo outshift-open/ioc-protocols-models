@@ -905,7 +905,7 @@ class StarNegotiator:
                     proposal_id=f"rule-{self.context._debate_id[:8]}",
                     utterance=_rule_utterance,
                     episode_id=truth.episode_id,
-                    kind_override="knowledge",
+                    kind_override="commit:converged-knowledge",
                     topic=_conv_concept_id,
                     epistemic=make_epistemic_block(
                         speech_act=SpeechAct.ASSERTION,
