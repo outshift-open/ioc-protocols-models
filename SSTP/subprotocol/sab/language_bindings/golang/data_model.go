@@ -804,6 +804,14 @@ func (j *SABIntentPayloadData) UnmarshalJSON(value []byte) error {
 
 // “payload.data“ when the wrapped SSTP message is kind=negotiate.
 type SABNegotiatePayloadData struct {
+	// Agent decisions on a *decide* request (agents → server): each item is a full
+	// SAB L9 reply message (header + payload) carrying the agent's ``sao_response``.
+	// The inbound counterpart to ``round_messages``. Optional and omit-when-absent:
+	// an *initiate* request omits it entirely, and its presence is currently what
+	// distinguishes decide from initiate (see the deferred header.attributes.phase
+	// discriminator).
+	AgentReplies *SABNegotiatePayloadDataAgentReplies `json:"agent_replies,omitempty,omitzero" yaml:"agent_replies,omitempty" mapstructure:"agent_replies,omitempty"`
+
 	// ISO 8601 creation timestamp.
 	DtCreated string `json:"dt_created" yaml:"dt_created" mapstructure:"dt_created"`
 
@@ -829,6 +837,16 @@ type SABNegotiatePayloadData struct {
 	// SSTP protocol version.
 	Version string `json:"version,omitempty,omitzero" yaml:"version,omitempty" mapstructure:"version,omitempty"`
 }
+
+// Agent decisions on a *decide* request (agents → server): each item is a full SAB
+// L9 reply message (header + payload) carrying the agent's “sao_response“. The
+// inbound counterpart to “round_messages“. Optional and omit-when-absent: an
+// *initiate* request omits it entirely, and its presence is currently what
+// distinguishes decide from initiate (see the deferred header.attributes.phase
+// discriminator).
+type SABNegotiatePayloadDataAgentReplies []map[string]interface{}
+
+type SABNegotiatePayloadDataAgentReplies_0 []map[string]interface{}
 
 type SABNegotiatePayloadDataRoundMessagesElem map[string]interface{}
 
@@ -1052,38 +1070,115 @@ func (j *SAOResponseData_0) UnmarshalJSON(value []byte) error {
 
 type SAOResponseOutcome map[string]interface{}
 
-type SAOResponseOutcome_0 map[string]interface{}
+type NegotiateSemanticContextSaoState_0 = SAOState
+
+type SAOStateCurrentData_0 map[string]interface{}
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (j *SAOResponseOutcome_0) UnmarshalJSON(value []byte) error {
-	type Plain SAOResponseOutcome_0
+func (j *SAOStateCurrentData_0) UnmarshalJSON(value []byte) error {
+	type Plain SAOStateCurrentData_0
 	var plain Plain
 	if err := json.Unmarshal(value, &plain); err != nil {
 		return err
 	}
-	*j = SAOResponseOutcome_0(plain)
+	*j = SAOStateCurrentData_0(plain)
 	return nil
 }
 
-type SAOResponseOutcome_1 []interface{}
+type SAOStateCurrentData map[string]interface{}
+
+type SAOStateCurrentOffer_0 map[string]interface{}
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (j *SAOResponse) UnmarshalJSON(value []byte) error {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(value, &raw); err != nil {
-		return err
-	}
-	type Plain SAOResponse
+func (j *SAOStateCurrentOffer_0) UnmarshalJSON(value []byte) error {
+	type Plain SAOStateCurrentOffer_0
 	var plain Plain
 	if err := json.Unmarshal(value, &plain); err != nil {
 		return err
 	}
-	if v, ok := raw["response"]; !ok || v == nil {
-		plain.Response = 3
-	}
-	*j = SAOResponse(plain)
+	*j = SAOStateCurrentOffer_0(plain)
 	return nil
 }
+
+type SAOStateCurrentOffer_1 []interface{}
+
+type SAOStateCurrentOffer map[string]interface{}
+
+type SAOStateCurrentProposer_0 *string
+
+type SAOStateCurrentProposerAgent_0 *string
+
+type SAOStateLastNegotiator_0 *string
+
+type SAOStateNewOffererAgentsElem_0 *string
+
+type ThreadStateAcceptedOffersElem_0 map[string]interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ThreadStateAcceptedOffersElem_0) UnmarshalJSON(value []byte) error {
+	type Plain ThreadStateAcceptedOffersElem_0
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = ThreadStateAcceptedOffersElem_0(plain)
+	return nil
+}
+
+type ThreadStateAcceptedOffersElem_1 []interface{}
+
+type ThreadStateAcceptedOffersElem map[string]interface{}
+
+type ThreadStateNewData_0 map[string]interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ThreadStateNewData_0) UnmarshalJSON(value []byte) error {
+	type Plain ThreadStateNewData_0
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = ThreadStateNewData_0(plain)
+	return nil
+}
+
+type ThreadStateNewData map[string]interface{}
+
+type ThreadStateNewOffer_0 map[string]interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ThreadStateNewOffer_0) UnmarshalJSON(value []byte) error {
+	type Plain ThreadStateNewOffer_0
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = ThreadStateNewOffer_0(plain)
+	return nil
+}
+
+type ThreadStateNewOffer_1 []interface{}
+
+type ThreadStateNewOffer map[string]interface{}
+
+type ThreadStateNewResponses map[string]ResponseType
+
+// Per-thread state in a GB (Generalized Bargaining) round.
+type ThreadState struct {
+	// AcceptedOffers corresponds to the JSON schema field "accepted_offers".
+	AcceptedOffers []*ThreadStateAcceptedOffersElem `json:"accepted_offers,omitempty,omitzero" yaml:"accepted_offers,omitempty" mapstructure:"accepted_offers,omitempty"`
+
+	// NewData corresponds to the JSON schema field "new_data".
+	NewData *ThreadStateNewData `json:"new_data,omitempty,omitzero" yaml:"new_data,omitempty" mapstructure:"new_data,omitempty"`
+
+	// NewOffer corresponds to the JSON schema field "new_offer".
+	NewOffer *ThreadStateNewOffer `json:"new_offer,omitempty,omitzero" yaml:"new_offer,omitempty" mapstructure:"new_offer,omitempty"`
+
+	// NewResponses corresponds to the JSON schema field "new_responses".
+	NewResponses ThreadStateNewResponses `json:"new_responses,omitempty,omitzero" yaml:"new_responses,omitempty" mapstructure:"new_responses,omitempty"`
+}
+
+type SAOStateThreads map[string]ThreadState
 
 // Full mechanism state for the Stacked Alternating Offers (SAO) protocol.
 type SAOState struct {
@@ -1170,65 +1265,6 @@ type SAOState struct {
 	Waiting bool `json:"waiting,omitempty,omitzero" yaml:"waiting,omitempty" mapstructure:"waiting,omitempty"`
 }
 
-type SAOStateAgreement map[string]interface{}
-
-type SAOStateAgreement_0 map[string]interface{}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *SAOStateAgreement_0) UnmarshalJSON(value []byte) error {
-	type Plain SAOStateAgreement_0
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = SAOStateAgreement_0(plain)
-	return nil
-}
-
-type SAOStateAgreement_1 []interface{}
-
-type SAOStateCurrentData map[string]interface{}
-
-type SAOStateCurrentData_0 map[string]interface{}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *SAOStateCurrentData_0) UnmarshalJSON(value []byte) error {
-	type Plain SAOStateCurrentData_0
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = SAOStateCurrentData_0(plain)
-	return nil
-}
-
-type SAOStateCurrentOffer map[string]interface{}
-
-type SAOStateCurrentOffer_0 map[string]interface{}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *SAOStateCurrentOffer_0) UnmarshalJSON(value []byte) error {
-	type Plain SAOStateCurrentOffer_0
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = SAOStateCurrentOffer_0(plain)
-	return nil
-}
-
-type SAOStateCurrentOffer_1 []interface{}
-
-type SAOStateCurrentProposerAgent_0 *string
-
-type SAOStateCurrentProposer_0 *string
-
-type SAOStateLastNegotiator_0 *string
-
-type SAOStateNewOffererAgentsElem_0 *string
-
-type SAOStateThreads map[string]ThreadState
-
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *SAOState) UnmarshalJSON(value []byte) error {
 	var raw map[string]interface{}
@@ -1289,17 +1325,67 @@ func (j *SAOState) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// Schema/encoding metadata for a plain (intent) payload.
-type SemanticContext struct {
-	// Optional drift detection output associated with this context.
-	DriftDetection *SemanticContextDriftDetection `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
+type SAOStateAgreement map[string]interface{}
 
-	// Encoding corresponds to the JSON schema field "encoding".
-	Encoding SemanticContextEncoding `json:"encoding,omitempty,omitzero" yaml:"encoding,omitempty" mapstructure:"encoding,omitempty"`
+type SAOStateAgreement_1 []interface{}
 
-	// SchemaVersion corresponds to the JSON schema field "schema_version".
-	SchemaVersion string `json:"schema_version,omitempty,omitzero" yaml:"schema_version,omitempty" mapstructure:"schema_version,omitempty"`
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *SAOStateAgreement_0) UnmarshalJSON(value []byte) error {
+	type Plain SAOStateAgreement_0
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = SAOStateAgreement_0(plain)
+	return nil
 }
+
+type SAOStateAgreement_0 map[string]interface{}
+
+type NegotiateSemanticContextSaoResponse_0 = SAOResponse
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *SAOResponse) UnmarshalJSON(value []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return err
+	}
+	type Plain SAOResponse
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	if v, ok := raw["response"]; !ok || v == nil {
+		plain.Response = 3
+	}
+	*j = SAOResponse(plain)
+	return nil
+}
+
+type SeverityLevel string
+
+type SAOResponseOutcome_1 []interface{}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *SAOResponseOutcome_0) UnmarshalJSON(value []byte) error {
+	type Plain SAOResponseOutcome_0
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = SAOResponseOutcome_0(plain)
+	return nil
+}
+
+type SAOResponseOutcome_0 map[string]interface{}
+
+type NegotiateSemanticContextNmi_0 = SAONMI
+
+type NegotiateSemanticContextDriftDetection_0 = DriftDetectionOutput
+
+type NegotiateCommitSemanticContextDriftDetection_0 = DriftDetectionOutput
+
+type SemanticContextDriftDetection_0 = DriftDetectionOutput
 
 // Optional drift detection output associated with this context.
 type SemanticContextDriftDetection struct {
@@ -1332,10 +1418,6 @@ func (j *SemanticContextDriftDetection) UnmarshalJSON(value []byte) error {
 
 type SemanticContextEncoding string
 
-const SemanticContextEncodingHybrid SemanticContextEncoding = "hybrid"
-const SemanticContextEncodingJson SemanticContextEncoding = "json"
-const SemanticContextEncodingStructuredText SemanticContextEncoding = "structured_text"
-
 var enumValues_SemanticContextEncoding = []interface{}{
 	"json",
 	"structured_text",
@@ -1362,6 +1444,22 @@ func (j *SemanticContextEncoding) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
+const SemanticContextEncodingJson SemanticContextEncoding = "json"
+const SemanticContextEncodingStructuredText SemanticContextEncoding = "structured_text"
+const SemanticContextEncodingHybrid SemanticContextEncoding = "hybrid"
+
+// Schema/encoding metadata for a plain (intent) payload.
+type SemanticContext struct {
+	// Optional drift detection output associated with this context.
+	DriftDetection *SemanticContextDriftDetection `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
+
+	// Encoding corresponds to the JSON schema field "encoding".
+	Encoding SemanticContextEncoding `json:"encoding,omitempty,omitzero" yaml:"encoding,omitempty" mapstructure:"encoding,omitempty"`
+
+	// SchemaVersion corresponds to the JSON schema field "schema_version".
+	SchemaVersion string `json:"schema_version,omitempty,omitzero" yaml:"schema_version,omitempty" mapstructure:"schema_version,omitempty"`
+}
+
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *SemanticContext) UnmarshalJSON(value []byte) error {
 	var raw map[string]interface{}
@@ -1380,55 +1478,6 @@ func (j *SemanticContext) UnmarshalJSON(value []byte) error {
 		plain.SchemaVersion = "1.0"
 	}
 	*j = SemanticContext(plain)
-	return nil
-}
-
-// Severity verdict for one failure mode.
-//
-// “type“ is the bucket the engine assigned. “high“ and “medium“
-// are the score thresholds the engine used: score ≤ high → HIGH,
-// score ≤ medium → MEDIUM, otherwise LOW. Thresholds are returned so
-// callers can re-bucket under their own policy.
-type Severity struct {
-	// Score ≤ this → HIGH
-	High float64 `json:"high" yaml:"high" mapstructure:"high"`
-
-	// Score ≤ this → MEDIUM
-	Medium float64 `json:"medium" yaml:"medium" mapstructure:"medium"`
-
-	// Assigned severity bucket
-	Type SeverityLevel `json:"type" yaml:"type" mapstructure:"type"`
-}
-
-type SeverityLevel string
-
-const SeverityLevelHigh SeverityLevel = "high"
-const SeverityLevelLow SeverityLevel = "low"
-const SeverityLevelMedium SeverityLevel = "medium"
-
-var enumValues_SeverityLevel = []interface{}{
-	"low",
-	"medium",
-	"high",
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *SeverityLevel) UnmarshalJSON(value []byte) error {
-	var v string
-	if err := json.Unmarshal(value, &v); err != nil {
-		return err
-	}
-	var ok bool
-	for _, expected := range enumValues_SeverityLevel {
-		if reflect.DeepEqual(v, expected) {
-			ok = true
-			break
-		}
-	}
-	if !ok {
-		return fmt.Errorf("invalid value (expected one of %#v): %#v", enumValues_SeverityLevel, v)
-	}
-	*j = SeverityLevel(v)
 	return nil
 }
 
@@ -1468,80 +1517,49 @@ func (j *Severity) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// Per-thread state in a GB (Generalized Bargaining) round.
-type ThreadState struct {
-	// AcceptedOffers corresponds to the JSON schema field "accepted_offers".
-	AcceptedOffers []*ThreadStateAcceptedOffersElem `json:"accepted_offers,omitempty,omitzero" yaml:"accepted_offers,omitempty" mapstructure:"accepted_offers,omitempty"`
+// Severity verdict for one failure mode.
+//
+// “type“ is the bucket the engine assigned. “high“ and “medium“
+// are the score thresholds the engine used: score ≤ high → HIGH,
+// score ≤ medium → MEDIUM, otherwise LOW. Thresholds are returned so
+// callers can re-bucket under their own policy.
+type Severity struct {
+	// Score ≤ this → HIGH
+	High float64 `json:"high" yaml:"high" mapstructure:"high"`
 
-	// NewData corresponds to the JSON schema field "new_data".
-	NewData *ThreadStateNewData `json:"new_data,omitempty,omitzero" yaml:"new_data,omitempty" mapstructure:"new_data,omitempty"`
+	// Score ≤ this → MEDIUM
+	Medium float64 `json:"medium" yaml:"medium" mapstructure:"medium"`
 
-	// NewOffer corresponds to the JSON schema field "new_offer".
-	NewOffer *ThreadStateNewOffer `json:"new_offer,omitempty,omitzero" yaml:"new_offer,omitempty" mapstructure:"new_offer,omitempty"`
-
-	// NewResponses corresponds to the JSON schema field "new_responses".
-	NewResponses ThreadStateNewResponses `json:"new_responses,omitempty,omitzero" yaml:"new_responses,omitempty" mapstructure:"new_responses,omitempty"`
+	// Assigned severity bucket
+	Type SeverityLevel `json:"type" yaml:"type" mapstructure:"type"`
 }
 
-type ThreadStateAcceptedOffersElem map[string]interface{}
-
-type ThreadStateAcceptedOffersElem_0 map[string]interface{}
+const SeverityLevelHigh SeverityLevel = "high"
+const SeverityLevelMedium SeverityLevel = "medium"
+const SeverityLevelLow SeverityLevel = "low"
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (j *ThreadStateAcceptedOffersElem_0) UnmarshalJSON(value []byte) error {
-	type Plain ThreadStateAcceptedOffersElem_0
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
+func (j *SeverityLevel) UnmarshalJSON(value []byte) error {
+	var v string
+	if err := json.Unmarshal(value, &v); err != nil {
 		return err
 	}
-	*j = ThreadStateAcceptedOffersElem_0(plain)
+	var ok bool
+	for _, expected := range enumValues_SeverityLevel {
+		if reflect.DeepEqual(v, expected) {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		return fmt.Errorf("invalid value (expected one of %#v): %#v", enumValues_SeverityLevel, v)
+	}
+	*j = SeverityLevel(v)
 	return nil
 }
 
-type ThreadStateAcceptedOffersElem_1 []interface{}
-
-type ThreadStateNewData map[string]interface{}
-
-type NegotiateCommitSemanticContextDriftDetection_0 = DriftDetectionOutput
-
-type ThreadStateNewResponses map[string]ResponseType
-
-type ThreadStateNewOffer map[string]interface{}
-
-type ThreadStateNewOffer_1 []interface{}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *ThreadStateNewOffer_0) UnmarshalJSON(value []byte) error {
-	type Plain ThreadStateNewOffer_0
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = ThreadStateNewOffer_0(plain)
-	return nil
+var enumValues_SeverityLevel = []interface{}{
+	"low",
+	"medium",
+	"high",
 }
-
-type ThreadStateNewOffer_0 map[string]interface{}
-
-type NegotiateSemanticContextSaoState_0 = SAOState
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *ThreadStateNewData_0) UnmarshalJSON(value []byte) error {
-	type Plain ThreadStateNewData_0
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = ThreadStateNewData_0(plain)
-	return nil
-}
-
-type ThreadStateNewData_0 map[string]interface{}
-
-type NegotiateSemanticContextSaoResponse_0 = SAOResponse
-
-type SemanticContextDriftDetection_0 = DriftDetectionOutput
-
-type NegotiateSemanticContextNmi_0 = SAONMI
-
-type NegotiateSemanticContextDriftDetection_0 = DriftDetectionOutput

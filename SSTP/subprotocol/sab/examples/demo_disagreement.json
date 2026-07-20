@@ -206,7 +206,8 @@
           "drift_detection": null,
           "offer_validation_failure": null
         },
-        "round_messages": []
+        "round_messages": [],
+        "agent_replies": null
       }
     }
   },
@@ -333,7 +334,8 @@
           "drift_detection": null,
           "offer_validation_failure": null
         },
-        "round_messages": []
+        "round_messages": [],
+        "agent_replies": null
       }
     }
   },
@@ -460,7 +462,8 @@
           "drift_detection": null,
           "offer_validation_failure": null
         },
-        "round_messages": []
+        "round_messages": [],
+        "agent_replies": null
       }
     }
   },
@@ -587,7 +590,8 @@
           "drift_detection": null,
           "offer_validation_failure": null
         },
-        "round_messages": []
+        "round_messages": [],
+        "agent_replies": null
       }
     }
   },
@@ -714,7 +718,8 @@
           "drift_detection": null,
           "offer_validation_failure": null
         },
-        "round_messages": []
+        "round_messages": [],
+        "agent_replies": null
       }
     }
   },
@@ -841,7 +846,8 @@
           "drift_detection": null,
           "offer_validation_failure": null
         },
-        "round_messages": []
+        "round_messages": [],
+        "agent_replies": null
       }
     }
   },

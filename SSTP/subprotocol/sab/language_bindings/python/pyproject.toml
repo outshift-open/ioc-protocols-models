@@ -10,7 +10,7 @@ build-backend = "poetry.core.masonry.api"
 name = "ai-outshift-sab-data-model"
 # NOTE: version is auto-stamped by `make build_sab_wheel` from SSTP/subprotocol/sab/spec/sab_schema.json "version" field.
 # If building manually, bump this to match the SAB schema version.
-version = "0.1.1"
+version = "0.1.2"
 description = "IOC SAB Subprotocol Data Models"
 authors = []
 packages = [{include = "ai"}]
