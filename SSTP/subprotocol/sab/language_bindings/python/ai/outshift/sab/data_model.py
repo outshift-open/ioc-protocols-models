@@ -303,6 +303,18 @@ class SABNegotiatePayloadData(BaseModel):
         ),
         title="Round Messages",
     )
+    agent_replies: list[dict[str, Any]] | None = Field(
+        None,
+        description=(
+            "Agent decisions on a *decide* request (agents → server): each item is a"
+            " full SAB L9 reply message (header + payload) carrying the agent's"
+            " ``sao_response``. The inbound counterpart to ``round_messages``. Optional"
+            " and omit-when-absent: an *initiate* request omits it entirely, and its"
+            " presence is currently what distinguishes decide from initiate (see the"
+            " deferred header.attributes.phase discriminator)."
+        ),
+        title="Agent Replies",
+    )
 
 
 class SemanticContext(BaseModel):

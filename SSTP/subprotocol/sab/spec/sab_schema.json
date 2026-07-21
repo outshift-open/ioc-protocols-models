@@ -451,6 +451,23 @@
           },
           "title": "Round Messages",
           "type": "array"
+        },
+        "agent_replies": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Agent decisions on a *decide* request (agents \u2192 server): each item is a full SAB L9 reply message (header + payload) carrying the agent's ``sao_response``. The inbound counterpart to ``round_messages``. Optional and omit-when-absent: an *initiate* request omits it entirely, and its presence is currently what distinguishes decide from initiate (see the deferred header.attributes.phase discriminator).",
+          "title": "Agent Replies"
         }
       },
       "required": [
@@ -1058,7 +1075,7 @@
   "description": "Union of the three SAB ``payload.data`` variants.\n\nThis is the root the schema generator dumps. Variants are discriminated by\nthe shape of ``semantic_context`` (commit and negotiate carry ``session_id``;\ncommit additionally carries ``outcome``). Ordered most-constrained first so\nPydantic's smart-union matching stays unambiguous.",
   "title": "SABPayloadData",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "protocol": "SSTP",
   "subprotocol": "SAB"
 }
