@@ -59,6 +59,11 @@ from pydantic import (
     field_validator,
 )
 
+# Drift Detection output lives in the shared common data models; SAB references it
+# as an optional field on every semantic_context (see generate_sab_schema.py, which
+# puts the repo root on sys.path so this resolves when the generator imports us flat).
+from SSTP.subprotocol.common.data_models.drift_detection import DriftDetectionOutput
+
 # ---------------------------------------------------------------------------
 # Literals / type aliases
 # ---------------------------------------------------------------------------
@@ -246,6 +251,10 @@ class SemanticContext(BaseModel):
 
     schema_version: str = "1.0"
     encoding: EncodingType = "json"
+    drift_detection: Optional[DriftDetectionOutput] = Field(
+        default=None,
+        description="Optional drift detection output associated with this context.",
+    )
 
 
 class NegotiateSemanticContext(BaseModel):
@@ -258,9 +267,28 @@ class NegotiateSemanticContext(BaseModel):
     schema_version: str = "1.0"
     encoding: EncodingType = "json"
     session_id: str
+    issues: List[str] = Field(
+        default_factory=list,
+        description="Ordered list of negotiable issue identifiers for this session.",
+    )
+    options_per_issue: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
+    )
+    options_memory_blob: Optional[str] = Field(
+        default=None,
+        description=(
+            "Fabric-memory cache (JSON string) used to warm-start options "
+            "generation; null for LLM-only or when no memory hit occurred."
+        ),
+    )
     sao_state: Optional[SAOState] = None
     sao_response: Optional[SAOResponse] = None
     nmi: Optional[SAONMI] = None
+    drift_detection: Optional[DriftDetectionOutput] = Field(
+        default=None,
+        description="Optional drift detection output associated with this context.",
+    )
     offer_validation_failure: Optional[Dict[str, Any]] = Field(
         default=None,
         description=(
@@ -277,6 +305,10 @@ class NegotiateCommitSemanticContext(BaseModel):
     schema_version: str = "1.0"
     encoding: EncodingType = "json"
     session_id: str
+    drift_detection: Optional[DriftDetectionOutput] = Field(
+        default=None,
+        description="Optional drift detection output associated with this context.",
+    )
     outcome: str = Field(
         ...,
         description=(
@@ -296,6 +328,14 @@ class NegotiateCommitSemanticContext(BaseModel):
     agents_negotiating: Optional[List[str]] = Field(
         default=None,
         description="Agent IDs that participated in this negotiation.",
+    )
+    issues: List[str] = Field(
+        default_factory=list,
+        description="Ordered list of negotiable issue identifiers for this session.",
+    )
+    options_per_issue: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Candidate options per issue: {issue_id: [option, ...]}.",
     )
     final_agreement: Optional[List[Dict[str, Any]]] = Field(
         default=None,
@@ -338,6 +378,16 @@ class SABNegotiatePayloadData(SABPayloadBase):
     """``payload.data`` when the wrapped SSTP message is kind=negotiate."""
 
     semantic_context: NegotiateSemanticContext
+    round_messages: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description=(
+            "Pending per-round SAB L9 envelopes the recipient must dispatch to the "
+            "participant agents this round. Each item is itself a full SAB "
+            "contingency/negotiation message (header + payload). Named distinctly "
+            "from the header's own ``message`` field. Populated on an ongoing "
+            "negotiation response; empty when there is nothing to dispatch."
+        ),
+    )
 
 
 class SABCommitPayloadData(SABPayloadBase):

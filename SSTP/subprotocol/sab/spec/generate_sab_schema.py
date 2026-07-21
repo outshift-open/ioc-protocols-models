@@ -43,8 +43,12 @@ from pathlib import Path
 
 _SPEC_DIR = Path(__file__).resolve().parent
 _SRC_DIR = _SPEC_DIR.parent / "src"
-if str(_SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(_SRC_DIR))
+# Repo root so sab_models' absolute import of the shared drift model
+# (SSTP.subprotocol.common.data_models.drift_detection) resolves.
+_REPO_ROOT = _SPEC_DIR.parents[3]
+for _p in (str(_SRC_DIR), str(_REPO_ROOT)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import sab_models as m  # noqa: E402
 
@@ -68,7 +72,7 @@ def main() -> None:
 
     # Top-level metadata (mirrors the other subprotocol schemas).
     schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-    schema["version"] = "0.1.0"
+    schema["version"] = "0.1.1"
     schema["protocol"] = "SSTP"
     schema["subprotocol"] = "SAB"
     schema.setdefault("title", "SABPayloadData")

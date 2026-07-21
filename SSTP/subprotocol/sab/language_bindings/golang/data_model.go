@@ -11,6 +11,81 @@ import "errors"
 import "fmt"
 import "reflect"
 
+// Top-level Drift Detection output (formerly SAVOutput).
+//
+// Placed in the L9 response message at the dotted path the caller
+// specified in “header.attributes['drift']“. Empty
+// “failure_modes“ list means no drift was detected.
+type DriftDetectionOutput struct {
+	// Detected process failure modes; empty list = no drift detected
+	FailureModes []FailureMode `json:"failure_modes,omitempty,omitzero" yaml:"failure_modes,omitempty" mapstructure:"failure_modes,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *DriftDetectionOutput) UnmarshalJSON(value []byte) error {
+	type Plain DriftDetectionOutput
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = DriftDetectionOutput(plain)
+	return nil
+}
+
+// A single detected process failure mode.
+type FailureMode struct {
+	// Static taxonomy description for ``type``
+	Description string `json:"description" yaml:"description" mapstructure:"description"`
+
+	// Engine's per-instance justification for flagging this mode
+	Reasoning string `json:"reasoning" yaml:"reasoning" mapstructure:"reasoning"`
+
+	// Confidence score in [0,1]; lower = stronger evidence of drift
+	Score float64 `json:"score" yaml:"score" mapstructure:"score"`
+
+	// Severity corresponds to the JSON schema field "severity".
+	Severity Severity `json:"severity" yaml:"severity" mapstructure:"severity"`
+
+	// Detected failure-mode category
+	Type ProcessFailureMode `json:"type" yaml:"type" mapstructure:"type"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *FailureMode) UnmarshalJSON(value []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["description"]; raw != nil && !ok {
+		return fmt.Errorf("field description in FailureMode: required")
+	}
+	if _, ok := raw["reasoning"]; raw != nil && !ok {
+		return fmt.Errorf("field reasoning in FailureMode: required")
+	}
+	if _, ok := raw["score"]; raw != nil && !ok {
+		return fmt.Errorf("field score in FailureMode: required")
+	}
+	if _, ok := raw["severity"]; raw != nil && !ok {
+		return fmt.Errorf("field severity in FailureMode: required")
+	}
+	if _, ok := raw["type"]; raw != nil && !ok {
+		return fmt.Errorf("field type in FailureMode: required")
+	}
+	type Plain FailureMode
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	if 1 < plain.Score {
+		return fmt.Errorf("field %s: must be <= %v", "score", 1)
+	}
+	if 0 > plain.Score {
+		return fmt.Errorf("field %s: must be >= %v", "score", 0)
+	}
+	*j = FailureMode(plain)
+	return nil
+}
+
 // Semantic context for “kind='commit'“ messages that finalize a negotiation.
 type NegotiateCommitSemanticContext struct {
 	// Agent IDs that participated in this negotiation.
@@ -18,6 +93,9 @@ type NegotiateCommitSemanticContext struct {
 
 	// Original natural-language mission description passed to /initiate.
 	ContentText interface{} `json:"content_text,omitempty,omitzero" yaml:"content_text,omitempty" mapstructure:"content_text,omitempty"`
+
+	// Optional drift detection output associated with this context.
+	DriftDetection *NegotiateCommitSemanticContextDriftDetection `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
 
 	// Encoding corresponds to the JSON schema field "encoding".
 	Encoding NegotiateCommitSemanticContextEncoding `json:"encoding,omitempty,omitzero" yaml:"encoding,omitempty" mapstructure:"encoding,omitempty"`
@@ -28,6 +106,12 @@ type NegotiateCommitSemanticContext struct {
 	// Agreed option per issue: {'issue_id': str, 'chosen_option': str}. None when the
 	// negotiation ended without agreement.
 	FinalAgreement *NegotiateCommitSemanticContextFinalAgreement `json:"final_agreement,omitempty,omitzero" yaml:"final_agreement,omitempty" mapstructure:"final_agreement,omitempty"`
+
+	// Ordered list of negotiable issue identifiers for this session.
+	Issues []string `json:"issues,omitempty,omitzero" yaml:"issues,omitempty" mapstructure:"issues,omitempty"`
+
+	// Candidate options per issue: {issue_id: [option, ...]}.
+	OptionsPerIssue NegotiateCommitSemanticContextOptionsPerIssue `json:"options_per_issue,omitempty,omitzero" yaml:"options_per_issue,omitempty" mapstructure:"options_per_issue,omitempty"`
 
 	// High-level outcome: 'agreement' — consensus reached; 'disagreement' — step
 	// budget exhausted; 'broken' — a participant dropped out or returned an invalid
@@ -47,6 +131,35 @@ type NegotiateCommitSemanticContextAgentsNegotiating []string
 type NegotiateCommitSemanticContextAgentsNegotiating_0 []string
 
 type NegotiateCommitSemanticContextContentText_0 *string
+
+// Optional drift detection output associated with this context.
+type NegotiateCommitSemanticContextDriftDetection struct {
+	// Detected process failure modes; empty list = no drift detected
+	FailureModes []FailureMode `json:"failure_modes,omitempty,omitzero" yaml:"failure_modes,omitempty" mapstructure:"failure_modes,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *NegotiateCommitSemanticContextDriftDetection) UnmarshalJSON(value []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return err
+	}
+	var negotiateCommitSemanticContextDriftDetection_0 NegotiateCommitSemanticContextDriftDetection_0
+	var errs []error
+	if err := negotiateCommitSemanticContextDriftDetection_0.UnmarshalJSON(value); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) == 1 {
+		return fmt.Errorf("all validators failed: %s", errors.Join(errs...))
+	}
+	type Plain NegotiateCommitSemanticContextDriftDetection
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = NegotiateCommitSemanticContextDriftDetection(plain)
+	return nil
+}
 
 type NegotiateCommitSemanticContextEncoding string
 
@@ -88,6 +201,9 @@ type NegotiateCommitSemanticContextFinalAgreement []map[string]interface{}
 
 type NegotiateCommitSemanticContextFinalAgreement_0 []map[string]interface{}
 
+// Candidate options per issue: {issue_id: [option, ...]}.
+type NegotiateCommitSemanticContextOptionsPerIssue map[string][]string
+
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *NegotiateCommitSemanticContext) UnmarshalJSON(value []byte) error {
 	var raw map[string]interface{}
@@ -120,8 +236,14 @@ func (j *NegotiateCommitSemanticContext) UnmarshalJSON(value []byte) error {
 // Carries a full NegMAS SAO snapshot so receivers have the mechanism state,
 // the latest response, and (optionally) the NMI configuration in one place.
 type NegotiateSemanticContext struct {
+	// Optional drift detection output associated with this context.
+	DriftDetection *NegotiateSemanticContextDriftDetection `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
+
 	// Encoding corresponds to the JSON schema field "encoding".
 	Encoding NegotiateSemanticContextEncoding `json:"encoding,omitempty,omitzero" yaml:"encoding,omitempty" mapstructure:"encoding,omitempty"`
+
+	// Ordered list of negotiable issue identifiers for this session.
+	Issues []string `json:"issues,omitempty,omitzero" yaml:"issues,omitempty" mapstructure:"issues,omitempty"`
 
 	// Nmi corresponds to the JSON schema field "nmi".
 	Nmi *NegotiateSemanticContextNmi `json:"nmi,omitempty,omitzero" yaml:"nmi,omitempty" mapstructure:"nmi,omitempty"`
@@ -130,6 +252,13 @@ type NegotiateSemanticContext struct {
 	// keys/option values (validation failure, not a strategic reject). Shape:
 	// {rejected_agent_id, round, problems, hint}.
 	OfferValidationFailure *NegotiateSemanticContextOfferValidationFailure `json:"offer_validation_failure,omitempty,omitzero" yaml:"offer_validation_failure,omitempty" mapstructure:"offer_validation_failure,omitempty"`
+
+	// Fabric-memory cache (JSON string) used to warm-start options generation; null
+	// for LLM-only or when no memory hit occurred.
+	OptionsMemoryBlob interface{} `json:"options_memory_blob,omitempty,omitzero" yaml:"options_memory_blob,omitempty" mapstructure:"options_memory_blob,omitempty"`
+
+	// Candidate options per issue: {issue_id: [option, ...]}.
+	OptionsPerIssue NegotiateSemanticContextOptionsPerIssue `json:"options_per_issue,omitempty,omitzero" yaml:"options_per_issue,omitempty" mapstructure:"options_per_issue,omitempty"`
 
 	// SaoResponse corresponds to the JSON schema field "sao_response".
 	SaoResponse *NegotiateSemanticContextSaoResponse `json:"sao_response,omitempty,omitzero" yaml:"sao_response,omitempty" mapstructure:"sao_response,omitempty"`
@@ -142,6 +271,35 @@ type NegotiateSemanticContext struct {
 
 	// SessionID corresponds to the JSON schema field "session_id".
 	SessionID string `json:"session_id" yaml:"session_id" mapstructure:"session_id"`
+}
+
+// Optional drift detection output associated with this context.
+type NegotiateSemanticContextDriftDetection struct {
+	// Detected process failure modes; empty list = no drift detected
+	FailureModes []FailureMode `json:"failure_modes,omitempty,omitzero" yaml:"failure_modes,omitempty" mapstructure:"failure_modes,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *NegotiateSemanticContextDriftDetection) UnmarshalJSON(value []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return err
+	}
+	var negotiateSemanticContextDriftDetection_0 NegotiateSemanticContextDriftDetection_0
+	var errs []error
+	if err := negotiateSemanticContextDriftDetection_0.UnmarshalJSON(value); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) == 1 {
+		return fmt.Errorf("all validators failed: %s", errors.Join(errs...))
+	}
+	type Plain NegotiateSemanticContextDriftDetection
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = NegotiateSemanticContextDriftDetection(plain)
+	return nil
 }
 
 type NegotiateSemanticContextEncoding string
@@ -280,6 +438,11 @@ func (j *NegotiateSemanticContextOfferValidationFailure_0) UnmarshalJSON(value [
 	*j = NegotiateSemanticContextOfferValidationFailure_0(plain)
 	return nil
 }
+
+type NegotiateSemanticContextOptionsMemoryBlob_0 *string
+
+// Candidate options per issue: {issue_id: [option, ...]}.
+type NegotiateSemanticContextOptionsPerIssue map[string][]string
 
 // A single negotiator response in one SAO round.
 type NegotiateSemanticContextSaoResponse struct {
@@ -458,6 +621,48 @@ func (j *NegotiateSemanticContext) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
+type ProcessFailureMode string
+
+const ProcessFailureModeAmbiguity ProcessFailureMode = "Ambiguity"
+const ProcessFailureModeConstraintViolation ProcessFailureMode = "Constraint Violation"
+const ProcessFailureModeDominantNarrative ProcessFailureMode = "Dominant Narrative"
+const ProcessFailureModePersistentDivergence ProcessFailureMode = "Persistent Divergence"
+const ProcessFailureModeReasoningBreakdown ProcessFailureMode = "Reasoning Breakdown"
+const ProcessFailureModeRepetition ProcessFailureMode = "Repetition"
+const ProcessFailureModeTaskDeviation ProcessFailureMode = "Task Deviation"
+const ProcessFailureModeUnclassified ProcessFailureMode = "Unclassified"
+
+var enumValues_ProcessFailureMode = []interface{}{
+	"Unclassified",
+	"Persistent Divergence",
+	"Dominant Narrative",
+	"Repetition",
+	"Reasoning Breakdown",
+	"Task Deviation",
+	"Constraint Violation",
+	"Ambiguity",
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ProcessFailureMode) UnmarshalJSON(value []byte) error {
+	var v string
+	if err := json.Unmarshal(value, &v); err != nil {
+		return err
+	}
+	var ok bool
+	for _, expected := range enumValues_ProcessFailureMode {
+		if reflect.DeepEqual(v, expected) {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		return fmt.Errorf("invalid value (expected one of %#v): %#v", enumValues_ProcessFailureMode, v)
+	}
+	*j = ProcessFailureMode(v)
+	return nil
+}
+
 type ResponseType int
 
 var enumValues_ResponseType = []interface{}{
@@ -611,12 +816,21 @@ type SABNegotiatePayloadData struct {
 	// SHA-256 hex digest of the original payload.
 	PayloadHash string `json:"payload_hash" yaml:"payload_hash" mapstructure:"payload_hash"`
 
+	// Pending per-round SAB L9 envelopes the recipient must dispatch to the
+	// participant agents this round. Each item is itself a full SAB
+	// contingency/negotiation message (header + payload). Named distinctly from the
+	// header's own ``message`` field. Populated on an ongoing negotiation response;
+	// empty when there is nothing to dispatch.
+	RoundMessages []SABNegotiatePayloadDataRoundMessagesElem `json:"round_messages,omitempty,omitzero" yaml:"round_messages,omitempty" mapstructure:"round_messages,omitempty"`
+
 	// SemanticContext corresponds to the JSON schema field "semantic_context".
 	SemanticContext NegotiateSemanticContext `json:"semantic_context" yaml:"semantic_context" mapstructure:"semantic_context"`
 
 	// SSTP protocol version.
 	Version string `json:"version,omitempty,omitzero" yaml:"version,omitempty" mapstructure:"version,omitempty"`
 }
+
+type SABNegotiatePayloadDataRoundMessagesElem map[string]interface{}
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *SABNegotiatePayloadData) UnmarshalJSON(value []byte) error {
@@ -1077,11 +1291,43 @@ func (j *SAOState) UnmarshalJSON(value []byte) error {
 
 // Schema/encoding metadata for a plain (intent) payload.
 type SemanticContext struct {
+	// Optional drift detection output associated with this context.
+	DriftDetection *SemanticContextDriftDetection `json:"drift_detection,omitempty,omitzero" yaml:"drift_detection,omitempty" mapstructure:"drift_detection,omitempty"`
+
 	// Encoding corresponds to the JSON schema field "encoding".
 	Encoding SemanticContextEncoding `json:"encoding,omitempty,omitzero" yaml:"encoding,omitempty" mapstructure:"encoding,omitempty"`
 
 	// SchemaVersion corresponds to the JSON schema field "schema_version".
 	SchemaVersion string `json:"schema_version,omitempty,omitzero" yaml:"schema_version,omitempty" mapstructure:"schema_version,omitempty"`
+}
+
+// Optional drift detection output associated with this context.
+type SemanticContextDriftDetection struct {
+	// Detected process failure modes; empty list = no drift detected
+	FailureModes []FailureMode `json:"failure_modes,omitempty,omitzero" yaml:"failure_modes,omitempty" mapstructure:"failure_modes,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *SemanticContextDriftDetection) UnmarshalJSON(value []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return err
+	}
+	var semanticContextDriftDetection_0 SemanticContextDriftDetection_0
+	var errs []error
+	if err := semanticContextDriftDetection_0.UnmarshalJSON(value); err != nil {
+		errs = append(errs, err)
+	}
+	if len(errs) == 1 {
+		return fmt.Errorf("all validators failed: %s", errors.Join(errs...))
+	}
+	type Plain SemanticContextDriftDetection
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = SemanticContextDriftDetection(plain)
+	return nil
 }
 
 type SemanticContextEncoding string
@@ -1137,6 +1383,91 @@ func (j *SemanticContext) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
+// Severity verdict for one failure mode.
+//
+// “type“ is the bucket the engine assigned. “high“ and “medium“
+// are the score thresholds the engine used: score ≤ high → HIGH,
+// score ≤ medium → MEDIUM, otherwise LOW. Thresholds are returned so
+// callers can re-bucket under their own policy.
+type Severity struct {
+	// Score ≤ this → HIGH
+	High float64 `json:"high" yaml:"high" mapstructure:"high"`
+
+	// Score ≤ this → MEDIUM
+	Medium float64 `json:"medium" yaml:"medium" mapstructure:"medium"`
+
+	// Assigned severity bucket
+	Type SeverityLevel `json:"type" yaml:"type" mapstructure:"type"`
+}
+
+type SeverityLevel string
+
+const SeverityLevelHigh SeverityLevel = "high"
+const SeverityLevelLow SeverityLevel = "low"
+const SeverityLevelMedium SeverityLevel = "medium"
+
+var enumValues_SeverityLevel = []interface{}{
+	"low",
+	"medium",
+	"high",
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *SeverityLevel) UnmarshalJSON(value []byte) error {
+	var v string
+	if err := json.Unmarshal(value, &v); err != nil {
+		return err
+	}
+	var ok bool
+	for _, expected := range enumValues_SeverityLevel {
+		if reflect.DeepEqual(v, expected) {
+			ok = true
+			break
+		}
+	}
+	if !ok {
+		return fmt.Errorf("invalid value (expected one of %#v): %#v", enumValues_SeverityLevel, v)
+	}
+	*j = SeverityLevel(v)
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *Severity) UnmarshalJSON(value []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["high"]; raw != nil && !ok {
+		return fmt.Errorf("field high in Severity: required")
+	}
+	if _, ok := raw["medium"]; raw != nil && !ok {
+		return fmt.Errorf("field medium in Severity: required")
+	}
+	if _, ok := raw["type"]; raw != nil && !ok {
+		return fmt.Errorf("field type in Severity: required")
+	}
+	type Plain Severity
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	if 1 < plain.High {
+		return fmt.Errorf("field %s: must be <= %v", "high", 1)
+	}
+	if 0 > plain.High {
+		return fmt.Errorf("field %s: must be >= %v", "high", 0)
+	}
+	if 1 < plain.Medium {
+		return fmt.Errorf("field %s: must be <= %v", "medium", 1)
+	}
+	if 0 > plain.Medium {
+		return fmt.Errorf("field %s: must be >= %v", "medium", 0)
+	}
+	*j = Severity(plain)
+	return nil
+}
+
 // Per-thread state in a GB (Generalized Bargaining) round.
 type ThreadState struct {
 	// AcceptedOffers corresponds to the JSON schema field "accepted_offers".
@@ -1171,11 +1502,13 @@ type ThreadStateAcceptedOffersElem_1 []interface{}
 
 type ThreadStateNewData map[string]interface{}
 
-type ThreadStateNewData_0 map[string]interface{}
+type NegotiateCommitSemanticContextDriftDetection_0 = DriftDetectionOutput
+
+type ThreadStateNewResponses map[string]ResponseType
 
 type ThreadStateNewOffer map[string]interface{}
 
-type ThreadStateNewOffer_0 map[string]interface{}
+type ThreadStateNewOffer_1 []interface{}
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *ThreadStateNewOffer_0) UnmarshalJSON(value []byte) error {
@@ -1188,9 +1521,7 @@ func (j *ThreadStateNewOffer_0) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-type ThreadStateNewOffer_1 []interface{}
-
-type ThreadStateNewResponses map[string]ResponseType
+type ThreadStateNewOffer_0 map[string]interface{}
 
 type NegotiateSemanticContextSaoState_0 = SAOState
 
@@ -1205,6 +1536,12 @@ func (j *ThreadStateNewData_0) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
+type ThreadStateNewData_0 map[string]interface{}
+
 type NegotiateSemanticContextSaoResponse_0 = SAOResponse
 
+type SemanticContextDriftDetection_0 = DriftDetectionOutput
+
 type NegotiateSemanticContextNmi_0 = SAONMI
+
+type NegotiateSemanticContextDriftDetection_0 = DriftDetectionOutput

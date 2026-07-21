@@ -83,15 +83,21 @@ Every variant extends `SABPayloadBase` (`message_id`, `version`, `dt_created`,
 `origin`, `payload_hash`) and carries a `semantic_context`:
 
 - **`SemanticContext`** (intent) — `schema_version`, `encoding`.
-- **`NegotiateSemanticContext`** — adds `session_id` and the NegMAS SAO snapshot
-  (`sao_state`, `sao_response`, `nmi`, `offer_validation_failure`).
+- **`NegotiateSemanticContext`** — adds `session_id`, the negotiation space
+  (`issues`, `options_per_issue`, `options_memory_blob`), and the NegMAS SAO
+  snapshot (`sao_state`, `sao_response`, `nmi`, `offer_validation_failure`).
 - **`NegotiateCommitSemanticContext`** — adds `session_id`, `outcome`
   (`agreement` | `disagreement` | `broken` | `error`), `content_text`,
-  `agents_negotiating`, `final_agreement`.
+  `agents_negotiating`, `issues`, `options_per_issue`, `final_agreement`.
 
-`schema_id`, `issues` and `options_per_issue` are intentionally **not** in
-`payload.data`: the envelope is identified by `header.context.semantic.schema_id`
-and the negotiation space is promoted into `header.context.topic`.
+`SABNegotiatePayloadData` additionally carries **`round_messages`** — the pending
+per-round SAB L9 envelopes the recipient dispatches to the participant agents this
+round (each item a full SAB `contingency/negotiation` message; empty when there is
+nothing to dispatch). Named distinctly from the header's own `message` field.
+
+`header.context.topic` carries the human mission summary only; the negotiation
+space (`issues`, `options_per_issue`) is the canonical `semantic_context`, not the
+topic string. The envelope is identified by `header.context.semantic.schema_id`.
 
 ## Schema & bindings pipeline
 
