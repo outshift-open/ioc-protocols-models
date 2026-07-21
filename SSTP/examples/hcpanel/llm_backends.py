@@ -2218,7 +2218,7 @@ def build_llm_client(
         _local_url = os.getenv("LOCAL_MODEL_URL", "http://localhost:11434/v1")
         _local_model = os.getenv("LOCAL_MODEL", "qwen2.5:7b")
         try:
-            _frontier = build_llm_client("anthropic", model, agent_id=agent_id)
+            _frontier = build_llm_client("anthropic", None, agent_id=agent_id)
             _local = OllamaHealthcareLLMClient(
                 base_url=_local_url, model=_local_model, agent_id=agent_id,
             )

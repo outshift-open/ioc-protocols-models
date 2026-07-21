@@ -13,6 +13,23 @@ from SSTP.base import PlanAdherenceError
 
 LOGGER = logging.getLogger("healthcare2")
 
+_WORD_CONFIDENCES = {"low": 0.25, "medium": 0.50, "moderate": 0.50, "high": 0.75, "very_high": 0.90, "very high": 0.90}
+
+
+def _to_float(value: Any, default: float = 0.5) -> float:
+    """Coerce LLM confidence/posterior fields to float, tolerating word values from local models."""
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value).strip().lower()
+    if s in _WORD_CONFIDENCES:
+        return _WORD_CONFIDENCES[s]
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return default
+
 # ── Diagnostics specialist panel definition ───────────────────────────────────
 #
 # Five distinct roles with partial mutual overlap:
@@ -274,7 +291,7 @@ class SpecialistAgent:
         if result.get("decision") == "accept":
             operation = NegotiationOperation.ACCEPT
             _cp = round_ep.ctrl_pos
-            _post = float(_cp.get("posterior") or _cp.get("confidence") or 0.5)
+            _post = _to_float(_cp.get("posterior") or _cp.get("confidence"), 0.5)
             # Preserve the specialist's own identity/evidence fields; only adopt
             # the agreed concept, confidence and posterior from the winning position.
             position = {
@@ -288,10 +305,10 @@ class SpecialistAgent:
             position = {
                 **round_ep.member_pos,
                 "likely_cause": str(result.get("counter_concept", round_ep.ctrl_position_key)),
-                "confidence": float(result.get("counter_confidence",
-                                               round_ep.member_pos.get("confidence", 0.5))),
-                "posterior": float(result.get("counter_confidence",
-                                              round_ep.member_pos.get("confidence", 0.5))),
+                "confidence": _to_float(result.get("counter_confidence"),
+                                        _to_float(round_ep.member_pos.get("confidence"), 0.5)),
+                "posterior": _to_float(result.get("counter_confidence"),
+                                       _to_float(round_ep.member_pos.get("confidence"), 0.5)),
                 "rationale": str(result.get("rationale", "")),
                 "supporting_evidence": list(result.get("supporting_evidence", [])),
             }
@@ -337,7 +354,7 @@ class SpecialistAgent:
         self._taskwork_assessment = result
 
         likely_cause = result.get("likely_cause", "")
-        confidence = float(result.get("posterior", 0.5))
+        confidence = _to_float(result.get("posterior"), 0.5)
         ctrl_cause = round_ep.ctrl_pos.get("likely_cause", "")
 
         # Accept if our position matches the controller's, else counter-propose
@@ -374,7 +391,7 @@ class SpecialistAgent:
             "utterance": result.get("utterance", ""),
             "rationale": result.get("rationale", ""),
             "likely_cause": result.get("likely_cause", ""),
-            "posterior": float(result.get("posterior", result.get("confidence", 0.5))),
+            "posterior": _to_float(result.get("posterior") or result.get("confidence"), 0.5),
             "thought_summary": result.get("thought_summary", ""),
             "evidence": result.get("supporting_evidence") or [],
         }
@@ -409,8 +426,8 @@ class SpecialistAgent:
             turn=int(c.get("turn", 0)),
             ie_request_message_id=c.get("ie_request_message_id", ""),
             ctrl_position_key=c.get("ctrl_position_key", ""),
-            ctrl_conf=float(c.get("ctrl_conf", 0.5)),
-            accept_threshold=float(c.get("accept_threshold", 0.1)),
+            ctrl_conf=_to_float(c.get("ctrl_conf"), 0.5),
+            accept_threshold=_to_float(c.get("accept_threshold"), 0.1),
             member_pos=dict(c.get("member_pos") or {}),
             ctrl_pos=dict(c.get("ctrl_pos") or {}),
             task_goal=c.get("task_goal", ""),
@@ -540,7 +557,7 @@ class SpecialistAgent:
         }
         result = self.llm.complete_json("diagnostics_assessment", payload)
         inferred_cause = str(result.get("likely_cause", "drug_interaction"))
-        confidence = float(result.get("confidence", 0.65))
+        confidence = _to_float(result.get("confidence"), 0.65)
         posterior = confidence
         top_ev = list(result.get("supporting_evidence", findings))
         against_ev = list(result.get("against_evidence", []))
@@ -625,8 +642,8 @@ class SpecialistAgent:
         if self.llm is None:
             return {"decision": "accept", "rationale": "auto-accept (no LLM)"}
 
-        my_confidence: float = float(
-            member_pos.get("confidence") or member_pos.get("posterior") or 0.5
+        my_confidence: float = _to_float(
+            member_pos.get("confidence") or member_pos.get("posterior"), 0.5
         )
         _tom = tom_ctx or {}
 
@@ -639,7 +656,7 @@ class SpecialistAgent:
                 "my_supporting_evidence": (member_pos.get("supporting_evidence") or [])[:3],
                 "my_confidence": my_confidence,
                 "proposal_concept": ctrl_pos.get("likely_cause", ""),
-                "proposal_confidence": float(ctrl_pos.get("confidence") or ctrl_pos.get("posterior") or 0.5),
+                "proposal_confidence": _to_float(ctrl_pos.get("confidence") or ctrl_pos.get("posterior"), 0.5),
                 "proposal_rationale": str(ctrl_pos.get("rationale") or "")[:200],
                 "proposal_evidence": (ctrl_pos.get("supporting_evidence") or [])[:3],
                 "proposal_addresses_evidence": (ctrl_pos.get("addresses_evidence") or [])[:3],
