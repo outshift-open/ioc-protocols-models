@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
 import uuid
 
-from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, ParticipantSet, Context, Semantic, Epistemic, PolicyLabel, Kind  # noqa: E402 — requires language_bindings/python on sys.path
+from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, ParticipantSet, Context, Semantic, Epistemic, PolicyLabel, Kind, Episode, Message, Session  # noqa: E402 — requires language_bindings/python on sys.path
 from SSTP.subprotocol.cip.src.cip_payload import (
     CIPBeliefBlock,
     CIPGroundingBlock,
@@ -358,6 +358,17 @@ class CIPMessageBuilder:
                 retention_policy=self._retention_policy or "policy.default",
             )
 
+        # Build stateful session with episode and message
+        session = Session(
+            id=self._session_id if hasattr(self, '_session_id') and self._session_id else "default-session",
+            episodes=[
+                Episode(
+                    id=self._ep,
+                    messages=[Message(id=msg_id)]
+                )
+            ]
+        )
+
         return L9(
             header=L9Header(
                 protocol="SSTP",
@@ -369,7 +380,7 @@ class CIPMessageBuilder:
                     Actor(id=self._sender, role="sender"),
                     *[Actor(id=r, role="receiver") for r in self._receivers],
                 ], groups=None),
-                message={"id": msg_id, "parents": list(self._parents), "episode": self._ep},
+                session=session,
                 attributes=attributes or None,
                 policy=policy,
                 context=Context(

@@ -12,7 +12,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
 import uuid
 
-from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, Context, Semantic, Kind, ParticipantSet as Actors, Message, PolicyLabel
+from ai.outshift.data_model import L9, L9Header, L9Payload, Actor, Context, Semantic, Kind, ParticipantSet as Actors, Message, PolicyLabel, Episode, Session
 from SSTP.subprotocol.siep.src.siep_payload import (
     SIEPMessagePayload,
     SIEPBeliefBlock,
@@ -475,6 +475,17 @@ class SIEPMessageBuilder:
                 retention_policy=self._retention_policy or "policy.default",
             )
 
+        # Build stateful session with episode and message
+        session = Session(
+            id=self._session_id if hasattr(self, '_session_id') and self._session_id else "default-session",
+            episodes=[
+                Episode(
+                    id=self._ep,
+                    messages=[Message(id=msg_id)]
+                )
+            ]
+        )
+
         l9 = L9(
             header=L9Header(
                 protocol="SSTP",
@@ -486,7 +497,7 @@ class SIEPMessageBuilder:
                     Actor(id=self._sender, role="sender"),
                     *[Actor(id=r, role="receiver") for r in self._receivers],
                 ], groups=None).model_dump(),
-                message=Message(id=msg_id, parents=list(self._parents), episode=self._ep).model_dump(),
+                session=session,
                 attributes=attributes,
                 policy=policy,
                 context=Context(
