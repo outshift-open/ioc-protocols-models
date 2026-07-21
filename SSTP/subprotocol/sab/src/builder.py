@@ -249,7 +249,7 @@ class SABMessageBuilder:
                 kind=self._kind.value,
                 subkind=self._subkind.value,
                 participants=ParticipantSet(actors=self._actors, groups=None),
-                message=Message(id=message_id, parents=list(self._parents), episode=episode),
+                message=Message(id=message_id, parents=list(self._parents), episode=episode, session_id=self._session_id),
                 attributes=attributes,
                 context=Context(
                     topic=build_topic(self._content_text, self._issues, self._options),

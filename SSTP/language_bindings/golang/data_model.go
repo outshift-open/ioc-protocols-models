@@ -9,9 +9,9 @@ import "errors"
 import "fmt"
 import "reflect"
 
-// A participant in a protocol exchange — can be a human, a system, or any
-// other entity. Multiple actors are listed in ParticipantSet to identify
-// sender(s), receiver(s), and observers.
+// A participant in a protocol exchange - can be a human, an AI agent, or a system.
+// Multiple actors are listed in L9Header.actors to identify sender(s) and
+// receiver(s).
 type Actor struct {
 	// Attestation corresponds to the JSON schema field "attestation".
 	Attestation interface{} `json:"attestation,omitempty,omitzero" yaml:"attestation,omitempty" mapstructure:"attestation,omitempty"`
@@ -63,7 +63,7 @@ type ContextEpistemic map[string]interface{}
 
 // Describes the semantic/ontological framework needed to correctly interpret the
 // payload.
-// Implementations use this to select the appropriate handler for the message.
+// The CFN routing layer uses this to select appropriate cognitive engines (CEs).
 type ContextSemantic struct {
 	// OntologyRef corresponds to the JSON schema field "ontology_ref".
 	OntologyRef string `json:"ontology_ref" yaml:"ontology_ref" mapstructure:"ontology_ref"`
@@ -75,7 +75,7 @@ type ContextSemantic struct {
 	SchemaID string `json:"schema_id" yaml:"schema_id" mapstructure:"schema_id"`
 }
 
-// Tracks the origin and lineage of a message — who created it, from what source,
+// Tracks the origin and lineage of a message - who created it, from what source,
 // and through which transformations. Fields TBD.
 type ContextSemanticProvenance map[string]interface{}
 
@@ -227,7 +227,7 @@ type L9Header struct {
 	Kind Kind `json:"kind" yaml:"kind" mapstructure:"kind"`
 
 	// Message corresponds to the JSON schema field "message".
-	Message *L9HeaderMessage `json:"message,omitempty,omitzero" yaml:"message,omitempty" mapstructure:"message,omitempty"`
+	Message Message `json:"message" yaml:"message" mapstructure:"message"`
 
 	// Participants corresponds to the JSON schema field "participants".
 	Participants ParticipantSet `json:"participants" yaml:"participants" mapstructure:"participants"`
@@ -280,7 +280,7 @@ type L9HeaderContextEpistemic map[string]interface{}
 
 // Describes the semantic/ontological framework needed to correctly interpret the
 // payload.
-// Implementations use this to select the appropriate handler for the message.
+// The CFN routing layer uses this to select appropriate cognitive engines (CEs).
 type L9HeaderContextSemantic struct {
 	// OntologyRef corresponds to the JSON schema field "ontology_ref".
 	OntologyRef string `json:"ontology_ref" yaml:"ontology_ref" mapstructure:"ontology_ref"`
@@ -292,7 +292,7 @@ type L9HeaderContextSemantic struct {
 	SchemaID string `json:"schema_id" yaml:"schema_id" mapstructure:"schema_id"`
 }
 
-// Tracks the origin and lineage of a message — who created it, from what source,
+// Tracks the origin and lineage of a message - who created it, from what source,
 // and through which transformations. Fields TBD.
 type L9HeaderContextSemanticProvenance map[string]interface{}
 
@@ -342,41 +342,6 @@ func (j *L9HeaderContext) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// Represents a message in the protocol.
-type L9HeaderMessage struct {
-	// Episode corresponds to the JSON schema field "episode".
-	Episode string `json:"episode" yaml:"episode" mapstructure:"episode"`
-
-	// ID corresponds to the JSON schema field "id".
-	ID string `json:"id" yaml:"id" mapstructure:"id"`
-
-	// Ordered list of parent message IDs. Empty list for root messages.
-	Parents []string `json:"parents" yaml:"parents" mapstructure:"parents"`
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *L9HeaderMessage) UnmarshalJSON(value []byte) error {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(value, &raw); err != nil {
-		return err
-	}
-	var l9HeaderMessage_0 L9HeaderMessage_0
-	var errs []error
-	if err := l9HeaderMessage_0.UnmarshalJSON(value); err != nil {
-		errs = append(errs, err)
-	}
-	if len(errs) == 1 {
-		return fmt.Errorf("all validators failed: %s", errors.Join(errs...))
-	}
-	type Plain L9HeaderMessage
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = L9HeaderMessage(plain)
-	return nil
-}
-
 // Data governance and access-control labels applied to the message.
 type L9HeaderPolicy struct {
 	// Propagation corresponds to the JSON schema field "propagation".
@@ -422,6 +387,9 @@ func (j *L9Header) UnmarshalJSON(value []byte) error {
 	}
 	if _, ok := raw["kind"]; raw != nil && !ok {
 		return fmt.Errorf("field kind in L9Header: required")
+	}
+	if _, ok := raw["message"]; raw != nil && !ok {
+		return fmt.Errorf("field message in L9Header: required")
 	}
 	if _, ok := raw["participants"]; raw != nil && !ok {
 		return fmt.Errorf("field participants in L9Header: required")
@@ -506,8 +474,11 @@ type Message struct {
 	// ID corresponds to the JSON schema field "id".
 	ID string `json:"id" yaml:"id" mapstructure:"id"`
 
-	// Ordered list of parent message IDs. Empty list for root messages.
+	// Parents corresponds to the JSON schema field "parents".
 	Parents []string `json:"parents" yaml:"parents" mapstructure:"parents"`
+
+	// SessionID corresponds to the JSON schema field "session_id".
+	SessionID string `json:"session_id" yaml:"session_id" mapstructure:"session_id"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -524,6 +495,9 @@ func (j *Message) UnmarshalJSON(value []byte) error {
 	}
 	if _, ok := raw["parents"]; raw != nil && !ok {
 		return fmt.Errorf("field parents in Message: required")
+	}
+	if _, ok := raw["session_id"]; raw != nil && !ok {
+		return fmt.Errorf("field session_id in Message: required")
 	}
 	type Plain Message
 	var plain Plain
@@ -557,9 +531,28 @@ func (j *ParticipantSetGroups_0) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-type L9HeaderContextSemantic_0 = Semantic
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *ParticipantSet) UnmarshalJSON(value []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["actors"]; raw != nil && !ok {
+		return fmt.Errorf("field actors in ParticipantSet: required")
+	}
+	if _, ok := raw["groups"]; raw != nil && !ok {
+		return fmt.Errorf("field groups in ParticipantSet: required")
+	}
+	type Plain ParticipantSet
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = ParticipantSet(plain)
+	return nil
+}
 
-type ContextSemanticProvenance_0 = Provenance
+type L9HeaderContextSemanticProvenance_0 = Provenance
 
 type ContextSemantic_0 = Semantic
 
@@ -584,42 +577,9 @@ func (j *Semantic) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-// Describes the semantic/ontological framework needed to correctly interpret the
-// payload.
-// Implementations use this to select the appropriate handler for the message.
-type Semantic struct {
-	// OntologyRef corresponds to the JSON schema field "ontology_ref".
-	OntologyRef string `json:"ontology_ref" yaml:"ontology_ref" mapstructure:"ontology_ref"`
-
-	// Provenance corresponds to the JSON schema field "provenance".
-	Provenance *SemanticProvenance `json:"provenance,omitempty,omitzero" yaml:"provenance,omitempty" mapstructure:"provenance,omitempty"`
-
-	// SchemaID corresponds to the JSON schema field "schema_id".
-	SchemaID string `json:"schema_id" yaml:"schema_id" mapstructure:"schema_id"`
-}
-
-type L9HeaderContextSemanticProvenance_0 = Provenance
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (j *ParticipantSet) UnmarshalJSON(value []byte) error {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(value, &raw); err != nil {
-		return err
-	}
-	if _, ok := raw["actors"]; raw != nil && !ok {
-		return fmt.Errorf("field actors in ParticipantSet: required")
-	}
-	if _, ok := raw["groups"]; raw != nil && !ok {
-		return fmt.Errorf("field groups in ParticipantSet: required")
-	}
-	type Plain ParticipantSet
-	var plain Plain
-	if err := json.Unmarshal(value, &plain); err != nil {
-		return err
-	}
-	*j = ParticipantSet(plain)
-	return nil
-}
+// Tracks the origin and lineage of a message - who created it, from what source,
+// and through which transformations. Fields TBD.
+type Provenance map[string]interface{}
 
 // Data governance and access-control labels applied to the message.
 type PolicyLabel struct {
@@ -631,6 +591,20 @@ type PolicyLabel struct {
 
 	// Sensitivity corresponds to the JSON schema field "sensitivity".
 	Sensitivity string `json:"sensitivity" yaml:"sensitivity" mapstructure:"sensitivity"`
+}
+
+// Describes the semantic/ontological framework needed to correctly interpret the
+// payload.
+// The CFN routing layer uses this to select appropriate cognitive engines (CEs).
+type Semantic struct {
+	// OntologyRef corresponds to the JSON schema field "ontology_ref".
+	OntologyRef string `json:"ontology_ref" yaml:"ontology_ref" mapstructure:"ontology_ref"`
+
+	// Provenance corresponds to the JSON schema field "provenance".
+	Provenance *SemanticProvenance `json:"provenance,omitempty,omitzero" yaml:"provenance,omitempty" mapstructure:"provenance,omitempty"`
+
+	// SchemaID corresponds to the JSON schema field "schema_id".
+	SchemaID string `json:"schema_id" yaml:"schema_id" mapstructure:"schema_id"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -659,21 +633,21 @@ func (j *PolicyLabel) UnmarshalJSON(value []byte) error {
 
 type L9HeaderPolicy_0 = PolicyLabel
 
-type L9HeaderMessage_0 = Message
-
-// Tracks the origin and lineage of a message — who created it, from what source,
+// Tracks the origin and lineage of a message - who created it, from what source,
 // and through which transformations. Fields TBD.
 type SemanticProvenance map[string]interface{}
 
-type L9HeaderContextEpistemic_0 = Epistemic
-
 type ContextEpistemic_0 = Epistemic
 
-type L9HeaderContext_0 = Context
+type ContextSemanticProvenance_0 = Provenance
 
-// Tracks the origin and lineage of a message — who created it, from what source,
-// and through which transformations. Fields TBD.
-type Provenance map[string]interface{}
+type L9HeaderContextSemantic_0 = Semantic
+
+type SemanticProvenance_0 = Provenance
+
+type L9HeaderContextEpistemic_0 = Epistemic
+
+type L9HeaderContext_0 = Context
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *Provenance) UnmarshalJSON(value []byte) error {
@@ -685,8 +659,6 @@ func (j *Provenance) UnmarshalJSON(value []byte) error {
 	*j = Provenance(plain)
 	return nil
 }
-
-type SemanticProvenance_0 = Provenance
 
 // A unit of work assigned to a team member, tracked through one or more episodes.
 // Status lifecycle example: "pending" → "in_progress" → "completed" | "blocked"

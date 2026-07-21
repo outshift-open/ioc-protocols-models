@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ioc:l9:schema:v1",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "title": "L9Schema",
   "description": "Combined JSON Schema for all ioc_l9 Pydantic models.",
   "$defs": {
@@ -125,12 +125,17 @@
         "episode": {
           "title": "Episode",
           "type": "string"
+        },
+        "session_id": {
+          "title": "Session Id",
+          "type": "string"
         }
       },
       "required": [
         "id",
         "parents",
-        "episode"
+        "episode",
+        "session_id"
       ],
       "type": "object"
     },

@@ -215,9 +215,10 @@ func TestMessageValidation(t *testing.T) {
 
 	// Test valid Message
 	validMessage := l9.Message{
-		ID:      "msg-001",
-		Parents: []string{"msg-000"},
-		Episode: "ep-001",
+		ID:        "msg-001",
+		Parents:   []string{"msg-000"},
+		Episode:   "ep-001",
+		SessionID: "session-001",
 	}
 
 	jsonBytes, err := json.Marshal(validMessage)
@@ -295,6 +296,12 @@ func TestL9HeaderValidation(t *testing.T) {
 		"participants": {
 			"actors": [{"id": "actor-123", "role": "analyst"}],
 			"groups": {}
+		},
+		"message": {
+			"id": "msg-001",
+			"parents": [],
+			"episode": "ep-001",
+			"session_id": "session-001"
 		}
 	}`
 

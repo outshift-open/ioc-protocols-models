@@ -49,15 +49,12 @@ class Context(BaseModel):
 
 class Message(BaseModel):
     id: str = Field(..., title="Id")
-    parents: list[str] = Field(
-        ...,
-        description="Ordered list of parent message IDs. Empty list for root messages.",
-        title="Parents",
-    )
+    parents: list[str] = Field(..., title="Parents")
     episode: str = Field(..., title="Episode")
+    session_id: str = Field(..., title="Session Id")
 
 
-class Episode(BaseModel):
+class Episode1(BaseModel):
     id: str = Field(..., title="Id")
     messages: list[Message] = Field(..., title="Messages")
 
@@ -78,7 +75,7 @@ class TaskWork(BaseModel):
     assigned_to: str = Field(..., title="Assigned To")
     task_description: str = Field(..., title="Task Description")
     status: str = Field(..., title="Status")
-    episodes: list[Episode] = Field(..., title="Episodes")
+    episodes: list[Episode1] = Field(..., title="Episodes")
 
 
 class Team(BaseModel):
@@ -102,7 +99,7 @@ class L9Header(BaseModel):
     kind: Kind
     subkind: str | None = Field(None, title="Subkind")
     participants: ParticipantSet
-    message: Message | None = None
+    message: Message
     policy: PolicyLabel | None = None
     attributes: dict[str, Any] | None = Field(None, title="Attributes")
     context: Context | None = None

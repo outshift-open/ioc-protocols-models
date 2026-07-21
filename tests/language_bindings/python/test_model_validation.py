@@ -112,11 +112,13 @@ class TestGeneratedModelValidation:
         valid_message = data_model.Message(
             id="msg-001",
             parents=["msg-000"],
-            episode="ep-001"
+            episode="ep-001",
+            session_id="session-001"
         )
         assert valid_message.id == "msg-001"
         assert valid_message.parents == ["msg-000"]
         assert valid_message.episode == "ep-001"
+        assert valid_message.session_id == "session-001"
 
         # Missing required fields
         with pytest.raises(ValidationError):
@@ -165,6 +167,12 @@ class TestGeneratedModelValidation:
             participants=data_model.ParticipantSet(
                 actors=[data_model.Actor(id="actor_001", role="analyst")],
                 groups={"security_team": ["actor_001"]}
+            ),
+            message=data_model.Message(
+                id="msg-001",
+                parents=[],
+                episode="ep-001",
+                session_id="session-001"
             )
         )
         assert valid_header.protocol == "IOC_L9"
@@ -203,7 +211,8 @@ class TestGeneratedModelValidation:
             message=data_model.Message(
                 id="msg-001",
                 parents=[],
-                episode="ep-001"
+                episode="ep-001",
+                session_id="session-001"
             ),
             policy=data_model.PolicyLabel(
                 sensitivity="confidential",
@@ -245,6 +254,12 @@ class TestGeneratedModelValidation:
                 participants=data_model.ParticipantSet(
                     actors=[data_model.Actor(id="actor_001", role="analyst")],
                     groups={"security_team": ["actor_001"]}
+                ),
+                message=data_model.Message(
+                    id="msg-001",
+                    parents=[],
+                    episode="ep-001",
+                    session_id="session-001"
                 )
             ),
             payload=data_model.L9Payload(
@@ -280,6 +295,12 @@ class TestGeneratedModelValidation:
                     actors=[data_model.Actor(id="user1", role="analyst")],
                     groups={"team_alpha": ["user1"]}
                 ),
+                message=data_model.Message(
+                    id="msg-001",
+                    parents=[],
+                    episode="ep-001",
+                    session_id="session-001"
+                ),
                 context=data_model.Context(
                     topic="security_analysis",
                     semantic=data_model.Semantic(
@@ -314,15 +335,15 @@ class TestGeneratedModelValidation:
 
     def test_episode_validation(self):
         """Test Episode model validation."""
-        valid_episode = data_model.Episode(
+        valid_episode = data_model.Episode1(
             id="ep_001",
-            messages=[data_model.Message(id="msg-001", parents=[], episode="ep_001")]
+            messages=[data_model.Message(id="msg-001", parents=[], episode="ep_001", session_id="session-001")]
         )
         assert valid_episode.id == "ep_001"
         assert len(valid_episode.messages) == 1
 
         with pytest.raises(ValidationError):
-            data_model.Episode(id="ep_001")  # Missing messages
+            data_model.Episode1(id="ep_001")  # Missing messages
 
     def test_task_work_validation(self):
         """Test TaskWork model validation."""
@@ -332,9 +353,9 @@ class TestGeneratedModelValidation:
             task_description="Analyze threat",
             status="in_progress",
             episodes=[
-                data_model.Episode(
+                data_model.Episode1(
                     id="ep_001",
-                    messages=[data_model.Message(id="msg-001", parents=[], episode="ep_001")]
+                    messages=[data_model.Message(id="msg-001", parents=[], episode="ep_001", session_id="session-001")]
                 )
             ]
         )
@@ -381,6 +402,12 @@ class TestJSONSchemaValidation:
                 participants=data_model.ParticipantSet(
                     actors=[data_model.Actor(id="actor_001", role="analyst")],
                     groups={"security_team": ["actor_001"]}
+                ),
+                message=data_model.Message(
+                    id="msg-001",
+                    parents=[],
+                    episode="ep-001",
+                    session_id="session-001"
                 ),
                 context=data_model.Context(
                     topic="threat_analysis",

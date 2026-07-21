@@ -11,7 +11,8 @@ class Message(BaseModel):
     """
     id: str              # unique message identifier
     parents: list[str]   # ordered list of parent message IDs
-    episode: str
+    episode: str         # episode this message belongs to
+    session_id: str      # session identifier
 
 class Actor(BaseModel):
     """
