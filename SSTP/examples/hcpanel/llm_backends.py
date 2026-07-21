@@ -1422,338 +1422,6 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
         self._trace_buffer.clear()
         return items
 
-    def _instruction_for_task(self, task: str) -> str:
-        instructions = {
-            "diagnostics_assessment": (
-                "Return JSON with keys likely_cause, interaction_likelihood, new_disease_likelihood, confidence, rationale. "
-                "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
-                "Use payload.semantic_rules as prior evidence of known interaction patterns. "
-                "payload may include doctor_id, doctor_index, review_mode, and preferred_likely_cause. "
-                "Treat review_mode=independent as an independent doctor opinion; for non-independent review_mode, explicitly assess whether preferred_likely_cause is corroborated. "
-                "likely_cause must be drug_interaction only when interaction_likelihood is meaningfully higher than new_disease_likelihood. "
-                "If coordination_summary is present with coordination_status='unresolved_derailment',"
-                " treat safety_flags as active constraints that override optimistic defaults."
-            ),
-            "pharmacy_interaction_review": (
-                "Return JSON with interaction_risks (array), proposed_changes (array), risk_score (0..1). "
-                "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
-                "Use payload.semantic_rules to prioritize previously observed interaction risks when relevant to current medications. "
-                "When there is interaction risk, proposed_changes must include at least one concrete substitution recommendation. "
-                "If coordination_summary is present with coordination_status='unresolved_derailment',"
-                " treat safety_flags as active constraints that override optimistic defaults."
-            ),
-            "insurance_coverage_review": (
-                "Return JSON with in_network_only, approved_specialties, estimated_out_of_pocket_eur, roi_score, validation_note. "
-                "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
-                "Only approve specialties present in requested_specialties AND in-network for the insurance plan. "
-                "If coordination_summary is present with coordination_status='unresolved_derailment',"
-                " treat safety_flags as active constraints that override optimistic defaults."
-            ),
-            "scheduling_route": (
-                "Return JSON with provider_id, specialty, day_offset, reminder_plan. "
-                "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
-                "Choose the earliest available provider among candidate_providers only. "
-                "If coordination_summary is present with coordination_status='unresolved_derailment',"
-                " treat safety_flags as active constraints that override optimistic defaults."
-            ),
-            "tom_task_alignment": (
-                "Return JSON with actor, aligned, alignment_score (0..1), rationale, thought_summary. "
-                "thought_summary must briefly explain why utterance is in-scope or out-of-scope."
-            ),
-            "tom_belief_seed": (
-                "Seed an initial semantic belief model for a healthcare coordination agent. "
-                "Return JSON with role (str), objective (str), context_summary (str), "
-                "inferred_constraints (array of str), confidence (0..1), thought_summary (str)."
-            ),
-            "tom_belief_update": (
-                "You are tracking an agent's evolving confidence in a shared healthcare coordination objective. "
-                "Payload: agent_id, agent_role, current_belief {objective, context_summary, inferred_constraints, confidence}, "
-                "utterance, speaker_role, argument_direction (support|challenge|neutral, from CIP grounding judge),"
-                "alignment_score (0..1), task_goal. "
-                "Determine how much to move the agent's confidence. Rules: "
-                "(a) support + alignment_score>0.8 + clinical evidence → delta +0.08..+0.15; "
-                "(b) support + alignment_score 0.55–0.80 → delta +0.03..+0.07; "
-                "(c) challenge + clinical evidence cited → delta -0.08..-0.12; "
-                "(d) challenge + opinion only → delta -0.02..-0.04; "
-                "(e) neutral/procedural → delta -0.01..+0.01; "
-                "(f) social pressure ('as the attending...') without evidence → delta max ±0.03, type=social_pressure. "
-                "Return JSON: objective (str), context_summary (str), inferred_constraints (array of str), "
-                "confidence (float 0..1), delta_confidence (float signed), "
-                "argument_type (grounded_evidence|social_pressure|role_authority|procedural|neutral), "
-                "argument_strength (float 0..1), change_summary (str), thought_summary (str)."
-            ),
-            "tom_peer_predict": (
-                "Predict how a peer agent will respond to a specific utterance in a healthcare coordination dialogue. "
-                "Payload: speaker, listener, utterance, task_goal, "
-                "peer_belief {objective, context_summary, inferred_constraints, confidence, "
-                "argument_types_that_move, argument_types_ignored}, "
-                "observer_belief {objective, context_summary, inferred_constraints, confidence}, "
-                "history (last 4 turns). "
-                "Prediction rules: "
-                "(a) utterance addresses a term in peer inferred_constraints → alignment 0.75–0.90; "
-                "(b) utterance type matches argument_types_that_move → +0.10 alignment; "
-                "(c) utterance type matches argument_types_ignored → -0.10 alignment; "
-                "(d) utterance contradicts peer inferred_constraints → alignment 0.20–0.45, derailment=true; "
-                "(e) cold start (empty argument_types_that_move) → alignment=0.55, confidence=0.25; "
-                "(f) [2nd-order] observer_belief.inferred_constraints diverges substantially from "
-                "peer_belief.inferred_constraints → listener likely to challenge; "
-                "reduce alignment by 0.10–0.20 and set predicted_contingency=repair_content. "
-                "Return JSON: predicted_response (str), predicted_alignment (float 0..1), "
-                "predicted_derailment (bool), predicted_contingency "
-                "(normal|repair_alignment|repair_content|repair_anchor), "
-                "confidence (float 0..1), prediction_basis (str), thought_summary (str)."
-            ),
-            "tom_belief_anchor_score": (
-                "Score how well an agent's belief model aligns with the original task anchor. "
-                "Return JSON with anchor_alignment_score (0..1), aligned (bool), thought_summary (str)."
-            ),
-            "detect_ambiguity": (
-                "Detect ambiguity in an utterance relative to the task goal. "
-                "Return JSON with ambiguous (bool), ambiguity_score (0..1), ambiguous_spans (array of str), "
-                "plausible_interpretations (array of str), thought_summary (str)."
-            ),
-            "tom_invariant_check": (
-                "Check whether an utterance violates any task invariants. "
-                "Return JSON with violated (bool), violated_invariants (array of str), thought_summary (str)."
-            ),
-            "tom_peer_attribution": (
-                "Given two agents' inferred belief models about a shared task, assess whether their "
-                "beliefs are compatible and whether each correctly models the other. "
-                "Return JSON with alignment_score (0..1), disagreement_score (0..1), "
-                "attribution_accuracy (0..1), coherence_rationale (str), thought_summary (str)."
-            ),
-            "tom_belief_infer": (
-                "Given an agent's recent utterances and task goal, infer what this agent believes about "
-                "the task and what it intends to achieve. "
-                "Return JSON with belief_model (str), on_task (bool), "
-                "task_commitment_score (0..1), reasoning (str), thought_summary (str)."
-            ),
-            "tom_agent_utterance": (
-                "You are a healthcare coordination agent in a multi-agent care coordination system. "
-                "Generate a single realistic utterance to your peer that authentically reflects your "
-                "current role, objective, and belief state. Address the listener by name. "
-                "Speak as you would given your inferred_constraints and context_summary — do not "
-                "suppress or artificially correct your perspective. "
-                "If prior_speaker_context.content is present, your utterance MUST engage with the "
-                "specific reasoning in that content — do not respond generically. "
-                "Return JSON with utterance (str), confidence (0..1), risk (0..1), "
-                "rationale (str — the clinical or operational reasoning behind this specific utterance), "
-                "thought_summary (str — one sentence on what belief or constraint shaped this response)."
-            ),
-            "utterance_judge": (
-                "CIP Utterance Judge — evaluate a peer-agent utterance in a healthcare coordination dialogue."
-                "Inputs: utterance (B's message), task_goal, speaker (B's role), listener (A's role), "
-                "speaker_belief (B's ToM model of the speaker), "
-                "listener_belief (A's own belief state: prior, posterior, public_confidence, "
-                "social_compliance_ratio, revision_count, recent_causes, argument_summary), "
-                "listener_prior_utterance (the specific message A sent to B just before this response), "
-                "and recent history (list of strings). "
-                "Assess THREE things: "
-                "1. GROUNDING: Is B's response contingent on what A specifically said in listener_prior_utterance? "
-                "   A response fails grounding if it could have been delivered regardless of A's message content "
-                "   (i.e., B is not engaging with A's specific words, constraints, or question). "
-                "   Score contingency_score 0..1 (1 = fully contingent on A's message, 0 = ignores it entirely). "
-                "   Set grounding_failure=true if contingency_score < 0.40. "
-                "   If listener_prior_utterance is absent, set grounding_failure=false and contingency_score=1.0. "
-                "2. TASK ALIGNMENT: Is the utterance a derailment from the task goal? "
-                "   Classify cause as one of: blatant_error (bypasses medication safety checks), "
-                "   blatant_error_network (bypasses in-network/coverage constraints), policy_tangent "
-                "   (defers care routing for policy/governance discussions), topic_shift (abandons patient routing "
-                "   for unrelated operational topics), data_drift (shifts focus to historical analytics) — "
-                "   or null if not derailed. Score alignment_score 0..1 with task_goal. "
-                "3. SELF-CONSISTENCY: If listener_belief is present, check whether B's response is consistent "
-                "   with B's own stated belief history. Flag self_inconsistent=true if: B's expressed confidence "
-                "   contradicts their posterior; or listener_belief.social_compliance_ratio > 0.5 and B's response "
-                "   again shows no engagement with A's reasoning (repeated social compliance pattern); or "
-                "   listener_belief.argument_summary exists and B's response contradicts it. "
-                "   Set self_consistency_score 0..1 (1 = fully consistent with own belief history). "
-                "Return JSON: derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
-                "contingency_score (float 0..1), ambiguous (bool), ambiguity_score (float 0..1), "
-                "alignment_score (float 0..1), aligned (bool), "
-                "self_inconsistent (bool), self_consistency_score (float 0..1), "
-                "argument_type (grounded_evidence|role_authority|social_pressure|procedural|neutral — "
-                "classify the persuasion mechanism of the utterance), "
-                "judge_confidence (float 0..1), "
-                "critique (str — explain grounding, alignment, and self-consistency verdicts)."
-            ),
-            "grounding_judge": (
-                "Combined grounding and ambiguity assessment for an IE/SIEP exchange. "
-                "Inputs: utterance (the response being assessed), task_goal, speaker, listener, "
-                "structural_contingency_score (float 0..1 — concept-overlap score already computed), "
-                "structural_contingency_verified (bool), structural_repair_reason (str|null), "
-                "speaker_scope (list[str]), speaker_addresses_evidence (list[str]), listener_scope (list[str]). "
-                "Assess THREE things: "
-                "1. SEMANTIC GROUNDING: structural_contingency_score is a lower bound on contingency_score. "
-                "   You may increase it if semantic content shows genuine engagement with the listed concepts, "
-                "   but never below structural_contingency_score. Set grounding_failure=true if final score < 0.40. "
-                "2. TASK ALIGNMENT: alignment_score 0..1 with task_goal. derailed=true only for clear abandonment. "
-                "3. AMBIGUITY: ambiguity_score 0..1. ambiguous=true if >= 0.5. "
-                "Return JSON: aligned (bool), alignment_score (float 0..1), disagreement_score (float 0..1), "
-                "derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
-                "contingency_score (float 0..1 — must be >= structural_contingency_score), "
-                "ambiguous (bool), ambiguity_score (float 0..1), "
-                "judge_confidence (float 0..1), critique (str — one sentence on grounding and alignment)."
-            ),
-
-            "team_prior_reasoning": (
-                "You are a healthcare coordination agent declaring your starting prior belief for a "
-                "specific domain concept before a coordination episode begins. "
-                "Payload: agent_id, role_description, concept_id, prior_val (0..1), prior_source "
-                "('semantic_rules' | 'default'), team_goal, patient_context (dict with patient_id, "
-                "symptoms, current_medications, locality). "
-                "Generate a reasoned prior declaration: explain WHY you hold this prior value for "
-                "this concept given your role and this patient context. If prior_source=semantic_rules, "
-                "reference what in the patient context or rules drives the value. If prior_source=default, "
-                "explain why no specific evidence exists and what you expect the dialogue to surface. "
-                "Be specific — name the patient, the concept, and the clinical or operational factors. "
-                "Return JSON: utterance (str — the spoken declaration, 2-4 sentences), "
-                "rationale (str — the reasoning behind the prior value), "
-                "thought_summary (str — one sentence on the dominant factor shaping this prior)."
-            ),
-            "team_prior_commit": (
-                "You are the team coordinator synthesising the outcome of a shared-mental-model "
-                "alignment episode (TP-2). All agents have declared their starting priors. "
-                "The SIEP alignment round has completed."
-                "Payload: role_assignments (dict agent_id→concept_id), "
-                "agent_priors (dict agent_id→{concept_id→prior_val}), "
-                "agent_utterances (dict agent_id→{utterance, rationale, thought_summary}), "
-                "scr (float 0..1 — social compliance ratio from the SIEP round), team_goal (str)."
-                "Synthesise what the team has committed to: summarise each agent's declared prior "
-                "and key reasoning, note whether any divergence or missing concepts were detected, "
-                "state what the team is entering the action phase with. "
-                "Return JSON: utterance (str — coordinator closing synthesis, 3-5 sentences), "
-                "rationale (str — what the SIEP round resolved and why accepted=True is warranted),"
-                "thought_summary (str — one sentence on the team epistemic state at phase transition), "
-                "summary (dict with keys: agreed_priors {agent_id→{concept_id→val}}, scr, agent_count, team_goal)."
-            ),
-            "tp_case_frame": (
-                "You are the session coordinator performing initial case framing for a multi-specialist panel. "
-                "Payload: patient_id (str), symptoms (list[str]), health_history (list[str]), "
-                "current_medications (list[str|dict]), available_specialists (list of {agent_id, role, panel}). "
-                "Based on the case data, determine: what is the primary clinical question for this session, "
-                "and which concepts should each specialist own. "
-                "Return JSON: session_objective (str — one-sentence goal for the panel session), "
-                "primary_question (str — the specific diagnostic question to resolve), "
-                "responsible_for (dict agent_id→list[concept_id] — each specialist's concept ownership), "
-                "thought_summary (str — one sentence on case framing rationale)."
-            ),
-            "tp_escalation_debate": (
-                "You are a specialist agent deciding whether to accept or counter a process proposal. "
-                "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
-                "proposed_escalation_rule (dict|null — null means this is a role acknowledgement), "
-                "is_role_ack (bool). "
-                "If is_role_ack=true: assess whether your role assignment is appropriate for your expertise. "
-                "If is_role_ack=false: assess the proposed deadlock resolution rule. "
-                "Respond with your genuine position. Counter only if you have a substantive objection. "
-                "Return JSON: decision ('accept' or 'counter'), "
-                "counter_proposal (dict with deadlock_rule/casting_vote_holder/human_escalation_threshold — only if counter), "
-                "concerns (str — specific objection, empty if accept), rationale (str), "
-                "thought_summary (str — one sentence)."
-            ),
-            "tp_process_debate": (
-                "You are a specialist agent deciding whether to accept or counter a team process proposal. "
-                "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
-                "team_process (dict with session_objective, debate_format, contingency_rules, "
-                "no_convergence_handling), role_assignment (list[str] — concept IDs you own). "
-                "Assess whether the proposed process terms are appropriate for your role and the clinical task. "
-                "Accept unless you have a genuine procedural concern. Counter only if the terms would impair "
-                "your ability to contribute. "
-                "Return JSON: decision ('accept' or 'counter'), "
-                "concerns (str — specific objection, empty if accept), rationale (str), "
-                "thought_summary (str — one sentence)."
-            ),
-            "tp_process_synthesis": (
-                "You are the panel coordinator synthesising specialist objections to a proposed team process. "
-                "Payload: current_team_process (dict), counters (dict agent_id→{concerns, rationale}), "
-                "round (int). "
-                "Review all objections together. Revise the team_process if the concerns are substantive; "
-                "reaffirm if the objections are minor or contradictory. "
-                "Return JSON: decision ('revise' or 'reaffirm'), "
-                "revised_team_process (dict — same shape as current_team_process, possibly unchanged), "
-                "revision_summary (str), thought_summary (str — one sentence)."
-            ),
-            "tp_process_commit": (
-                "You are a specialist agent committing to the final agreed team process. "
-                "Payload: agent_id (str), role (str), final_team_process (dict), role_assignment (list[str]). "
-                "Acknowledge the process terms in your own words and confirm you understand the session objective. "
-                "Return JSON: acknowledged_objective (str — the session objective in your own words, 1-2 sentences), "
-                "process_understood (bool), "
-                "constraints_accepted (list[str] — key process constraints you are committing to), "
-                "thought_summary (str — one sentence)."
-            ),
-            "debate_controller_synthesis": (
-                "You are the panel coordinator synthesising a unified position from all specialist declarations. "
-                "Payload: declarations (list of {agent_id, likely_cause, confidence, rationale, panel}), "
-                "session_objective (str), case_brief (dict). "
-                "Weigh all specialist perspectives to form a single well-grounded proposed position. "
-                "Address the most compelling counter-evidence explicitly. "
-                "Return JSON: proposed_concept (str — the proposed likely cause), "
-                "confidence (float 0..1), supporting_evidence (list[str] — key evidence items), "
-                "rationale (str — why this position integrates the declarations), "
-                "addresses_counterevidence (list[str] — explicit engagement with dissenting evidence), "
-                "dissenting_summary (str — brief summary of dissenting views), "
-                "thought_summary (str — one sentence)."
-            ),
-            "tp_debate_accept_or_counter": (
-                "You are a specialist agent deciding whether to accept or counter the coordinator's "
-                "proposed team governance terms. "
-                "Payload: agent_id (str), role (str), governance_terms (dict with session_objective, "
-                "debate_format, contingency_rules, no_convergence_handling), session_objective (str), "
-                "task_goal (str), role_assignment (list[str]). "
-                "Assess whether the governance terms are appropriate for your role. "
-                "Accept unless you have a genuine procedural concern. "
-                "Return JSON: decision ('accept' or 'counter'), "
-                "counter_concept (str — 'team_process' if counter), "
-                "counter_confidence (float — only if counter), "
-                "rationale (str — state any governance concerns here), "
-                "concerns (str), thought_summary (str — one sentence)."
-            ),
-            "tp_debate_pivot_synthesis": (
-                "You are the panel coordinator revising team governance terms after receiving "
-                "specialist counter-proposals. "
-                "Payload: governance_terms (dict), counter_proposals (list of {agent_id, concerns}), "
-                "task_goal (str). "
-                "Revise the governance terms to address legitimate procedural concerns. "
-                "Return JSON: revised_governance_terms (dict — same shape as governance_terms), "
-                "confidence (float 0..1), rationale (str), thought_summary (str — one sentence)."
-            ),
-            "debate_accept_or_counter": (
-                "You are a specialist agent deciding whether to accept or counter the coordinator's proposed position. "
-                "Payload: agent_id (str), role (str), case_summary (str — compact patient context), "
-                "my_taskwork_rationale (str — your independent prior assessment), "
-                "my_supporting_evidence (list[str], up to 3), my_confidence (float — your own belief strength), "
-                "proposal_concept (str), proposal_confidence (float), "
-                "proposal_rationale (str), proposal_evidence (list[str]), proposal_addresses_evidence (list[str]), "
-                "task_goal (str), round (int — 1 = first, 2+ = subsequent), "
-                "controller_preempts_objection (str, optional), high_derailment_risk (bool, optional). "
-                "Compare the proposal against your own taskwork analysis. "
-                "Accept only if the proposal genuinely accounts for your key clinical evidence. "
-                "If countering, set counter_confidence to reflect YOUR actual belief strength (0..1) — do NOT default to 0.5. "
-                "In round >= 2, be specific: if you have distinct clinical evidence the proposal ignores, counter "
-                "with a confident position (counter_confidence > 0.6). "
-                "Return JSON: decision ('accept' or 'counter'), "
-                "counter_concept (str — only if counter), "
-                "counter_confidence (float 0..1 — only if counter), "
-                "rationale (str — 1-2 sentences: your key evidence and why the proposal fails to address it), "
-                "supporting_evidence (list[str], at most 3 items, each under 15 words), "
-                "thought_summary (str — one sentence)."
-            ),
-            "debate_pivot_synthesis": (
-                "You are the panel coordinator pivoting your position after receiving counter-proposals. "
-                "Payload: original_position ({likely_cause, confidence, rationale}), "
-                "counter_proposals (list of {agent_id, likely_cause, confidence, rationale, supporting_evidence}), "
-                "accept_count (int — number of agents who accepted), task_goal (str). "
-                "The counter-proposals represent substantive disagreement. Genuinely engage with their reasoning. "
-                "Revise your position to reflect a synthesis that addresses the strongest counter-evidence. "
-                "Return JSON: revised_concept (str), revised_confidence (float 0..1), "
-                "rationale (str — 2-3 sentences: what the counters showed and why your revised position follows), "
-                "supporting_evidence (list[str], at most 4 items, each under 15 words), "
-                "addresses_evidence (list[str] — one short phrase per counter-proposal engaged), "
-                "thought_summary (str — one sentence on what the pivot resolved)."
-            ),
-        }
-        return instructions.get(task, "Return valid strict JSON only.")
-
     def complete_json(self, task: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         base = "You are a deterministic healthcare coordination model. Return strict JSON only. "
         specialist_role = str(payload.get("specialist_role", "")).strip()
@@ -1768,7 +1436,7 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
         specialist_prior = str(payload.get("specialist_prior", "")).strip()
         if specialist_prior:
             base = base + f" Professional prior for this case type: {specialist_prior}"
-        system_prompt = base + self._instruction_for_task(task)
+        system_prompt = base + _instruction_for_task(task)
         user_prompt = json.dumps({"task": task, "payload": payload}, ensure_ascii=False)
         messages = [
             {"role": "system", "content": system_prompt},
@@ -1850,6 +1518,341 @@ LITELLM_BASE_URL = "https://litellm.prod.outshift.ai"
 
 LITELLM_DEFAULT_MODEL = "bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
+_HEALTHCARE_BASE_PROMPT = "You are a deterministic healthcare coordination model. Return strict JSON only. "
+
+_TASK_INSTRUCTIONS: Dict[str, str] = {
+    "diagnostics_assessment": (
+        "Return JSON with keys likely_cause, interaction_likelihood, new_disease_likelihood, confidence, rationale. "
+        "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
+        "Use payload.semantic_rules as prior evidence of known interaction patterns. "
+        "payload may include doctor_id, doctor_index, review_mode, and preferred_likely_cause. "
+        "Treat review_mode=independent as an independent doctor opinion; for non-independent review_mode, explicitly assess whether preferred_likely_cause is corroborated. "
+        "likely_cause must be drug_interaction only when interaction_likelihood is meaningfully higher than new_disease_likelihood. "
+        "If coordination_summary is present with coordination_status='unresolved_derailment',"
+        " treat safety_flags as active constraints that override optimistic defaults."
+    ),
+    "pharmacy_interaction_review": (
+        "Return JSON with interaction_risks (array), proposed_changes (array), risk_score (0..1). "
+        "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
+        "Use payload.semantic_rules to prioritize previously observed interaction risks when relevant to current medications. "
+        "When there is interaction risk, proposed_changes must include at least one concrete substitution recommendation. "
+        "If coordination_summary is present with coordination_status='unresolved_derailment',"
+        " treat safety_flags as active constraints that override optimistic defaults."
+    ),
+    "insurance_coverage_review": (
+        "Return JSON with in_network_only, approved_specialties, estimated_out_of_pocket_eur, roi_score, validation_note. "
+        "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
+        "Only approve specialties present in requested_specialties AND in-network for the insurance plan. "
+        "If coordination_summary is present with coordination_status='unresolved_derailment',"
+        " treat safety_flags as active constraints that override optimistic defaults."
+    ),
+    "scheduling_route": (
+        "Return JSON with provider_id, specialty, day_offset, reminder_plan. "
+        "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
+        "Choose the earliest available provider among candidate_providers only. "
+        "If coordination_summary is present with coordination_status='unresolved_derailment',"
+        " treat safety_flags as active constraints that override optimistic defaults."
+    ),
+    "tom_task_alignment": (
+        "Return JSON with actor, aligned, alignment_score (0..1), rationale, thought_summary. "
+        "thought_summary must briefly explain why utterance is in-scope or out-of-scope."
+    ),
+    "tom_belief_seed": (
+        "Seed an initial semantic belief model for a healthcare coordination agent. "
+        "Return JSON with role (str), objective (str), context_summary (str), "
+        "inferred_constraints (array of str), confidence (0..1), thought_summary (str)."
+    ),
+    "tom_belief_update": (
+        "You are tracking an agent's evolving confidence in a shared healthcare coordination objective. "
+        "Payload: agent_id, agent_role, current_belief {objective, context_summary, inferred_constraints, confidence}, "
+        "utterance, speaker_role, argument_direction (support|challenge|neutral, from CIP grounding judge),"
+        "alignment_score (0..1), task_goal. "
+        "Determine how much to move the agent's confidence. Rules: "
+        "(a) support + alignment_score>0.8 + clinical evidence → delta +0.08..+0.15; "
+        "(b) support + alignment_score 0.55–0.80 → delta +0.03..+0.07; "
+        "(c) challenge + clinical evidence cited → delta -0.08..-0.12; "
+        "(d) challenge + opinion only → delta -0.02..-0.04; "
+        "(e) neutral/procedural → delta -0.01..+0.01; "
+        "(f) social pressure ('as the attending...') without evidence → delta max ±0.03, type=social_pressure. "
+        "Return JSON: objective (str), context_summary (str), inferred_constraints (array of str), "
+        "confidence (float 0..1), delta_confidence (float signed), "
+        "argument_type (grounded_evidence|social_pressure|role_authority|procedural|neutral), "
+        "argument_strength (float 0..1), change_summary (str), thought_summary (str)."
+    ),
+    "tom_peer_predict": (
+        "Predict how a peer agent will respond to a specific utterance in a healthcare coordination dialogue. "
+        "Payload: speaker, listener, utterance, task_goal, "
+        "peer_belief {objective, context_summary, inferred_constraints, confidence, "
+        "argument_types_that_move, argument_types_ignored}, "
+        "observer_belief {objective, context_summary, inferred_constraints, confidence}, "
+        "history (last 4 turns). "
+        "Prediction rules: "
+        "(a) utterance addresses a term in peer inferred_constraints → alignment 0.75–0.90; "
+        "(b) utterance type matches argument_types_that_move → +0.10 alignment; "
+        "(c) utterance type matches argument_types_ignored → -0.10 alignment; "
+        "(d) utterance contradicts peer inferred_constraints → alignment 0.20–0.45, derailment=true; "
+        "(e) cold start (empty argument_types_that_move) → alignment=0.55, confidence=0.25; "
+        "(f) [2nd-order] observer_belief.inferred_constraints diverges substantially from "
+        "peer_belief.inferred_constraints → listener likely to challenge; "
+        "reduce alignment by 0.10–0.20 and set predicted_contingency=repair_content. "
+        "Return JSON: predicted_response (str), predicted_alignment (float 0..1), "
+        "predicted_derailment (bool), predicted_contingency "
+        "(normal|repair_alignment|repair_content|repair_anchor), "
+        "confidence (float 0..1), prediction_basis (str), thought_summary (str)."
+    ),
+    "tom_belief_anchor_score": (
+        "Score how well an agent's belief model aligns with the original task anchor. "
+        "Return JSON with anchor_alignment_score (0..1), aligned (bool), thought_summary (str)."
+    ),
+    "detect_ambiguity": (
+        "Detect ambiguity in an utterance relative to the task goal. "
+        "Return JSON with ambiguous (bool), ambiguity_score (0..1), ambiguous_spans (array of str), "
+        "plausible_interpretations (array of str), thought_summary (str)."
+    ),
+    "tom_invariant_check": (
+        "Check whether an utterance violates any task invariants. "
+        "Return JSON with violated (bool), violated_invariants (array of str), thought_summary (str)."
+    ),
+    "tom_peer_attribution": (
+        "Given two agents' inferred belief models about a shared task, assess whether their "
+        "beliefs are compatible and whether each correctly models the other. "
+        "Return JSON with alignment_score (0..1), disagreement_score (0..1), "
+        "attribution_accuracy (0..1), coherence_rationale (str), thought_summary (str)."
+    ),
+    "tom_belief_infer": (
+        "Given an agent's recent utterances and task goal, infer what this agent believes about "
+        "the task and what it intends to achieve. "
+        "Return JSON with belief_model (str), on_task (bool), "
+        "task_commitment_score (0..1), reasoning (str), thought_summary (str)."
+    ),
+    "tom_agent_utterance": (
+        "You are a healthcare coordination agent in a multi-agent care coordination system. "
+        "Generate a single realistic utterance to your peer that authentically reflects your "
+        "current role, objective, and belief state. Address the listener by name. "
+        "Speak as you would given your inferred_constraints and context_summary — do not "
+        "suppress or artificially correct your perspective. "
+        "If prior_speaker_context.content is present, your utterance MUST engage with the "
+        "specific reasoning in that content — do not respond generically. "
+        "Return JSON with utterance (str), confidence (0..1), risk (0..1), "
+        "rationale (str — the clinical or operational reasoning behind this specific utterance), "
+        "thought_summary (str — one sentence on what belief or constraint shaped this response)."
+    ),
+    "utterance_judge": (
+        "CIP Utterance Judge — evaluate a peer-agent utterance in a healthcare coordination dialogue."
+        "Inputs: utterance (B's message), task_goal, speaker (B's role), listener (A's role), "
+        "speaker_belief (B's ToM model of the speaker), "
+        "listener_belief (A's own belief state: prior, posterior, public_confidence, "
+        "social_compliance_ratio, revision_count, recent_causes, argument_summary), "
+        "listener_prior_utterance (the specific message A sent to B just before this response), "
+        "and recent history (list of strings). "
+        "Assess THREE things: "
+        "1. GROUNDING: Is B's response contingent on what A specifically said in listener_prior_utterance? "
+        "   A response fails grounding if it could have been delivered regardless of A's message content "
+        "   (i.e., B is not engaging with A's specific words, constraints, or question). "
+        "   Score contingency_score 0..1 (1 = fully contingent on A's message, 0 = ignores it entirely). "
+        "   Set grounding_failure=true if contingency_score < 0.40. "
+        "   If listener_prior_utterance is absent, set grounding_failure=false and contingency_score=1.0. "
+        "2. TASK ALIGNMENT: Is the utterance a derailment from the task goal? "
+        "   Classify cause as one of: blatant_error (bypasses medication safety checks), "
+        "   blatant_error_network (bypasses in-network/coverage constraints), policy_tangent "
+        "   (defers care routing for policy/governance discussions), topic_shift (abandons patient routing "
+        "   for unrelated operational topics), data_drift (shifts focus to historical analytics) — "
+        "   or null if not derailed. Score alignment_score 0..1 with task_goal. "
+        "3. SELF-CONSISTENCY: If listener_belief is present, check whether B's response is consistent "
+        "   with B's own stated belief history. Flag self_inconsistent=true if: B's expressed confidence "
+        "   contradicts their posterior; or listener_belief.social_compliance_ratio > 0.5 and B's response "
+        "   again shows no engagement with A's reasoning (repeated social compliance pattern); or "
+        "   listener_belief.argument_summary exists and B's response contradicts it. "
+        "   Set self_consistency_score 0..1 (1 = fully consistent with own belief history). "
+        "Return JSON: derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
+        "contingency_score (float 0..1), ambiguous (bool), ambiguity_score (float 0..1), "
+        "alignment_score (float 0..1), aligned (bool), "
+        "self_inconsistent (bool), self_consistency_score (float 0..1), "
+        "argument_type (grounded_evidence|role_authority|social_pressure|procedural|neutral — "
+        "classify the persuasion mechanism of the utterance), "
+        "judge_confidence (float 0..1), "
+        "critique (str — explain grounding, alignment, and self-consistency verdicts)."
+    ),
+    "grounding_judge": (
+        "Combined grounding and ambiguity assessment for an IE/SIEP exchange. "
+        "Inputs: utterance (the response being assessed), task_goal, speaker, listener, "
+        "structural_contingency_score (float 0..1 — concept-overlap score already computed), "
+        "structural_contingency_verified (bool), structural_repair_reason (str|null), "
+        "speaker_scope (list[str]), speaker_addresses_evidence (list[str]), listener_scope (list[str]). "
+        "Assess THREE things: "
+        "1. SEMANTIC GROUNDING: structural_contingency_score is a lower bound on contingency_score. "
+        "   You may increase it if semantic content shows genuine engagement with the listed concepts, "
+        "   but never below structural_contingency_score. Set grounding_failure=true if final score < 0.40. "
+        "2. TASK ALIGNMENT: alignment_score 0..1 with task_goal. derailed=true only for clear abandonment. "
+        "3. AMBIGUITY: ambiguity_score 0..1. ambiguous=true if >= 0.5. "
+        "Return JSON: aligned (bool), alignment_score (float 0..1), disagreement_score (float 0..1), "
+        "derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
+        "contingency_score (float 0..1 — must be >= structural_contingency_score), "
+        "ambiguous (bool), ambiguity_score (float 0..1), "
+        "judge_confidence (float 0..1), critique (str — one sentence on grounding and alignment)."
+    ),
+    "team_prior_reasoning": (
+        "You are a healthcare coordination agent declaring your starting prior belief for a "
+        "specific domain concept before a coordination episode begins. "
+        "Payload: agent_id, role_description, concept_id, prior_val (0..1), prior_source "
+        "('semantic_rules' | 'default'), team_goal, patient_context (dict with patient_id, "
+        "symptoms, current_medications, locality). "
+        "Generate a reasoned prior declaration: explain WHY you hold this prior value for "
+        "this concept given your role and this patient context. If prior_source=semantic_rules, "
+        "reference what in the patient context or rules drives the value. If prior_source=default, "
+        "explain why no specific evidence exists and what you expect the dialogue to surface. "
+        "Be specific — name the patient, the concept, and the clinical or operational factors. "
+        "Return JSON: utterance (str — the spoken declaration, 2-4 sentences), "
+        "rationale (str — the reasoning behind the prior value), "
+        "thought_summary (str — one sentence on the dominant factor shaping this prior)."
+    ),
+    "team_prior_commit": (
+        "You are the team coordinator synthesising the outcome of a shared-mental-model "
+        "alignment episode (TP-2). All agents have declared their starting priors. "
+        "The SIEP alignment round has completed."
+        "Payload: role_assignments (dict agent_id→concept_id), "
+        "agent_priors (dict agent_id→{concept_id→prior_val}), "
+        "agent_utterances (dict agent_id→{utterance, rationale, thought_summary}), "
+        "scr (float 0..1 — social compliance ratio from the SIEP round), team_goal (str)."
+        "Synthesise what the team has committed to: summarise each agent's declared prior "
+        "and key reasoning, note whether any divergence or missing concepts were detected, "
+        "state what the team is entering the action phase with. "
+        "Return JSON: utterance (str — coordinator closing synthesis, 3-5 sentences), "
+        "rationale (str — what the SIEP round resolved and why accepted=True is warranted),"
+        "thought_summary (str — one sentence on the team epistemic state at phase transition), "
+        "summary (dict with keys: agreed_priors {agent_id→{concept_id→val}}, scr, agent_count, team_goal)."
+    ),
+    "tp_case_frame": (
+        "You are the session coordinator performing initial case framing for a multi-specialist panel. "
+        "Payload: patient_id (str), symptoms (list[str]), health_history (list[str]), "
+        "current_medications (list[str|dict]), available_specialists (list of {agent_id, role, panel}). "
+        "Based on the case data, determine: what is the primary clinical question for this session, "
+        "and which concepts should each specialist own. "
+        "Return JSON: session_objective (str — one-sentence goal for the panel session), "
+        "primary_question (str — the specific diagnostic question to resolve), "
+        "responsible_for (dict agent_id→list[concept_id] — each specialist's concept ownership), "
+        "thought_summary (str — one sentence on case framing rationale)."
+    ),
+    "tp_escalation_debate": (
+        "You are a specialist agent deciding whether to accept or counter a process proposal. "
+        "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
+        "proposed_escalation_rule (dict|null — null means this is a role acknowledgement), "
+        "is_role_ack (bool). "
+        "If is_role_ack=true: assess whether your role assignment is appropriate for your expertise. "
+        "If is_role_ack=false: assess the proposed deadlock resolution rule. "
+        "Respond with your genuine position. Counter only if you have a substantive objection. "
+        "Return JSON: decision ('accept' or 'counter'), "
+        "counter_proposal (dict with deadlock_rule/casting_vote_holder/human_escalation_threshold — only if counter), "
+        "concerns (str — specific objection, empty if accept), rationale (str), "
+        "thought_summary (str — one sentence)."
+    ),
+    "tp_process_debate": (
+        "You are a specialist agent deciding whether to accept or counter a team process proposal. "
+        "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
+        "team_process (dict with session_objective, debate_format, contingency_rules, "
+        "no_convergence_handling), role_assignment (list[str] — concept IDs you own). "
+        "Assess whether the proposed process terms are appropriate for your role and the clinical task. "
+        "Accept unless you have a genuine procedural concern. Counter only if the terms would impair "
+        "your ability to contribute. "
+        "Return JSON: decision ('accept' or 'counter'), "
+        "concerns (str — specific objection, empty if accept), rationale (str), "
+        "thought_summary (str — one sentence)."
+    ),
+    "tp_process_synthesis": (
+        "You are the panel coordinator synthesising specialist objections to a proposed team process. "
+        "Payload: current_team_process (dict), counters (dict agent_id→{concerns, rationale}), "
+        "round (int). "
+        "Review all objections together. Revise the team_process if the concerns are substantive; "
+        "reaffirm if the objections are minor or contradictory. "
+        "Return JSON: decision ('revise' or 'reaffirm'), "
+        "revised_team_process (dict — same shape as current_team_process, possibly unchanged), "
+        "revision_summary (str), thought_summary (str — one sentence)."
+    ),
+    "tp_process_commit": (
+        "You are a specialist agent committing to the final agreed team process. "
+        "Payload: agent_id (str), role (str), final_team_process (dict), role_assignment (list[str]). "
+        "Acknowledge the process terms in your own words and confirm you understand the session objective. "
+        "Return JSON: acknowledged_objective (str — the session objective in your own words, 1-2 sentences), "
+        "process_understood (bool), "
+        "constraints_accepted (list[str] — key process constraints you are committing to), "
+        "thought_summary (str — one sentence)."
+    ),
+    "debate_controller_synthesis": (
+        "You are the panel coordinator synthesising a unified position from all specialist declarations. "
+        "Payload: declarations (list of {agent_id, likely_cause, confidence, rationale, panel}), "
+        "session_objective (str), case_brief (dict). "
+        "Weigh all specialist perspectives to form a single well-grounded proposed position. "
+        "Address the most compelling counter-evidence explicitly. "
+        "Return JSON: proposed_concept (str — the proposed likely cause), "
+        "confidence (float 0..1), supporting_evidence (list[str] — key evidence items), "
+        "rationale (str — why this position integrates the declarations), "
+        "addresses_counterevidence (list[str] — explicit engagement with dissenting evidence), "
+        "dissenting_summary (str — brief summary of dissenting views), "
+        "thought_summary (str — one sentence)."
+    ),
+    "tp_debate_accept_or_counter": (
+        "You are a specialist agent deciding whether to accept or counter the coordinator's "
+        "proposed team governance terms. "
+        "Payload: agent_id (str), role (str), governance_terms (dict with session_objective, "
+        "debate_format, contingency_rules, no_convergence_handling), session_objective (str), "
+        "task_goal (str), role_assignment (list[str]). "
+        "Assess whether the governance terms are appropriate for your role. "
+        "Accept unless you have a genuine procedural concern. "
+        "Return JSON: decision ('accept' or 'counter'), "
+        "counter_concept (str — 'team_process' if counter), "
+        "counter_confidence (float — only if counter), "
+        "rationale (str — state any governance concerns here), "
+        "concerns (str), thought_summary (str — one sentence)."
+    ),
+    "tp_debate_pivot_synthesis": (
+        "You are the panel coordinator revising team governance terms after receiving "
+        "specialist counter-proposals. "
+        "Payload: governance_terms (dict), counter_proposals (list of {agent_id, concerns}), "
+        "task_goal (str). "
+        "Revise the governance terms to address legitimate procedural concerns. "
+        "Return JSON: revised_governance_terms (dict — same shape as governance_terms), "
+        "confidence (float 0..1), rationale (str), thought_summary (str — one sentence)."
+    ),
+    "debate_accept_or_counter": (
+        "You are a specialist agent deciding whether to accept or counter the coordinator's proposed position. "
+        "Payload: agent_id (str), role (str), case_summary (str — compact patient context), "
+        "my_taskwork_rationale (str — your independent prior assessment), "
+        "my_supporting_evidence (list[str], up to 3), my_confidence (float — your own belief strength), "
+        "proposal_concept (str), proposal_confidence (float), "
+        "proposal_rationale (str), proposal_evidence (list[str]), proposal_addresses_evidence (list[str]), "
+        "task_goal (str), round (int — 1 = first, 2+ = subsequent), "
+        "controller_preempts_objection (str, optional), high_derailment_risk (bool, optional). "
+        "Compare the proposal against your own taskwork analysis. "
+        "Accept only if the proposal genuinely accounts for your key clinical evidence. "
+        "If countering, set counter_confidence to reflect YOUR actual belief strength (0..1) — do NOT default to 0.5. "
+        "In round >= 2, be specific: if you have distinct clinical evidence the proposal ignores, counter "
+        "with a confident position (counter_confidence > 0.6). "
+        "Return JSON: decision ('accept' or 'counter'), "
+        "counter_concept (str — only if counter), "
+        "counter_confidence (float 0..1 — only if counter), "
+        "rationale (str — 1-2 sentences: your key evidence and why the proposal fails to address it), "
+        "supporting_evidence (list[str], at most 3 items, each under 15 words), "
+        "thought_summary (str — one sentence)."
+    ),
+    "debate_pivot_synthesis": (
+        "You are the panel coordinator pivoting your position after receiving counter-proposals. "
+        "Payload: original_position ({likely_cause, confidence, rationale}), "
+        "counter_proposals (list of {agent_id, likely_cause, confidence, rationale, supporting_evidence}), "
+        "accept_count (int — number of agents who accepted), task_goal (str). "
+        "The counter-proposals represent substantive disagreement. Genuinely engage with their reasoning. "
+        "Revise your position to reflect a synthesis that addresses the strongest counter-evidence. "
+        "Return JSON: revised_concept (str), revised_confidence (float 0..1), "
+        "rationale (str — 2-3 sentences: what the counters showed and why your revised position follows), "
+        "supporting_evidence (list[str], at most 4 items, each under 15 words), "
+        "addresses_evidence (list[str] — one short phrase per counter-proposal engaged), "
+        "thought_summary (str — one sentence on what the pivot resolved)."
+    ),
+}
+
+
+def _instruction_for_task(task: str) -> str:
+    return _TASK_INSTRUCTIONS.get(task, "Return valid strict JSON only.")
+
 
 class AnthropicHealthcareLLMClient(LLMClient):
     """Calls Claude via the LiteLLM proxy using the standard OpenAI client."""
@@ -1900,338 +1903,6 @@ class AnthropicHealthcareLLMClient(LLMClient):
         self._trace_buffer.clear()
         return items
 
-    def _instruction_for_task(self, task: str) -> str:
-        instructions = {
-            "diagnostics_assessment": (
-                "Return JSON with keys likely_cause, interaction_likelihood, new_disease_likelihood, confidence, rationale. "
-                "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
-                "Use payload.semantic_rules as prior evidence of known interaction patterns. "
-                "payload may include doctor_id, doctor_index, review_mode, and preferred_likely_cause. "
-                "Treat review_mode=independent as an independent doctor opinion; for non-independent review_mode, explicitly assess whether preferred_likely_cause is corroborated. "
-                "likely_cause must be drug_interaction only when interaction_likelihood is meaningfully higher than new_disease_likelihood. "
-                "If coordination_summary is present with coordination_status='unresolved_derailment',"
-                " treat safety_flags as active constraints that override optimistic defaults."
-            ),
-            "pharmacy_interaction_review": (
-                "Return JSON with interaction_risks (array), proposed_changes (array), risk_score (0..1). "
-                "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
-                "Use payload.semantic_rules to prioritize previously observed interaction risks when relevant to current medications. "
-                "When there is interaction risk, proposed_changes must include at least one concrete substitution recommendation. "
-                "If coordination_summary is present with coordination_status='unresolved_derailment',"
-                " treat safety_flags as active constraints that override optimistic defaults."
-            ),
-            "insurance_coverage_review": (
-                "Return JSON with in_network_only, approved_specialties, estimated_out_of_pocket_eur, roi_score, validation_note. "
-                "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
-                "Only approve specialties present in requested_specialties AND in-network for the insurance plan. "
-                "If coordination_summary is present with coordination_status='unresolved_derailment',"
-                " treat safety_flags as active constraints that override optimistic defaults."
-            ),
-            "scheduling_route": (
-                "Return JSON with provider_id, specialty, day_offset, reminder_plan. "
-                "Include thought_summary as a concise plain-language summary (max 40 words) of your decision basis. "
-                "Choose the earliest available provider among candidate_providers only. "
-                "If coordination_summary is present with coordination_status='unresolved_derailment',"
-                " treat safety_flags as active constraints that override optimistic defaults."
-            ),
-            "tom_task_alignment": (
-                "Return JSON with actor, aligned, alignment_score (0..1), rationale, thought_summary. "
-                "thought_summary must briefly explain why utterance is in-scope or out-of-scope."
-            ),
-            "tom_belief_seed": (
-                "Seed an initial semantic belief model for a healthcare coordination agent. "
-                "Return JSON with role (str), objective (str), context_summary (str), "
-                "inferred_constraints (array of str), confidence (0..1), thought_summary (str)."
-            ),
-            "tom_belief_update": (
-                "You are tracking an agent's evolving confidence in a shared healthcare coordination objective. "
-                "Payload: agent_id, agent_role, current_belief {objective, context_summary, inferred_constraints, confidence}, "
-                "utterance, speaker_role, argument_direction (support|challenge|neutral, from CIP grounding judge),"
-                "alignment_score (0..1), task_goal. "
-                "Determine how much to move the agent's confidence. Rules: "
-                "(a) support + alignment_score>0.8 + clinical evidence → delta +0.08..+0.15; "
-                "(b) support + alignment_score 0.55–0.80 → delta +0.03..+0.07; "
-                "(c) challenge + clinical evidence cited → delta -0.08..-0.12; "
-                "(d) challenge + opinion only → delta -0.02..-0.04; "
-                "(e) neutral/procedural → delta -0.01..+0.01; "
-                "(f) social pressure ('as the attending...') without evidence → delta max ±0.03, type=social_pressure. "
-                "Return JSON: objective (str), context_summary (str), inferred_constraints (array of str), "
-                "confidence (float 0..1), delta_confidence (float signed), "
-                "argument_type (grounded_evidence|social_pressure|role_authority|procedural|neutral), "
-                "argument_strength (float 0..1), change_summary (str), thought_summary (str)."
-            ),
-            "tom_peer_predict": (
-                "Predict how a peer agent will respond to a specific utterance in a healthcare coordination dialogue. "
-                "Payload: speaker, listener, utterance, task_goal, "
-                "peer_belief {objective, context_summary, inferred_constraints, confidence, "
-                "argument_types_that_move, argument_types_ignored}, "
-                "observer_belief {objective, context_summary, inferred_constraints, confidence}, "
-                "history (last 4 turns). "
-                "Prediction rules: "
-                "(a) utterance addresses a term in peer inferred_constraints → alignment 0.75–0.90; "
-                "(b) utterance type matches argument_types_that_move → +0.10 alignment; "
-                "(c) utterance type matches argument_types_ignored → -0.10 alignment; "
-                "(d) utterance contradicts peer inferred_constraints → alignment 0.20–0.45, derailment=true; "
-                "(e) cold start (empty argument_types_that_move) → alignment=0.55, confidence=0.25; "
-                "(f) [2nd-order] observer_belief.inferred_constraints diverges substantially from "
-                "peer_belief.inferred_constraints → listener likely to challenge; "
-                "reduce alignment by 0.10–0.20 and set predicted_contingency=repair_content. "
-                "Return JSON: predicted_response (str), predicted_alignment (float 0..1), "
-                "predicted_derailment (bool), predicted_contingency "
-                "(normal|repair_alignment|repair_content|repair_anchor), "
-                "confidence (float 0..1), prediction_basis (str), thought_summary (str)."
-            ),
-            "tom_belief_anchor_score": (
-                "Score how well an agent's belief model aligns with the original task anchor. "
-                "Return JSON with anchor_alignment_score (0..1), aligned (bool), thought_summary (str)."
-            ),
-            "detect_ambiguity": (
-                "Detect ambiguity in an utterance relative to the task goal. "
-                "Return JSON with ambiguous (bool), ambiguity_score (0..1), ambiguous_spans (array of str), "
-                "plausible_interpretations (array of str), thought_summary (str)."
-            ),
-            "tom_invariant_check": (
-                "Check whether an utterance violates any task invariants. "
-                "Return JSON with violated (bool), violated_invariants (array of str), thought_summary (str)."
-            ),
-            "tom_peer_attribution": (
-                "Given two agents' inferred belief models about a shared task, assess whether their "
-                "beliefs are compatible and whether each correctly models the other. "
-                "Return JSON with alignment_score (0..1), disagreement_score (0..1), "
-                "attribution_accuracy (0..1), coherence_rationale (str), thought_summary (str)."
-            ),
-            "tom_belief_infer": (
-                "Given an agent's recent utterances and task goal, infer what this agent believes about "
-                "the task and what it intends to achieve. "
-                "Return JSON with belief_model (str), on_task (bool), "
-                "task_commitment_score (0..1), reasoning (str), thought_summary (str)."
-            ),
-            "tom_agent_utterance": (
-                "You are a healthcare coordination agent in a multi-agent care coordination system. "
-                "Generate a single realistic utterance to your peer that authentically reflects your "
-                "current role, objective, and belief state. Address the listener by name. "
-                "Speak as you would given your inferred_constraints and context_summary — do not "
-                "suppress or artificially correct your perspective. "
-                "If prior_speaker_context.content is present, your utterance MUST engage with the "
-                "specific reasoning in that content — do not respond generically. "
-                "Return JSON with utterance (str), confidence (0..1), risk (0..1), "
-                "rationale (str — the clinical or operational reasoning behind this specific utterance), "
-                "thought_summary (str — one sentence on what belief or constraint shaped this response)."
-            ),
-            "utterance_judge": (
-                "CIP Utterance Judge — evaluate a peer-agent utterance in a healthcare coordination dialogue."
-                "Inputs: utterance (B's message), task_goal, speaker (B's role), listener (A's role), "
-                "speaker_belief (B's ToM model of the speaker), "
-                "listener_belief (A's own belief state: prior, posterior, public_confidence, "
-                "social_compliance_ratio, revision_count, recent_causes, argument_summary), "
-                "listener_prior_utterance (the specific message A sent to B just before this response), "
-                "and recent history (list of strings). "
-                "Assess THREE things: "
-                "1. GROUNDING: Is B's response contingent on what A specifically said in listener_prior_utterance? "
-                "   A response fails grounding if it could have been delivered regardless of A's message content "
-                "   (i.e., B is not engaging with A's specific words, constraints, or question). "
-                "   Score contingency_score 0..1 (1 = fully contingent on A's message, 0 = ignores it entirely). "
-                "   Set grounding_failure=true if contingency_score < 0.40. "
-                "   If listener_prior_utterance is absent, set grounding_failure=false and contingency_score=1.0. "
-                "2. TASK ALIGNMENT: Is the utterance a derailment from the task goal? "
-                "   Classify cause as one of: blatant_error (bypasses medication safety checks), "
-                "   blatant_error_network (bypasses in-network/coverage constraints), policy_tangent "
-                "   (defers care routing for policy/governance discussions), topic_shift (abandons patient routing "
-                "   for unrelated operational topics), data_drift (shifts focus to historical analytics) — "
-                "   or null if not derailed. Score alignment_score 0..1 with task_goal. "
-                "3. SELF-CONSISTENCY: If listener_belief is present, check whether B's response is consistent "
-                "   with B's own stated belief history. Flag self_inconsistent=true if: B's expressed confidence "
-                "   contradicts their posterior; or listener_belief.social_compliance_ratio > 0.5 and B's response "
-                "   again shows no engagement with A's reasoning (repeated social compliance pattern); or "
-                "   listener_belief.argument_summary exists and B's response contradicts it. "
-                "   Set self_consistency_score 0..1 (1 = fully consistent with own belief history). "
-                "Return JSON: derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
-                "contingency_score (float 0..1), ambiguous (bool), ambiguity_score (float 0..1), "
-                "alignment_score (float 0..1), aligned (bool), "
-                "self_inconsistent (bool), self_consistency_score (float 0..1), "
-                "argument_type (grounded_evidence|role_authority|social_pressure|procedural|neutral — "
-                "classify the persuasion mechanism of the utterance), "
-                "judge_confidence (float 0..1), "
-                "critique (str — explain grounding, alignment, and self-consistency verdicts)."
-            ),
-            "grounding_judge": (
-                "Combined grounding and ambiguity assessment for an IE/SIEP exchange. "
-                "Inputs: utterance (the response being assessed), task_goal, speaker, listener, "
-                "structural_contingency_score (float 0..1 — concept-overlap score already computed), "
-                "structural_contingency_verified (bool), structural_repair_reason (str|null), "
-                "speaker_scope (list[str]), speaker_addresses_evidence (list[str]), listener_scope (list[str]). "
-                "Assess THREE things: "
-                "1. SEMANTIC GROUNDING: structural_contingency_score is a lower bound on contingency_score. "
-                "   You may increase it if semantic content shows genuine engagement with the listed concepts, "
-                "   but never below structural_contingency_score. Set grounding_failure=true if final score < 0.40. "
-                "2. TASK ALIGNMENT: alignment_score 0..1 with task_goal. derailed=true only for clear abandonment. "
-                "3. AMBIGUITY: ambiguity_score 0..1. ambiguous=true if >= 0.5. "
-                "Return JSON: aligned (bool), alignment_score (float 0..1), disagreement_score (float 0..1), "
-                "derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
-                "contingency_score (float 0..1 — must be >= structural_contingency_score), "
-                "ambiguous (bool), ambiguity_score (float 0..1), "
-                "judge_confidence (float 0..1), critique (str — one sentence on grounding and alignment)."
-            ),
-
-            "team_prior_reasoning": (
-                "You are a healthcare coordination agent declaring your starting prior belief for a "
-                "specific domain concept before a coordination episode begins. "
-                "Payload: agent_id, role_description, concept_id, prior_val (0..1), prior_source "
-                "('semantic_rules' | 'default'), team_goal, patient_context (dict with patient_id, "
-                "symptoms, current_medications, locality). "
-                "Generate a reasoned prior declaration: explain WHY you hold this prior value for "
-                "this concept given your role and this patient context. If prior_source=semantic_rules, "
-                "reference what in the patient context or rules drives the value. If prior_source=default, "
-                "explain why no specific evidence exists and what you expect the dialogue to surface. "
-                "Be specific — name the patient, the concept, and the clinical or operational factors. "
-                "Return JSON: utterance (str — the spoken declaration, 2-4 sentences), "
-                "rationale (str — the reasoning behind the prior value), "
-                "thought_summary (str — one sentence on the dominant factor shaping this prior)."
-            ),
-            "team_prior_commit": (
-                "You are the team coordinator synthesising the outcome of a shared-mental-model "
-                "alignment episode (TP-2). All agents have declared their starting priors. "
-                "The SIEP alignment round has completed."
-                "Payload: role_assignments (dict agent_id→concept_id), "
-                "agent_priors (dict agent_id→{concept_id→prior_val}), "
-                "agent_utterances (dict agent_id→{utterance, rationale, thought_summary}), "
-                "scr (float 0..1 — social compliance ratio from the SIEP round), team_goal (str)."
-                "Synthesise what the team has committed to: summarise each agent's declared prior "
-                "and key reasoning, note whether any divergence or missing concepts were detected, "
-                "state what the team is entering the action phase with. "
-                "Return JSON: utterance (str — coordinator closing synthesis, 3-5 sentences), "
-                "rationale (str — what the SIEP round resolved and why accepted=True is warranted),"
-                "thought_summary (str — one sentence on the team epistemic state at phase transition), "
-                "summary (dict with keys: agreed_priors {agent_id→{concept_id→val}}, scr, agent_count, team_goal)."
-            ),
-            "tp_case_frame": (
-                "You are the session coordinator performing initial case framing for a multi-specialist panel. "
-                "Payload: patient_id (str), symptoms (list[str]), health_history (list[str]), "
-                "current_medications (list[str|dict]), available_specialists (list of {agent_id, role, panel}). "
-                "Based on the case data, determine: what is the primary clinical question for this session, "
-                "and which concepts should each specialist own. "
-                "Return JSON: session_objective (str — one-sentence goal for the panel session), "
-                "primary_question (str — the specific diagnostic question to resolve), "
-                "responsible_for (dict agent_id→list[concept_id] — each specialist's concept ownership), "
-                "thought_summary (str — one sentence on case framing rationale)."
-            ),
-            "tp_escalation_debate": (
-                "You are a specialist agent deciding whether to accept or counter a process proposal. "
-                "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
-                "proposed_escalation_rule (dict|null — null means this is a role acknowledgement), "
-                "is_role_ack (bool). "
-                "If is_role_ack=true: assess whether your role assignment is appropriate for your expertise. "
-                "If is_role_ack=false: assess the proposed deadlock resolution rule. "
-                "Respond with your genuine position. Counter only if you have a substantive objection. "
-                "Return JSON: decision ('accept' or 'counter'), "
-                "counter_proposal (dict with deadlock_rule/casting_vote_holder/human_escalation_threshold — only if counter), "
-                "concerns (str — specific objection, empty if accept), rationale (str), "
-                "thought_summary (str — one sentence)."
-            ),
-            "tp_process_debate": (
-                "You are a specialist agent deciding whether to accept or counter a team process proposal. "
-                "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
-                "team_process (dict with session_objective, debate_format, contingency_rules, "
-                "no_convergence_handling), role_assignment (list[str] — concept IDs you own). "
-                "Assess whether the proposed process terms are appropriate for your role and the clinical task. "
-                "Accept unless you have a genuine procedural concern. Counter only if the terms would impair "
-                "your ability to contribute. "
-                "Return JSON: decision ('accept' or 'counter'), "
-                "concerns (str — specific objection, empty if accept), rationale (str), "
-                "thought_summary (str — one sentence)."
-            ),
-            "tp_process_synthesis": (
-                "You are the panel coordinator synthesising specialist objections to a proposed team process. "
-                "Payload: current_team_process (dict), counters (dict agent_id→{concerns, rationale}), "
-                "round (int). "
-                "Review all objections together. Revise the team_process if the concerns are substantive; "
-                "reaffirm if the objections are minor or contradictory. "
-                "Return JSON: decision ('revise' or 'reaffirm'), "
-                "revised_team_process (dict — same shape as current_team_process, possibly unchanged), "
-                "revision_summary (str), thought_summary (str — one sentence)."
-            ),
-            "tp_process_commit": (
-                "You are a specialist agent committing to the final agreed team process. "
-                "Payload: agent_id (str), role (str), final_team_process (dict), role_assignment (list[str]). "
-                "Acknowledge the process terms in your own words and confirm you understand the session objective. "
-                "Return JSON: acknowledged_objective (str — the session objective in your own words, 1-2 sentences), "
-                "process_understood (bool), "
-                "constraints_accepted (list[str] — key process constraints you are committing to), "
-                "thought_summary (str — one sentence)."
-            ),
-            "debate_controller_synthesis": (
-                "You are the panel coordinator synthesising a unified position from all specialist declarations. "
-                "Payload: declarations (list of {agent_id, likely_cause, confidence, rationale, panel}), "
-                "session_objective (str), case_brief (dict). "
-                "Weigh all specialist perspectives to form a single well-grounded proposed position. "
-                "Address the most compelling counter-evidence explicitly. "
-                "Return JSON: proposed_concept (str — the proposed likely cause), "
-                "confidence (float 0..1), supporting_evidence (list[str] — key evidence items), "
-                "rationale (str — why this position integrates the declarations), "
-                "addresses_counterevidence (list[str] — explicit engagement with dissenting evidence), "
-                "dissenting_summary (str — brief summary of dissenting views), "
-                "thought_summary (str — one sentence)."
-            ),
-            "tp_debate_accept_or_counter": (
-                "You are a specialist agent deciding whether to accept or counter the coordinator's "
-                "proposed team governance terms. "
-                "Payload: agent_id (str), role (str), governance_terms (dict with session_objective, "
-                "debate_format, contingency_rules, no_convergence_handling), session_objective (str), "
-                "task_goal (str), role_assignment (list[str]). "
-                "Assess whether the governance terms are appropriate for your role. "
-                "Accept unless you have a genuine procedural concern. "
-                "Return JSON: decision ('accept' or 'counter'), "
-                "counter_concept (str — 'team_process' if counter), "
-                "counter_confidence (float — only if counter), "
-                "rationale (str — state any governance concerns here), "
-                "concerns (str), thought_summary (str — one sentence)."
-            ),
-            "tp_debate_pivot_synthesis": (
-                "You are the panel coordinator revising team governance terms after receiving "
-                "specialist counter-proposals. "
-                "Payload: governance_terms (dict), counter_proposals (list of {agent_id, concerns}), "
-                "task_goal (str). "
-                "Revise the governance terms to address legitimate procedural concerns. "
-                "Return JSON: revised_governance_terms (dict — same shape as governance_terms), "
-                "confidence (float 0..1), rationale (str), thought_summary (str — one sentence)."
-            ),
-            "debate_accept_or_counter": (
-                "You are a specialist agent deciding whether to accept or counter the coordinator's proposed position. "
-                "Payload: agent_id (str), role (str), case_summary (str — compact patient context), "
-                "my_taskwork_rationale (str — your independent prior assessment), "
-                "my_supporting_evidence (list[str], up to 3), my_confidence (float — your own belief strength), "
-                "proposal_concept (str), proposal_confidence (float), "
-                "proposal_rationale (str), proposal_evidence (list[str]), proposal_addresses_evidence (list[str]), "
-                "task_goal (str), round (int — 1 = first, 2+ = subsequent), "
-                "controller_preempts_objection (str, optional), high_derailment_risk (bool, optional). "
-                "Compare the proposal against your own taskwork analysis. "
-                "Accept only if the proposal genuinely accounts for your key clinical evidence. "
-                "If countering, set counter_confidence to reflect YOUR actual belief strength (0..1) — do NOT default to 0.5. "
-                "In round >= 2, be specific: if you have distinct clinical evidence the proposal ignores, counter "
-                "with a confident position (counter_confidence > 0.6). "
-                "Return JSON: decision ('accept' or 'counter'), "
-                "counter_concept (str — only if counter), "
-                "counter_confidence (float 0..1 — only if counter), "
-                "rationale (str — 1-2 sentences: your key evidence and why the proposal fails to address it), "
-                "supporting_evidence (list[str], at most 3 items, each under 15 words), "
-                "thought_summary (str — one sentence)."
-            ),
-            "debate_pivot_synthesis": (
-                "You are the panel coordinator pivoting your position after receiving counter-proposals. "
-                "Payload: original_position ({likely_cause, confidence, rationale}), "
-                "counter_proposals (list of {agent_id, likely_cause, confidence, rationale, supporting_evidence}), "
-                "accept_count (int — number of agents who accepted), task_goal (str). "
-                "The counter-proposals represent substantive disagreement. Genuinely engage with their reasoning. "
-                "Revise your position to reflect a synthesis that addresses the strongest counter-evidence. "
-                "Return JSON: revised_concept (str), revised_confidence (float 0..1), "
-                "rationale (str — 2-3 sentences: what the counters showed and why your revised position follows), "
-                "supporting_evidence (list[str], at most 4 items, each under 15 words), "
-                "addresses_evidence (list[str] — one short phrase per counter-proposal engaged), "
-                "thought_summary (str — one sentence on what the pivot resolved)."
-            ),
-        }
-        return instructions.get(task, "Return valid strict JSON only.")
-
     def complete_json(self, task: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         base = "You are a deterministic healthcare coordination model. Return strict JSON only. "
         specialist_role = str(payload.get("specialist_role", "")).strip()
@@ -2246,7 +1917,7 @@ class AnthropicHealthcareLLMClient(LLMClient):
         specialist_prior = str(payload.get("specialist_prior", "")).strip()
         if specialist_prior:
             base = base + f" Professional prior for this case type: {specialist_prior}"
-        system_prompt = base + self._instruction_for_task(task)
+        system_prompt = base + _instruction_for_task(task)
         user_prompt = json.dumps({"task": task, "payload": payload}, ensure_ascii=False)
         last_exc: Optional[Exception] = None
         _is_heavy = task in _HEAVY_TASKS
@@ -2330,6 +2001,176 @@ class AnthropicHealthcareLLMClient(LLMClient):
         return {}
 
 
+class OllamaHealthcareLLMClient(LLMClient):
+    """Calls a local Ollama model via its OpenAI-compatible endpoint."""
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:11434/v1",
+        model: str = "qwen2.5:7b",
+        agent_id: str = "",
+    ) -> None:
+        self.client = OpenAIClient(api_key="ollama", base_url=base_url)
+        self.model = model
+        self.agent_id = agent_id
+        self._trace_buffer: List[Dict[str, Any]] = []
+
+    def _record_trace(
+        self,
+        task: str,
+        payload: Dict[str, Any],
+        system_prompt: str,
+        user_prompt: str,
+        response_json: Dict[str, Any],
+        success: bool,
+        thought_summary: str,
+        error: str | None = None,
+    ) -> None:
+        self._trace_buffer.append(
+            {
+                "task": task,
+                "backend": "ollama",
+                "agent_id": self.agent_id,
+                "msg_created": datetime.datetime.utcnow().isoformat() + "Z",
+                "request": {
+                    "system_prompt": system_prompt,
+                    "user_prompt": user_prompt,
+                    "user_payload": payload,
+                },
+                "response": response_json,
+                "thought_summary": thought_summary,
+                "success": success,
+                "error": error,
+            }
+        )
+
+    def drain_trace(self) -> List[Dict[str, Any]]:
+        items = list(self._trace_buffer)
+        self._trace_buffer.clear()
+        return items
+
+    def complete_json(self, task: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        base = _HEALTHCARE_BASE_PROMPT
+        specialist_role = str(payload.get("specialist_role", "")).strip()
+        if specialist_role:
+            ctx = (
+                _DIAGNOSTICS_ROLE_CONTEXT.get(specialist_role)
+                or _PHARMACY_ROLE_CONTEXT.get(specialist_role)
+                or ""
+            )
+            if ctx:
+                base = f"You are a {ctx}. Return strict JSON only. "
+        specialist_prior = str(payload.get("specialist_prior", "")).strip()
+        if specialist_prior:
+            base = base + f" Professional prior for this case type: {specialist_prior}"
+        system_prompt = base + _instruction_for_task(task)
+        user_prompt = json.dumps({"task": task, "payload": payload}, ensure_ascii=False)
+        last_exc: Optional[Exception] = None
+        _is_heavy = task in _HEAVY_TASKS
+        _max_attempts = _HEAVY_TASK_RETRIES + 1 if _is_heavy else _MAX_RETRIES + 1
+        _timeout = _HEAVY_CALL_TIMEOUT if _is_heavy else _CALL_TIMEOUT
+        for _attempt in range(_max_attempts):
+            try:
+                LOGGER.info(
+                    "ollama_healthcare_llm.call task=%s attempt=%d timeout=%s prompt_chars=%d",
+                    task, _attempt, _timeout, len(system_prompt) + len(user_prompt),
+                )
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=2048,
+                    timeout=_timeout,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                )
+                parsed = _parse_jsonish_object(response.choices[0].message.content)
+                if not _response_has_required_keys(task, parsed):
+                    if _attempt < _max_attempts - 1:
+                        LOGGER.info(
+                            "ollama_healthcare_llm.retry task=%s attempt=%d reason=missing_required_keys",
+                            task, _attempt + 1,
+                        )
+                        last_exc = ValueError("missing_required_keys")
+                        if _is_heavy:
+                            time.sleep(min(2 ** _attempt, 30))
+                        continue
+                    break
+                thought_summary = str(parsed.get("thought_summary", ""))
+                self._record_trace(
+                    task=task,
+                    payload=payload,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    response_json=parsed,
+                    success=True,
+                    thought_summary=thought_summary,
+                )
+                return parsed
+            except Exception as exc:
+                last_exc = exc
+                if _attempt < _max_attempts - 1:
+                    LOGGER.info(
+                        "ollama_healthcare_llm.retry task=%s attempt=%d reason=%s",
+                        task, _attempt + 1, exc,
+                    )
+                    if _is_heavy:
+                        time.sleep(min(2 ** _attempt, 30))
+                    continue
+                break
+        fallback_response = _fallback_response_for_task(task, payload)
+        if fallback_response is not None:
+            thought_summary = "Used deterministic fallback after unparseable model response."
+            LOGGER.info("ollama_healthcare_llm.task_fallback task=%s reason=%s", task, last_exc)
+            self._record_trace(
+                task=task,
+                payload=payload,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                response_json=fallback_response,
+                success=True,
+                thought_summary=thought_summary,
+                error=str(last_exc),
+            )
+            return fallback_response
+        LOGGER.warning("ollama_healthcare_llm.task_failed task=%s error=%s", task, last_exc)
+        self._record_trace(
+            task=task,
+            payload=payload,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_json={},
+            success=False,
+            thought_summary="",
+            error=str(last_exc),
+        )
+        return {}
+
+
+_LOCAL_TASKS: frozenset = frozenset({
+    # Tier 1 — fast ToM bookkeeping
+    "tom_belief_seed", "tom_peer_predict", "tom_belief_update",
+    # Tier 2 — local with modest risk
+    "diagnostics_assessment", "team_prior_reasoning", "team_prior_commit",
+    "insurance_coverage_review",
+})
+
+
+class TaskRoutingLLMClient(LLMClient):
+    """Routes complete_json calls to local or frontier client by task tier."""
+
+    def __init__(self, local: LLMClient, frontier: LLMClient) -> None:
+        self._local = local
+        self._frontier = frontier
+
+    def complete_json(self, task: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        client = self._local if task in _LOCAL_TASKS else self._frontier
+        return client.complete_json(task, payload)
+
+    def drain_trace(self) -> List[Dict[str, Any]]:
+        return self._local.drain_trace() + self._frontier.drain_trace()
+
+
 # ── Factory ───────────────────────────────────────────────────────────────────
 
 def build_llm_client(
@@ -2373,4 +2214,15 @@ def build_llm_client(
                 LOGGER.warning("build_llm_client.fallback agent=%s reason=anthropic_init_failed", agent_id)
         else:
             LOGGER.warning("build_llm_client.fallback agent=%s reason=missing_litellm_key", agent_id)
+    elif backend == "local":
+        _local_url = os.getenv("LOCAL_MODEL_URL", "http://localhost:11434/v1")
+        _local_model = os.getenv("LOCAL_MODEL", "qwen2.5:7b")
+        try:
+            _frontier = build_llm_client("anthropic", model, agent_id=agent_id)
+            _local = OllamaHealthcareLLMClient(
+                base_url=_local_url, model=_local_model, agent_id=agent_id,
+            )
+            return TaskRoutingLLMClient(local=_local, frontier=_frontier)
+        except Exception:
+            LOGGER.warning("build_llm_client.fallback agent=%s reason=local_init_failed", agent_id)
     return SimulatedHealthcareLLMClient(agent_id=agent_id)

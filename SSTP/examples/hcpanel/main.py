@@ -455,7 +455,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="HCPanel — Joint Clinical Debate")
     parser.add_argument("-n", "--sessions", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--llm-backend", choices=["azure", "anthropic", "simulated"], default="simulated")
+    parser.add_argument("--llm-backend", choices=["azure", "anthropic", "local", "simulated"], default="simulated")
     parser.add_argument("--model", default="gpt-5")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO")
     parser.add_argument("--patients-file", default=str(PATIENTS_FILE))
