@@ -109,38 +109,20 @@
       "type": "object"
     },
     "Message": {
-      "description": "Represents a message in the protocol.",
+      "description": "Represents a single message in the protocol.\nIn the stateful design, messages are embedded within episodes,\nso we only need the message ID here.",
       "properties": {
         "id": {
           "title": "Id",
           "type": "string"
-        },
-        "parents": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Parents",
-          "type": "array"
-        },
-        "episode": {
-          "title": "Episode",
-          "type": "string"
-        },
-        "session_id": {
-          "title": "Session Id",
-          "type": "string"
         }
       },
       "required": [
-        "id",
-        "parents",
-        "episode",
-        "session_id"
+        "id"
       ],
       "type": "object"
     },
     "Episode": {
-      "description": "A discrete conversation or interaction sequence tied to a task.\nAn episode groups the messages exchanged during one focused interaction\n(e.g. one round of clarification, one tool invocation cycle).",
+      "description": "A discrete conversation or interaction sequence.\nAn episode groups the messages exchanged during one focused interaction\n(e.g. one round of clarification, one tool invocation cycle).",
       "properties": {
         "id": {
           "title": "Id",
@@ -211,23 +193,11 @@
       ],
       "type": "object"
     },
-    "TaskWork": {
-      "description": "A unit of work assigned to a team member, tracked through one or more episodes.\nStatus lifecycle example: \"pending\" \u2192 \"in_progress\" \u2192 \"completed\" | \"blocked\"",
+    "Session": {
+      "description": "A complete session containing all episodes and messages.\nEach L9 message carries the full session state, providing complete history.",
       "properties": {
         "id": {
           "title": "Id",
-          "type": "string"
-        },
-        "assigned_to": {
-          "title": "Assigned To",
-          "type": "string"
-        },
-        "task_description": {
-          "title": "Task Description",
-          "type": "string"
-        },
-        "status": {
-          "title": "Status",
           "type": "string"
         },
         "episodes": {
@@ -240,39 +210,7 @@
       },
       "required": [
         "id",
-        "assigned_to",
-        "task_description",
-        "status",
         "episodes"
-      ],
-      "type": "object"
-    },
-    "Team": {
-      "description": "A group of agents and/or humans collaborating on a shared set of tasks.",
-      "properties": {
-        "id": {
-          "title": "Id",
-          "type": "string"
-        },
-        "team_members": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Team Members",
-          "type": "array"
-        },
-        "tasks": {
-          "items": {
-            "$ref": "#/$defs/TaskWork"
-          },
-          "title": "Tasks",
-          "type": "array"
-        }
-      },
-      "required": [
-        "id",
-        "team_members",
-        "tasks"
       ],
       "type": "object"
     },
@@ -288,7 +226,7 @@
       "type": "string"
     },
     "L9Header": {
-      "description": "Routing and metadata envelope for every L9 message.\nThe routing layer reads the header \u2014 especially `kind` and `subkind` \u2014\nto decide which handler should process the message.",
+      "description": "Routing and metadata envelope for every L9 message.\nThe routing layer reads the header \u2014 especially `kind` and `subkind` \u2014\nto decide which handler should process the message.\n\nIn the stateful design, the header carries the complete session history\nincluding all episodes and messages.",
       "properties": {
         "protocol": {
           "title": "Protocol",
@@ -320,8 +258,8 @@
         "participants": {
           "$ref": "#/$defs/ParticipantSet"
         },
-        "message": {
-          "$ref": "#/$defs/Message"
+        "session": {
+          "$ref": "#/$defs/Session"
         },
         "policy": {
           "anyOf": [
@@ -365,7 +303,7 @@
         "version",
         "kind",
         "participants",
-        "message"
+        "session"
       ],
       "type": "object"
     },

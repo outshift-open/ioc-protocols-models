@@ -7,12 +7,11 @@ from typing import Optional, Dict
 from src.epistemic import Epistemic
 class Message(BaseModel):
     """
-    Represents a message in the protocol.
+    Represents a single message in the protocol.
+    In the stateful design, messages are embedded within episodes,
+    so we only need the message ID here.
     """
-    id: str              # unique message identifier
-    parents: list[str]   # ordered list of parent message IDs
-    episode: str         # episode this message belongs to
-    session_id: str      # session identifier
+    id: str  # unique message identifier
 
 class Actor(BaseModel):
     """
@@ -62,7 +61,7 @@ class Context(BaseModel):
 
 class Episode(BaseModel):
     """
-    A discrete conversation or interaction sequence tied to a task.
+    A discrete conversation or interaction sequence.
     An episode groups the messages exchanged during one focused interaction
     (e.g. one round of clarification, one tool invocation cycle).
     """
@@ -70,22 +69,10 @@ class Episode(BaseModel):
     messages: list[Message]  # ordered sequence of messages in this episode
 
 
-class TaskWork(BaseModel):
+class Session(BaseModel):
     """
-    A unit of work assigned to a team member, tracked through one or more episodes.
-    Status lifecycle example: "pending" → "in_progress" → "completed" | "blocked"
+    A complete session containing all episodes and messages.
+    Each L9 message carries the full session state, providing complete history.
     """
-    id: str                    # unique task identifier
-    assigned_to: str           # name or ID of the agent/human responsible
-    task_description: str      # human-readable description of what needs to be done
-    status: str                # current task status: "pending" | "in_progress" | "completed" | "blocked"
-    episodes: list[Episode]    # conversation episodes associated with this task
-
-
-class Team(BaseModel):
-    """
-    A group of agents and/or humans collaborating on a shared set of tasks.
-    """
-    id: str                    # unique team identifier
-    team_members: list[str]    # IDs or names of agents/humans on this team
-    tasks: list[TaskWork]      # all tasks assigned within this team
+    id: str                   # unique session identifier
+    episodes: list[Episode]   # all episodes in this session

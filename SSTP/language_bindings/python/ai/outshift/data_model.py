@@ -49,12 +49,9 @@ class Context(BaseModel):
 
 class Message(BaseModel):
     id: str = Field(..., title="Id")
-    parents: list[str] = Field(..., title="Parents")
-    episode: str = Field(..., title="Episode")
-    session_id: str = Field(..., title="Session Id")
 
 
-class Episode1(BaseModel):
+class Episode(BaseModel):
     id: str = Field(..., title="Id")
     messages: list[Message] = Field(..., title="Messages")
 
@@ -70,18 +67,9 @@ class PolicyLabel(BaseModel):
     retention_policy: str = Field(..., title="Retention Policy")
 
 
-class TaskWork(BaseModel):
+class Session(BaseModel):
     id: str = Field(..., title="Id")
-    assigned_to: str = Field(..., title="Assigned To")
-    task_description: str = Field(..., title="Task Description")
-    status: str = Field(..., title="Status")
-    episodes: list[Episode1] = Field(..., title="Episodes")
-
-
-class Team(BaseModel):
-    id: str = Field(..., title="Id")
-    team_members: list[str] = Field(..., title="Team Members")
-    tasks: list[TaskWork] = Field(..., title="Tasks")
+    episodes: list[Episode] = Field(..., title="Episodes")
 
 
 class Kind(Enum):
@@ -99,7 +87,7 @@ class L9Header(BaseModel):
     kind: Kind
     subkind: str | None = Field(None, title="Subkind")
     participants: ParticipantSet
-    message: Message
+    session: Session
     policy: PolicyLabel | None = None
     attributes: dict[str, Any] | None = Field(None, title="Attributes")
     context: Context | None = None

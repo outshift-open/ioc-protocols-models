@@ -3,6 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Models have moved to src.primitives — re-exported here for backwards compatibility.
-from src.primitives import Message, Episode, TaskWork, Team
+from src.primitives import Message, Episode, Session
 
-__all__ = ["Message", "Episode", "TaskWork", "Team"]
+__all__ = ["Message", "Episode", "Session"]

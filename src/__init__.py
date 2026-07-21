@@ -30,8 +30,7 @@ from src.primitives import (
     Semantic,
     Context,
     Episode,
-    TaskWork,
-    Team,
+    Session,
 )
 from src.epistemic import Epistemic
 
@@ -50,8 +49,7 @@ __all__ = [
     "Semantic",
     "Context",
     "Episode",
-    "TaskWork",
-    "Team",
+    "Session",
     # Epistemic
     "Epistemic",
 ]

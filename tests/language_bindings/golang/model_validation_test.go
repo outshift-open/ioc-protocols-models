@@ -213,12 +213,9 @@ func TestMessageValidation(t *testing.T) {
 		return
 	}
 
-	// Test valid Message
+	// Test valid Message (stateful design - only has ID)
 	validMessage := l9.Message{
-		ID:        "msg-001",
-		Parents:   []string{"msg-000"},
-		Episode:   "ep-001",
-		SessionID: "session-001",
+		ID: "msg-001",
 	}
 
 	jsonBytes, err := json.Marshal(validMessage)
@@ -234,8 +231,8 @@ func TestMessageValidation(t *testing.T) {
 		return
 	}
 
-	if len(unmarshaledMessage.Parents) != 1 || unmarshaledMessage.Parents[0] != "msg-000" {
-		t.Errorf("Expected message Parents ['msg-000'], got %v", unmarshaledMessage.Parents)
+	if unmarshaledMessage.ID != "msg-001" {
+		t.Errorf("Expected message ID 'msg-001', got %v", unmarshaledMessage.ID)
 	}
 
 	// Test missing required fields
@@ -286,7 +283,7 @@ func TestL9HeaderValidation(t *testing.T) {
 		return
 	}
 
-	// Test valid L9Header JSON
+	// Test valid L9Header JSON (stateful design with session)
 	validHeaderJSON := `{
 		"protocol": "L9",
 		"subprotocol": "SSTP",
@@ -297,11 +294,14 @@ func TestL9HeaderValidation(t *testing.T) {
 			"actors": [{"id": "actor-123", "role": "analyst"}],
 			"groups": {}
 		},
-		"message": {
-			"id": "msg-001",
-			"parents": [],
-			"episode": "ep-001",
-			"session_id": "session-001"
+		"session": {
+			"id": "session-001",
+			"episodes": [
+				{
+					"id": "ep-001",
+					"messages": [{"id": "msg-001"}]
+				}
+			]
 		}
 	}`
 
@@ -342,7 +342,7 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 		return
 	}
 
-	// Test valid complete L9 message using generated structs
+	// Test valid complete L9 message using generated structs (stateful design with session)
 	validL9 := l9.L9{
 		Header: l9.L9Header{
 			Protocol:    "L9",
@@ -352,6 +352,15 @@ func TestCompleteL9MessageValidation(t *testing.T) {
 			Subkind:     "chat",
 			Participants: l9.ParticipantSet{
 				Actors: []l9.Actor{{ID: "actor-123", Role: "analyst"}},
+			},
+			Session: l9.Session{
+				ID: "session-001",
+				Episodes: []l9.Episode{
+					{
+						ID:       "ep-001",
+						Messages: []l9.Message{{ID: "msg-001"}},
+					},
+				},
 			},
 		},
 		Payload: l9.L9Payload{
