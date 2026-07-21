@@ -21,10 +21,9 @@ import time
 from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 from SSTP.subprotocol.cip.src.cip_payload import RepairReason
-from SSTP.subprotocol.siep.src.epistemic.stores import CommonGround
 
 if TYPE_CHECKING:
-    pass
+    from SSTP.subprotocol.siep.src.epistemic.stores import CommonGround
 
 # Minimum overlap fraction between A's concept_ids and B's addresses_evidence
 # for the response to be considered contingent.
@@ -252,6 +251,11 @@ def verify_grounding_bilateral(
     # result dict — it does NOT emit wire messages for the repair itself.
 
     if not is_deliberation_pass and not forced_accept:
+        # Imported lazily to avoid a circular import: SSTP.subprotocol.siep
+        # imports .negotiation, which imports verify_grounding_bilateral from
+        # this module at module-load time.
+        from SSTP.subprotocol.siep.src.epistemic.stores import CommonGround
+
         contingency_verified = contingency_score >= 0.4
         ground = CommonGround(
             holder_id=speaker,

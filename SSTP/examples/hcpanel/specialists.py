@@ -9,7 +9,7 @@ from SSTP.subprotocol.siep.src.builder import NegotiationOperation  # type: igno
 from SSTP.subprotocol.siep.src.panel import NetworkHandle, DebateRoundContext
 from SSTP.examples.hcpanel.domain import PatientProfile
 from SSTP.examples.hcpanel.llm_backends import extract_findings
-from SSTP.l9 import PlanAdherenceError
+from SSTP.base import PlanAdherenceError
 
 LOGGER = logging.getLogger("healthcare2")
 
@@ -238,7 +238,7 @@ class SpecialistAgent:
 
         Must be called before the coordinator emits any intents.
         """
-        from SSTP.l9.episode import L9  # type: ignore[import]
+        from SSTP.base.episode import L9  # type: ignore[import]
         self.bus = bus
         l9 = L9(
             bus=bus,

@@ -309,7 +309,7 @@ class StarNegotiator:
         Otherwise emit the minimal CIP wire sequence: contingency → epistemic_clarification
         → specialist re-assertion → commit:resolved, all on a child episode ID.
         """
-        from SSTP.l9.emit import (
+        from SSTP.base.emit import (
             emit_semantic_repair,
             emit_epistemic_clarification,
             emit_repair_resolved,

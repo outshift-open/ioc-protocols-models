@@ -9,7 +9,7 @@
 
 L9 exposes two API layers:
 
-- **Application API** (`SSTP.l9`) — `L9`, `Episode`, `TeamProcessEpisode`,
+- **Application API** (`SSTP.base`) — `L9`, `Episode`, `TeamProcessEpisode`,
   `TaskworkEpisode`, `TaskEpisode`, `TaskworkParticipant`, and prior helpers.
   Application agents use this layer exclusively.  They never call builders or
   bus methods directly.
@@ -20,10 +20,10 @@ L9 exposes two API layers:
 
 ---
 
-## Application API — `SSTP.l9`
+## Application API — `SSTP.base`
 
 ```python
-from SSTP.l9 import (
+from SSTP.base import (
     L9, Episode, TeamProcessEpisode, TaskworkEpisode, TaskEpisode,
     TaskworkParticipant, AgentPrior, TeamPrior, blend_prior,
 )

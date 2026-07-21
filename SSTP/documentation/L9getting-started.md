@@ -253,7 +253,7 @@ append-only list that becomes `ie_trace` in the output.
 **Opening an episode**
 
 ```python
-from SSTP.l9 import L9, Episode
+from SSTP.base import L9, Episode
 
 ctrl_l9 = L9(bus, agent_id="diagnostics-controller",
               belief_store=belief_store,

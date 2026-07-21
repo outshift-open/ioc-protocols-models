@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from SSTP.subprotocol.siep.src.panel import NetworkHandle
 from SSTP.examples.hcpanel.domain import ClinicalDebateOutcome, SpecialistOpinion
-from SSTP.l9 import L9, SessionAbortedError, PlanAdherenceError, DebateTimeoutError
+from SSTP.base import L9, SessionAbortedError, PlanAdherenceError, DebateTimeoutError
 
 
 if TYPE_CHECKING:

@@ -22,11 +22,11 @@ An agent is an LLM or rule-based process that exposes capabilities via skill plu
 - **`IESkill`** — `open_episode`, `say`, `done`, `dispute`, `resolve`, `close_episode`, `announce`
 - **`SNPSkill`** — `open_convergence`, `say`, `done`, `close_convergence`
 
-Both skills are thin wrappers over `sstp.l9.episode.L9` + `Episode` — the top-level application API. The agent never touches anything below that surface.
+Both skills are thin wrappers over `sstp.base.episode.L9` + `Episode` — the top-level application API. The agent never touches anything below that surface.
 
 ### `L9` / `Episode` (top-level API, unchanged)
 
-`sstp.l9.episode.L9` and `Episode` are the canonical application API. Their method signatures do not change. The only thing that changes is what `AgentBus` they are constructed with.
+`sstp.base.episode.L9` and `Episode` are the canonical application API. Their method signatures do not change. The only thing that changes is what `AgentBus` they are constructed with.
 
 ### `A2AAgentBus`
 
@@ -34,7 +34,7 @@ A subclass of `AgentBus` whose emit methods POST to the CF instead of acting in-
 
 ```
 IESkill / SNPSkill
-  └── L9 + Episode           (sstp.l9.episode — unchanged)
+  └── L9 + Episode           (sstp.base.episode — unchanged)
         └── A2AAgentBus      (only seam that changes)
               └── POST /cf/a2a/tasks/send
 ```
@@ -182,7 +182,7 @@ class CFStore:
 ```
 ioc-cfn-protocols-models/
 └── SSTP/language-bindings/Python/src/sstp/
-    ├── l9/episode.py          (L9, Episode — top-level API, unchanged)
+    ├── base/episode.py        (L9, Episode — top-level API, unchanged)
     └── ie/agent_bus.py        (AgentBus — subclassed by A2AAgentBus)
 
 ioc-cfn-cognitive-agents/
@@ -271,7 +271,7 @@ class SNPSkill:
 | IoC group/unicast logic in orchestration layer | CF `router.py` — reads `EpisodeRoute.group`, fans out |
 | Gate checked in `TaskSession` | IE-CE `handler.py` — CE rejects and returns `contingency` |
 
-The `sstp.l9.episode.L9` and `Episode` classes are **not modified**. The `A2AAgentBus` swap is the only structural change to the protocol library side.
+The `sstp.base.episode.L9` and `Episode` classes are **not modified**. The `A2AAgentBus` swap is the only structural change to the protocol library side.
 
 ---
 

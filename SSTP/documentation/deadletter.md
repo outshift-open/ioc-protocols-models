@@ -65,7 +65,7 @@ Application code must never call `AgentBus.emit_peer_turn(kind_override="intent"
 ### Full patient episode example
 
 ```python
-from sstp.l9.episode import L9
+from sstp.base.episode import L9
 from sstp.process import (
     AgentCapability, PhaseGate, TeamCoordinator, TeamProcessStore, TaskSession,
 )

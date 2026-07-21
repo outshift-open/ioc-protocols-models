@@ -7,7 +7,7 @@
 Pipeline for every message
 ──────────────────────────
   1. BUILD  — Create L9 message with the subprotocol builder
-  2. PACK   — Serialize L9 → DataPart(media_type="application/vnd.sstp.l9+json")
+  2. PACK   — Serialize L9 → DataPart(media_type="application/vnd.sstp.base+json")
   3. SEND   — Put A2A message on the bus (bus.send_l9 / bus.open_l9_task)
   4. RECV   — Receiver calls bus.recv_l9() → reconstituted L9 object
 
@@ -102,7 +102,7 @@ OPTIONS = {"governing_interpretation": ["us_standard", "uk_standard", "hybrid"],
            "damages_cap": ["6_months_fees", "12_months_fees", "24_months_fees"]}
 N_OUTCOMES = len(OPTIONS["governing_interpretation"]) * len(OPTIONS["damages_cap"])
 
-MEDIA_L9  = "application/vnd.sstp.l9+json"
+MEDIA_L9  = "application/vnd.sstp.base+json"
 MEDIA_SAB = "application/vnd.sstp.sab+json"
 _W        = 100
 
@@ -156,7 +156,7 @@ def _llm(agent: str, system: str, user: str, fallback: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def pack_l9(l9: L9) -> Part:
-    """Serialize L9 → A2A DataPart (media_type=application/vnd.sstp.l9+json).
+    """Serialize L9 → A2A DataPart (media_type=application/vnd.sstp.base+json).
 
     L9.model_dump_json()  →  JSON dict
     ParseDict(dict, struct_pb2.Value())  →  protobuf Value stored in Part.data

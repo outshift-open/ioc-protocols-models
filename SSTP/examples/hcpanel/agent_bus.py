@@ -5,13 +5,13 @@
 """
 SSTP/examples/hcpanel/agent_bus.py — Per-episode L9 message bus for hcpanel.
 
-All L9 wire-message construction lives in SSTP.l9.emit — MessageBus itself
+All L9 wire-message construction lives in SSTP.base.emit — MessageBus itself
 knows nothing about L9 vocabulary.  Its only responsibilities are:
   - hold self.messages (ordered L9 header list)
   - implement NetworkHandle (register_handler / get_handler / send)
   - route inbound messages to per-agent handlers via _deliver
 
-CIP inbound grounding lives in SSTP.l9.grounding, exposed via L9.receive_peer_turn().
+CIP inbound grounding lives in SSTP.base.grounding, exposed via L9.receive_peer_turn().
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from __future__ import annotations
 import threading
 from typing import Any, Dict, List, Optional, Tuple
 
-from SSTP.l9.deliver import deliver_header
+from SSTP.base.deliver import deliver_header
 from SSTP.subprotocol.siep.src.panel import NetworkHandle
 
 
@@ -29,7 +29,7 @@ class MessageBus(NetworkHandle):
     """Per-episode L9 message bus shared by all agents in a session.
 
     Application code never calls emit_* on this class — all L9 header
-    construction lives in SSTP.l9.emit as free functions.
+    construction lives in SSTP.base.emit as free functions.
     """
 
     def __init__(
