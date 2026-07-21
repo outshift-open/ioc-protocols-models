@@ -20,7 +20,7 @@ import json
 import sys
 import argparse
 import datetime
-from collections import Counter, defaultdict
+from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -494,39 +494,53 @@ def _render_llm_breakdown(llm_trace: List[Dict[str, Any]]) -> str:
     return "".join(lines)
 
 
-# ── LLM queue helpers ─────────────────────────────────────────────────────────
+# ── unified chronological timeline ────────────────────────────────────────────
 
-def _build_llm_queues(llm_trace: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-    queues: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+def _iso_ts(obj: Dict[str, Any]) -> str:
+    """Return ISO timestamp string for sorting; empty string sorts last."""
+    raw = (
+        (obj.get("attributes") or {}).get("msg_created")
+        or obj.get("msg_created")
+        or ""
+    )
+    return raw
+
+
+def _build_timeline(
+    phased: List[Tuple[str, int, Dict[str, Any]]],
+    llm_trace: List[Dict[str, Any]],
+) -> List[Tuple[str, int, Any, str]]:
+    """Merge wire messages and LLM calls into a single timestamp-sorted list.
+
+    Returns list of (kind, depth, obj, phase) where kind is 'wire' or 'llm'.
+    LLM calls with no timestamp are placed immediately before the first wire
+    message of the same agent in the same approximate task window.
+    """
+    events: List[Tuple[str, str, int, Any, str]] = []
+
+    # wire events: (ts, 'wire', depth, msg, phase)
+    for phase, depth, msg in phased:
+        ts = _iso_ts(msg)
+        events.append((ts, "wire", depth, msg, phase))
+
+    # LLM events: (ts, 'llm', 0, item, phase='')
     for item in llm_trace:
-        queues[item.get("agent_id") or "__global__"].append(item)
-    return dict(queues)
+        ts = _iso_ts(item)
+        events.append((ts, "llm", 0, item, ""))
 
+    # stable sort: empty-ts items (no timestamp) sort after items with the same
+    # ts prefix, keeping their relative order from the original lists.
+    events.sort(key=lambda x: (x[0] or "~", x[1]))  # 'wire' < 'llm' at same ts
 
-_PHASE_TASKS: Dict[str, List[str]] = {
-    "tp": ["tp_case_frame"],
-    "tw": ["diagnostics_assessment", "team_prior_reasoning", "team_prior_commit",
-           "grounding_judge"],
-    "t":  ["task_accept_or_counter", "debate_accept_or_counter",
-           "debate_controller_synthesis", "debate_pivot_synthesis", "grounding_judge"],
-}
-
-
-def _emit_llm_for_actor(
-    actor: str,
-    phase: str,
-    queues: Dict[str, List[Dict[str, Any]]],
-    consumed: Dict[str, int],
-) -> List[str]:
-    """Pop and render any pending LLM calls from actor for the current phase."""
-    queue = queues.get(actor, [])
-    idx = consumed.get(actor, 0)
-    phase_tasks = set(_PHASE_TASKS.get(phase, []) + _PHASE_TASKS.get("t", []))
+    # propagate phase for llm events from the surrounding wire context
+    current_phase = "session"
     result = []
-    while idx < len(queue) and queue[idx].get("task") in phase_tasks:
-        result.append(_llm_event(queue[idx]))
-        idx += 1
-    consumed[actor] = idx
+    for ts, kind, depth, obj, phase in events:
+        if kind == "wire":
+            current_phase = phase
+            result.append((kind, depth, obj, phase))
+        else:
+            result.append((kind, 0, obj, current_phase))
     return result
 
 
@@ -599,47 +613,32 @@ def render(result_path: str, output_path: str, patient_filter: Optional[str] = N
         out.append("\n")
         out.append(_hr())
 
-        # ── build LLM queues ─────────────────────────────────────────────────
-        llm_queues = _build_llm_queues(llm_trace)
-        llm_consumed: Dict[str, int] = {}
-
-        # ── chronological walk — all 287+ messages ───────────────────────────
+        # ── build unified timeline ────────────────────────────────────────────
         phased = _assign_phases(wire)
+        timeline = _build_timeline(phased, llm_trace)
+
         current_phase = ""
         seq = 1
 
-        for phase, depth, msg in phased:
-            # phase header on transition — knowledge doesn't start a new section;
-            # it renders inline in the current outer phase.
-            render_phase = phase if phase != "knowledge" else current_phase
-            if render_phase != current_phase:
-                if current_phase:
-                    out.append(_hr())
-                label = _PHASE_LABELS.get(render_phase, render_phase.upper())
-                out.append(f"## Phase: {label}\n\n")
-                preamble = _PHASE_PREAMBLES.get(render_phase, "")
-                if preamble:
-                    out.append(preamble + "\n\n")
-                current_phase = render_phase
+        for evt_kind, depth, obj, phase in timeline:
+            if evt_kind == "wire":
+                msg = obj
+                # phase header on transition — knowledge doesn't start a new section
+                render_phase = phase if phase != "knowledge" else current_phase
+                if render_phase != current_phase:
+                    if current_phase:
+                        out.append(_hr())
+                    label = _PHASE_LABELS.get(render_phase, render_phase.upper())
+                    out.append(f"## Phase: {label}\n\n")
+                    preamble = _PHASE_PREAMBLES.get(render_phase, "")
+                    if preamble:
+                        out.append(preamble + "\n\n")
+                    current_phase = render_phase
 
-            actor = _actor(msg)
-            kind = msg.get("kind", "")
-            utt = _utterance(msg)
-            is_ack = utt.startswith("received:") or utt.startswith("reaffirm:")
-
-            # emit pending LLM calls before this agent's substantive wire message
-            if not is_ack and kind in ("intent", "exchange", "commit", "contingency"):
-                for block in _emit_llm_for_actor(actor, phase, llm_queues, llm_consumed):
-                    out.append(block)
-
-            out.append(_wire_event(seq, msg, phase, depth=depth))
-            seq += 1
-
-        # emit any LLM calls not yet consumed
-        for agent_id, queue in llm_queues.items():
-            idx = llm_consumed.get(agent_id, 0)
-            for item in queue[idx:]:
-                out.append(_llm_event(item))
+                out.append(_wire_event(seq, msg, phase, depth=depth))
+                seq += 1
+            else:
+                out.append(_llm_event(obj))
 
         out.append(_hr())
         out.append(_render_convergence(ep))
