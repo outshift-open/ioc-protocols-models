@@ -9,21 +9,21 @@
 
 L9 exposes two API layers:
 
-- **Application API** (`SSTP.l9`) — `L9`, `Episode`, `TeamProcessEpisode`,
+- **Application API** (`SSTP.base`) — `L9`, `Episode`, `TeamProcessEpisode`,
   `TaskworkEpisode`, `TaskEpisode`, `TaskworkParticipant`, and prior helpers.
   Application agents use this layer exclusively.  They never call builders or
   bus methods directly.
-- **Wire-level builders** (`SSTP.subprotocol.cip.src.l9`,
-  `SSTP.subprotocol.siep.src.l9`) — `build_l9_header` and
+- **Wire-level builders** (`SSTP.subprotocol.cip.src.builder`,
+  `SSTP.subprotocol.siep.src.builder`) — `build_l9_header` and
   `build_snp_l9_header`.  Used by bus implementations (`agent_bus.py`,
   `panel_bus.py`).  Application agents do not call these directly.
 
 ---
 
-## Application API — `SSTP.l9`
+## Application API — `SSTP.base`
 
 ```python
-from SSTP.l9 import (
+from SSTP.base import (
     L9, Episode, TeamProcessEpisode, TaskworkEpisode, TaskEpisode,
     TaskworkParticipant, AgentPrior, TeamPrior, blend_prior,
 )
@@ -582,11 +582,10 @@ After `run()` returns, all properties are set and `announce()` can be called.
 Application agents do not call these directly.  Bus implementations
 (`agent_bus.py`, `panel_bus.py`) call them to produce L9 wire-format headers.
 
-### `L9HeaderBuilder` (`SSTP/l9_base.py`)
+### Legacy flat-header adapter signature
 
-Abstract base for all L9 protocol header builders.  Subclasses override
-`kind_for_event_type` and `schema_id_for`.  The base `build()` handles all
-envelope construction.
+Both protocol builders expose legacy compatibility functions that return the
+flat dict shape used by `agent_bus.py` and `panel_bus.py`.
 
 ```python
 def build(
@@ -621,16 +620,12 @@ def build(
 `kind_override` bypasses the event_type→kind mapping.  Use it to force `intent`,
 `commit:converged`, or `knowledge` kinds that have no corresponding event type.
 
-To add a new sub-protocol: subclass `L9HeaderBuilder`, implement
-`kind_for_event_type` and `schema_id_for`, and expose a module-level
-convenience function.
-
 ---
 
-### `build_l9_header` — CIP (`SSTP/subprotocol/cip/src/l9.py`)
+### `build_l9_header` — CIP (`SSTP/subprotocol/cip/src/builder.py`)
 
 ```python
-from SSTP.subprotocol.cip.src.l9 import build_l9_header
+from SSTP.subprotocol.cip.src.builder import build_l9_header
 
 header = build_l9_header(
     use_case="healthcare",
@@ -687,10 +682,10 @@ default `epistemic` block from the event type.
 
 ---
 
-### `build_snp_l9_header` — SIEP (`SSTP/subprotocol/siep/src/l9.py`)
+### `build_snp_l9_header` — SIEP (`SSTP/subprotocol/siep/src/builder.py`)
 
 ```python
-from SSTP.subprotocol.siep.src.l9 import build_snp_l9_header, NegotiationOperation
+from SSTP.subprotocol.siep.src.builder import build_snp_l9_header, NegotiationOperation
 
 header = build_snp_l9_header(
     operation=NegotiationOperation.PROPOSE,
@@ -753,7 +748,7 @@ NegotiationOperation.REJECT
 ### `build_snp_payload` — SIEP payload builder
 
 ```python
-from SSTP.subprotocol.siep.src.l9 import build_snp_payload, NegotiationStatus
+from SSTP.subprotocol.siep.src.builder import build_snp_payload, NegotiationStatus
 
 snp_part = build_snp_payload(
     operation=NegotiationOperation.PROPOSE,

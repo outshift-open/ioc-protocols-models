@@ -17,13 +17,17 @@ Functions:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set
+import time
+from typing import Any, Dict, List, Optional, Set, TYPE_CHECKING
 
 from SSTP.subprotocol.cip.src.cip_payload import RepairReason
 
+if TYPE_CHECKING:
+    from SSTP.subprotocol.siep.src.epistemic.stores import CommonGround
+
 # Minimum overlap fraction between A's concept_ids and B's addresses_evidence
 # for the response to be considered contingent.
-CONTINGENCY_THRESHOLD: float = 0.5
+CONTINGENCY_THRESHOLD: float = 0.4
 
 
 def _get_concept_ids(
@@ -156,6 +160,126 @@ def diagnose_repair_reason(
     return None
 
 
+def verify_grounding_bilateral(
+    utterance_a: str,
+    response_b: str,
+    debate_message_id: str,
+    task_goal: str,
+    speaker: str,
+    listener: str,
+    listener_actual_confidence: float,
+    listener_belief: Dict[str, Any],
+    concept_id: str = "",
+    forced_accept: bool = False,
+    speaker_epistemic: Optional[Dict[str, Any]] = None,
+    listener_epistemic: Optional[Dict[str, Any]] = None,
+    *,
+    tom_engine: Any,
+    use_case: str,
+    episode_id: str,
+    message_bus: Any,
+    common_ground_ids: List[str],
+) -> Dict[str, Any]:
+    """Verify bilateral grounding using B's actual response (CIP §3.1).
+
+    Called AFTER listener has responded with response_b. Assesses whether
+    response_b is contingent on utterance_a. Records CommonGround with actual
+    posteriors for both parties.
+
+    forced_accept=True: accept driven by controller confidence dominance, not
+    genuine agreement. Suppresses CommonGround to avoid polluting SCR.
+    """
+    if tom_engine is None:
+        return {}
+
+    # Team-process tokens carry epistemic_state=TEAM_PROCESS and no clinical
+    # content — grounding is structurally guaranteed by the auto-accept contract.
+    _spk_ep_state = (speaker_epistemic or {}).get("state", "")
+    _lst_ep_state = (listener_epistemic or {}).get("state", "")
+    if _spk_ep_state == "team_process" or _lst_ep_state == "team_process":
+        return {}
+
+    cid = concept_id or f"urn:concept:{use_case}:{task_goal[:32]}"
+    confidence_before = 0.5
+    result: Dict[str, Any] = {}
+
+    if forced_accept:
+        is_deliberation_pass = True
+        contingency_score = 0.0
+    else:
+        _spk_ids = _get_concept_ids(speaker_epistemic)
+        _lst_ids = _get_concept_ids(listener_epistemic)
+        if _spk_ids and _lst_ids:
+            _contingent, _ratio = contingency_check(speaker_epistemic, listener_epistemic)
+            if not _contingent:
+                contingency_score = _ratio
+                is_deliberation_pass = True
+                result = {"contingency_score": contingency_score, "posterior_confidence": None}
+            else:
+                result = tom_engine.agent(listener).assess_utterance(
+                    response_b, task_goal,
+                    speaker=listener,
+                    listener=speaker,
+                    listener_prior_utterance=utterance_a,
+                    confidence_before=confidence_before,
+                    speaker_epistemic=listener_epistemic,
+                    listener_prior_epistemic=speaker_epistemic,
+                    concept_id=cid,
+                    use_case=use_case,
+                )
+                llm_contingency = float(result.get("contingency_score", 1.0))
+                contingency_score = round(min(_ratio, llm_contingency), 4)
+                result["contingency_score"] = contingency_score
+                is_deliberation_pass = contingency_score < 0.4
+        else:
+            result = tom_engine.agent(listener).assess_utterance(
+                response_b, task_goal,
+                speaker=listener,
+                listener=speaker,
+                listener_prior_utterance=utterance_a,
+                confidence_before=confidence_before,
+                concept_id=cid,
+                use_case=use_case,
+            )
+            contingency_score = float(result.get("contingency_score", 1.0))
+            is_deliberation_pass = contingency_score < 0.4
+
+    ts = int(time.time() * 1000)
+
+    # CIP repair sequence is the caller's responsibility (_run_cip_repair in
+    # negotiation.py).  This function only assesses grounding and returns the
+    # result dict — it does NOT emit wire messages for the repair itself.
+
+    if not is_deliberation_pass and not forced_accept:
+        # Imported lazily to avoid a circular import: SSTP.subprotocol.siep
+        # imports .negotiation, which imports verify_grounding_bilateral from
+        # this module at module-load time.
+        from SSTP.subprotocol.siep.src.epistemic.stores import CommonGround
+
+        contingency_verified = contingency_score >= 0.4
+        ground = CommonGround(
+            holder_id=speaker,
+            confirmer_id=listener,
+            concept_id=cid,
+            use_case=use_case,
+            episode_id=episode_id,
+            grounding_confidence=contingency_score,
+            holder_confidence=0.5,
+            confirmer_confidence=listener_actual_confidence,
+            contingency_verified=contingency_verified,
+            speech_acts=["belief_assertion", "belief_assertion"],
+            grounding_message_ids=[debate_message_id],
+            formed_at_ms=ts,
+        )
+        tom_engine.agent(listener)._epistemic_store.record_common_ground(ground)
+        tom_engine.agent(speaker)._epistemic_store.record_common_ground(ground)
+        common_ground_ids.append(
+            ground.grounding_message_ids[0] if ground.grounding_message_ids else episode_id
+        )
+
+    return result
+
+
 __all__ = [
     "CONTINGENCY_THRESHOLD",
     "concept_overlap_ratio",
@@ -163,4 +287,5 @@ __all__ = [
     "detect_scope_mismatch",
     "detect_ungroundable_novelty",
     "diagnose_repair_reason",
+    "verify_grounding_bilateral",
 ]

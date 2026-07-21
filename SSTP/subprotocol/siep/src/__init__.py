@@ -8,6 +8,8 @@ from . import epistemic, tomcore
 from .builder import *
 from .epistemic import *
 from .negotiate import *
+from .negotiation import *
+from .panel import *
 from .siep_payload import *
 from .tomcore import *
 

@@ -165,7 +165,7 @@ class CommonGround:
 
 @dataclass
 class TeamGroundedTruth:
-    """Output of a completed SNP multi-party convergence round.
+    """Output of a completed SIEP multi-party convergence round.
 
     Written to SemanticMemory as a new rule. SCR and GAR are provenance weights:
     prior_weight = (1.0 - social_compliance_ratio) × genuine_agreement_ratio.
@@ -182,8 +182,11 @@ class TeamGroundedTruth:
     genuine_agreement_ratio: float           # GAR: fraction consistent with taskwork priors
     social_compliance_ratio: float           # SCR: fraction of revisions = social_compliance
     common_ground_ids: List[str]            # CommonGround episode_ids that fed this
-    outcome: str                             # accept | reject | deferred
+    outcome: str                             # accept | reject | deferred | deferred_to_human | casting_vote
     formed_at_ms: int
+    clinical_context: Dict[str, List[str]] = field(default_factory=dict)
+    # {"symptoms": [...], "medications": [...]} — patient context at episode open;
+    # used by ConvergenceStore.query_relevant() to seed priors for similar patients.
 
 
 # ── AgentBeliefStore ──────────────────────────────────────────────────────────
@@ -540,7 +543,7 @@ class CommonGroundStore:
 
 
 class ConvergenceStore:
-    """Cross-episode store of SNP convergence results (TeamGroundedTruth).
+    """Cross-episode store of SIEP convergence results (TeamGroundedTruth).
 
     Keyed by (concept_id, use_case, episode_id).
     Written to SemanticMemory as new rules at episode close.
@@ -566,6 +569,9 @@ class ConvergenceStore:
 
     def all_for_use_case(self, use_case: str) -> List[TeamGroundedTruth]:
         return [t for (_, uc, _), t in self._store.items() if uc == use_case]
+
+    def records(self) -> List[TeamGroundedTruth]:
+        return list(self._store.values())
 
 
 # ── AgentEpistemicStore ───────────────────────────────────────────────────────
@@ -692,8 +698,8 @@ class SemanticRuleStore:
                 pass
 
 
-# ── SNP Proposal and Negotiation stores ──────────────────────────────────────
-# Spec SNP §2.6: ProposalStore, NegotiationStore, NegotiationIndex, RoundStore
+# ── SIEP Proposal and Negotiation stores ──────────────────────────────────────
+# Spec SIEP §2.6: ProposalStore, NegotiationStore, NegotiationIndex, RoundStore
 
 
 @dataclass
@@ -850,6 +856,21 @@ class TaskworkStore:
 
 
 @dataclass
+class EscalationRule:
+    """Generic escalation rule agreed during team process.
+
+    All fields are opaque strings/floats — no domain vocabulary.
+    Application layer populates ``safety_override_conditions`` with
+    domain-specific trigger labels; the generic layer treats them as opaque.
+    """
+    deadlock_rule: str                     # "casting_vote" | "human_escalation" | "majority_override"
+    casting_vote_holder: str               # agent_id or ""
+    human_escalation_threshold: float      # SCR or round-count above which → human
+    safety_override_conditions: List[str] = field(default_factory=list)  # opaque
+    agreed: bool = False
+
+
+@dataclass
 class RoleAssignment:
     """One agent's role and responsibilities within a panel."""
     agent_id:        str
@@ -874,6 +895,8 @@ class TeamProcessAgreement:
     role_assignments:     List[RoleAssignment] = field(default_factory=list)
     decomposition_agreed: bool = False   # True when all role_assignments have agreed=True
     formed_at_ms:         int = 0
+    session_objective:    str = ""       # opaque goal string from application
+    escalation_rule:      Optional[EscalationRule] = None  # agreed at team process close
 
 
 class TeamProcessStore:
@@ -931,6 +954,7 @@ __all__ = [
     "TaskworkState",
     "TaskworkStore",
     # Team process state
+    "EscalationRule",
     "RoleAssignment",
     "TeamProcessAgreement",
     "TeamProcessStore",

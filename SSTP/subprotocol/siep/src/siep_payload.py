@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from SSTP.subprotocol.common.data_models.drift_dectection import DriftDetectionOutput
+from SSTP.subprotocol.common.data_models.drift_detection import DriftDetectionOutput
 
 SIEP_SCHEMA_URN = "urn:ioc:siep:payload:v1"
 SIEP_ONTOLOGY_REF = "protocol/ontology/siep_ontology.ttl"

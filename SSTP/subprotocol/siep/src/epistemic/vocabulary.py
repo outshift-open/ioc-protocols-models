@@ -8,13 +8,13 @@ Defines the five SpeechAct types, three EpistemicState values, and six BeliefSta
 values that qualify every L9 message epistemically. Also provides:
 
 - make_epistemic_block(): construct a validated epistemic dict for the wire (message_act, state, belief_status, uncertainty)
-- infer_snp_epistemic(): deterministically infer (SpeechAct, EpistemicState) from SNP
+- infer_siep_epistemic(): deterministically infer (SpeechAct, EpistemicState) from SIEP
   operation context without extra wire messages
 
 EpistemicState — three first-class states that drive the L9 epistemic block:
   TASKWORK      — agent forming independent prior; no peer contact yet
   GROUNDING     — pairwise IE exchange; positions being verified or repaired
-  TEAM_PROCESS  — SNP convergence round; team negotiating shared position
+  TEAM_PROCESS  — SIEP convergence round; team negotiating shared position
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ class EpistemicState(str, enum.Enum):
     """The three epistemic states that qualify every L9 peer_turn."""
     TASKWORK     = "taskwork"      # independent prior formation; no peer contact
     GROUNDING    = "grounding"     # pairwise IE exchange; verifying or repairing positions
-    TEAM_PROCESS = "team_process"  # SNP convergence; team negotiating shared position
+    TEAM_PROCESS = "team_process"  # SIEP convergence; team negotiating shared position
 
 
 class BeliefStatus(str, enum.Enum):
@@ -77,7 +77,7 @@ def make_epistemic_block(
     IE sub-protocol extension fields (scope, addresses_evidence, repair_reason,
     challenges) belong in IEPayload — not in the L9 header.
 
-    SNP sub-protocol extension (deferred_to) belongs in NegotiationPayload.proposal_payload.
+    SIEP sub-protocol extension (deferred_to) belongs in NegotiationPayload.proposal_payload.
     """
     def _val(v: Any) -> str:
         return v.value if isinstance(v, enum.Enum) else str(v)
@@ -100,7 +100,7 @@ def infer_snp_epistemic(
     member_conf: float,
     accept_threshold: float = 0.1,
 ) -> Tuple[SpeechAct, EpistemicState]:
-    """Infer (SpeechAct, EpistemicState) from SNP operation context — no wire messages needed.
+    """Infer (SpeechAct, EpistemicState) from SIEP operation context — no wire messages needed.
 
     PROPOSE          → (BELIEF_ASSERTION,    TEAM_PROCESS)  opens convergence round
     NEGOTIATE        → (BELIEF_ASSERTION,    TEAM_PROCESS)  convergence in progress

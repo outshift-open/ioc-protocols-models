@@ -19,76 +19,37 @@ dependency injection only.
 from __future__ import annotations
 
 import logging
-import time
-import uuid
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
-from SSTP.examples.hcpanel.agent_bus import BeliefStoreProxy
+from SSTP.subprotocol.siep.src.panel import NetworkHandle
 from SSTP.examples.hcpanel.domain import ClinicalDebateOutcome, SpecialistOpinion
-from SSTP.examples.hcpanel.episode import L9, TaskworkParticipant
-from SSTP.subprotocol.siep.src.epistemic.stores import AgentBeliefStore
+from SSTP.base import L9, SessionAbortedError, PlanAdherenceError, DebateTimeoutError
+
 
 if TYPE_CHECKING:
-    from SSTP.examples.hcpanel.specialists import PharmacologyController, PhysicianController, SpecialistAgent
+    from SSTP.examples.hcpanel.specialists import SpecialistAgent
     from SSTP.examples.hcpanel.memory import HCPanelMemory
     from SSTP.examples.hcpanel.domain import PatientProfile
+
+from SSTP.examples.hcpanel.specialists import ROLE_DESCRIPTIONS
 
 LOGGER = logging.getLogger("hcpanel")
 
 _CONTROLLER_ID = "diagnostics-controller"
-_TASK_GOAL = (
-    "joint clinical debate: patient symptom assessment, drug interaction risk, "
-    "drug change proposals, and joint recommendation"
-)
-
-_ROLE_DESCRIPTIONS: Dict[str, str] = {
-    "internal_medicine": "board-certified internist performing broad differential diagnosis",
-    "clinical_pharmacology": "clinical pharmacologist specialising in drug-drug interactions",
-    "cardiology": "cardiologist assessing cardiovascular manifestations of medication use",
-    "neurology": "neurologist assessing CNS drug effects and neurotoxicity",
-    "immunology": "immunologist assessing hypersensitivity and immune-mediated adverse events",
-    "pharmacokinetics": "pharmacokineticist assessing ADME and PK drug-drug interactions",
-    "pharmacodynamics": "pharmacodynamicist assessing receptor pharmacology and synergistic effects",
-    "clinical_pharmacy": "clinical pharmacist applying guideline-based therapy and formulary evidence",
-    "drug_safety": "drug safety specialist monitoring adverse events and contraindications",
-    "clinical_toxicology": "clinical toxicologist assessing toxicity risk and high-risk combinations",
-}
-
-
-def _build_role_assignments(
-    all_specialists: List["SpecialistAgent"],
-) -> List[Dict[str, Any]]:
-    concept_map = {
-        "physician": ["concept:drug_interaction", "concept:symptom_assessment"],
-        "pharmacology": ["concept:drug_interaction", "concept:drug_change_proposal"],
-    }
-    return [
-        {
-            "agent_id": a.agent_id,
-            "role": a.role,
-            "responsible_for": concept_map.get(a.panel, ["concept:drug_interaction"]),
-        }
-        for a in all_specialists
-    ]
 
 
 def _positions_to_opinions(
     specialist_positions: Dict[str, Any],
-    all_specialists: List["SpecialistAgent"],
 ) -> List[SpecialistOpinion]:
-    specialist_map = {a.agent_id: a for a in all_specialists}
     opinions = []
     for agent_id, pos in specialist_positions.items():
-        agent = specialist_map.get(agent_id)
-        if agent is None:
-            continue
         opinions.append(SpecialistOpinion(
             specialist_id=agent_id,
-            specialty=agent.role,
-            panel=agent.panel,
+            specialty=str(pos.get("role") or ""),
+            panel=str(pos.get("panel") or ""),
             symptom_assessment=str(pos.get("reasoning_summary") or pos.get("rationale") or ""),
             drug_change_proposal=str(pos.get("drug_change_proposal") or ""),
-            confidence=float(pos.get("confidence") or 0.5),
+            confidence=float(pos.get("posterior") or pos.get("confidence") or 0.5),
             reasoning=str(pos.get("reasoning_summary") or ""),
             likely_cause=str(pos.get("likely_cause") or "drug_interaction"),
             posterior=float(pos.get("posterior") or pos.get("confidence") or 0.5),
@@ -97,258 +58,506 @@ def _positions_to_opinions(
     return opinions
 
 
-def _flatten_rationale(value: Any) -> str:
-    """Return a plain-text string from a rationale that may be a dict, list, or str."""
-    if isinstance(value, dict):
-        for key in ("primary_reasoning", "reasoning", "summary", "rationale", "text"):
-            v = value.get(key)
-            if isinstance(v, str) and v.strip():
-                return v.strip()
-        parts = [str(v) for v in value.values() if isinstance(v, str) and str(v).strip()]
-        return " ".join(parts).strip()
-    if isinstance(value, list):
-        return " ".join(str(x) for x in value if str(x).strip()).strip()
-    return str(value).strip()
-
-
-def _utterance_from_pos(agent: "SpecialistAgent", pos: Dict[str, Any]) -> str:
-    """Return the natural-language utterance for a taskwork result."""
-    raw = pos.get("rationale") or pos.get("reasoning_summary")
-    if raw:
-        utterance = _flatten_rationale(raw)
-        if utterance:
-            return utterance
-    cause = pos.get("likely_cause", "?")
-    conf = float(pos.get("confidence", 0.5))
-    return f"{cause} confidence={conf:.2f}"
-
-
-def _thought_from_pos(pos: Dict[str, Any]) -> str:
-    """Return the thought_summary from a position dict if present."""
-    return str(pos.get("thought_summary") or "").strip()
-
-
 class DebateOrchestrator:
     """Runs the joint panel negotiation for one patient episode."""
 
     def __init__(
         self,
-        physician_ctrl: "PhysicianController",
-        pharmacy_ctrl: "PharmacologyController",
+        specialists: 'List["SpecialistAgent"]',
         memory: "HCPanelMemory",
-        ie_bus: Any,
-        tom_engine: Optional[Any] = None,
+        message_bus: NetworkHandle,
+        llm_factory: Optional[Any] = None,
         repair_fn: Optional[Any] = None,
+        llm: Optional[Any] = None,
     ) -> None:
-        self.physician_ctrl = physician_ctrl
-        self.pharmacy_ctrl = pharmacy_ctrl
+        self.specialists = specialists
         self.memory = memory
-        self.ie_bus = ie_bus
-        self.tom_engine = tom_engine
+        self.message_bus = message_bus
+        self._llm_factory = llm_factory
         self.repair_fn = repair_fn
+        self.llm = llm
 
     def run_joint_panel(
         self,
         patient: "PatientProfile",
         episode_id: str,
-        physician_positions: Dict[str, Dict[str, Any]],
-        pharmacy_positions: Dict[str, Dict[str, Any]],
     ) -> ClinicalDebateOutcome:
-        from collections import Counter
-        from SSTP.subprotocol.siep.src.epistemic.stores import TeamProcessAgreement, RoleAssignment
-
-        all_specialists = (
-            self.physician_ctrl.specialists + self.pharmacy_ctrl.specialists
-        )
+        all_specialists = self.specialists
+        specialist_map = {a.agent_id: a for a in all_specialists}
         all_ids = [a.agent_id for a in all_specialists]
-        all_positions = {**physician_positions, **pharmacy_positions}
 
-        # BeliefStoreProxy — routes PanelBus belief reads/writes to each
-        # specialist's private AgentBeliefStore.
-        controller_belief_store = AgentBeliefStore()
-        agent_store_map = {agent.agent_id: agent.belief_store for agent in all_specialists}
-        agent_store_map[_CONTROLLER_ID] = controller_belief_store
-        belief_proxy = BeliefStoreProxy(agent_store_map)
+        # ── TP-1: case-specific session objective and role assignments ───
+        case_frame: Dict[str, Any] = {}
+        if self.llm is not None:
+            try:
+                case_frame = self.llm.complete_json("tp_case_frame", {
+                    "caller_id": _CONTROLLER_ID,
+                    "patient_id": patient.patient_id,
+                    "symptoms": patient.symptoms,
+                    "health_history": patient.health_history,
+                    "current_medications": patient.current_medications,
+                    "available_specialists": [
+                        {"agent_id": a.agent_id, "role": a.role, "panel": a.panel}
+                        for a in all_specialists
+                    ],
+                })
+            except Exception as exc:
+                LOGGER.warning("tp_case_frame failed: %s", exc)
 
-        # Seed ToM engine with specialist roles.
-        if self.tom_engine is not None:
-            session_ctx = {
-                "patient_id": patient.patient_id,
-                "task_goal": _TASK_GOAL,
-                "symptoms": patient.symptoms,
-                "medications": patient.current_medications,
-            }
-            for agent in all_specialists:
-                role_desc = _ROLE_DESCRIPTIONS.get(agent.role, agent.role)
-                try:
-                    ctrl_tom = self.tom_engine.agent(_CONTROLLER_ID)
-                    ctrl_tom.seed_peer(agent.agent_id, role_desc, session_ctx)
-                    agent_tom = self.tom_engine.agent(agent.agent_id)
-                    agent_tom.seed_peer(
-                        _CONTROLLER_ID,
-                        "diagnostics coordinator driving joint clinical debate",
-                        session_ctx,
-                    )
-                except Exception as exc:
-                    LOGGER.warning("tom.seed_peer failed agent=%s err=%s", agent.agent_id, exc)
+        session_objective: str = case_frame.get(
+            "session_objective",
+            "joint clinical debate: patient symptom assessment, drug interaction risk, "
+            "drug change proposals, and joint recommendation",
+        )
+        primary_question: str = case_frame.get("primary_question", "")
+        responsible_for: Dict[str, Any] = case_frame.get("responsible_for") or {}
 
-        episode_tp = f"{episode_id}:tp"
-        episode_tw = f"{episode_id}:tw"
+        # Build peer-description map for L9 ToM seeding — role descriptions
+        # are domain knowledge; L9 handles all seed_peer calls internally.
+        peer_descriptions = {
+            a.agent_id: ROLE_DESCRIPTIONS.get(a.role, a.role)
+            for a in all_specialists
+        }
 
-        # Controller L9 entry point — tom_engine and task_goal wired in once.
+        # Controller L9 — tom_engine and peer_descriptions are wired in here so
+        # all ToM seeding and assessment happen inside the episode API.
+        # Neither specialists nor orchestration logic ever touch tom_engine directly.
         ctrl_l9 = L9(
-            self.ie_bus,
+            self.message_bus,
             agent_id=_CONTROLLER_ID,
-            tom_engine=self.tom_engine,
-            task_goal=_TASK_GOAL,
+            llm_factory=self._llm_factory,
+            task_goal=session_objective,
+            peer_descriptions=peer_descriptions,
         )
 
         # ── EPISODE A: team process ──────────────────────────────────────
-        role_assignments = _build_role_assignments(all_specialists)
-        agreement = TeamProcessAgreement(
-            episode_id=episode_tp,
-            round_id=str(uuid.uuid4()),
-            coordinator_id=_CONTROLLER_ID,
-            participant_ids=list(all_ids),
-            role_assignments=[
-                RoleAssignment(
-                    agent_id=ra["agent_id"],
-                    role=ra["role"],
-                    responsible_for=list(ra.get("responsible_for", [])),
-                    assigned_at_ms=int(time.time() * 1000),
-                    agreed=False,
-                )
-                for ra in role_assignments
-            ],
-            formed_at_ms=int(time.time() * 1000),
-        )
-
-        tp_episode = ctrl_l9.open_team_process(
-            concept_id=patient.patient_id,
-            group=all_ids,
-            episode_id=episode_tp,
-            agreement=agreement,
-            task_goal=_TASK_GOAL,
-            rationale=f"Opening team process for patient {patient.patient_id}: assigning roles to {len(all_ids)} specialists.",
-            thought_summary=f"Initiating team formation before taskwork; {len(all_ids)} specialists need role assignments.",
-        )
-        tp_episode.run()
-        tp_episode.close(
-            rationale=(
-                f"All {len(all_ids)} specialists acknowledged their role assignments. "
-                f"Team structure is confirmed — taskwork gate is now open."
-            ),
-            thought_summary=(
-                f"{len(all_ids)} role assignments accepted; team process converged, proceeding to taskwork."
-            ),
-        )
-
-        # ── EPISODE B: taskwork assessments ─────────────────────────────
-        participants = [
-            TaskworkParticipant(
-                agent_id=agent.agent_id,
-                utterance=_utterance_from_pos(agent, all_positions.get(agent.agent_id, {})),
-                posterior=float(
-                    all_positions.get(agent.agent_id, {}).get("posterior")
-                    or all_positions.get(agent.agent_id, {}).get("confidence")
-                    or 0.5
+        # TP-2: SIEP callbacks for TeamProcessEpisode governance debate
+        current_team_process: Dict[str, Any] = {
+                "session_objective": session_objective,
+                "primary_question": primary_question,
+                "role_assignments": responsible_for,
+                "prior_establishment": (
+                    "Before debate, each specialist independently declares a taskwork prior: "
+                    "their initial likelihood estimate for the primary question based on their "
+                    "domain expertise alone, without peer influence. Priors are collected in a "
+                    "dedicated taskwork episode so that baseline beliefs are on record before "
+                    "any exchange occurs."
                 ),
-                concept_id=f"urn:concept:healthcare:{all_positions.get(agent.agent_id, {}).get('likely_cause', '?')}",
-                belief_store=agent.belief_store,
-                thought_summary=_thought_from_pos(all_positions.get(agent.agent_id, {})),
-            )
-            for agent in all_specialists
-        ]
+                "debate_format": (
+                    "Debate is a structured negotiation protocol (SIEP). The coordinator "
+                    "synthesises all priors into a controller position and opens a panel. "
+                    "Each specialist may accept or counter the controller position with a "
+                    "competing proposal. Rounds continue until consensus is reached or the "
+                    "maximum round limit is exhausted."
+                ),
+                "contingency_rules": {
+                    "description": (
+                        "A contingency is raised when a specialist's counter-proposal cannot "
+                        "be resolved within the current exchange round. The contingency episode "
+                        "captures the unresolved disagreement and triggers a repair pass. If "
+                        "the repair pass produces agreement the session resumes; if not, the "
+                        "contingency escalates to the deadlock rule below."
+                    ),
+                    "deadlock_rule": "casting_vote",
+                    "casting_vote_holder": _CONTROLLER_ID,
+                    "human_escalation_threshold": 0.6,
+                },
+                "no_convergence_handling": (
+                    f"If the panel fails to reach full consensus after all SIEP rounds, "
+                    f"the session resolves by majority rule: the position held by the "
+                    f"largest coalition of specialists is adopted. If no majority exists "
+                    f"(tie), the casting vote of {_CONTROLLER_ID} is applied. "
+                    f"If the winning position's confidence remains below "
+                    f"{0.6} after casting vote, the case is flagged for human escalation "
+                    f"and the session closes with resolution_label=human_escalation."
+                ),
+        }
 
-        tw_episode = ctrl_l9.open_taskwork(
+        def _tp_pivot_fn(
+            ctrl_pos: Dict[str, Any],
+            counter_list: List[Dict[str, Any]],
+            accept_list: List[Dict[str, Any]],
+            task_goal: str,
+        ) -> Dict[str, Any]:
+            if self.llm is None:
+                return ctrl_pos
+            try:
+                result = self.llm.complete_json("tp_debate_pivot_synthesis", {
+                    "governance_terms": ctrl_pos.get("team_process_terms", {}),
+                    "counter_proposals": [
+                        {"agent_id": c.get("agent_id"), "concerns": c.get("rationale", "")}
+                        for c in counter_list
+                    ],
+                    "task_goal": task_goal,
+                })
+                return {
+                    **ctrl_pos,
+                    "team_process_terms": result.get(
+                        "revised_governance_terms",
+                        ctrl_pos.get("team_process_terms", {}),
+                    ),
+                    "confidence": float(result.get("confidence", 0.9)),
+                    "rationale": result.get("rationale", ""),
+                }
+            except Exception as exc:
+                LOGGER.warning("tp_debate_pivot_synthesis failed: %s", exc)
+                return ctrl_pos
+
+        def _tp_commit_fn(winning_position: Dict[str, Any], _resolution_label: str) -> None:
+            # commit:converged fires before this callback (synchronous bus), so we cannot
+            # rely on _on_commit reading process_params from the wire.  Write directly.
+            terms = winning_position.get("team_process_terms") or current_team_process
+            role_assignments = terms.get("role_assignments") or responsible_for
+            for _aid, _spec in specialist_map.items():
+                _role = role_assignments.get(_aid) or []
+                _spec.process_params = {
+                    "role_assignment": _role,
+                    "session_objective": terms.get("session_objective", session_objective),
+                    "debate_format": terms.get("debate_format", ""),
+                    "contingency_rules": terms.get("contingency_rules", {}),
+                    "no_convergence_handling": terms.get("no_convergence_handling", ""),
+                }
+                if _spec.llm is not None:
+                    try:
+                        _spec.llm.complete_json("tp_process_commit", {
+                            "agent_id": _aid,
+                            "role": _spec.role,
+                            "final_team_process": _spec.process_params,
+                            "role_assignment": _role,
+                        })
+                    except Exception as _exc:
+                        LOGGER.warning("tp_process_commit %s: %s", _aid, _exc)
+
+        session = ctrl_l9.open_session(
+            session_id=episode_id,
             concept_id=patient.patient_id,
             group=all_ids,
-            episode_id=episode_tw,
-            participants=participants,
-            task_goal=_TASK_GOAL,
-            coordinator_id=_CONTROLLER_ID,
-            team_process={
+            task_goal=session_objective,
+        )
+
+        try:
+            tp_result = session.run_team_process(
+                team_process=current_team_process,
+                pivot_fn=_tp_pivot_fn,
+                commit_fn=_tp_commit_fn,
+                convergence_store=self.memory.convergence_store,
+                semantic_rule_store=self.memory.semantic_rule_store,
+                rationale=(
+                    f"Opening team process for patient {patient.patient_id}: "
+                    f"governance debate with {len(all_ids)} specialists."
+                ),
+                thought_summary=(
+                    f"SIEP governance debate: {len(all_ids)} specialists converge on team process."
+                ),
+            )
+        except (SessionAbortedError, PlanAdherenceError) as exc:
+            LOGGER.error("session failed during team-process: %s", exc)
+            raise
+        _tp_win = tp_result.winning_position
+        session.announce_knowledge(
+            concept_id="urn:concept:healthcare:team_process",
+            value="team_process",
+            value_detail={k: v for k, v in _tp_win.items() if k not in ("likely_cause", "posterior")},
+            posterior=tp_result.mpc,
+            gar=tp_result.gar,
+            scr=tp_result.scr,
+            episode_id=tp_result.episode_id,
+        )
+
+        # ── EPISODE B: taskwork SIEP debate ─────────────────────────────
+        # Controller opens with patient data embedded so each specialist can
+        # independently assess and declare its prior during _on_debate_round.
+        #
+        # Query team-memory via the wire for relevant prior knowledge.
+        # team-memory scores stored convergence records by Jaccard similarity
+        # against this patient's symptoms + medications and returns the best
+        # match.  If nothing is relevant the seed falls back to 0.5.
+        _prior_query_msg: Dict[str, Any] = {
+            "kind": "intent",
+            "sender": "diagnostics-controller",
+            "receiver": "team-memory",
+            "participants": {"actors": [
+                {"id": "diagnostics-controller", "role": "diagnostics-controller", "participant_type": "sender"},
+                {"id": "team-memory", "role": "team-memory", "participant_type": "recipient"},
+            ]},
+            "payload": [{
+                "type": "query:relevant",
+                "location": "inline",
+                "content": {
+                    "symptoms": patient.symptoms,
+                    "medications": patient.current_medications,
+                },
+            }],
+        }
+        _prior_before = len(self.message_bus.messages)
+        self.message_bus.send(_prior_query_msg)
+        _prior_results: List[Dict[str, Any]] = []
+        for _m in self.message_bus.messages[_prior_before:]:
+            for _p in _m.get("payload", []):
+                if _p.get("type") == "prior:relevant":
+                    _prior_results = _p.get("content") or []
+        _tw_seed = _prior_results[0] if _prior_results else None
+
+        _tw_seed_concept = _tw_seed["concept_id"] if _tw_seed else f"urn:concept:healthcare:{patient.patient_id}"
+        _tw_seed_cause = _tw_seed["value"] if _tw_seed else "drug_interaction"
+        _tw_seed_conf = round(float(_tw_seed["posterior"]), 4) if _tw_seed else 0.5
+        _tw_seed_score = _tw_seed["score"] if _tw_seed else 0.0
+        _tw_seed_rationale = (
+            f"team-memory: prior knowledge (Jaccard={_tw_seed_score:.2f}): {_tw_seed_cause} "
+            f"posterior={_tw_seed_conf:.2f} "
+            f"gar={_tw_seed['gar']:.2f} scr={_tw_seed['scr']:.2f}"
+            if _tw_seed else f"team-memory: no relevant prior — uninformed prior for {patient.patient_id}"
+        )
+
+        tw_controller_position: Dict[str, Any] = {
+            "likely_cause": _tw_seed_cause,
+            "confidence": _tw_seed_conf,
+            "posterior": _tw_seed_conf,
+            "rationale": _tw_seed_rationale,
+            "supporting_evidence": [],
+            "concept_id": _tw_seed_concept,
+            "team_process": {
                 "symptoms": patient.symptoms,
                 "medications": patient.current_medications,
                 "chat_history": patient.chat_history,
             },
-            rationale=f"Opening taskwork for patient {patient.patient_id}: collecting independent priors from {len(all_ids)} specialists.",
-            thought_summary=f"Each specialist must declare their prior before peer exchange begins.",
-        )
-        tw_episode.run()
-        tw_episode.close(
-            rationale=(
-                f"Independent priors declared by all {len(all_ids)} specialists for patient "
-                f"{patient.patient_id}. Each agent has stated its position before peer exchange — "
-                f"baseline beliefs are on record."
-            ),
-            thought_summary=(
-                f"All {len(all_ids)} prior declarations received; taskwork baseline established, proceeding to panel debate."
-            ),
-        )
-
-        # ── EPISODE C: SIEP panel negotiation ───────────────────────────
-        cause_counts: Counter = Counter(
-            str(pos.get("likely_cause", "drug_interaction"))
-            for pos in physician_positions.values()
-        )
-        leading_cause = cause_counts.most_common(1)[0][0] if cause_counts else "drug_interaction"
-        physician_confs = [
-            float(pos.get("confidence", 0.5))
-            for pos in physician_positions.values()
-            if str(pos.get("likely_cause")) == leading_cause
-        ]
-        ctrl_confidence = round(
-            sum(physician_confs) / len(physician_confs) if physician_confs else 0.65, 4
-        )
-        controller_position: Dict[str, Any] = {
-            "likely_cause": leading_cause,
-            "confidence": ctrl_confidence,
-            "posterior": ctrl_confidence,
-            "supporting_evidence": [leading_cause],
-            "reasoning_summary": (
-                f"Physician plurality: {leading_cause} "
-                f"({len(physician_confs)}/{len(physician_positions)})"
-            ),
-            "rationale": f"Physician panel plurality position: {leading_cause}",
+        }
+        tw_specialist_positions: Dict[str, Any] = {
+            a.agent_id: {
+                "likely_cause": _tw_seed_cause,
+                "confidence": _tw_seed_conf,
+                "posterior": _tw_seed_conf,
+                "rationale": "",
+                "supporting_evidence": [],
+                "role": a.role,
+                "panel": a.panel,
+            }
+            for a in all_specialists
         }
 
+        # Update the session concept_id so _get_team_prior in run_taskwork
+        # looks up the clinical concept, not the patient-scoped key.
+        session.concept_id = _tw_seed_concept
+
+        try:
+            tw_result = session.run_taskwork(
+                tw_controller_position,
+                tw_specialist_positions,
+                accept_threshold=0.15,
+                max_rounds=2,
+                convergence_store=self.memory.convergence_store,
+                semantic_rule_store=self.memory.semantic_rule_store,
+                repair_fn=self.repair_fn,
+            )
+        except (SessionAbortedError, PlanAdherenceError) as exc:
+            LOGGER.error("session failed during taskwork: %s", exc)
+            raise
+        _tw_win = tw_result.winning_position
+        _tw_concept_id = f"urn:concept:healthcare:{_tw_win.get('likely_cause', 'unknown')}"
+        session.announce_knowledge(
+            concept_id=_tw_concept_id,
+            value=_tw_win.get("likely_cause", "unknown"),
+            value_detail={k: v for k, v in _tw_win.items() if k not in ("likely_cause", "posterior")},
+            posterior=tw_result.mpc,
+            gar=tw_result.gar,
+            scr=tw_result.scr,
+            episode_id=tw_result.episode_id,
+        )
+
+        # SIEP winning position becomes the Episode C controller position.
+        # Specialist positions are updated in tw_result.specialist_positions
+        # by each agent's _on_debate_round response.
+        # Merge each specialist's taskwork assessment so that rationale,
+        # supporting_evidence and posterior reflect the actual assessment,
+        # not the empty seed — this matters for agents who accepted in TW
+        # and whose seed position was never overwritten by a counter-proposal.
+        all_positions: Dict[str, Any] = {}
+        for agent_id, pos in tw_result.specialist_positions.items():
+            sp = specialist_map.get(agent_id)
+            assessment = sp._taskwork_assessment if sp is not None else {}
+            merged: Dict[str, Any] = {**pos}
+            if assessment:
+                merged.setdefault("rationale", assessment.get("rationale", ""))
+                merged.setdefault("reasoning_summary", assessment.get("rationale", ""))
+                if not merged.get("supporting_evidence"):
+                    merged["supporting_evidence"] = assessment.get("evidence") or []
+                # Always apply the specialist's own assessment confidence as their
+                # starting T-phase position — the TW seed is a team prior, not
+                # the specialist's individual belief.
+                _aconf_raw = assessment.get("confidence") or assessment.get("posterior")
+                if _aconf_raw is not None:
+                    _aconf = float(_aconf_raw)
+                    merged["posterior"] = _aconf
+                    merged["confidence"] = _aconf
+                if not merged.get("likely_cause") or merged["likely_cause"] == "drug_interaction":
+                    if assessment.get("likely_cause"):
+                        merged["likely_cause"] = assessment["likely_cause"]
+            merged["panel"] = sp.panel if sp is not None else ""
+            all_positions[agent_id] = merged
+
+        # ── Build compact case_summary from TW output ───────────────────
+        # Used by T-phase specialist calls instead of raw patient data.
+        # Built deterministically — no extra LLM call.
+        _cause_spread: Dict[str, int] = {}
+        for _pos in all_positions.values():
+            _c = _pos.get("likely_cause") or "drug_interaction"
+            _cause_spread[_c] = _cause_spread.get(_c, 0) + 1
+        _spread_str = ", ".join(
+            f"{_c}({_n})" for _c, _n in sorted(_cause_spread.items(), key=lambda x: -x[1])
+        )
+        _all_evidence: List[str] = []
+        for _pos in all_positions.values():
+            _all_evidence.extend((list(_pos.get("supporting_evidence") or []))[:2])
+        # Deduplicate preserving order
+        _seen: set = set()
+        _deduped_evidence: List[str] = []
+        for _e in _all_evidence:
+            if _e not in _seen:
+                _seen.add(_e)
+                _deduped_evidence.append(_e)
+        case_summary: str = (
+            f"Patient {patient.patient_id}: "
+            f"symptoms=[{', '.join(str(s) for s in patient.symptoms[:3])}]; "
+            f"meds=[{', '.join(str(m) for m in patient.current_medications[:4])}]; "
+            f"TW prior spread: {_spread_str}; "
+            f"key evidence: {'; '.join(_deduped_evidence[:6])}"
+        )
+
+        # Strip team_process (raw patient data) from all_positions — it was needed in TW
+        # for patient context but must not be forwarded into T-phase where it bloats every
+        # specialist call. Other metadata (role, panel, etc.) is filtered at the siep-ctx
+        # wire boundary by _POS_KEYS in negotiation.py.
+        all_positions = {
+            _aid: {k: v for k, v in _pos.items() if k != "team_process"}
+            for _aid, _pos in all_positions.items()
+        }
+
+        # ── EPISODE C: SIEP panel negotiation ───────────────────────────
+        # Winning taskwork position is the controller's starting point for the task debate.
+        controller_position: Dict[str, Any] = dict(tw_result.winning_position) if tw_result.winning_position else {}
+        if not controller_position:
+            from collections import Counter as _Counter
+            cause_counts = _Counter(
+                pos.get("likely_cause") or "drug_interaction"
+                for pos in all_positions.values()
+            )
+            leading_cause = cause_counts.most_common(1)[0][0]
+            matching = [
+                pos for pos in all_positions.values()
+                if (pos.get("likely_cause") or "drug_interaction") == leading_cause
+            ]
+            ctrl_conf = round(
+                sum(p.get("confidence", 0.5) for p in matching) / len(matching)
+                if matching else 0.65,
+                4,
+            )
+            controller_position = {
+                "likely_cause": leading_cause,
+                "confidence": ctrl_conf,
+                "posterior": ctrl_conf,
+                "supporting_evidence": [leading_cause],
+                "rationale": f"Plurality position: {leading_cause} ({len(matching)}/{len(all_ids)})",
+                "reasoning_summary": f"Plurality position: {leading_cause}",
+            }
+
+        # Attach case_summary to controller position — propagated via ctrl_pos to every
+        # specialist call so they have compact patient context without raw patient data.
+        controller_position["case_summary"] = case_summary
+        controller_position.pop("team_process", None)
+
+        _ctrl_conf = float(
+            controller_position.get("confidence") or controller_position.get("posterior") or 0.5
+        )
         LOGGER.info(
             "debate.panel_open episode=%s controller_position=%s confidence=%.4f members=%d",
-            episode_id, leading_cause, ctrl_confidence, len(all_ids),
+            episode_id, controller_position.get("likely_cause"), _ctrl_conf, len(all_ids),
         )
 
-        task_ep = ctrl_l9.open_task(
-            concept_id=f"urn:concept:healthcare:{leading_cause}",
-            group=all_ids,
-            convergence_store=self.memory.convergence_store,
-            semantic_rule_store=self.memory.semantic_rule_store,
-            peer_interaction_store=self.memory.peer_interaction_store,
-            belief_store=belief_proxy,
-            tom_engine=self.tom_engine,
-            repair_fn=self.repair_fn,
-            task_name="hcpanel",
-        )
-        task_ep.run(
-            controller_position=controller_position,
-            specialist_positions=all_positions,
-            task_goal=_TASK_GOAL,
-            accept_threshold=0.1,
-            max_rounds=2,
-        )
-        task_ep.announce(
-            concept_id=task_ep.winning_position_key,
-            posterior=task_ep.mpc,
-            gar=task_ep.gar,
-            scr=task_ep.scr,
-        )
+        def _pivot_fn(
+            ctrl_pos: Dict[str, Any],
+            counter_list: List[Dict[str, Any]],
+            accept_list: List[Dict[str, Any]],
+            task_goal: str,
+        ) -> Dict[str, Any]:
+            if self.llm is None:
+                return ctrl_pos
+            try:
+                trimmed_counters = [
+                    {
+                        "agent_id": c.get("agent_id", ""),
+                        "likely_cause": c.get("counter_concept") or c.get("likely_cause", ""),
+                        "confidence": c.get("counter_confidence") or c.get("confidence", 0.5),
+                        "rationale": str(c.get("rationale", ""))[:200],
+                        "supporting_evidence": (c.get("supporting_evidence") or [])[:2],
+                    }
+                    for c in counter_list
+                ]
+                result = self.llm.complete_json("debate_pivot_synthesis", {
+                    "original_position": {
+                        "likely_cause": ctrl_pos.get("likely_cause", ""),
+                        "confidence": ctrl_pos.get("confidence", 0.5),
+                        "rationale": str(ctrl_pos.get("rationale", ""))[:200],
+                    },
+                    "counter_proposals": trimmed_counters,
+                    "accept_count": len(accept_list),
+                    "task_goal": task_goal,
+                })
+                return {
+                    "likely_cause": result["revised_concept"],
+                    "confidence": float(result["revised_confidence"]),
+                    "posterior": float(result["revised_confidence"]),
+                    "rationale": result.get("rationale", ""),
+                    "supporting_evidence": result.get("supporting_evidence", []),
+                    "addresses_evidence": result.get("addresses_evidence", []),
+                    "reasoning_summary": result.get("rationale", ""),
+                }
+            except Exception as exc:
+                LOGGER.warning("debate_pivot_synthesis failed: %s", exc)
+                return ctrl_pos
 
-        snp_trace = task_ep.snp_trace
-        winning_position = task_ep.winning_position
-        resolution_label = task_ep.resolution_label or "timeout_majority"
-        task_episode_id = task_ep.episode_id
-        metrics = {"gar": task_ep.gar, "scr": task_ep.scr, "mpc": task_ep.mpc}
-        opinions = _positions_to_opinions(all_positions, all_specialists)
+        try:
+            task_result = session.run_task(
+                controller_position,
+                all_positions,
+                concept_id=f"urn:concept:healthcare:{controller_position.get('likely_cause', 'unknown')}",
+                accept_threshold=0.1,
+                max_rounds=2,
+                max_extra_rounds=3,
+                convergence_store=self.memory.convergence_store,
+                semantic_rule_store=self.memory.semantic_rule_store,
+                repair_fn=self.repair_fn,
+                task_name="hcpanel",
+                pivot_fn=_pivot_fn,
+            )
+        except (SessionAbortedError, PlanAdherenceError) as exc:
+            LOGGER.error("session failed during task: %s", exc)
+            raise
+        except DebateTimeoutError as exc:
+            LOGGER.error(
+                "debate.timeout_error rounds=%d gar=%.2f mpc=%.2f — "
+                "pivot did not converge; treat as system fault",
+                exc.rounds_run, exc.gar, exc.mpc,
+            )
+            raise
+
+        winning_position = task_result.winning_position
+        resolution_label = task_result.resolution_label
+        task_episode_id = task_result.episode_id
+        metrics = {"gar": task_result.gar, "scr": task_result.scr, "mpc": task_result.mpc}
+        opinions = _positions_to_opinions(all_positions)
+
+        _t_cause = winning_position.get("likely_cause", "unknown") if isinstance(winning_position, dict) else "unknown"
+        _t_concept_id = f"urn:concept:healthcare:{_t_cause}"
+        _t_value_detail = {k: v for k, v in winning_position.items() if k not in ("likely_cause", "posterior")} if isinstance(winning_position, dict) else {}
+        session.announce_knowledge(
+            concept_id=_t_concept_id,
+            value=_t_cause,
+            value_detail=_t_value_detail,
+            posterior=task_result.mpc,
+            gar=task_result.gar,
+            scr=task_result.scr,
+            episode_id=task_result.episode_id,
+        )
 
         win_key = str(
             winning_position.get("likely_cause")
@@ -362,7 +571,7 @@ class DebateOrchestrator:
         )
 
         proposed_changes: List[str] = []
-        for pos in pharmacy_positions.values():
+        for pos in all_positions.values():
             changes = pos.get("proposed_changes") or pos.get("drug_change_proposal") or []
             if isinstance(changes, list):
                 proposed_changes.extend(changes)
@@ -392,6 +601,5 @@ class DebateOrchestrator:
             mpc=metrics["mpc"],
             resolution_label=resolution_label,
             specialist_opinions=opinions,
-            snp_trace=snp_trace,
             panel_episode_id=task_episode_id,
         )

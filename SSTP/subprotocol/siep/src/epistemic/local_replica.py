@@ -43,7 +43,7 @@ class ReplicaEntry:
     # IE utterance concept fields — from IEPayload.utterance
     ie_concept_ids:        List = field(default_factory=list)  # concept URIs this turn asserts about
     ie_addresses_evidence: List = field(default_factory=list)  # concept URIs from prior turn engaged
-    # SNP deliberation-pass field — from payload[type=snp].proposal_payload
+    # SIEP deliberation-pass field — from payload[type=snp].proposal_payload
     snp_deferred_to: Optional[str] = None  # agent_id this turn defers to; only set on compliance accepts
     # Header-level topic — what the message is about (header["topic"], with fallback to epistemic["concept_id"])
     topic: Optional[str] = None
@@ -101,7 +101,7 @@ class LocalStateReplica:
             ie_addresses_evidence = list(utterance.get("addresses_evidence") or [])
 
         # Extract deferred_to from payload[type=snp].proposal_payload — present only
-        # on SNP deliberation-pass compliance accepts. Never read from epistemic.
+        # on SIEP deliberation-pass compliance accepts. Never read from epistemic.
         snp_deferred_to: Optional[str] = None
         for part in header.get("payload") or []:
             if part.get("type") == "snp":

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import ast
+import datetime
 import json
 import logging
+import os
 import random
 import re
-from typing import Any, Dict, List
+import time
+from typing import Any, Dict, List, Optional
 
 from SSTP.subprotocol.siep.src.tomcore.llm import LLMClient
 from SSTP.examples.hcpanel.interaction_semantics import KNOWN_INTERACTION_PAIRS
@@ -274,6 +277,16 @@ def _extract_json_candidate(content: str) -> str:
         return content[first_bracket : last_bracket + 1]
     return content
 
+_MAX_RETRIES = 2
+
+# Tasks whose payloads are large enough that Bedrock cross-region routing can return
+# empty HTTP 200 bodies when token generation starts late. For these we allow more
+# retries with exponential backoff and a per-call timeout.
+_HEAVY_TASK_RETRIES = 5
+_HEAVY_TASKS: set[str] = {"debate_pivot_synthesis", "tp_debate_pivot_synthesis"}
+_CALL_TIMEOUT = 90       # seconds — prevents indefinite blocking on hung Bedrock calls
+_HEAVY_CALL_TIMEOUT = 150
+
 
 def _parse_jsonish_object(raw_content: Any) -> Dict[str, Any]:
     content = _strip_code_fences(_coerce_text_content(raw_content))
@@ -312,18 +325,66 @@ def _parse_jsonish_object(raw_content: Any) -> Dict[str, Any]:
 def _fallback_response_for_task(task: str, payload: Dict[str, Any]) -> Dict[str, Any] | None:
     if task == "pharmacy_interaction_review":
         return _deterministic_pharmacy_review(payload)
+    if task == "debate_pivot_synthesis":
+        return _deterministic_pivot_synthesis(payload)
     return None
+
+
+def _deterministic_pivot_synthesis(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Weighted-confidence vote across counter_proposals — last-resort fallback when
+    the LLM call fails after all retries.  Mirrors the SimulatedHealthcareLLMClient
+    implementation so the session can continue with a meaningful pivot rather than
+    returning the stale controller position unchanged."""
+    counters = payload.get("counter_proposals", [])
+    original = payload.get("original_position", {})
+    if counters:
+        by_concept: Dict[str, float] = {}
+        for c in counters:
+            cpt = str(c.get("likely_cause") or c.get("counter_concept") or "")
+            if not cpt:
+                continue
+            cft = float(c.get("confidence", 0.5))
+            by_concept[cpt] = by_concept.get(cpt, 0.0) + cft
+        if by_concept:
+            revised_concept = max(by_concept, key=lambda k: by_concept[k])
+            n = max(1, len(counters))
+            revised_confidence = round(by_concept[revised_concept] / n, 4)
+        else:
+            revised_concept = str(original.get("likely_cause") or "unknown")
+            revised_confidence = float(original.get("confidence", 0.5))
+    else:
+        revised_concept = str(original.get("likely_cause") or "unknown")
+        revised_confidence = float(original.get("confidence", 0.5))
+    return {
+        "revised_concept": revised_concept,
+        "revised_confidence": revised_confidence,
+        "rationale": f"Deterministic pivot to {revised_concept} based on {len(counters)} counter-proposals (LLM unavailable).",
+        "supporting_evidence": [],
+        "addresses_evidence": [str(c.get("rationale", ""))[:80] for c in counters[:3]],
+        "thought_summary": f"Fallback pivot: {revised_concept} (weighted confidence sum, no LLM).",
+    }
 
 
 def _response_has_required_keys(task: str, parsed: Dict[str, Any]) -> bool:
     required_keys = {
         "pharmacy_interaction_review": ("interaction_risks", "proposed_changes", "risk_score"),
+        "tp_case_frame":               ("session_objective", "responsible_for"),
+        "tp_escalation_debate":        ("decision", "rationale"),
+        "tp_process_debate":           ("decision", "rationale"),
+        "tp_process_synthesis":        ("decision", "revised_team_process"),
+        "tp_process_commit":           ("acknowledged_objective", "process_understood"),
+        "debate_controller_synthesis":    ("proposed_concept", "confidence"),
+        "debate_accept_or_counter":       ("decision", "rationale"),
+        "debate_pivot_synthesis":         ("revised_concept", "revised_confidence"),
+        "tp_debate_accept_or_counter":    ("decision", "rationale"),
+        "tp_debate_pivot_synthesis":      ("revised_governance_terms", "confidence"),
     }
     return all(key in parsed for key in required_keys.get(task, ()))
 
 
 class SimulatedHealthcareLLMClient(LLMClient):
-    def __init__(self) -> None:
+    def __init__(self, agent_id: str = "") -> None:
+        self.agent_id = agent_id
         self._trace_buffer: List[Dict[str, Any]] = []
 
     def _record_trace(
@@ -340,6 +401,8 @@ class SimulatedHealthcareLLMClient(LLMClient):
             {
                 "task": task,
                 "backend": "simulated",
+                "agent_id": self.agent_id,
+                "msg_created": datetime.datetime.utcnow().isoformat() + "Z",
                 "request": {
                     "system_prompt": system_prompt,
                     "user_payload": payload,
@@ -712,7 +775,7 @@ class SimulatedHealthcareLLMClient(LLMClient):
         if task == "tom_belief_infer":
             return {"belief_model": f"Agent focused on {str(payload.get('task_goal', ''))[:40]}", "on_task": True, "task_commitment_score": 0.75, "reasoning": "simulated"}
 
-        if task == "ie_utterance_judge":
+        if task == "utterance_judge":
             utterance = str(payload.get("utterance", ""))
             u = utterance.lower()
 
@@ -865,6 +928,54 @@ class SimulatedHealthcareLLMClient(LLMClient):
             )
             return response
 
+        if task == "grounding_judge":
+            utterance = str(payload.get("utterance", ""))
+            structural_score = float(payload.get("structural_contingency_score", 1.0))
+            structural_verified = bool(payload.get("structural_contingency_verified", True))
+            # Simulated: start from structural score, apply token-overlap refinement
+            u = utterance.lower()
+            task_goal = str(payload.get("task_goal", ""))
+            ambiguous = utterance.strip().endswith("?") or len(utterance.strip()) < 15
+            ambiguity_score = 0.75 if ambiguous else 0.08
+            # Concept overlap between utterance tokens and task goal tokens
+            _stop = {"the", "a", "an", "and", "or", "to", "in", "on", "for", "of", "is", "are",
+                     "we", "i", "you", "this", "that", "with", "from"}
+            tg_tokens = {w for w in re.findall(r"[a-z0-9_]+", task_goal.lower())
+                         if w not in _stop and len(w) > 3}
+            utt_tokens = {w for w in re.findall(r"[a-z0-9_]+", u)
+                          if w not in _stop and len(w) > 3}
+            semantic_score = (
+                round(min(1.0, len(tg_tokens & utt_tokens) / len(tg_tokens)), 4)
+                if tg_tokens else structural_score
+            )
+            # Blend: structural is authoritative for concept coverage; semantic refines
+            final_score = round(min(structural_score, max(structural_score - 0.1, semantic_score)), 4)
+            derailed = final_score < 0.2
+            grounding_failure = not structural_verified or final_score < 0.4
+            response = {
+                "aligned": structural_verified and not derailed,
+                "alignment_score": final_score,
+                "disagreement_score": round(1.0 - final_score, 4),
+                "derailed": derailed,
+                "derailment_cause": payload.get("structural_repair_reason"),
+                "grounding_failure": grounding_failure,
+                "contingency_score": final_score,
+                "ambiguous": ambiguous,
+                "ambiguity_score": round(ambiguity_score, 4),
+                "judge_confidence": 0.80,
+                "critique": (
+                    f"structural_contingency={structural_score:.2f} "
+                    f"semantic_overlap={semantic_score:.2f} "
+                    f"grounding={'ok' if not grounding_failure else 'failed'}"
+                ),
+            }
+            self._record_trace(
+                task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response,
+                thought_summary=self._simulated_thought_summary(task, payload, response),
+            )
+            return response
+
         if task == "tom_agent_utterance":
             speaker = str(payload.get("speaker_role", "peer_agent"))
             listener = str(payload.get("listener_role", "peer_agent"))
@@ -1011,6 +1122,165 @@ class SimulatedHealthcareLLMClient(LLMClient):
                 thought_summary=self._simulated_thought_summary(task, payload, response))
             return response
 
+        if task == "tp_case_frame":
+            specialists = payload.get("available_specialists", [])
+            responsible_for = {s["agent_id"]: [f"urn:concept:{payload.get('patient_id','case')}:primary"] for s in specialists}
+            response = {
+                "session_objective": f"Determine primary cause for {payload.get('patient_id', 'patient')} presenting with {', '.join(payload.get('symptoms', [])[:2])}",
+                "primary_question": "Is the symptom cluster caused by drug interaction or new disease onset?",
+                "responsible_for": responsible_for,
+                "thought_summary": "Framed case goal from symptom and medication complexity.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
+        if task == "tp_escalation_debate":
+            is_role_ack = payload.get("is_role_ack", False)
+            response = {
+                "decision": "accept",
+                "counter_proposal": {},
+                "concerns": "",
+                "rationale": "Role assignment is appropriate for my specialisation." if is_role_ack else "Escalation rule is reasonable.",
+                "thought_summary": "Acknowledged assignment." if is_role_ack else "Accepted escalation rule.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
+        if task == "tp_process_debate":
+            response = {
+                "decision": "accept",
+                "concerns": "",
+                "rationale": "Process terms align with my specialisation and the session objectives.",
+                "thought_summary": "Accepted process proposal without objection.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
+        if task == "tp_process_synthesis":
+            response = {
+                "decision": "reaffirm",
+                "revised_team_process": payload.get("current_team_process", {}),
+                "revision_summary": "No revision required; controller reaffirms original terms.",
+                "thought_summary": "All objections reviewed; original terms stand.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
+        if task == "tp_process_commit":
+            agent_id_val = payload.get("agent_id", "agent")
+            final_tp = payload.get("final_team_process", {})
+            obj = final_tp.get("session_objective", "joint clinical assessment")
+            response = {
+                "acknowledged_objective": f"I, {agent_id_val}, commit to: {obj[:80]}",
+                "process_understood": True,
+                "constraints_accepted": list(final_tp.get("contingency_rules", {}).keys()),
+                "thought_summary": f"Process terms acknowledged and committed by {agent_id_val}.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
+        if task == "tp_debate_accept_or_counter":
+            response = {
+                "decision": "accept",
+                "counter_concept": "team_process",
+                "counter_confidence": 0.85,
+                "rationale": "Governance terms are appropriate for my role and the clinical session.",
+                "concerns": "",
+                "thought_summary": "Accepted governance terms without objection.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
+        if task == "tp_debate_pivot_synthesis":
+            response = {
+                "revised_governance_terms": payload.get("governance_terms", {}),
+                "confidence": 0.9,
+                "rationale": "Governance terms reaffirmed after reviewing all specialist objections.",
+                "thought_summary": "Pivot: no material revision required.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
+        if task == "debate_controller_synthesis":
+            declarations = payload.get("declarations", [])
+            if declarations:
+                by_cause: Dict[str, float] = {}
+                for d in declarations:
+                    cause = d.get("likely_cause", "unknown")
+                    conf  = float(d.get("confidence", 0.5))
+                    by_cause[cause] = by_cause.get(cause, 0.0) + conf
+                proposed_concept = max(by_cause, key=lambda k: by_cause[k]) if by_cause else "unknown"
+                n = max(1, len(declarations))
+                avg_conf = round(by_cause.get(proposed_concept, 0.5) / n, 4)
+            else:
+                proposed_concept, avg_conf = "unknown", 0.5
+            response = {
+                "proposed_concept": proposed_concept,
+                "confidence": avg_conf,
+                "supporting_evidence": [d.get("rationale", "")[:80] for d in declarations[:3]],
+                "rationale": f"Plurality of {len(declarations)} declarations supports {proposed_concept}.",
+                "addresses_counterevidence": [],
+                "thought_summary": f"Synthesised controller position from {len(declarations)} specialist declarations.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
+        if task == "debate_accept_or_counter":
+            my_concept  = str(payload.get("my_taskwork_rationale", ""))
+            prop_concept = str(payload.get("proposal_concept", ""))
+            my_conf     = float(payload.get("proposal_confidence", 0.5))
+            # Accept if the proposal concept matches spirit of own rationale token overlap
+            my_tokens  = set(re.findall(r"[a-z0-9_]+", my_concept.lower()))
+            prop_tokens = set(re.findall(r"[a-z0-9_]+", prop_concept.lower()))
+            overlap = len(my_tokens & prop_tokens) / max(1, len(my_tokens | prop_tokens))
+            decision = "accept" if overlap > 0.15 or my_conf >= 0.55 else "counter"
+            response = {
+                "decision": decision,
+                "counter_concept": payload.get("my_taskwork_rationale", prop_concept)[:40] if decision == "counter" else "",
+                "counter_confidence": round(max(0.5, my_conf - 0.05), 4) if decision == "counter" else 0.0,
+                "rationale": "Evidence alignment supports controller proposal." if decision == "accept" else "My taskwork analysis diverges from the proposal.",
+                "supporting_evidence": [],
+                "thought_summary": f"SNP {'accept' if decision == 'accept' else 'counter'} based on evidence overlap={round(overlap, 2)}.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
+        if task == "debate_pivot_synthesis":
+            counters = payload.get("counter_proposals", [])
+            original = payload.get("original_position", {})
+            if counters:
+                by_concept: Dict[str, float] = {}
+                for c in counters:
+                    cpt = c.get("likely_cause", c.get("counter_concept", ""))
+                    cft = float(c.get("confidence", 0.5))
+                    by_concept[cpt] = by_concept.get(cpt, 0.0) + cft
+                revised_concept = max(by_concept, key=lambda k: by_concept[k])
+                n = max(1, len(counters))
+                revised_confidence = round(by_concept[revised_concept] / n, 4)
+            else:
+                revised_concept    = original.get("likely_cause", "unknown")
+                revised_confidence = float(original.get("confidence", 0.5))
+            response = {
+                "revised_concept": revised_concept,
+                "revised_confidence": revised_confidence,
+                "rationale": f"Pivot to {revised_concept} based on {len(counters)} counter-proposals.",
+                "supporting_evidence": [],
+                "addresses_evidence": [c.get("rationale", "")[:60] for c in counters[:2]],
+                "thought_summary": f"Controller pivoted to {revised_concept} after counter-proposal analysis.",
+            }
+            self._record_trace(task=task, payload=payload, system_prompt=system_prompt,
+                response_json=response, thought_summary=response["thought_summary"])
+            return response
+
         if task == "team_prior_reasoning":
             agent_id   = payload.get("agent_id", "agent")
             concept_id = payload.get("concept_id", "concept:unknown")
@@ -1105,6 +1375,7 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
         api_key: str,
         api_version: str = "2024-12-01-preview",
         model: str = "gpt-5",
+        agent_id: str = "",
     ) -> None:
         if AzureOpenAI is None:
             raise RuntimeError("openai package not available")
@@ -1114,6 +1385,7 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
             api_key=api_key,
         )
         self.model = model
+        self.agent_id = agent_id
         self._trace_buffer: List[Dict[str, Any]] = []
 
     def _record_trace(
@@ -1131,6 +1403,8 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
             {
                 "task": task,
                 "backend": "azure",
+                "agent_id": self.agent_id,
+                "msg_created": datetime.datetime.utcnow().isoformat() + "Z",
                 "request": {
                     "system_prompt": system_prompt,
                     "user_prompt": user_prompt,
@@ -1266,7 +1540,7 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
                 "rationale (str — the clinical or operational reasoning behind this specific utterance), "
                 "thought_summary (str — one sentence on what belief or constraint shaped this response)."
             ),
-            "ie_utterance_judge": (
+            "utterance_judge": (
                 "CIP Utterance Judge — evaluate a peer-agent utterance in a healthcare coordination dialogue."
                 "Inputs: utterance (B's message), task_goal, speaker (B's role), listener (A's role), "
                 "speaker_belief (B's ToM model of the speaker), "
@@ -1302,6 +1576,25 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
                 "judge_confidence (float 0..1), "
                 "critique (str — explain grounding, alignment, and self-consistency verdicts)."
             ),
+            "grounding_judge": (
+                "Combined grounding and ambiguity assessment for an IE/SIEP exchange. "
+                "Inputs: utterance (the response being assessed), task_goal, speaker, listener, "
+                "structural_contingency_score (float 0..1 — concept-overlap score already computed), "
+                "structural_contingency_verified (bool), structural_repair_reason (str|null), "
+                "speaker_scope (list[str]), speaker_addresses_evidence (list[str]), listener_scope (list[str]). "
+                "Assess THREE things: "
+                "1. SEMANTIC GROUNDING: structural_contingency_score is a lower bound on contingency_score. "
+                "   You may increase it if semantic content shows genuine engagement with the listed concepts, "
+                "   but never below structural_contingency_score. Set grounding_failure=true if final score < 0.40. "
+                "2. TASK ALIGNMENT: alignment_score 0..1 with task_goal. derailed=true only for clear abandonment. "
+                "3. AMBIGUITY: ambiguity_score 0..1. ambiguous=true if >= 0.5. "
+                "Return JSON: aligned (bool), alignment_score (float 0..1), disagreement_score (float 0..1), "
+                "derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
+                "contingency_score (float 0..1 — must be >= structural_contingency_score), "
+                "ambiguous (bool), ambiguity_score (float 0..1), "
+                "judge_confidence (float 0..1), critique (str — one sentence on grounding and alignment)."
+            ),
+
             "team_prior_reasoning": (
                 "You are a healthcare coordination agent declaring your starting prior belief for a "
                 "specific domain concept before a coordination episode begins. "
@@ -1333,6 +1626,131 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
                 "thought_summary (str — one sentence on the team epistemic state at phase transition), "
                 "summary (dict with keys: agreed_priors {agent_id→{concept_id→val}}, scr, agent_count, team_goal)."
             ),
+            "tp_case_frame": (
+                "You are the session coordinator performing initial case framing for a multi-specialist panel. "
+                "Payload: patient_id (str), symptoms (list[str]), health_history (list[str]), "
+                "current_medications (list[str|dict]), available_specialists (list of {agent_id, role, panel}). "
+                "Based on the case data, determine: what is the primary clinical question for this session, "
+                "and which concepts should each specialist own. "
+                "Return JSON: session_objective (str — one-sentence goal for the panel session), "
+                "primary_question (str — the specific diagnostic question to resolve), "
+                "responsible_for (dict agent_id→list[concept_id] — each specialist's concept ownership), "
+                "thought_summary (str — one sentence on case framing rationale)."
+            ),
+            "tp_escalation_debate": (
+                "You are a specialist agent deciding whether to accept or counter a process proposal. "
+                "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
+                "proposed_escalation_rule (dict|null — null means this is a role acknowledgement), "
+                "is_role_ack (bool). "
+                "If is_role_ack=true: assess whether your role assignment is appropriate for your expertise. "
+                "If is_role_ack=false: assess the proposed deadlock resolution rule. "
+                "Respond with your genuine position. Counter only if you have a substantive objection. "
+                "Return JSON: decision ('accept' or 'counter'), "
+                "counter_proposal (dict with deadlock_rule/casting_vote_holder/human_escalation_threshold — only if counter), "
+                "concerns (str — specific objection, empty if accept), rationale (str), "
+                "thought_summary (str — one sentence)."
+            ),
+            "tp_process_debate": (
+                "You are a specialist agent deciding whether to accept or counter a team process proposal. "
+                "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
+                "team_process (dict with session_objective, debate_format, contingency_rules, "
+                "no_convergence_handling), role_assignment (list[str] — concept IDs you own). "
+                "Assess whether the proposed process terms are appropriate for your role and the clinical task. "
+                "Accept unless you have a genuine procedural concern. Counter only if the terms would impair "
+                "your ability to contribute. "
+                "Return JSON: decision ('accept' or 'counter'), "
+                "concerns (str — specific objection, empty if accept), rationale (str), "
+                "thought_summary (str — one sentence)."
+            ),
+            "tp_process_synthesis": (
+                "You are the panel coordinator synthesising specialist objections to a proposed team process. "
+                "Payload: current_team_process (dict), counters (dict agent_id→{concerns, rationale}), "
+                "round (int). "
+                "Review all objections together. Revise the team_process if the concerns are substantive; "
+                "reaffirm if the objections are minor or contradictory. "
+                "Return JSON: decision ('revise' or 'reaffirm'), "
+                "revised_team_process (dict — same shape as current_team_process, possibly unchanged), "
+                "revision_summary (str), thought_summary (str — one sentence)."
+            ),
+            "tp_process_commit": (
+                "You are a specialist agent committing to the final agreed team process. "
+                "Payload: agent_id (str), role (str), final_team_process (dict), role_assignment (list[str]). "
+                "Acknowledge the process terms in your own words and confirm you understand the session objective. "
+                "Return JSON: acknowledged_objective (str — the session objective in your own words, 1-2 sentences), "
+                "process_understood (bool), "
+                "constraints_accepted (list[str] — key process constraints you are committing to), "
+                "thought_summary (str — one sentence)."
+            ),
+            "debate_controller_synthesis": (
+                "You are the panel coordinator synthesising a unified position from all specialist declarations. "
+                "Payload: declarations (list of {agent_id, likely_cause, confidence, rationale, panel}), "
+                "session_objective (str), case_brief (dict). "
+                "Weigh all specialist perspectives to form a single well-grounded proposed position. "
+                "Address the most compelling counter-evidence explicitly. "
+                "Return JSON: proposed_concept (str — the proposed likely cause), "
+                "confidence (float 0..1), supporting_evidence (list[str] — key evidence items), "
+                "rationale (str — why this position integrates the declarations), "
+                "addresses_counterevidence (list[str] — explicit engagement with dissenting evidence), "
+                "dissenting_summary (str — brief summary of dissenting views), "
+                "thought_summary (str — one sentence)."
+            ),
+            "tp_debate_accept_or_counter": (
+                "You are a specialist agent deciding whether to accept or counter the coordinator's "
+                "proposed team governance terms. "
+                "Payload: agent_id (str), role (str), governance_terms (dict with session_objective, "
+                "debate_format, contingency_rules, no_convergence_handling), session_objective (str), "
+                "task_goal (str), role_assignment (list[str]). "
+                "Assess whether the governance terms are appropriate for your role. "
+                "Accept unless you have a genuine procedural concern. "
+                "Return JSON: decision ('accept' or 'counter'), "
+                "counter_concept (str — 'team_process' if counter), "
+                "counter_confidence (float — only if counter), "
+                "rationale (str — state any governance concerns here), "
+                "concerns (str), thought_summary (str — one sentence)."
+            ),
+            "tp_debate_pivot_synthesis": (
+                "You are the panel coordinator revising team governance terms after receiving "
+                "specialist counter-proposals. "
+                "Payload: governance_terms (dict), counter_proposals (list of {agent_id, concerns}), "
+                "task_goal (str). "
+                "Revise the governance terms to address legitimate procedural concerns. "
+                "Return JSON: revised_governance_terms (dict — same shape as governance_terms), "
+                "confidence (float 0..1), rationale (str), thought_summary (str — one sentence)."
+            ),
+            "debate_accept_or_counter": (
+                "You are a specialist agent deciding whether to accept or counter the coordinator's proposed position. "
+                "Payload: agent_id (str), role (str), case_summary (str — compact patient context), "
+                "my_taskwork_rationale (str — your independent prior assessment), "
+                "my_supporting_evidence (list[str], up to 3), my_confidence (float — your own belief strength), "
+                "proposal_concept (str), proposal_confidence (float), "
+                "proposal_rationale (str), proposal_evidence (list[str]), proposal_addresses_evidence (list[str]), "
+                "task_goal (str), round (int — 1 = first, 2+ = subsequent), "
+                "controller_preempts_objection (str, optional), high_derailment_risk (bool, optional). "
+                "Compare the proposal against your own taskwork analysis. "
+                "Accept only if the proposal genuinely accounts for your key clinical evidence. "
+                "If countering, set counter_confidence to reflect YOUR actual belief strength (0..1) — do NOT default to 0.5. "
+                "In round >= 2, be specific: if you have distinct clinical evidence the proposal ignores, counter "
+                "with a confident position (counter_confidence > 0.6). "
+                "Return JSON: decision ('accept' or 'counter'), "
+                "counter_concept (str — only if counter), "
+                "counter_confidence (float 0..1 — only if counter), "
+                "rationale (str — 1-2 sentences: your key evidence and why the proposal fails to address it), "
+                "supporting_evidence (list[str], at most 3 items, each under 15 words), "
+                "thought_summary (str — one sentence)."
+            ),
+            "debate_pivot_synthesis": (
+                "You are the panel coordinator pivoting your position after receiving counter-proposals. "
+                "Payload: original_position ({likely_cause, confidence, rationale}), "
+                "counter_proposals (list of {agent_id, likely_cause, confidence, rationale, supporting_evidence}), "
+                "accept_count (int — number of agents who accepted), task_goal (str). "
+                "The counter-proposals represent substantive disagreement. Genuinely engage with their reasoning. "
+                "Revise your position to reflect a synthesis that addresses the strongest counter-evidence. "
+                "Return JSON: revised_concept (str), revised_confidence (float 0..1), "
+                "rationale (str — 2-3 sentences: what the counters showed and why your revised position follows), "
+                "supporting_evidence (list[str], at most 4 items, each under 15 words), "
+                "addresses_evidence (list[str] — one short phrase per counter-proposal engaged), "
+                "thought_summary (str — one sentence on what the pivot resolved)."
+            ),
         }
         return instructions.get(task, "Return valid strict JSON only.")
 
@@ -1352,61 +1770,100 @@ class AzureOpenAIHealthcareLLMClient(LLMClient):
             base = base + f" Professional prior for this case type: {specialist_prior}"
         system_prompt = base + self._instruction_for_task(task)
         user_prompt = json.dumps({"task": task, "payload": payload}, ensure_ascii=False)
-        try:
-            messages = [
-                {
-                    "role": "system",
-                    "content": system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": user_prompt,
-                },
-            ]
-            response = self.client.chat.completions.create(model=self.model, max_tokens=2048, messages=messages)
-            content = response.choices[0].message.content or "{}"
-            parsed = json.loads(content)
-            thought_summary = str(parsed.get("thought_summary", ""))
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        last_exc: Optional[Exception] = None
+        _is_heavy = task in _HEAVY_TASKS
+        _max_attempts = _HEAVY_TASK_RETRIES + 1 if _is_heavy else _MAX_RETRIES + 1
+        _timeout = _HEAVY_CALL_TIMEOUT if _is_heavy else _CALL_TIMEOUT
+        for _attempt in range(_max_attempts):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model, max_tokens=2048, timeout=_timeout, messages=messages,
+                )
+                parsed = _parse_jsonish_object(response.choices[0].message.content)
+                if not _response_has_required_keys(task, parsed):
+                    if _attempt < _max_attempts - 1:
+                        LOGGER.info(
+                            "azure_healthcare_llm.retry task=%s attempt=%d reason=missing_required_keys",
+                            task, _attempt + 1,
+                        )
+                        last_exc = ValueError("missing_required_keys")
+                        if _is_heavy:
+                            time.sleep(min(2 ** _attempt, 30))
+                        continue
+                    break
+                thought_summary = str(parsed.get("thought_summary", ""))
+                self._record_trace(
+                    task=task,
+                    payload=payload,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    response_json=parsed,
+                    success=True,
+                    thought_summary=thought_summary,
+                )
+                return parsed
+            except Exception as exc:
+                last_exc = exc
+                if _attempt < _max_attempts - 1:
+                    LOGGER.info(
+                        "azure_healthcare_llm.retry task=%s attempt=%d reason=%s",
+                        task, _attempt + 1, exc,
+                    )
+                    if _is_heavy:
+                        time.sleep(min(2 ** _attempt, 30))
+                    continue
+                break
+        fallback_response = _fallback_response_for_task(task, payload)
+        if fallback_response is not None:
+            thought_summary = "Used deterministic fallback after unparseable model response."
+            LOGGER.info("azure_healthcare_llm.task_fallback task=%s reason=%s", task, last_exc)
             self._record_trace(
                 task=task,
                 payload=payload,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                response_json=parsed,
+                response_json=fallback_response,
                 success=True,
                 thought_summary=thought_summary,
+                error=str(last_exc),
             )
-            return parsed
-        except Exception as exc:
-            LOGGER.warning("azure_healthcare_llm.task_failed task=%s error=%s", task, exc)
-            self._record_trace(
-                task=task,
-                payload=payload,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                response_json={},
-                success=False,
-                thought_summary="",
-                error=str(exc),
-            )
-            return {}
+            return fallback_response
+        LOGGER.warning("azure_healthcare_llm.task_failed task=%s error=%s", task, last_exc)
+        self._record_trace(
+            task=task,
+            payload=payload,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_json={},
+            success=False,
+            thought_summary="",
+            error=str(last_exc),
+        )
+        return {}
 
 
 LITELLM_BASE_URL = "https://litellm.prod.outshift.ai"
+
 LITELLM_DEFAULT_MODEL = "bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
 class AnthropicHealthcareLLMClient(LLMClient):
-    """Calls Claude Haiku via the LiteLLM proxy using the standard OpenAI client."""
+    """Calls Claude via the LiteLLM proxy using the standard OpenAI client."""
 
     def __init__(
         self,
         api_key: str,
         base_url: str = LITELLM_BASE_URL,
         model: str = LITELLM_DEFAULT_MODEL,
+        agent_id: str = "",
     ) -> None:
         self.client = OpenAIClient(api_key=api_key, base_url=base_url)
         self.model = model
+        self.agent_id = agent_id
         self._trace_buffer: List[Dict[str, Any]] = []
 
     def _record_trace(
@@ -1424,6 +1881,8 @@ class AnthropicHealthcareLLMClient(LLMClient):
             {
                 "task": task,
                 "backend": "anthropic",
+                "agent_id": self.agent_id,
+                "msg_created": datetime.datetime.utcnow().isoformat() + "Z",
                 "request": {
                     "system_prompt": system_prompt,
                     "user_prompt": user_prompt,
@@ -1559,7 +2018,7 @@ class AnthropicHealthcareLLMClient(LLMClient):
                 "rationale (str — the clinical or operational reasoning behind this specific utterance), "
                 "thought_summary (str — one sentence on what belief or constraint shaped this response)."
             ),
-            "ie_utterance_judge": (
+            "utterance_judge": (
                 "CIP Utterance Judge — evaluate a peer-agent utterance in a healthcare coordination dialogue."
                 "Inputs: utterance (B's message), task_goal, speaker (B's role), listener (A's role), "
                 "speaker_belief (B's ToM model of the speaker), "
@@ -1595,6 +2054,25 @@ class AnthropicHealthcareLLMClient(LLMClient):
                 "judge_confidence (float 0..1), "
                 "critique (str — explain grounding, alignment, and self-consistency verdicts)."
             ),
+            "grounding_judge": (
+                "Combined grounding and ambiguity assessment for an IE/SIEP exchange. "
+                "Inputs: utterance (the response being assessed), task_goal, speaker, listener, "
+                "structural_contingency_score (float 0..1 — concept-overlap score already computed), "
+                "structural_contingency_verified (bool), structural_repair_reason (str|null), "
+                "speaker_scope (list[str]), speaker_addresses_evidence (list[str]), listener_scope (list[str]). "
+                "Assess THREE things: "
+                "1. SEMANTIC GROUNDING: structural_contingency_score is a lower bound on contingency_score. "
+                "   You may increase it if semantic content shows genuine engagement with the listed concepts, "
+                "   but never below structural_contingency_score. Set grounding_failure=true if final score < 0.40. "
+                "2. TASK ALIGNMENT: alignment_score 0..1 with task_goal. derailed=true only for clear abandonment. "
+                "3. AMBIGUITY: ambiguity_score 0..1. ambiguous=true if >= 0.5. "
+                "Return JSON: aligned (bool), alignment_score (float 0..1), disagreement_score (float 0..1), "
+                "derailed (bool), derailment_cause (str|null), grounding_failure (bool), "
+                "contingency_score (float 0..1 — must be >= structural_contingency_score), "
+                "ambiguous (bool), ambiguity_score (float 0..1), "
+                "judge_confidence (float 0..1), critique (str — one sentence on grounding and alignment)."
+            ),
+
             "team_prior_reasoning": (
                 "You are a healthcare coordination agent declaring your starting prior belief for a "
                 "specific domain concept before a coordination episode begins. "
@@ -1626,6 +2104,131 @@ class AnthropicHealthcareLLMClient(LLMClient):
                 "thought_summary (str — one sentence on the team epistemic state at phase transition), "
                 "summary (dict with keys: agreed_priors {agent_id→{concept_id→val}}, scr, agent_count, team_goal)."
             ),
+            "tp_case_frame": (
+                "You are the session coordinator performing initial case framing for a multi-specialist panel. "
+                "Payload: patient_id (str), symptoms (list[str]), health_history (list[str]), "
+                "current_medications (list[str|dict]), available_specialists (list of {agent_id, role, panel}). "
+                "Based on the case data, determine: what is the primary clinical question for this session, "
+                "and which concepts should each specialist own. "
+                "Return JSON: session_objective (str — one-sentence goal for the panel session), "
+                "primary_question (str — the specific diagnostic question to resolve), "
+                "responsible_for (dict agent_id→list[concept_id] — each specialist's concept ownership), "
+                "thought_summary (str — one sentence on case framing rationale)."
+            ),
+            "tp_escalation_debate": (
+                "You are a specialist agent deciding whether to accept or counter a process proposal. "
+                "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
+                "proposed_escalation_rule (dict|null — null means this is a role acknowledgement), "
+                "is_role_ack (bool). "
+                "If is_role_ack=true: assess whether your role assignment is appropriate for your expertise. "
+                "If is_role_ack=false: assess the proposed deadlock resolution rule. "
+                "Respond with your genuine position. Counter only if you have a substantive objection. "
+                "Return JSON: decision ('accept' or 'counter'), "
+                "counter_proposal (dict with deadlock_rule/casting_vote_holder/human_escalation_threshold — only if counter), "
+                "concerns (str — specific objection, empty if accept), rationale (str), "
+                "thought_summary (str — one sentence)."
+            ),
+            "tp_process_debate": (
+                "You are a specialist agent deciding whether to accept or counter a team process proposal. "
+                "Payload: agent_id (str), role (str), session_objective (str), case_brief (dict), "
+                "team_process (dict with session_objective, debate_format, contingency_rules, "
+                "no_convergence_handling), role_assignment (list[str] — concept IDs you own). "
+                "Assess whether the proposed process terms are appropriate for your role and the clinical task. "
+                "Accept unless you have a genuine procedural concern. Counter only if the terms would impair "
+                "your ability to contribute. "
+                "Return JSON: decision ('accept' or 'counter'), "
+                "concerns (str — specific objection, empty if accept), rationale (str), "
+                "thought_summary (str — one sentence)."
+            ),
+            "tp_process_synthesis": (
+                "You are the panel coordinator synthesising specialist objections to a proposed team process. "
+                "Payload: current_team_process (dict), counters (dict agent_id→{concerns, rationale}), "
+                "round (int). "
+                "Review all objections together. Revise the team_process if the concerns are substantive; "
+                "reaffirm if the objections are minor or contradictory. "
+                "Return JSON: decision ('revise' or 'reaffirm'), "
+                "revised_team_process (dict — same shape as current_team_process, possibly unchanged), "
+                "revision_summary (str), thought_summary (str — one sentence)."
+            ),
+            "tp_process_commit": (
+                "You are a specialist agent committing to the final agreed team process. "
+                "Payload: agent_id (str), role (str), final_team_process (dict), role_assignment (list[str]). "
+                "Acknowledge the process terms in your own words and confirm you understand the session objective. "
+                "Return JSON: acknowledged_objective (str — the session objective in your own words, 1-2 sentences), "
+                "process_understood (bool), "
+                "constraints_accepted (list[str] — key process constraints you are committing to), "
+                "thought_summary (str — one sentence)."
+            ),
+            "debate_controller_synthesis": (
+                "You are the panel coordinator synthesising a unified position from all specialist declarations. "
+                "Payload: declarations (list of {agent_id, likely_cause, confidence, rationale, panel}), "
+                "session_objective (str), case_brief (dict). "
+                "Weigh all specialist perspectives to form a single well-grounded proposed position. "
+                "Address the most compelling counter-evidence explicitly. "
+                "Return JSON: proposed_concept (str — the proposed likely cause), "
+                "confidence (float 0..1), supporting_evidence (list[str] — key evidence items), "
+                "rationale (str — why this position integrates the declarations), "
+                "addresses_counterevidence (list[str] — explicit engagement with dissenting evidence), "
+                "dissenting_summary (str — brief summary of dissenting views), "
+                "thought_summary (str — one sentence)."
+            ),
+            "tp_debate_accept_or_counter": (
+                "You are a specialist agent deciding whether to accept or counter the coordinator's "
+                "proposed team governance terms. "
+                "Payload: agent_id (str), role (str), governance_terms (dict with session_objective, "
+                "debate_format, contingency_rules, no_convergence_handling), session_objective (str), "
+                "task_goal (str), role_assignment (list[str]). "
+                "Assess whether the governance terms are appropriate for your role. "
+                "Accept unless you have a genuine procedural concern. "
+                "Return JSON: decision ('accept' or 'counter'), "
+                "counter_concept (str — 'team_process' if counter), "
+                "counter_confidence (float — only if counter), "
+                "rationale (str — state any governance concerns here), "
+                "concerns (str), thought_summary (str — one sentence)."
+            ),
+            "tp_debate_pivot_synthesis": (
+                "You are the panel coordinator revising team governance terms after receiving "
+                "specialist counter-proposals. "
+                "Payload: governance_terms (dict), counter_proposals (list of {agent_id, concerns}), "
+                "task_goal (str). "
+                "Revise the governance terms to address legitimate procedural concerns. "
+                "Return JSON: revised_governance_terms (dict — same shape as governance_terms), "
+                "confidence (float 0..1), rationale (str), thought_summary (str — one sentence)."
+            ),
+            "debate_accept_or_counter": (
+                "You are a specialist agent deciding whether to accept or counter the coordinator's proposed position. "
+                "Payload: agent_id (str), role (str), case_summary (str — compact patient context), "
+                "my_taskwork_rationale (str — your independent prior assessment), "
+                "my_supporting_evidence (list[str], up to 3), my_confidence (float — your own belief strength), "
+                "proposal_concept (str), proposal_confidence (float), "
+                "proposal_rationale (str), proposal_evidence (list[str]), proposal_addresses_evidence (list[str]), "
+                "task_goal (str), round (int — 1 = first, 2+ = subsequent), "
+                "controller_preempts_objection (str, optional), high_derailment_risk (bool, optional). "
+                "Compare the proposal against your own taskwork analysis. "
+                "Accept only if the proposal genuinely accounts for your key clinical evidence. "
+                "If countering, set counter_confidence to reflect YOUR actual belief strength (0..1) — do NOT default to 0.5. "
+                "In round >= 2, be specific: if you have distinct clinical evidence the proposal ignores, counter "
+                "with a confident position (counter_confidence > 0.6). "
+                "Return JSON: decision ('accept' or 'counter'), "
+                "counter_concept (str — only if counter), "
+                "counter_confidence (float 0..1 — only if counter), "
+                "rationale (str — 1-2 sentences: your key evidence and why the proposal fails to address it), "
+                "supporting_evidence (list[str], at most 3 items, each under 15 words), "
+                "thought_summary (str — one sentence)."
+            ),
+            "debate_pivot_synthesis": (
+                "You are the panel coordinator pivoting your position after receiving counter-proposals. "
+                "Payload: original_position ({likely_cause, confidence, rationale}), "
+                "counter_proposals (list of {agent_id, likely_cause, confidence, rationale, supporting_evidence}), "
+                "accept_count (int — number of agents who accepted), task_goal (str). "
+                "The counter-proposals represent substantive disagreement. Genuinely engage with their reasoning. "
+                "Revise your position to reflect a synthesis that addresses the strongest counter-evidence. "
+                "Return JSON: revised_concept (str), revised_confidence (float 0..1), "
+                "rationale (str — 2-3 sentences: what the counters showed and why your revised position follows), "
+                "supporting_evidence (list[str], at most 4 items, each under 15 words), "
+                "addresses_evidence (list[str] — one short phrase per counter-proposal engaged), "
+                "thought_summary (str — one sentence on what the pivot resolved)."
+            ),
         }
         return instructions.get(task, "Return valid strict JSON only.")
 
@@ -1645,69 +2248,129 @@ class AnthropicHealthcareLLMClient(LLMClient):
             base = base + f" Professional prior for this case type: {specialist_prior}"
         system_prompt = base + self._instruction_for_task(task)
         user_prompt = json.dumps({"task": task, "payload": payload}, ensure_ascii=False)
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                max_tokens=2048,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            )
-            parsed = _parse_jsonish_object(response.choices[0].message.content)
-            if not _response_has_required_keys(task, parsed):
-                fallback_response = _fallback_response_for_task(task, payload)
-                if fallback_response is not None:
-                    thought_summary = "Used deterministic pharmacy fallback after incomplete model response."
-                    LOGGER.info("anthropic_healthcare_llm.task_fallback task=%s reason=incomplete_response", task)
-                    self._record_trace(
-                        task=task,
-                        payload=payload,
-                        system_prompt=system_prompt,
-                        user_prompt=user_prompt,
-                        response_json=fallback_response,
-                        success=True,
-                        thought_summary=thought_summary,
-                        error="incomplete_response",
-                    )
-                    return fallback_response
-            thought_summary = str(parsed.get("thought_summary", ""))
-            self._record_trace(
-                task=task,
-                payload=payload,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                response_json=parsed,
-                success=True,
-                thought_summary=thought_summary,
-            )
-            return parsed
-        except Exception as exc:
-            fallback_response = _fallback_response_for_task(task, payload)
-            if fallback_response is not None:
-                thought_summary = "Used deterministic pharmacy fallback after unparseable model response."
-                LOGGER.info("anthropic_healthcare_llm.task_fallback task=%s reason=%s", task, exc)
+        last_exc: Optional[Exception] = None
+        _is_heavy = task in _HEAVY_TASKS
+        _max_attempts = _HEAVY_TASK_RETRIES + 1 if _is_heavy else _MAX_RETRIES + 1
+        _timeout = _HEAVY_CALL_TIMEOUT if _is_heavy else _CALL_TIMEOUT
+        for _attempt in range(_max_attempts):
+            try:
+                LOGGER.info(
+                    "anthropic_healthcare_llm.call task=%s attempt=%d timeout=%s prompt_chars=%d",
+                    task, _attempt, _timeout, len(system_prompt) + len(user_prompt),
+                )
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    max_tokens=2048,
+                    timeout=_timeout,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                )
+                parsed = _parse_jsonish_object(response.choices[0].message.content)
+                if not _response_has_required_keys(task, parsed):
+                    if _attempt < _max_attempts - 1:
+                        LOGGER.info(
+                            "anthropic_healthcare_llm.retry task=%s attempt=%d reason=missing_required_keys",
+                            task, _attempt + 1,
+                        )
+                        last_exc = ValueError("missing_required_keys")
+                        if _is_heavy:
+                            time.sleep(min(2 ** _attempt, 30))
+                        continue
+                    break
+                thought_summary = str(parsed.get("thought_summary", ""))
                 self._record_trace(
                     task=task,
                     payload=payload,
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
-                    response_json=fallback_response,
+                    response_json=parsed,
                     success=True,
                     thought_summary=thought_summary,
-                    error=str(exc),
                 )
-                return fallback_response
-            LOGGER.warning("anthropic_healthcare_llm.task_failed task=%s error=%s", task, exc)
+                return parsed
+            except Exception as exc:
+                last_exc = exc
+                if _attempt < _max_attempts - 1:
+                    LOGGER.info(
+                        "anthropic_healthcare_llm.retry task=%s attempt=%d reason=%s",
+                        task, _attempt + 1, exc,
+                    )
+                    if _is_heavy:
+                        time.sleep(min(2 ** _attempt, 30))
+                    continue
+                break
+        fallback_response = _fallback_response_for_task(task, payload)
+        if fallback_response is not None:
+            thought_summary = "Used deterministic fallback after unparseable model response."
+            LOGGER.info("anthropic_healthcare_llm.task_fallback task=%s reason=%s", task, last_exc)
             self._record_trace(
                 task=task,
                 payload=payload,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                response_json={},
-                success=False,
-                thought_summary="",
-                error=str(exc),
+                response_json=fallback_response,
+                success=True,
+                thought_summary=thought_summary,
+                error=str(last_exc),
             )
-            return {}
+            return fallback_response
+        LOGGER.warning("anthropic_healthcare_llm.task_failed task=%s error=%s", task, last_exc)
+        self._record_trace(
+            task=task,
+            payload=payload,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_json={},
+            success=False,
+            thought_summary="",
+            error=str(last_exc),
+        )
+        return {}
 
+
+# ── Factory ───────────────────────────────────────────────────────────────────
+
+def build_llm_client(
+    backend: str,
+    model: str | None = None,
+    *,
+    agent_id: str = "",
+) -> LLMClient:
+    """Return a fresh, independent LLMClient for the given backend and agent.
+
+    Reads credentials from environment variables — same logic as
+    HCPanelSystem.__init__ so callers don't need to repeat it.
+    """
+    if backend == "azure":
+        endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        api_key = os.getenv("AZURE_OPENAI_KEY")
+        api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
+        resolved_model = model or "gpt-5"
+        if endpoint and api_key:
+            try:
+                return AzureOpenAIHealthcareLLMClient(
+                    endpoint=endpoint, api_key=api_key,
+                    api_version=api_version, model=resolved_model,
+                    agent_id=agent_id,
+                )
+            except Exception:
+                LOGGER.warning("build_llm_client.fallback agent=%s reason=azure_init_failed", agent_id)
+        else:
+            LOGGER.warning("build_llm_client.fallback agent=%s reason=missing_azure_env", agent_id)
+    elif backend == "anthropic":
+        api_key = os.getenv("LITELLM_API_KEY")
+        base_url = os.getenv("LITELLM_BASE_URL", LITELLM_BASE_URL)
+        resolved_model = model or os.getenv("LITELLM_HAIKU_MODEL", LITELLM_DEFAULT_MODEL)
+        if api_key:
+            try:
+                return AnthropicHealthcareLLMClient(
+                    api_key=api_key, base_url=base_url, model=resolved_model,
+                    agent_id=agent_id,
+                )
+            except Exception:
+                LOGGER.warning("build_llm_client.fallback agent=%s reason=anthropic_init_failed", agent_id)
+        else:
+            LOGGER.warning("build_llm_client.fallback agent=%s reason=missing_litellm_key", agent_id)
+    return SimulatedHealthcareLLMClient(agent_id=agent_id)

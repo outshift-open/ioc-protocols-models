@@ -32,24 +32,14 @@ load_dotenv(Path(__file__).parent / ".env")
 
 from langgraph.graph import END, START, StateGraph
 
-from SSTP.subprotocol.siep.src.epistemic.stores import (
-    AgentBeliefStore, AgentEpistemicStore, PeerInteractionStore, TaskworkStore,
-)
-from SSTP.examples.hcpanel.tem import TeamEpistemicMemoryAgent
-from SSTP.subprotocol.siep.src.tomcore.cognition import TheoryOfMindEngine
-
-from SSTP.examples.hcpanel.agent_bus import HCPanelAgentBus
-from SSTP.examples.hcpanel.specialists import PharmacologyController, PhysicianController
+from SSTP.examples.hcpanel.agent_bus import MessageBus
+from SSTP.examples.hcpanel.specialists import SpecialistAgent, DIAGNOSTICS_SPECIALISTS, PHARMACY_SPECIALISTS, ROLE_DESCRIPTIONS
 from SSTP.examples.hcpanel.domain import (
     ClinicalDebateOutcome,
     DebateGraphState,
     HealthcareEpisode,
 )
-from SSTP.examples.hcpanel.llm_backends import (
-    AnthropicHealthcareLLMClient,
-    AzureOpenAIHealthcareLLMClient,
-    SimulatedHealthcareLLMClient,
-)
+from SSTP.examples.hcpanel.llm_backends import build_llm_client
 from SSTP.examples.hcpanel.memory import HCPanelMemory
 from SSTP.examples.hcpanel.orchestration import DebateOrchestrator
 from SSTP.examples.hcpanel.domain import PatientProfile
@@ -139,72 +129,76 @@ class HCPanelSystem:
         model: str = "gpt-5",
         memory_store_file: Path = MEMORY_STORE_FILE,
     ) -> None:
-        # LLM backend selection
-        if llm_backend == "azure":
-            endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-            api_key = os.getenv("AZURE_OPENAI_KEY")
-            api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
-            if endpoint and api_key:
-                try:
-                    self.llm = AzureOpenAIHealthcareLLMClient(
-                        endpoint=endpoint, api_key=api_key,
-                        api_version=api_version, model=model,
-                    )
-                except Exception:
-                    LOGGER.warning("hcpanel.llm_fallback reason=azure_init_failed")
-                    self.llm = SimulatedHealthcareLLMClient()
-            else:
-                LOGGER.warning("hcpanel.llm_fallback reason=missing_azure_env")
-                self.llm = SimulatedHealthcareLLMClient()
-        elif llm_backend == "anthropic":
-            api_key = os.getenv("LITELLM_API_KEY")
-            base_url = os.getenv("LITELLM_BASE_URL", "https://litellm.prod.outshift.ai")
-            litellm_model = os.getenv(
-                "LITELLM_HAIKU_MODEL",
-                "bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
-            )
-            if api_key:
-                try:
-                    self.llm = AnthropicHealthcareLLMClient(
-                        api_key=api_key, base_url=base_url, model=litellm_model,
-                    )
-                except Exception:
-                    LOGGER.warning("hcpanel.llm_fallback reason=anthropic_init_failed")
-                    self.llm = SimulatedHealthcareLLMClient()
-            else:
-                LOGGER.warning("hcpanel.llm_fallback reason=missing_litellm_key")
-                self.llm = SimulatedHealthcareLLMClient()
-        else:
-            self.llm = SimulatedHealthcareLLMClient()
+        # One factory closure per system — each call produces an independent client
+        _backend = llm_backend
+        _model = model
 
-        # Coordinator-level memory (no per-agent stores here)
+        def _make_llm(agent_id: str = "") -> "LLMClient":
+            return build_llm_client(_backend, _model, agent_id=agent_id)
+
+        self._make_llm = _make_llm
+        self.coordinator_llm = _make_llm("diagnostics-controller")
+
         self.memory = HCPanelMemory(memory_store_file)
-        self.memory.load()
-
-        # Team Epistemic Memory agent (cross-episode knowledge)
-        self.team_epistemic_agent = TeamEpistemicMemoryAgent(
-            store_path=memory_store_file.parent / "hcpanel_team_epistemic.json",
-            use_case="healthcare",
-        )
-
-        # ToM engine — drives assess_utterance + predict_peer_response per SNP exchange
-        self.tom = TheoryOfMindEngine(self.llm)
 
         # Bus (minted fresh per session in run_session())
-        self.bus: HCPanelAgentBus = HCPanelAgentBus(run_id="", conversation_id="")
+        self.bus: MessageBus = MessageBus(run_id="", conversation_id="")
 
-        # Per-agent-owning controllers — no stores on the controller itself
-        self.physician_ctrl = PhysicianController(self.llm, bus=self.bus)
-        self.pharmacy_ctrl = PharmacologyController(self.llm, bus=self.bus)
-
-        # Orchestrator for the joint panel
-        self.orchestrator = DebateOrchestrator(
-            physician_ctrl=self.physician_ctrl,
-            pharmacy_ctrl=self.pharmacy_ctrl,
-            memory=self.memory,
-            ie_bus=self.bus,
-            tom_engine=self.tom,
+        # Build the full roster spec so we know every agent_id before constructing.
+        _roster_specs = (
+            [{"agent_id": f"physician-{s['id_suffix']}", "panel": "physician", **s}
+             for s in DIAGNOSTICS_SPECIALISTS]
+            + [{"agent_id": f"pharmacologist-{s['id_suffix']}", "panel": "pharmacology", **s}
+               for s in PHARMACY_SPECIALISTS]
         )
+        _all_peer_desc = {
+            sp["agent_id"]: ROLE_DESCRIPTIONS.get(sp["role"], sp["role"])
+            for sp in _roster_specs
+        }
+
+        # Flat specialist roster — each agent is independent, owns its own LLMClient
+        self.specialists: List[SpecialistAgent] = [
+            SpecialistAgent(
+                agent_id=sp["agent_id"],
+                role=sp["role"], focus=sp["focus"],
+                prior_belief=sp.get("prior_belief", ""), panel=sp["panel"],
+                llm=_make_llm(sp["agent_id"]), bus=self.bus,
+                llm_factory=_make_llm,
+                peer_descriptions={k: v for k, v in _all_peer_desc.items() if k != sp["agent_id"]},
+            )
+            for sp in _roster_specs
+        ]
+
+        # Orchestrator for the joint panel — passes llm_factory so L9 owns ToM internally
+        self.orchestrator = DebateOrchestrator(
+            specialists=self.specialists,
+            memory=self.memory,
+            message_bus=self.bus,
+            llm_factory=_make_llm,
+            llm=self.coordinator_llm,
+        )
+
+        # Register all handlers once — they survive across sessions.
+        self.bus.register_handler(
+            HCPanelMemory.AGENT_ID,
+            lambda hdr, _m=self.memory, _b=self.bus: _m.handle(hdr, _b),
+        )
+        for _agent in self.specialists:
+            _agent.wire_up_l9(self.bus)
+            self.bus.register_handler(
+                _agent.agent_id,
+                lambda hdr, _a=_agent: (
+                    _a.dispatch_intent(hdr) if hdr.get("kind") == "intent"
+                    else _a.dispatch_commit(hdr) if (
+                        hdr.get("kind") == "commit" and hdr.get("subkind") == "converged"
+                    )
+                    else _a.dispatch_propose(hdr) if (
+                        hdr.get("kind") == "exchange"
+                        and any(p.get("type") == "siep-ctx" for p in hdr.get("payload", []))
+                    )
+                    else None
+                ),
+            )
 
         self.graph = self._build_graph()
 
@@ -224,7 +218,7 @@ class HCPanelSystem:
     # ------------------------------------------------------------------ nodes
 
     def _node_orchestrate(self, state: DebateGraphState) -> Dict[str, Any]:
-        """Patient intake, team formation, prior alignment."""
+        """Patient intake and team formation prep."""
         patient = state["patient"]
         episode_id = state["episode_id"]
         log: List[str] = list(state.get("orchestration_log", []))
@@ -235,30 +229,11 @@ class HCPanelSystem:
             len(patient.symptoms), len(patient.current_medications),
         )
 
-        semantic_rules = (
-            list(self.memory.semantic_rule_store._store.values())
-            if hasattr(self.memory.semantic_rule_store, "_store") else []
-        )
-        # Pass episode_id=None to suppress bus emission — positions are re-emitted
-        # inside Episode B (taskwork) in run_joint_panel().
-        physician_positions = self.physician_ctrl.assess_all(
-            patient, episode_id=None,
-            likelihood_store=self.memory.likelihood_store,
-            semantic_rules=semantic_rules,
-        )
-        pharmacy_positions = self.pharmacy_ctrl.assess_all(
-            patient, episode_id=None,
-            likelihood_store=self.memory.likelihood_store,
-            semantic_rules=semantic_rules,
-        )
-        log.append(f"orchestrate:physician_positions={len(physician_positions)}")
-        log.append(f"orchestrate:pharmacy_positions={len(pharmacy_positions)}")
+        log.append(f"orchestrate:specialists={len(self.specialists)}")
         # Snapshot only new messages (bus is empty at orchestrate entry)
         return {
             "orchestration_log": log,
-            "agent_messages": self.bus.messages[:],
-            "physician_positions": physician_positions,
-            "pharmacy_positions": pharmacy_positions,
+            "wire_trace": self.bus.messages[:],
         }
 
     def _node_joint_panel(self, state: DebateGraphState) -> Dict[str, Any]:
@@ -267,21 +242,11 @@ class HCPanelSystem:
         episode_id = state["episode_id"]
         log: List[str] = list(state.get("orchestration_log", []))
 
-        physician_positions: Dict[str, Any] = state.get("physician_positions", {})
-        pharmacy_positions: Dict[str, Any] = state.get("pharmacy_positions", {})
-
-        LOGGER.info(
-            "node.joint_panel episode=%s physicians=%d pharmacologists=%d",
-            episode_id,
-            len(physician_positions),
-            len(pharmacy_positions),
-        )
+        LOGGER.info("node.joint_panel episode=%s patient=%s", episode_id, patient.patient_id)
 
         outcome = self.orchestrator.run_joint_panel(
             patient=patient,
             episode_id=episode_id,
-            physician_positions=physician_positions,
-            pharmacy_positions=pharmacy_positions,
         )
 
         log.append(
@@ -289,17 +254,15 @@ class HCPanelSystem:
             f":cause={outcome.symptom_conclusion}"
             f":gar={outcome.gar:.4f}:scr={outcome.scr:.4f}:mpc={outcome.mpc:.4f}"
         )
-        snp_trace = list(state.get("snp_trace", [])) + outcome.snp_trace
-        _offset = len(state.get("agent_messages", []))
+        _offset = len(state.get("wire_trace", []))
         return {
             "outcome": outcome,
             "orchestration_log": log,
-            "snp_trace": snp_trace,
-            "agent_messages": list(state["agent_messages"]) + self.bus.messages[_offset:],
+            "wire_trace": list(state["wire_trace"]) + self.bus.messages[_offset:],
         }
 
     def _node_coordination(self, state: DebateGraphState) -> Dict[str, Any]:
-        """Write kind=knowledge, promote per-agent stores, store episode."""
+        """Promote per-agent stores, store episode."""
         episode_id = state["episode_id"]
         outcome: Optional[ClinicalDebateOutcome] = state.get("outcome")
         log: List[str] = list(state.get("orchestration_log", []))
@@ -308,28 +271,8 @@ class HCPanelSystem:
             log.append("coordination:outcome=missing error=no_outcome_produced")
             return {"orchestration_log": log, "error": "no_outcome_produced"}
 
-        # star.run() already emits kind=knowledge on the panel episode for each convergence
-        # result. We update TeamEpistemicMemory here without re-emitting to avoid duplicates.
-        panel_episode_id = outcome.panel_episode_id or episode_id
-        for truth in self.memory.convergence_store._store.values():
-            provenance_weight = round(
-                (1.0 - truth.social_compliance_ratio) * truth.genuine_agreement_ratio, 4
-            )
-            self.team_epistemic_agent.update(
-                concept_id=truth.concept_id,
-                posterior=truth.consensus_posterior,
-                gar=truth.genuine_agreement_ratio,
-                scr=truth.social_compliance_ratio,
-                provenance_weight=provenance_weight,
-                episode_id=episode_id,
-            )
-
-        # Promote peer outcomes to each SpecialistAgent's own PeerInteractionStore
-        for agent in self.physician_ctrl.specialists + self.pharmacy_ctrl.specialists:
-            agent.promote_peer_outcomes(episode_id=episode_id)
-
         log.append(
-            f"coordination:knowledge_written=true"
+            f"coordination:complete"
             f":resolution={outcome.resolution_label}"
             f":specialists={len(outcome.specialist_opinions)}"
         )
@@ -338,13 +281,21 @@ class HCPanelSystem:
             episode_id, outcome.resolution_label, outcome.symptom_conclusion,
             outcome.gar, outcome.scr,
         )
-        _offset = len(state.get("agent_messages", []))
+        _offset = len(state.get("wire_trace", []))
         return {
             "outcome": outcome,
             "orchestration_log": log,
-            "snp_trace": list(state.get("snp_trace", [])),
-            "agent_messages": list(state["agent_messages"]) + self.bus.messages[_offset:],
+            "wire_trace": list(state["wire_trace"]) + self.bus.messages[_offset:],
         }
+
+    # ------------------------------------------------------------------ helpers
+
+    def _drain_all_llm_traces(self) -> list:
+        """Collect and clear trace records from every per-agent LLMClient."""
+        records = self.coordinator_llm.drain_trace()
+        for s in self.specialists:
+            records += s.drain_llm_trace()
+        return records
 
     # ------------------------------------------------------------------ session
 
@@ -359,50 +310,30 @@ class HCPanelSystem:
             patient.patient_id, episode_id,
         )
         try:
-            # Fresh bus, ToM engine, and per-agent stores per session.
-            # Agent state is strictly private — no epistemic state survives across sessions.
-            self.bus = HCPanelAgentBus(run_id=run_id, conversation_id=run_id)
-            self.tom = TheoryOfMindEngine(self.llm)
-            self.orchestrator.tom_engine = self.tom
-            for agent in self.physician_ctrl.specialists + self.pharmacy_ctrl.specialists:
-                agent.bus = self.bus
-                agent.belief_store = AgentBeliefStore()
-                agent.peer_store = PeerInteractionStore()
-                agent.taskwork_store = TaskworkStore()
-                agent.epistemic_store = AgentEpistemicStore(agent.agent_id)
-            self.physician_ctrl.bus = self.bus
-            self.pharmacy_ctrl.bus = self.bus
-            self.orchestrator.ie_bus = self.bus
+            self.bus.messages = []
+            for agent in self.specialists:
+                agent.reset_session()
 
             initial_state: DebateGraphState = {
                 "patient": patient,
                 "episode_id": episode_id,
                 "run_id": run_id,
                 "orchestration_log": [],
-                "agent_messages": [],
-                "snp_trace": [],
+                "wire_trace": [],
                 "outcome": None,
                 "error": None,
-                "physician_positions": {},
-                "pharmacy_positions": {},
             }
             final_state: DebateGraphState = self.graph.invoke(initial_state)
 
             outcome: Optional[ClinicalDebateOutcome] = final_state.get("outcome")
-            snp_trace = list(final_state.get("snp_trace", []))
-            all_messages = list(final_state.get("agent_messages", []))
+            all_messages = list(final_state.get("wire_trace", []))
 
-            llm_trace = (
-                self.llm.drain_trace()
-                if hasattr(self.llm, "drain_trace")
-                else []
-            )
+            llm_trace = self._drain_all_llm_traces()
             episode = HealthcareEpisode(
                 episode_id=episode_id,
                 patient_id=patient.patient_id,
                 outcome=outcome,
-                agent_messages=all_messages,
-                snp_trace=snp_trace,
+                wire_trace=all_messages,
                 orchestration_log=list(final_state.get("orchestration_log", [])),
                 llm_trace=llm_trace,
                 timestamp_unix=int(time.time()),
@@ -432,8 +363,7 @@ def serialize_episode_output(episode: HealthcareEpisode) -> Dict[str, Any]:
             "patient_id": episode.patient_id,
             "error": "no_outcome_produced",
             "orchestration_log": episode.orchestration_log,
-            "ie_trace": episode.agent_messages,
-            "snp_trace": episode.snp_trace,
+            "trace": episode.wire_trace,
             "llm_trace": [],
         }
     return {
@@ -466,8 +396,7 @@ def serialize_episode_output(episode: HealthcareEpisode) -> Dict[str, Any]:
             for op in outcome.specialist_opinions
         ],
         # Full wire traces for trace rendering
-        "ie_trace": episode.agent_messages,
-        "snp_trace": outcome.snp_trace,
+        "trace": episode.wire_trace,
         "llm_trace": episode.llm_trace,
         "debate_log": outcome.debate_log,
         "orchestration_log": episode.orchestration_log,
