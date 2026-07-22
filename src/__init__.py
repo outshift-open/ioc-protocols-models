@@ -31,6 +31,7 @@ from src.primitives import (
     Context,
     Episode,
     Session,
+    Team,
 )
 from src.epistemic import Epistemic
 
@@ -50,6 +51,7 @@ __all__ = [
     "Context",
     "Episode",
     "Session",
+    "Team",
     # Epistemic
     "Epistemic",
 ]

@@ -46,7 +46,7 @@
       "type": "object"
     },
     "Semantic": {
-      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nThe CFN routing layer uses this to select appropriate cognitive engines (CEs).",
+      "description": "Describes the semantic/ontological framework needed to correctly interpret the payload.\nThe routing layer uses this to select appropriate handlers or processors.",
       "properties": {
         "schema_id": {
           "title": "Schema Id",
@@ -114,6 +114,14 @@
         "id": {
           "title": "Id",
           "type": "string"
+        },
+        "parents": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Parents",
+          "type": "array"
         }
       },
       "required": [
@@ -211,6 +219,39 @@
       "required": [
         "id",
         "episodes"
+      ],
+      "type": "object"
+    },
+    "Team": {
+      "description": "Represents a team of agents assigned to work on a task.\nUsed by TFP (Team Formation via Polling) subprotocol.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "member_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Member Ids",
+          "type": "array"
+        },
+        "task_description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Description"
+        }
+      },
+      "required": [
+        "id",
+        "member_ids"
       ],
       "type": "object"
     },

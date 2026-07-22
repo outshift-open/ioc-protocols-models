@@ -12,6 +12,7 @@ class Message(BaseModel):
     so we only need the message ID here.
     """
     id: str  # unique message identifier
+    parents: list[str] = []  # IDs of parent messages (for tracking lineage/causality)
 
 class Actor(BaseModel):
     """
@@ -47,7 +48,7 @@ class Provenance(BaseModel):
 class Semantic(BaseModel):
     """
     Describes the semantic/ontological framework needed to correctly interpret the payload.
-    The CFN routing layer uses this to select appropriate cognitive engines (CEs).
+    The routing layer uses this to select appropriate handlers or processors.
     """
     schema_id: str            # identifies the payload schema/format
     ontology_ref: str         # URI or ID of the ontology governing the domain vocabulary
@@ -76,3 +77,13 @@ class Session(BaseModel):
     """
     id: str                   # unique session identifier
     episodes: list[Episode]   # all episodes in this session
+
+
+class Team(BaseModel):
+    """
+    Represents a team of agents assigned to work on a task.
+    Used by TFP (Team Formation via Polling) subprotocol.
+    """
+    id: str                           # unique team identifier
+    member_ids: list[str]             # list of actor IDs in this team
+    task_description: Optional[str] = None  # optional description of team's assignment

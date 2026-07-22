@@ -49,6 +49,7 @@ class Context(BaseModel):
 
 class Message(BaseModel):
     id: str = Field(..., title="Id")
+    parents: list[str] = Field([], title="Parents")
 
 
 class Episode(BaseModel):
@@ -70,6 +71,12 @@ class PolicyLabel(BaseModel):
 class Session(BaseModel):
     id: str = Field(..., title="Id")
     episodes: list[Episode] = Field(..., title="Episodes")
+
+
+class Team(BaseModel):
+    id: str = Field(..., title="Id")
+    member_ids: list[str] = Field(..., title="Member Ids")
+    task_description: str | None = Field(None, title="Task Description")
 
 
 class Kind(Enum):

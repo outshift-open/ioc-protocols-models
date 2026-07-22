@@ -63,7 +63,7 @@ type ContextEpistemic map[string]interface{}
 
 // Describes the semantic/ontological framework needed to correctly interpret the
 // payload.
-// The CFN routing layer uses this to select appropriate cognitive engines (CEs).
+// The routing layer uses this to select appropriate handlers or processors.
 type ContextSemantic struct {
 	// OntologyRef corresponds to the JSON schema field "ontology_ref".
 	OntologyRef string `json:"ontology_ref" yaml:"ontology_ref" mapstructure:"ontology_ref"`
@@ -283,7 +283,7 @@ type L9HeaderContextEpistemic map[string]interface{}
 
 // Describes the semantic/ontological framework needed to correctly interpret the
 // payload.
-// The CFN routing layer uses this to select appropriate cognitive engines (CEs).
+// The routing layer uses this to select appropriate handlers or processors.
 type L9HeaderContextSemantic struct {
 	// OntologyRef corresponds to the JSON schema field "ontology_ref".
 	OntologyRef string `json:"ontology_ref" yaml:"ontology_ref" mapstructure:"ontology_ref"`
@@ -475,6 +475,9 @@ func (j *L9) UnmarshalJSON(value []byte) error {
 type Message struct {
 	// ID corresponds to the JSON schema field "id".
 	ID string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// Parents corresponds to the JSON schema field "parents".
+	Parents []string `json:"parents,omitempty,omitzero" yaml:"parents,omitempty" mapstructure:"parents,omitempty"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -490,6 +493,9 @@ func (j *Message) UnmarshalJSON(value []byte) error {
 	var plain Plain
 	if err := json.Unmarshal(value, &plain); err != nil {
 		return err
+	}
+	if v, ok := raw["parents"]; !ok || v == nil {
+		plain.Parents = []string{}
 	}
 	*j = Message(plain)
 	return nil
@@ -592,7 +598,7 @@ func (j *Provenance) UnmarshalJSON(value []byte) error {
 
 // Describes the semantic/ontological framework needed to correctly interpret the
 // payload.
-// The CFN routing layer uses this to select appropriate cognitive engines (CEs).
+// The routing layer uses this to select appropriate handlers or processors.
 type Semantic struct {
 	// OntologyRef corresponds to the JSON schema field "ontology_ref".
 	OntologyRef string `json:"ontology_ref" yaml:"ontology_ref" mapstructure:"ontology_ref"`
@@ -607,6 +613,12 @@ type Semantic struct {
 // Tracks the origin and lineage of a message - who created it, from what source,
 // and through which transformations. Fields TBD.
 type SemanticProvenance map[string]interface{}
+
+type SemanticProvenance_0 = Provenance
+
+type L9HeaderPolicy_0 = PolicyLabel
+
+type ContextSemantic_0 = Semantic
 
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *Semantic) UnmarshalJSON(value []byte) error {
@@ -639,12 +651,6 @@ type Session struct {
 	ID string `json:"id" yaml:"id" mapstructure:"id"`
 }
 
-type ContextEpistemic_0 = Epistemic
-
-type ContextSemantic_0 = Semantic
-
-type SemanticProvenance_0 = Provenance
-
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *Session) UnmarshalJSON(value []byte) error {
 	var raw map[string]interface{}
@@ -666,14 +672,50 @@ func (j *Session) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-type L9HeaderPolicy_0 = PolicyLabel
+type ContextSemanticProvenance_0 = Provenance
+
+type ContextEpistemic_0 = Epistemic
 
 type L9HeaderContextSemanticProvenance_0 = Provenance
+
+type L9HeaderContextSemantic_0 = Semantic
 
 type L9HeaderContextEpistemic_0 = Epistemic
 
 type L9HeaderContext_0 = Context
 
-type ContextSemanticProvenance_0 = Provenance
+type TeamTaskDescription_0 *string
 
-type L9HeaderContextSemantic_0 = Semantic
+// Represents a team of agents assigned to work on a task.
+// Used by TFP (Team Formation via Polling) subprotocol.
+type Team struct {
+	// ID corresponds to the JSON schema field "id".
+	ID string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// MemberIds corresponds to the JSON schema field "member_ids".
+	MemberIds []string `json:"member_ids" yaml:"member_ids" mapstructure:"member_ids"`
+
+	// TaskDescription corresponds to the JSON schema field "task_description".
+	TaskDescription interface{} `json:"task_description,omitempty,omitzero" yaml:"task_description,omitempty" mapstructure:"task_description,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *Team) UnmarshalJSON(value []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["id"]; raw != nil && !ok {
+		return fmt.Errorf("field id in Team: required")
+	}
+	if _, ok := raw["member_ids"]; raw != nil && !ok {
+		return fmt.Errorf("field member_ids in Team: required")
+	}
+	type Plain Team
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = Team(plain)
+	return nil
+}
