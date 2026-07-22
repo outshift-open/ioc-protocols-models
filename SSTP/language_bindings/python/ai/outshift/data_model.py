@@ -49,12 +49,7 @@ class Context(BaseModel):
 
 class Message(BaseModel):
     id: str = Field(..., title="Id")
-    parents: list[str] = Field(
-        ...,
-        description="Ordered list of parent message IDs. Empty list for root messages.",
-        title="Parents",
-    )
-    episode: str = Field(..., title="Episode")
+    parents: list[str] = Field([], title="Parents")
 
 
 class Episode(BaseModel):
@@ -71,6 +66,11 @@ class PolicyLabel(BaseModel):
     sensitivity: str = Field(..., title="Sensitivity")
     propagation: str = Field(..., title="Propagation")
     retention_policy: str = Field(..., title="Retention Policy")
+
+
+class Session(BaseModel):
+    id: str = Field(..., title="Id")
+    episodes: list[Episode] = Field(..., title="Episodes")
 
 
 class TaskWork(BaseModel):
@@ -102,7 +102,7 @@ class L9Header(BaseModel):
     kind: Kind
     subkind: str | None = Field(None, title="Subkind")
     participants: ParticipantSet
-    message: Message | None = None
+    session: Session
     policy: PolicyLabel | None = None
     attributes: dict[str, Any] | None = Field(None, title="Attributes")
     context: Context | None = None

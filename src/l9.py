@@ -21,7 +21,7 @@ from typing import Optional
 from enum import Enum
 from pydantic import BaseModel
 
-from src.primitives import ParticipantSet, PolicyLabel, Message, Context
+from src.primitives import ParticipantSet, PolicyLabel, Session, Context
 
 
 # ── Enums ─────────────────────────────────────────────────────────────────────
@@ -47,6 +47,9 @@ class L9Header(BaseModel):
     Routing and metadata envelope for every L9 message.
     The routing layer reads the header — especially `kind` and `subkind` —
     to decide which handler should process the message.
+
+    In the stateful design, the header carries the complete session history
+    including all episodes and messages.
     """
     protocol: str                          # protocol name, e.g. "MyProtocol"
     subprotocol: str                       # subprotocol name, e.g. "MySubprotocol"
@@ -54,7 +57,7 @@ class L9Header(BaseModel):
     kind: Kind                             # one of: intent | contingency | exchange | commit | knowledge
     subkind: Optional[str] = None          # free-form classification within the kind
     participants: ParticipantSet           # all participants: sender(s), receiver(s), observers
-    message: Message                       # message metadata including ID, parents, and episode
+    session: Session                       # complete session state with all episodes and messages
     policy: Optional[PolicyLabel] = None   # optional data governance labels
     attributes: Optional[dict] = None
     context: Optional[Context] = None      # optional context

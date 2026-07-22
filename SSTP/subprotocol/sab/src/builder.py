@@ -52,11 +52,13 @@ from ai.outshift.data_model import (  # noqa: E402
     L9,
     Actor,
     Context,
+    Episode,
     L9Header,
     L9Payload,
     Message,
     ParticipantSet,
     Semantic,
+    Session,
 )
 
 from .sab_models import (
@@ -241,6 +243,17 @@ class SABMessageBuilder:
         # this is the single point that answers "where does SAB metadata live?".
         attributes: Dict[str, Any] = {"msg_created_at": created_at, **self._extra_attributes}
 
+        # Build stateful session with episode and message
+        session = Session(
+            id=self._session_id,
+            episodes=[
+                Episode(
+                    id=episode,
+                    messages=[Message(id=message_id)]
+                )
+            ]
+        )
+
         return L9(
             header=L9Header(
                 protocol="SSTP",
@@ -249,7 +262,7 @@ class SABMessageBuilder:
                 kind=self._kind.value,
                 subkind=self._subkind.value,
                 participants=ParticipantSet(actors=self._actors, groups=None),
-                message=Message(id=message_id, parents=list(self._parents), episode=episode),
+                session=session,
                 attributes=attributes,
                 context=Context(
                     topic=build_topic(self._content_text, self._issues, self._options),

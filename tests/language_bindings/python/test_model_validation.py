@@ -107,20 +107,20 @@ class TestGeneratedModelValidation:
             data_model.PolicyLabel(sensitivity="confidential")  # Missing propagation, retention_policy
 
     def test_message_validation(self):
-        """Test Message model validation."""
-        # Valid data
-        valid_message = data_model.Message(
-            id="msg-001",
-            parents=["msg-000"],
-            episode="ep-001"
-        )
+        """Test Message model validation (stateful design with id and parents)."""
+        # Valid data - minimal
+        valid_message = data_model.Message(id="msg-001")
         assert valid_message.id == "msg-001"
-        assert valid_message.parents == ["msg-000"]
-        assert valid_message.episode == "ep-001"
+        assert valid_message.parents == []  # Default empty list
+
+        # Valid data - with parents
+        message_with_parents = data_model.Message(id="msg-002", parents=["msg-001"])
+        assert message_with_parents.id == "msg-002"
+        assert message_with_parents.parents == ["msg-001"]
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            data_model.Message()  # Missing required fields
+            data_model.Message()  # Missing id
 
     def test_kind_enum(self):
         """Test Kind enum values."""
@@ -155,7 +155,7 @@ class TestGeneratedModelValidation:
             data_model.Context()  # Missing topic
 
     def test_l9_header_validation(self):
-        """Test L9Header validates fields correctly."""
+        """Test L9Header validates fields correctly (stateful design with session)."""
         # Valid header
         valid_header = data_model.L9Header(
             protocol="IOC_L9",
@@ -165,6 +165,15 @@ class TestGeneratedModelValidation:
             participants=data_model.ParticipantSet(
                 actors=[data_model.Actor(id="actor_001", role="analyst")],
                 groups={"security_team": ["actor_001"]}
+            ),
+            session=data_model.Session(
+                id="session-001",
+                episodes=[
+                    data_model.Episode(
+                        id="ep-001",
+                        messages=[data_model.Message(id="msg-001")]
+                    )
+                ]
             )
         )
         assert valid_header.protocol == "IOC_L9"
@@ -178,11 +187,11 @@ class TestGeneratedModelValidation:
                 protocol="IOC_L9",
                 version="1.0.0",
                 kind=data_model.Kind.intent
-                # Missing subprotocol, participants
+                # Missing subprotocol, participants, session
             )
 
     def test_l9_header_with_optional_fields(self):
-        """Test L9Header with optional context, message, policy."""
+        """Test L9Header with optional context and policy (stateful design)."""
         valid_header = data_model.L9Header(
             protocol="IOC_L9",
             subprotocol="SSTP",
@@ -193,17 +202,21 @@ class TestGeneratedModelValidation:
                 actors=[data_model.Actor(id="actor_001", role="analyst")],
                 groups={"security_team": ["actor_001"]}
             ),
+            session=data_model.Session(
+                id="session-001",
+                episodes=[
+                    data_model.Episode(
+                        id="ep-001",
+                        messages=[data_model.Message(id="msg-001"), data_model.Message(id="msg-002")]
+                    )
+                ]
+            ),
             context=data_model.Context(
                 topic="threat_analysis",
                 semantic=data_model.Semantic(
                     schema_id="ioc_l9_v1.0",
                     ontology_ref="https://example.com/ontology"
                 )
-            ),
-            message=data_model.Message(
-                id="msg-001",
-                parents=[],
-                episode="ep-001"
             ),
             policy=data_model.PolicyLabel(
                 sensitivity="confidential",
@@ -212,7 +225,8 @@ class TestGeneratedModelValidation:
             )
         )
         assert valid_header.context.topic == "threat_analysis"
-        assert valid_header.message.id == "msg-001"
+        assert valid_header.session.id == "session-001"
+        assert len(valid_header.session.episodes[0].messages) == 2
         assert valid_header.policy.sensitivity == "confidential"
         assert valid_header.subkind == "indicator"
 
@@ -234,7 +248,7 @@ class TestGeneratedModelValidation:
             data_model.L9Payload(type="indicator")  # Missing data
 
     def test_complete_l91_validation(self):
-        """Test complete L91 message validation."""
+        """Test complete L91 message validation (stateful design)."""
         # Valid complete message
         valid_l91 = data_model.L9(
             header=data_model.L9Header(
@@ -245,6 +259,15 @@ class TestGeneratedModelValidation:
                 participants=data_model.ParticipantSet(
                     actors=[data_model.Actor(id="actor_001", role="analyst")],
                     groups={"security_team": ["actor_001"]}
+                ),
+                session=data_model.Session(
+                    id="session-001",
+                    episodes=[
+                        data_model.Episode(
+                            id="ep-001",
+                            messages=[data_model.Message(id="msg-001")]
+                        )
+                    ]
                 )
             ),
             payload=data_model.L9Payload(
@@ -268,7 +291,7 @@ class TestGeneratedModelValidation:
         assert l9_schema.root == {"any": "data"}
 
     def test_state_management_validation(self):
-        """Test complex model validation with nested structures."""
+        """Test complex model validation with nested structures (stateful design)."""
         # Valid L91 message with header and payload
         valid_l91 = data_model.L9(
             header=data_model.L9Header(
@@ -279,6 +302,15 @@ class TestGeneratedModelValidation:
                 participants=data_model.ParticipantSet(
                     actors=[data_model.Actor(id="user1", role="analyst")],
                     groups={"team_alpha": ["user1"]}
+                ),
+                session=data_model.Session(
+                    id="session-001",
+                    episodes=[
+                        data_model.Episode(
+                            id="ep-001",
+                            messages=[data_model.Message(id="msg-001")]
+                        )
+                    ]
                 ),
                 context=data_model.Context(
                     topic="security_analysis",
@@ -313,10 +345,10 @@ class TestGeneratedModelValidation:
             data_model.Actor(id=None, role="analyst")
 
     def test_episode_validation(self):
-        """Test Episode model validation."""
+        """Test Episode model validation (stateful design)."""
         valid_episode = data_model.Episode(
             id="ep_001",
-            messages=[data_model.Message(id="msg-001", parents=[], episode="ep_001")]
+            messages=[data_model.Message(id="msg-001")]
         )
         assert valid_episode.id == "ep_001"
         assert len(valid_episode.messages) == 1
@@ -324,53 +356,62 @@ class TestGeneratedModelValidation:
         with pytest.raises(ValidationError):
             data_model.Episode(id="ep_001")  # Missing messages
 
-    def test_task_work_validation(self):
-        """Test TaskWork model validation."""
-        valid_task = data_model.TaskWork(
-            id="task_001",
-            assigned_to="user1",
-            task_description="Analyze threat",
-            status="in_progress",
+    def test_session_validation(self):
+        """Test Session model validation (stateful design)."""
+        valid_session = data_model.Session(
+            id="session-001",
             episodes=[
                 data_model.Episode(
-                    id="ep_001",
-                    messages=[data_model.Message(id="msg-001", parents=[], episode="ep_001")]
+                    id="ep-001",
+                    messages=[data_model.Message(id="msg-001")]
                 )
             ]
         )
-        assert valid_task.id == "task_001"
-        assert valid_task.status == "in_progress"
+        assert valid_session.id == "session-001"
+        assert len(valid_session.episodes) == 1
+        assert len(valid_session.episodes[0].messages) == 1
 
         with pytest.raises(ValidationError):
-            data_model.TaskWork(id="task_001")  # Missing required fields
+            data_model.Session(id="session-001")  # Missing episodes
 
     def test_team_validation(self):
-        """Test Team model validation."""
-        valid_team = data_model.Team(
-            id="team_001",
-            team_members=["user1", "user2"],
-            tasks=[
-                data_model.TaskWork(
-                    id="task_001",
-                    assigned_to="user1",
-                    task_description="Analyze threat",
-                    status="pending",
-                    episodes=[]
-                )
-            ]
+        """Test Team model validation (used by TFP subprotocol)."""
+        # Valid team with all fields
+        task1 = data_model.TaskWork(
+            id="task-001",
+            assigned_to="actor-1",
+            task_description="Implement authentication",
+            status="in_progress",
+            episodes=[data_model.Episode(id="ep-001", messages=[data_model.Message(id="msg-001")])]
         )
-        assert valid_team.id == "team_001"
-        assert len(valid_team.team_members) == 2
+        valid_team = data_model.Team(
+            id="team-001",
+            team_members=["actor-1", "actor-2", "actor-3"],
+            tasks=[task1]
+        )
+        assert valid_team.id == "team-001"
+        assert len(valid_team.team_members) == 3
+        assert len(valid_team.tasks) == 1
 
+        # Valid team with empty tasks
+        minimal_team = data_model.Team(
+            id="team-002",
+            team_members=["actor-4"],
+            tasks=[]
+        )
+        assert minimal_team.id == "team-002"
+        assert len(minimal_team.tasks) == 0
+
+        # Missing required fields
         with pytest.raises(ValidationError):
-            data_model.Team(id="team_001")  # Missing required fields
+            data_model.Team(id="team-003")  # Missing team_members and tasks
 
 
 class TestJSONSchemaValidation:
     """Test JSON serialization/deserialization validation."""
 
     def test_json_roundtrip_validation(self):
-        """Test that models can be serialized to JSON and back with validation."""
+        """Test that models can be serialized to JSON and back with validation (stateful design)."""
         # Create a valid L91 message
         l91_model = data_model.L9(
             header=data_model.L9Header(
@@ -381,6 +422,15 @@ class TestJSONSchemaValidation:
                 participants=data_model.ParticipantSet(
                     actors=[data_model.Actor(id="actor_001", role="analyst")],
                     groups={"security_team": ["actor_001"]}
+                ),
+                session=data_model.Session(
+                    id="session-001",
+                    episodes=[
+                        data_model.Episode(
+                            id="ep-001",
+                            messages=[data_model.Message(id="msg-001")]
+                        )
+                    ]
                 ),
                 context=data_model.Context(
                     topic="threat_analysis",

@@ -30,6 +30,7 @@ from src.primitives import (
     Semantic,
     Context,
     Episode,
+    Session,
     TaskWork,
     Team,
 )
@@ -50,6 +51,7 @@ __all__ = [
     "Semantic",
     "Context",
     "Episode",
+    "Session",
     "TaskWork",
     "Team",
     # Epistemic

@@ -7,11 +7,12 @@ from typing import Optional, Dict
 from src.epistemic import Epistemic
 class Message(BaseModel):
     """
-    Represents a message in the protocol.
+    Represents a single message in the protocol.
+    In the stateful design, messages are embedded within episodes,
+    so we only need the message ID here.
     """
-    id: str              # unique message identifier
-    parents: list[str]   # ordered list of parent message IDs
-    episode: str
+    id: str  # unique message identifier
+    parents: list[str] = []  # IDs of parent messages (for tracking lineage/causality)
 
 class Actor(BaseModel):
     """
@@ -47,7 +48,7 @@ class Provenance(BaseModel):
 class Semantic(BaseModel):
     """
     Describes the semantic/ontological framework needed to correctly interpret the payload.
-    The CFN routing layer uses this to select appropriate cognitive engines (CEs).
+    The routing layer uses this to select appropriate handlers or processors.
     """
     schema_id: str            # identifies the payload schema/format
     ontology_ref: str         # URI or ID of the ontology governing the domain vocabulary
@@ -61,12 +62,21 @@ class Context(BaseModel):
 
 class Episode(BaseModel):
     """
-    A discrete conversation or interaction sequence tied to a task.
+    A discrete conversation or interaction sequence.
     An episode groups the messages exchanged during one focused interaction
     (e.g. one round of clarification, one tool invocation cycle).
     """
     id: str                  # unique episode identifier
     messages: list[Message]  # ordered sequence of messages in this episode
+
+
+class Session(BaseModel):
+    """
+    A complete session containing all episodes and messages.
+    Each L9 message carries the full session state, providing complete history.
+    """
+    id: str                   # unique session identifier
+    episodes: list[Episode]   # all episodes in this session
 
 
 class TaskWork(BaseModel):
