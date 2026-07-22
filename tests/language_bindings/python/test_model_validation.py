@@ -107,10 +107,16 @@ class TestGeneratedModelValidation:
             data_model.PolicyLabel(sensitivity="confidential")  # Missing propagation, retention_policy
 
     def test_message_validation(self):
-        """Test Message model validation (stateful design - only has id)."""
-        # Valid data
+        """Test Message model validation (stateful design with id and parents)."""
+        # Valid data - minimal
         valid_message = data_model.Message(id="msg-001")
         assert valid_message.id == "msg-001"
+        assert valid_message.parents == []  # Default empty list
+
+        # Valid data - with parents
+        message_with_parents = data_model.Message(id="msg-002", parents=["msg-001"])
+        assert message_with_parents.id == "msg-002"
+        assert message_with_parents.parents == ["msg-001"]
 
         # Missing required fields
         with pytest.raises(ValidationError):
@@ -367,6 +373,30 @@ class TestGeneratedModelValidation:
 
         with pytest.raises(ValidationError):
             data_model.Session(id="session-001")  # Missing episodes
+
+    def test_team_validation(self):
+        """Test Team model validation (used by TFP subprotocol)."""
+        # Valid team with all fields
+        valid_team = data_model.Team(
+            id="team-001",
+            member_ids=["actor-1", "actor-2", "actor-3"],
+            task_description="Implement authentication system"
+        )
+        assert valid_team.id == "team-001"
+        assert len(valid_team.member_ids) == 3
+        assert valid_team.task_description == "Implement authentication system"
+
+        # Valid team without optional task_description
+        minimal_team = data_model.Team(
+            id="team-002",
+            member_ids=["actor-4"]
+        )
+        assert minimal_team.id == "team-002"
+        assert minimal_team.task_description is None
+
+        # Missing required fields
+        with pytest.raises(ValidationError):
+            data_model.Team(id="team-003")  # Missing member_ids
 
 
 class TestJSONSchemaValidation:
