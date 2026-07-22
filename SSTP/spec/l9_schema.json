@@ -222,36 +222,68 @@
       ],
       "type": "object"
     },
-    "Team": {
-      "description": "Represents a team of agents assigned to work on a task.\nUsed by TFP (Team Formation via Polling) subprotocol.",
+    "TaskWork": {
+      "description": "A unit of work assigned to a team member, tracked through one or more episodes.\nStatus lifecycle example: \"pending\" \u2192 \"in_progress\" \u2192 \"completed\" | \"blocked\"",
       "properties": {
         "id": {
           "title": "Id",
           "type": "string"
         },
-        "member_ids": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Member Ids",
-          "type": "array"
+        "assigned_to": {
+          "title": "Assigned To",
+          "type": "string"
         },
         "task_description": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Task Description"
+          "title": "Task Description",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "episodes": {
+          "items": {
+            "$ref": "#/$defs/Episode"
+          },
+          "title": "Episodes",
+          "type": "array"
         }
       },
       "required": [
         "id",
-        "member_ids"
+        "assigned_to",
+        "task_description",
+        "status",
+        "episodes"
+      ],
+      "type": "object"
+    },
+    "Team": {
+      "description": "A group of agents and/or humans collaborating on a shared set of tasks.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "team_members": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Team Members",
+          "type": "array"
+        },
+        "tasks": {
+          "items": {
+            "$ref": "#/$defs/TaskWork"
+          },
+          "title": "Tasks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "team_members",
+        "tasks"
       ],
       "type": "object"
     },

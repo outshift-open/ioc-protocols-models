@@ -614,7 +614,7 @@ type Semantic struct {
 // and through which transformations. Fields TBD.
 type SemanticProvenance map[string]interface{}
 
-type SemanticProvenance_0 = Provenance
+type ContextSemanticProvenance_0 = Provenance
 
 type L9HeaderPolicy_0 = PolicyLabel
 
@@ -672,7 +672,7 @@ func (j *Session) UnmarshalJSON(value []byte) error {
 	return nil
 }
 
-type ContextSemanticProvenance_0 = Provenance
+type SemanticProvenance_0 = Provenance
 
 type ContextEpistemic_0 = Epistemic
 
@@ -684,19 +684,65 @@ type L9HeaderContextEpistemic_0 = Epistemic
 
 type L9HeaderContext_0 = Context
 
-type TeamTaskDescription_0 *string
+// A unit of work assigned to a team member, tracked through one or more episodes.
+// Status lifecycle example: "pending" → "in_progress" → "completed" | "blocked"
+type TaskWork struct {
+	// AssignedTo corresponds to the JSON schema field "assigned_to".
+	AssignedTo string `json:"assigned_to" yaml:"assigned_to" mapstructure:"assigned_to"`
 
-// Represents a team of agents assigned to work on a task.
-// Used by TFP (Team Formation via Polling) subprotocol.
+	// Episodes corresponds to the JSON schema field "episodes".
+	Episodes []Episode `json:"episodes" yaml:"episodes" mapstructure:"episodes"`
+
+	// ID corresponds to the JSON schema field "id".
+	ID string `json:"id" yaml:"id" mapstructure:"id"`
+
+	// Status corresponds to the JSON schema field "status".
+	Status string `json:"status" yaml:"status" mapstructure:"status"`
+
+	// TaskDescription corresponds to the JSON schema field "task_description".
+	TaskDescription string `json:"task_description" yaml:"task_description" mapstructure:"task_description"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (j *TaskWork) UnmarshalJSON(value []byte) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return err
+	}
+	if _, ok := raw["assigned_to"]; raw != nil && !ok {
+		return fmt.Errorf("field assigned_to in TaskWork: required")
+	}
+	if _, ok := raw["episodes"]; raw != nil && !ok {
+		return fmt.Errorf("field episodes in TaskWork: required")
+	}
+	if _, ok := raw["id"]; raw != nil && !ok {
+		return fmt.Errorf("field id in TaskWork: required")
+	}
+	if _, ok := raw["status"]; raw != nil && !ok {
+		return fmt.Errorf("field status in TaskWork: required")
+	}
+	if _, ok := raw["task_description"]; raw != nil && !ok {
+		return fmt.Errorf("field task_description in TaskWork: required")
+	}
+	type Plain TaskWork
+	var plain Plain
+	if err := json.Unmarshal(value, &plain); err != nil {
+		return err
+	}
+	*j = TaskWork(plain)
+	return nil
+}
+
+// A group of agents and/or humans collaborating on a shared set of tasks.
 type Team struct {
 	// ID corresponds to the JSON schema field "id".
 	ID string `json:"id" yaml:"id" mapstructure:"id"`
 
-	// MemberIds corresponds to the JSON schema field "member_ids".
-	MemberIds []string `json:"member_ids" yaml:"member_ids" mapstructure:"member_ids"`
+	// Tasks corresponds to the JSON schema field "tasks".
+	Tasks []TaskWork `json:"tasks" yaml:"tasks" mapstructure:"tasks"`
 
-	// TaskDescription corresponds to the JSON schema field "task_description".
-	TaskDescription interface{} `json:"task_description,omitempty,omitzero" yaml:"task_description,omitempty" mapstructure:"task_description,omitempty"`
+	// TeamMembers corresponds to the JSON schema field "team_members".
+	TeamMembers []string `json:"team_members" yaml:"team_members" mapstructure:"team_members"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -708,8 +754,11 @@ func (j *Team) UnmarshalJSON(value []byte) error {
 	if _, ok := raw["id"]; raw != nil && !ok {
 		return fmt.Errorf("field id in Team: required")
 	}
-	if _, ok := raw["member_ids"]; raw != nil && !ok {
-		return fmt.Errorf("field member_ids in Team: required")
+	if _, ok := raw["tasks"]; raw != nil && !ok {
+		return fmt.Errorf("field tasks in Team: required")
+	}
+	if _, ok := raw["team_members"]; raw != nil && !ok {
+		return fmt.Errorf("field team_members in Team: required")
 	}
 	type Plain Team
 	var plain Plain

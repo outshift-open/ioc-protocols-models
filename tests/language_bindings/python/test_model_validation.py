@@ -377,26 +377,34 @@ class TestGeneratedModelValidation:
     def test_team_validation(self):
         """Test Team model validation (used by TFP subprotocol)."""
         # Valid team with all fields
+        task1 = data_model.TaskWork(
+            id="task-001",
+            assigned_to="actor-1",
+            task_description="Implement authentication",
+            status="in_progress",
+            episodes=[data_model.Episode(id="ep-001", messages=[data_model.Message(id="msg-001")])]
+        )
         valid_team = data_model.Team(
             id="team-001",
-            member_ids=["actor-1", "actor-2", "actor-3"],
-            task_description="Implement authentication system"
+            team_members=["actor-1", "actor-2", "actor-3"],
+            tasks=[task1]
         )
         assert valid_team.id == "team-001"
-        assert len(valid_team.member_ids) == 3
-        assert valid_team.task_description == "Implement authentication system"
+        assert len(valid_team.team_members) == 3
+        assert len(valid_team.tasks) == 1
 
-        # Valid team without optional task_description
+        # Valid team with empty tasks
         minimal_team = data_model.Team(
             id="team-002",
-            member_ids=["actor-4"]
+            team_members=["actor-4"],
+            tasks=[]
         )
         assert minimal_team.id == "team-002"
-        assert minimal_team.task_description is None
+        assert len(minimal_team.tasks) == 0
 
         # Missing required fields
         with pytest.raises(ValidationError):
-            data_model.Team(id="team-003")  # Missing member_ids
+            data_model.Team(id="team-003")  # Missing team_members and tasks
 
 
 class TestJSONSchemaValidation:

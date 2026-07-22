@@ -73,10 +73,18 @@ class Session(BaseModel):
     episodes: list[Episode] = Field(..., title="Episodes")
 
 
+class TaskWork(BaseModel):
+    id: str = Field(..., title="Id")
+    assigned_to: str = Field(..., title="Assigned To")
+    task_description: str = Field(..., title="Task Description")
+    status: str = Field(..., title="Status")
+    episodes: list[Episode] = Field(..., title="Episodes")
+
+
 class Team(BaseModel):
     id: str = Field(..., title="Id")
-    member_ids: list[str] = Field(..., title="Member Ids")
-    task_description: str | None = Field(None, title="Task Description")
+    team_members: list[str] = Field(..., title="Team Members")
+    tasks: list[TaskWork] = Field(..., title="Tasks")
 
 
 class Kind(Enum):

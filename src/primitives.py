@@ -79,11 +79,22 @@ class Session(BaseModel):
     episodes: list[Episode]   # all episodes in this session
 
 
+class TaskWork(BaseModel):
+    """
+    A unit of work assigned to a team member, tracked through one or more episodes.
+    Status lifecycle example: "pending" → "in_progress" → "completed" | "blocked"
+    """
+    id: str                    # unique task identifier
+    assigned_to: str           # name or ID of the agent/human responsible
+    task_description: str      # human-readable description of what needs to be done
+    status: str                # current task status: "pending" | "in_progress" | "completed" | "blocked"
+    episodes: list[Episode]    # conversation episodes associated with this task
+
+
 class Team(BaseModel):
     """
-    Represents a team of agents assigned to work on a task.
-    Used by TFP (Team Formation via Polling) subprotocol.
+    A group of agents and/or humans collaborating on a shared set of tasks.
     """
-    id: str                           # unique team identifier
-    member_ids: list[str]             # list of actor IDs in this team
-    task_description: Optional[str] = None  # optional description of team's assignment
+    id: str                    # unique team identifier
+    team_members: list[str]    # IDs or names of agents/humans on this team
+    tasks: list[TaskWork]      # all tasks assigned within this team
