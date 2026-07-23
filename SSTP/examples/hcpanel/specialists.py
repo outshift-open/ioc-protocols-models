@@ -396,19 +396,49 @@ class SpecialistAgent:
             "evidence": result.get("supporting_evidence") or [],
         }
 
+    def _apply_tp_result(self, tp_payload: Dict[str, Any]) -> None:
+        """Apply a pre-computed TP result from the session-open payload.
+
+        Called when a TW session-open INTENT carries a team_process payload part.
+        Sets process_params directly so no TP debate is needed.
+        """
+        per_agent = (tp_payload.get("specialist_process_params") or {}).get(self.agent_id)
+        if per_agent:
+            self.process_params = dict(per_agent)
+        else:
+            role_assignments = tp_payload.get("role_assignments") or {}
+            _role = role_assignments.get(self.agent_id) or []
+            winning = tp_payload.get("winning_position") or {}
+            terms = winning.get("team_process_terms") or {}
+            self.process_params = {
+                "role_assignment": _role,
+                "session_objective": terms.get("session_objective", ""),
+                "debate_format": terms.get("debate_format", ""),
+                "contingency_rules": terms.get("contingency_rules", {}),
+                "no_convergence_handling": terms.get("no_convergence_handling", ""),
+            }
+        LOGGER.debug(
+            "specialist._apply_tp_result agent=%s role_assignment=%s",
+            self.agent_id, self.process_params.get("role_assignment"),
+        )
+
     def dispatch_intent(self, header: Any) -> None:
         """Route an incoming intent header through this agent's L9."""
         _is_session_open = False
+        _tp_payload: Optional[Dict[str, Any]] = None
         if isinstance(header, dict) and self._agreed_plan is None:
             for part in (header.get("payload") or []):
                 if part.get("type") == "session_plan":
                     self._agreed_plan = part.get("content")
                     _is_session_open = True
-                    break
+                elif part.get("type") == "team_process" and _tp_payload is None:
+                    _tp_payload = part.get("content")
         self._check_plan_adherence(header, expected_kind="intent")
         if self._l9 is not None:
             self._l9.dispatch_intent(header)
             if _is_session_open:
+                if _tp_payload is not None:
+                    self._apply_tp_result(_tp_payload)
                 episode = self._l9.join(header)
                 _controller_id = (
                     (header.get("participants") or {})

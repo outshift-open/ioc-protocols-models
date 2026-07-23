@@ -566,6 +566,44 @@ def render(result_path: str, output_path: str, patient_filter: Optional[str] = N
 
     all_out: List[str] = []
 
+    # ── Team Process section ──────────────────────────────────────────────────
+    tp_trace: List[Dict[str, Any]] = data.get("tp_trace", [])
+    tp_metrics: Dict[str, Any] = data.get("tp_metrics", {})
+    tp_episode_id: str = data.get("tp_episode_id", "?")
+    if tp_trace:
+        all_out.append("# Team Process (TP) Trace\n\n")
+        all_out.append(f"**Episode URN:** `{tp_episode_id}`  \n")
+        tp_mpc = tp_metrics.get("mpc", "?")
+        tp_gar = tp_metrics.get("gar", "?")
+        tp_scr = tp_metrics.get("scr", "?")
+        all_out.append(
+            f"**GAR / SCR / MPC:** {tp_gar} / {tp_scr} / {tp_mpc}  \n"
+            f"**Wire messages:** {len(tp_trace)}  \n\n"
+        )
+        all_out.append(_hr())
+        tp_phased = _assign_phases(tp_trace)
+        tp_timeline = _build_timeline(tp_phased, [])
+        tp_phase = ""
+        tp_seq = 1
+        for evt_kind, depth, obj, phase in tp_timeline:
+            if evt_kind == "wire":
+                render_phase = phase if phase != "knowledge" else tp_phase
+                if render_phase != tp_phase:
+                    if tp_phase:
+                        all_out.append(_hr())
+                    label = _PHASE_LABELS.get(render_phase, render_phase.upper())
+                    all_out.append(f"## Phase: {label}\n\n")
+                    preamble = _PHASE_PREAMBLES.get(render_phase, "")
+                    if preamble:
+                        all_out.append(preamble + "\n\n")
+                    tp_phase = render_phase
+                all_out.append(_wire_event(tp_seq, obj, phase, depth=depth))
+                tp_seq += 1
+            else:
+                all_out.append(_llm_event(obj))
+        all_out.append(_hr())
+        all_out.append("\n\n---\n\n")
+
     for ep_idx, ep in enumerate(episodes):
         patient_id = ep.get("patient_id", "?")
         if patient_filter and patient_id != patient_filter:

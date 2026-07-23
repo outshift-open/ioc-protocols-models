@@ -19,11 +19,12 @@ dependency injection only.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from SSTP.subprotocol.siep.src.panel import NetworkHandle
 from SSTP.examples.hcpanel.domain import ClinicalDebateOutcome, SpecialistOpinion
-from SSTP.base import L9, SessionAbortedError, PlanAdherenceError, DebateTimeoutError
+from SSTP.base import L9, SessionAbortedError, PlanAdherenceError, DebateTimeoutError, SessionPlan
 
 
 if TYPE_CHECKING:
@@ -32,6 +33,19 @@ if TYPE_CHECKING:
     from SSTP.examples.hcpanel.domain import PatientProfile
 
 from SSTP.examples.hcpanel.specialists import ROLE_DESCRIPTIONS
+
+
+@dataclass
+class TeamProcessResult:
+    """Captures the outcome of a TP session for reuse across patient sessions."""
+    winning_position: Dict[str, Any]
+    mpc: float
+    gar: float
+    scr: float
+    episode_id: str
+    role_assignments: Dict[str, str]
+    specialist_process_params: Dict[str, Any]  # agent_id → process_params dict
+    wire_trace: List[Any] = field(default_factory=list)
 
 LOGGER = logging.getLogger("hcpanel")
 
@@ -77,25 +91,30 @@ class DebateOrchestrator:
         self.repair_fn = repair_fn
         self.llm = llm
 
-    def run_joint_panel(
+    def run_tp_session(
         self,
-        patient: "PatientProfile",
-        episode_id: str,
-    ) -> ClinicalDebateOutcome:
+        tp_episode_id: str,
+    ) -> "TeamProcessResult":
+        """Run team-process once. Returns a TeamProcessResult for reuse across patients.
+
+        TP is team-scoped: it establishes role assignments, governance terms, and
+        process parameters that are stable across all patients in a run.
+        """
         all_specialists = self.specialists
         specialist_map = {a.agent_id: a for a in all_specialists}
         all_ids = [a.agent_id for a in all_specialists]
 
-        # ── TP-1: case-specific session objective and role assignments ───
+        # TP-1: derive session objective and role assignments from team composition
+        # (no patient data — TP is patient-independent)
         case_frame: Dict[str, Any] = {}
         if self.llm is not None:
             try:
                 case_frame = self.llm.complete_json("tp_case_frame", {
                     "caller_id": _CONTROLLER_ID,
-                    "patient_id": patient.patient_id,
-                    "symptoms": patient.symptoms,
-                    "health_history": patient.health_history,
-                    "current_medications": patient.current_medications,
+                    "patient_id": "team",
+                    "symptoms": [],
+                    "health_history": [],
+                    "current_medications": [],
                     "available_specialists": [
                         {"agent_id": a.agent_id, "role": a.role, "panel": a.panel}
                         for a in all_specialists
@@ -112,16 +131,10 @@ class DebateOrchestrator:
         primary_question: str = case_frame.get("primary_question", "")
         responsible_for: Dict[str, Any] = case_frame.get("responsible_for") or {}
 
-        # Build peer-description map for L9 ToM seeding — role descriptions
-        # are domain knowledge; L9 handles all seed_peer calls internally.
         peer_descriptions = {
             a.agent_id: ROLE_DESCRIPTIONS.get(a.role, a.role)
             for a in all_specialists
         }
-
-        # Controller L9 — tom_engine and peer_descriptions are wired in here so
-        # all ToM seeding and assessment happen inside the episode API.
-        # Neither specialists nor orchestration logic ever touch tom_engine directly.
         ctrl_l9 = L9(
             self.message_bus,
             agent_id=_CONTROLLER_ID,
@@ -130,47 +143,45 @@ class DebateOrchestrator:
             peer_descriptions=peer_descriptions,
         )
 
-        # ── EPISODE A: team process ──────────────────────────────────────
-        # TP-2: SIEP callbacks for TeamProcessEpisode governance debate
         current_team_process: Dict[str, Any] = {
-                "session_objective": session_objective,
-                "primary_question": primary_question,
-                "role_assignments": responsible_for,
-                "prior_establishment": (
-                    "Before debate, each specialist independently declares a taskwork prior: "
-                    "their initial likelihood estimate for the primary question based on their "
-                    "domain expertise alone, without peer influence. Priors are collected in a "
-                    "dedicated taskwork episode so that baseline beliefs are on record before "
-                    "any exchange occurs."
+            "session_objective": session_objective,
+            "primary_question": primary_question,
+            "role_assignments": responsible_for,
+            "prior_establishment": (
+                "Before debate, each specialist independently declares a taskwork prior: "
+                "their initial likelihood estimate for the primary question based on their "
+                "domain expertise alone, without peer influence. Priors are collected in a "
+                "dedicated taskwork episode so that baseline beliefs are on record before "
+                "any exchange occurs."
+            ),
+            "debate_format": (
+                "Debate is a structured negotiation protocol (SIEP). The coordinator "
+                "synthesises all priors into a controller position and opens a panel. "
+                "Each specialist may accept or counter the controller position with a "
+                "competing proposal. Rounds continue until consensus is reached or the "
+                "maximum round limit is exhausted."
+            ),
+            "contingency_rules": {
+                "description": (
+                    "A contingency is raised when a specialist's counter-proposal cannot "
+                    "be resolved within the current exchange round. The contingency episode "
+                    "captures the unresolved disagreement and triggers a repair pass. If "
+                    "the repair pass produces agreement the session resumes; if not, the "
+                    "contingency escalates to the deadlock rule below."
                 ),
-                "debate_format": (
-                    "Debate is a structured negotiation protocol (SIEP). The coordinator "
-                    "synthesises all priors into a controller position and opens a panel. "
-                    "Each specialist may accept or counter the controller position with a "
-                    "competing proposal. Rounds continue until consensus is reached or the "
-                    "maximum round limit is exhausted."
-                ),
-                "contingency_rules": {
-                    "description": (
-                        "A contingency is raised when a specialist's counter-proposal cannot "
-                        "be resolved within the current exchange round. The contingency episode "
-                        "captures the unresolved disagreement and triggers a repair pass. If "
-                        "the repair pass produces agreement the session resumes; if not, the "
-                        "contingency escalates to the deadlock rule below."
-                    ),
-                    "deadlock_rule": "casting_vote",
-                    "casting_vote_holder": _CONTROLLER_ID,
-                    "human_escalation_threshold": 0.6,
-                },
-                "no_convergence_handling": (
-                    f"If the panel fails to reach full consensus after all SIEP rounds, "
-                    f"the session resolves by majority rule: the position held by the "
-                    f"largest coalition of specialists is adopted. If no majority exists "
-                    f"(tie), the casting vote of {_CONTROLLER_ID} is applied. "
-                    f"If the winning position's confidence remains below "
-                    f"{0.6} after casting vote, the case is flagged for human escalation "
-                    f"and the session closes with resolution_label=human_escalation."
-                ),
+                "deadlock_rule": "casting_vote",
+                "casting_vote_holder": _CONTROLLER_ID,
+                "human_escalation_threshold": 0.6,
+            },
+            "no_convergence_handling": (
+                f"If the panel fails to reach full consensus after all SIEP rounds, "
+                f"the session resolves by majority rule: the position held by the "
+                f"largest coalition of specialists is adopted. If no majority exists "
+                f"(tie), the casting vote of {_CONTROLLER_ID} is applied. "
+                f"If the winning position's confidence remains below "
+                f"{0.6} after casting vote, the case is flagged for human escalation "
+                f"and the session closes with resolution_label=human_escalation."
+            ),
         }
 
         def _tp_pivot_fn(
@@ -204,8 +215,6 @@ class DebateOrchestrator:
                 return ctrl_pos
 
         def _tp_commit_fn(winning_position: Dict[str, Any], _resolution_label: str) -> None:
-            # commit:converged fires before this callback (synchronous bus), so we cannot
-            # rely on _on_commit reading process_params from the wire.  Write directly.
             terms = winning_position.get("team_process_terms") or current_team_process
             role_assignments = terms.get("role_assignments") or responsible_for
             for _aid, _spec in specialist_map.items():
@@ -228,23 +237,23 @@ class DebateOrchestrator:
                     except Exception as _exc:
                         LOGGER.warning("tp_process_commit %s: %s", _aid, _exc)
 
-        session = ctrl_l9.open_session(
-            session_id=episode_id,
-            concept_id=patient.patient_id,
+        tp_session = ctrl_l9.open_session(
+            session_id=tp_episode_id,
+            concept_id="urn:concept:healthcare:team_process",
             group=all_ids,
             task_goal=session_objective,
+            session_plan=SessionPlan(phases=["team_process"]),
         )
 
         try:
-            tp_result = session.run_team_process(
+            tp_raw = tp_session.run_team_process(
                 team_process=current_team_process,
                 pivot_fn=_tp_pivot_fn,
                 commit_fn=_tp_commit_fn,
                 convergence_store=self.memory.convergence_store,
                 semantic_rule_store=self.memory.semantic_rule_store,
                 rationale=(
-                    f"Opening team process for patient {patient.patient_id}: "
-                    f"governance debate with {len(all_ids)} specialists."
+                    f"Opening team process for {len(all_ids)} specialists."
                 ),
                 thought_summary=(
                     f"SIEP governance debate: {len(all_ids)} specialists converge on team process."
@@ -253,15 +262,92 @@ class DebateOrchestrator:
         except (SessionAbortedError, PlanAdherenceError) as exc:
             LOGGER.error("session failed during team-process: %s", exc)
             raise
-        _tp_win = tp_result.winning_position
-        session.announce_knowledge(
+
+        _tp_win = tp_raw.winning_position
+        tp_session.announce_knowledge(
             concept_id="urn:concept:healthcare:team_process",
             value="team_process",
             value_detail={k: v for k, v in _tp_win.items() if k not in ("likely_cause", "posterior")},
-            posterior=tp_result.mpc,
-            gar=tp_result.gar,
-            scr=tp_result.scr,
-            episode_id=tp_result.episode_id,
+            posterior=tp_raw.mpc,
+            gar=tp_raw.gar,
+            scr=tp_raw.scr,
+            episode_id=tp_raw.episode_id,
+        )
+
+        # Freeze specialist process params from the _tp_commit_fn side-effect
+        specialist_process_params = {
+            a.agent_id: dict(a.process_params) for a in all_specialists
+        }
+        terms = _tp_win.get("team_process_terms") or current_team_process
+        role_assignments_frozen = terms.get("role_assignments") or responsible_for
+
+        LOGGER.info(
+            "tp_session.complete episode=%s mpc=%.4f gar=%.4f scr=%.4f",
+            tp_episode_id, tp_raw.mpc, tp_raw.gar, tp_raw.scr,
+        )
+
+        return TeamProcessResult(
+            winning_position=_tp_win,
+            mpc=tp_raw.mpc,
+            gar=tp_raw.gar,
+            scr=tp_raw.scr,
+            episode_id=tp_raw.episode_id,
+            role_assignments=role_assignments_frozen,
+            specialist_process_params=specialist_process_params,
+        )
+
+    def run_patient_session(
+        self,
+        patient: "PatientProfile",
+        episode_id: str,
+        tp_result: "TeamProcessResult",
+    ) -> ClinicalDebateOutcome:
+        """Run TW+T for one patient using a pre-computed TP result.
+
+        The TP result is carried in the session-open INTENT as a team_process
+        payload part so specialists can self-configure without re-running TP.
+        """
+        all_specialists = self.specialists
+        specialist_map = {a.agent_id: a for a in all_specialists}
+        all_ids = [a.agent_id for a in all_specialists]
+
+        session_objective: str = (
+            tp_result.winning_position.get("team_process_terms", {}).get("session_objective")
+            or "joint clinical debate: patient symptom assessment, drug interaction risk, "
+               "drug change proposals, and joint recommendation"
+        )
+
+        peer_descriptions = {
+            a.agent_id: ROLE_DESCRIPTIONS.get(a.role, a.role)
+            for a in all_specialists
+        }
+        ctrl_l9 = L9(
+            self.message_bus,
+            agent_id=_CONTROLLER_ID,
+            llm_factory=self._llm_factory,
+            task_goal=session_objective,
+            peer_descriptions=peer_descriptions,
+        )
+
+        # TW session carries the TP result in the opening INTENT so specialists
+        # self-configure immediately without debating governance again.
+        tp_payload: Dict[str, Any] = {
+            "tp_episode_id": tp_result.episode_id,
+            "winning_position": tp_result.winning_position,
+            "role_assignments": tp_result.role_assignments,
+            "specialist_process_params": tp_result.specialist_process_params,
+            "mpc": tp_result.mpc,
+            "gar": tp_result.gar,
+            "scr": tp_result.scr,
+        }
+
+        session = ctrl_l9.open_session(
+            session_id=episode_id,
+            concept_id=patient.patient_id,
+            group=all_ids,
+            task_goal=session_objective,
+            session_plan=SessionPlan(phases=["taskwork", "task"]),
+            team_process_result=tp_payload,
         )
 
         # ── EPISODE B: taskwork SIEP debate ─────────────────────────────

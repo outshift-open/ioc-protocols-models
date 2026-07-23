@@ -1482,6 +1482,7 @@ class L9:
         group: List[str],
         task_goal: str = "",
         session_plan: Optional["SessionPlan"] = None,
+        team_process_result: Optional[Dict[str, Any]] = None,
     ) -> "L9Session":
         """Emit the session-level SIEP opening intent and return an L9Session.
 
@@ -1489,6 +1490,9 @@ class L9:
         contingency protocol) as a payload part.  Each participant in *group*
         receives an exchange:received ACK on the same session URN immediately
         after.  Seeds ToM peer models for the full group.
+
+        If *team_process_result* is provided it is included as a ``team_process``
+        payload part so specialists can self-configure without running TP again.
         """
         self._seed_tom_peers(group, task_goal or self._task_goal)
         plan = session_plan or SessionPlan()
@@ -1510,6 +1514,7 @@ class L9:
                 "subprotocol": plan.subprotocol,
                 "contingency": plan.contingency,
             },
+            team_process=team_process_result,
             label="session:open",
         )
         # Collect commit:ready signals emitted by participant _on_intent handlers.
@@ -1729,8 +1734,14 @@ class L9Session:
         repair_fn: Any = None,
         pivot_fn: Optional[Callable] = None,
     ) -> "TaskworkResult":
-        """Run the taskwork phase. Requires team-process to have completed."""
-        if self._phase != "tp":
+        """Run the taskwork phase.
+
+        Requires team-process to have completed unless the session plan does not
+        include ``team_process`` in its phases (i.e. a TW-only session seeded by
+        a pre-computed :class:`TeamProcessResult`).
+        """
+        _tw_only = "team_process" not in (self.plan.phases if self.plan else [])
+        if self._phase != "tp" and not (_tw_only and self._phase == ""):
             raise RuntimeError("run_taskwork requires run_team_process to have completed")
         result = self._l9.run_taskwork(
             concept_id=self.concept_id,
