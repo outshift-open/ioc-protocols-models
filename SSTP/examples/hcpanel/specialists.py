@@ -398,14 +398,24 @@ class SpecialistAgent:
 
     def dispatch_intent(self, header: Any) -> None:
         """Route an incoming intent header through this agent's L9."""
+        _is_session_open = False
         if isinstance(header, dict) and self._agreed_plan is None:
             for part in (header.get("payload") or []):
                 if part.get("type") == "session_plan":
                     self._agreed_plan = part.get("content")
+                    _is_session_open = True
                     break
         self._check_plan_adherence(header, expected_kind="intent")
         if self._l9 is not None:
             self._l9.dispatch_intent(header)
+            if _is_session_open:
+                episode = self._l9.join(header)
+                _controller_id = (
+                    (header.get("participants") or {})
+                    .get("actors", [{}])[0]
+                    .get("id", "")
+                ) if isinstance(header, dict) else ""
+                episode.done(posterior=1.0, receiver=_controller_id or None)
 
     def dispatch_propose(self, header: Any) -> None:
         """Route a SIEP propose (exchange) header to the debate-round handler.

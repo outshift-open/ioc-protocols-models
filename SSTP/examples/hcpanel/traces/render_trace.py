@@ -513,29 +513,38 @@ def _build_timeline(
     """Merge wire messages and LLM calls into a single timestamp-sorted list.
 
     Returns list of (kind, depth, obj, phase) where kind is 'wire' or 'llm'.
-    LLM calls with no timestamp are placed immediately before the first wire
-    message of the same agent in the same approximate task window.
+    Wire messages without a timestamp are assigned a synthetic sort key derived
+    from their neighbours so they stay in wire-append order, not pushed to end.
     """
-    events: List[Tuple[str, str, int, Any, str]] = []
-
-    # wire events: (ts, 'wire', depth, msg, phase)
+    # Build wire sort keys: use real timestamp where present, otherwise
+    # inherit the nearest preceding timestamp so no-ts messages stay in place.
+    wire_ts: List[str] = []
+    last_ts = ""
     for phase, depth, msg in phased:
         ts = _iso_ts(msg)
-        events.append((ts, "wire", depth, msg, phase))
+        if ts:
+            last_ts = ts
+        wire_ts.append(last_ts)
 
-    # LLM events: (ts, 'llm', 0, item, phase='')
-    for item in llm_trace:
+    events: List[Tuple[str, int, str, int, Any, str]] = []
+
+    # wire events: (ts, seq, 'wire', depth, msg, phase)
+    for idx, (phase, depth, msg) in enumerate(phased):
+        ts = wire_ts[idx]
+        events.append((ts, idx, "wire", depth, msg, phase))
+
+    # LLM events: (ts, large_seq, 'llm', 0, item, phase='')
+    # Within same ts, LLM calls sort after wire messages (seq offset by len(phased))
+    for idx, item in enumerate(llm_trace):
         ts = _iso_ts(item)
-        events.append((ts, "llm", 0, item, ""))
+        events.append((ts or last_ts, len(phased) + idx, "llm", 0, item, ""))
 
-    # stable sort: empty-ts items (no timestamp) sort after items with the same
-    # ts prefix, keeping their relative order from the original lists.
-    events.sort(key=lambda x: (x[0] or "~", x[1]))  # 'wire' < 'llm' at same ts
+    events.sort(key=lambda x: (x[0], x[1]))
 
     # propagate phase for llm events from the surrounding wire context
     current_phase = "session"
     result = []
-    for ts, kind, depth, obj, phase in events:
+    for ts, seq, kind, depth, obj, phase in events:
         if kind == "wire":
             current_phase = phase
             result.append((kind, depth, obj, phase))

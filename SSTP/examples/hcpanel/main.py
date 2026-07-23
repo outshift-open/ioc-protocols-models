@@ -183,6 +183,8 @@ class HCPanelSystem:
             HCPanelMemory.AGENT_ID,
             lambda hdr, _m=self.memory, _b=self.bus: _m.handle(hdr, _b),
         )
+        # Controller absorbs commit:ready signals from participants.
+        self.bus.register_handler("diagnostics-controller", lambda hdr: None)
         for _agent in self.specialists:
             _agent.wire_up_l9(self.bus)
             self.bus.register_handler(
@@ -456,7 +458,7 @@ def main() -> None:
     parser.add_argument("-n", "--sessions", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--llm-backend", choices=["azure", "anthropic", "local", "simulated"], default="simulated")
-    parser.add_argument("--model", default="gpt-5")
+    parser.add_argument("--model", default=None)
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO")
     parser.add_argument("--patients-file", default=str(PATIENTS_FILE))
     parser.add_argument("--memory-store-file", default=str(MEMORY_STORE_FILE))
