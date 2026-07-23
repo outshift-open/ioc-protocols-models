@@ -89,7 +89,9 @@ def deliver_header(net: "NetworkHandle", header: Dict[str, Any]) -> None:
             continue
 
         kind = header.get("kind", "")
-        if kind not in ("commit", "convergence", "knowledge"):
+        utterance = (header.get("payload") or [{}])[0].get("content", "") if header.get("payload") else ""
+        _is_receipt = isinstance(utterance, str) and utterance.startswith("received:")
+        if kind not in ("commit", "convergence", "knowledge", "intent") and not _is_receipt:
             emit_wire_received(
                 net,
                 msg_id=msg_id,

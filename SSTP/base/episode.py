@@ -66,7 +66,7 @@ from SSTP.base.emit import (
     emit_taskwork_result as _emit_taskwork_result,
     emit_repair_resolved as _emit_repair_resolved,
     emit_grounding_turn as _emit_grounding_turn,
-    emit_wire_received as _emit_wire_received,
+
     _emit_exchange_ready,
     _emit_ready,
     _emit_episode_close,
@@ -401,7 +401,7 @@ class Episode:
         self._last_message_id = h["message"]["id"]
         return self._last_message_id
 
-    def done(self, posterior: float) -> str:
+    def done(self, posterior: float, receiver: "str | None" = None) -> str:
         """Emit a standalone done signal — kind=commit:ready, no further content.
 
         Returns the new message id.
@@ -409,7 +409,7 @@ class Episode:
         h = _emit_ready(
             self._bus,
             sender=self._agent_id,
-            receiver=None,
+            receiver=receiver,
             posterior=posterior,
             concept_id=self._concept_id,
             parent_id=self._last_message_id,
@@ -1482,6 +1482,7 @@ class L9:
         group: List[str],
         task_goal: str = "",
         session_plan: Optional["SessionPlan"] = None,
+        team_process_result: Optional[Dict[str, Any]] = None,
     ) -> "L9Session":
         """Emit the session-level SIEP opening intent and return an L9Session.
 
@@ -1489,6 +1490,9 @@ class L9:
         contingency protocol) as a payload part.  Each participant in *group*
         receives an exchange:received ACK on the same session URN immediately
         after.  Seeds ToM peer models for the full group.
+
+        If *team_process_result* is provided it is included as a ``team_process``
+        payload part so specialists can self-configure without running TP again.
         """
         self._seed_tom_peers(group, task_goal or self._task_goal)
         plan = session_plan or SessionPlan()
@@ -1510,18 +1514,27 @@ class L9:
                 "subprotocol": plan.subprotocol,
                 "contingency": plan.contingency,
             },
+            team_process=team_process_result,
             label="session:open",
         )
-        # Each participant acknowledges the session plan (exchange:received).
+        # Collect commit:ready signals emitted by participant _on_intent handlers.
+        # deliver_header() is synchronous, so all handlers have run by the time
+        # _emit_intent() returns and their commit:ready messages are already in
+        # self._bus.messages.
         opening_header = self._bus.messages[-1]
         opening_msg_id = (opening_header.get("message") or {}).get("id", "")
-        for recipient in group:
-            _emit_wire_received(
-                self._bus,
-                msg_id=opening_msg_id,
-                recipient_id=recipient,
-                sender_id=self._agent_id,
-                episode_id=session_id,
+        ready_senders = {
+            (m.get("participants") or {}).get("actors", [{}])[0].get("id", "")
+            for m in self._bus.messages
+            if m.get("kind") == "commit:ready"
+            and (m.get("message") or {}).get("episode") == session_id
+        }
+        _missing_ready = [p for p in group if p not in ready_senders]
+        if _missing_ready:
+            import logging as _logging
+            _logging.getLogger(__name__).debug(
+                "open_session: %d/%d participants sent commit:ready (missing: %s)",
+                len(group) - len(_missing_ready), len(group), _missing_ready,
             )
         return L9Session(
             session_id=session_id,
@@ -1721,8 +1734,14 @@ class L9Session:
         repair_fn: Any = None,
         pivot_fn: Optional[Callable] = None,
     ) -> "TaskworkResult":
-        """Run the taskwork phase. Requires team-process to have completed."""
-        if self._phase != "tp":
+        """Run the taskwork phase.
+
+        Requires team-process to have completed unless the session plan does not
+        include ``team_process`` in its phases (i.e. a TW-only session seeded by
+        a pre-computed :class:`TeamProcessResult`).
+        """
+        _tw_only = "team_process" not in (self.plan.phases if self.plan else [])
+        if self._phase != "tp" and not (_tw_only and self._phase == ""):
             raise RuntimeError("run_taskwork requires run_team_process to have completed")
         result = self._l9.run_taskwork(
             concept_id=self.concept_id,

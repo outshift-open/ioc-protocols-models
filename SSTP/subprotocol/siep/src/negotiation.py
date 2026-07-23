@@ -516,6 +516,7 @@ class StarNegotiator:
 
             prop_utt = _position_utterance(controller_id, "proposes", ctrl_pos)
             tom_predictions: Dict[str, Dict] = {}
+            ctrl_agent = None
             if self.context.tom_engine is not None:
                 ctrl_agent = self.context.tom_engine.agent(controller_id)
                 for mid in member_ids:
@@ -647,6 +648,14 @@ class StarNegotiator:
                         response_utt=response_utt,
                         assessment=_grounding_result,
                         specialist_positions=specialist_positions,
+                    )
+                if ctrl_agent is not None and hasattr(ctrl_agent, "update_peer"):
+                    _arg_dir = "support" if res.operation == NegotiationOperation.ACCEPT else "challenge"
+                    _align = _grounding_result.get("alignment_score", 1.0 if res.operation == NegotiationOperation.ACCEPT else 0.65)
+                    ctrl_agent.update_peer(
+                        member_id, response_utt, task_goal,
+                        argument_direction=_arg_dir,
+                        alignment_score=_align,
                     )
 
             if accept_count == n:

@@ -513,29 +513,38 @@ def _build_timeline(
     """Merge wire messages and LLM calls into a single timestamp-sorted list.
 
     Returns list of (kind, depth, obj, phase) where kind is 'wire' or 'llm'.
-    LLM calls with no timestamp are placed immediately before the first wire
-    message of the same agent in the same approximate task window.
+    Wire messages without a timestamp are assigned a synthetic sort key derived
+    from their neighbours so they stay in wire-append order, not pushed to end.
     """
-    events: List[Tuple[str, str, int, Any, str]] = []
-
-    # wire events: (ts, 'wire', depth, msg, phase)
+    # Build wire sort keys: use real timestamp where present, otherwise
+    # inherit the nearest preceding timestamp so no-ts messages stay in place.
+    wire_ts: List[str] = []
+    last_ts = ""
     for phase, depth, msg in phased:
         ts = _iso_ts(msg)
-        events.append((ts, "wire", depth, msg, phase))
+        if ts:
+            last_ts = ts
+        wire_ts.append(last_ts)
 
-    # LLM events: (ts, 'llm', 0, item, phase='')
-    for item in llm_trace:
+    events: List[Tuple[str, int, str, int, Any, str]] = []
+
+    # wire events: (ts, seq, 'wire', depth, msg, phase)
+    for idx, (phase, depth, msg) in enumerate(phased):
+        ts = wire_ts[idx]
+        events.append((ts, idx, "wire", depth, msg, phase))
+
+    # LLM events: (ts, large_seq, 'llm', 0, item, phase='')
+    # Within same ts, LLM calls sort after wire messages (seq offset by len(phased))
+    for idx, item in enumerate(llm_trace):
         ts = _iso_ts(item)
-        events.append((ts, "llm", 0, item, ""))
+        events.append((ts or last_ts, len(phased) + idx, "llm", 0, item, ""))
 
-    # stable sort: empty-ts items (no timestamp) sort after items with the same
-    # ts prefix, keeping their relative order from the original lists.
-    events.sort(key=lambda x: (x[0] or "~", x[1]))  # 'wire' < 'llm' at same ts
+    events.sort(key=lambda x: (x[0], x[1]))
 
     # propagate phase for llm events from the surrounding wire context
     current_phase = "session"
     result = []
-    for ts, kind, depth, obj, phase in events:
+    for ts, seq, kind, depth, obj, phase in events:
         if kind == "wire":
             current_phase = phase
             result.append((kind, depth, obj, phase))
@@ -556,6 +565,44 @@ def render(result_path: str, output_path: str, patient_filter: Optional[str] = N
         sys.exit(1)
 
     all_out: List[str] = []
+
+    # ── Team Process section ──────────────────────────────────────────────────
+    tp_trace: List[Dict[str, Any]] = data.get("tp_trace", [])
+    tp_metrics: Dict[str, Any] = data.get("tp_metrics", {})
+    tp_episode_id: str = data.get("tp_episode_id", "?")
+    if tp_trace:
+        all_out.append("# Team Process (TP) Trace\n\n")
+        all_out.append(f"**Episode URN:** `{tp_episode_id}`  \n")
+        tp_mpc = tp_metrics.get("mpc", "?")
+        tp_gar = tp_metrics.get("gar", "?")
+        tp_scr = tp_metrics.get("scr", "?")
+        all_out.append(
+            f"**GAR / SCR / MPC:** {tp_gar} / {tp_scr} / {tp_mpc}  \n"
+            f"**Wire messages:** {len(tp_trace)}  \n\n"
+        )
+        all_out.append(_hr())
+        tp_phased = _assign_phases(tp_trace)
+        tp_timeline = _build_timeline(tp_phased, [])
+        tp_phase = ""
+        tp_seq = 1
+        for evt_kind, depth, obj, phase in tp_timeline:
+            if evt_kind == "wire":
+                render_phase = phase if phase != "knowledge" else tp_phase
+                if render_phase != tp_phase:
+                    if tp_phase:
+                        all_out.append(_hr())
+                    label = _PHASE_LABELS.get(render_phase, render_phase.upper())
+                    all_out.append(f"## Phase: {label}\n\n")
+                    preamble = _PHASE_PREAMBLES.get(render_phase, "")
+                    if preamble:
+                        all_out.append(preamble + "\n\n")
+                    tp_phase = render_phase
+                all_out.append(_wire_event(tp_seq, obj, phase, depth=depth))
+                tp_seq += 1
+            else:
+                all_out.append(_llm_event(obj))
+        all_out.append(_hr())
+        all_out.append("\n\n---\n\n")
 
     for ep_idx, ep in enumerate(episodes):
         patient_id = ep.get("patient_id", "?")

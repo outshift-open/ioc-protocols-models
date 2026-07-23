@@ -41,7 +41,7 @@ from SSTP.examples.hcpanel.domain import (
 )
 from SSTP.examples.hcpanel.llm_backends import build_llm_client
 from SSTP.examples.hcpanel.memory import HCPanelMemory
-from SSTP.examples.hcpanel.orchestration import DebateOrchestrator
+from SSTP.examples.hcpanel.orchestration import DebateOrchestrator, TeamProcessResult
 from SSTP.examples.hcpanel.domain import PatientProfile
 
 LOGGER = logging.getLogger("hcpanel")
@@ -183,6 +183,8 @@ class HCPanelSystem:
             HCPanelMemory.AGENT_ID,
             lambda hdr, _m=self.memory, _b=self.bus: _m.handle(hdr, _b),
         )
+        # Controller absorbs commit:ready signals from participants.
+        self.bus.register_handler("diagnostics-controller", lambda hdr: None)
         for _agent in self.specialists:
             _agent.wire_up_l9(self.bus)
             self.bus.register_handler(
@@ -200,21 +202,6 @@ class HCPanelSystem:
                 ),
             )
 
-        self.graph = self._build_graph()
-
-    # ------------------------------------------------------------------ graph
-
-    def _build_graph(self):
-        graph = StateGraph(DebateGraphState)
-        graph.add_node("orchestrate", self._node_orchestrate)
-        graph.add_node("joint_panel", self._node_joint_panel)
-        graph.add_node("coordination", self._node_coordination)
-        graph.add_edge(START, "orchestrate")
-        graph.add_edge("orchestrate", "joint_panel")
-        graph.add_edge("joint_panel", "coordination")
-        graph.add_edge("coordination", END)
-        return graph.compile()
-
     # ------------------------------------------------------------------ nodes
 
     def _node_orchestrate(self, state: DebateGraphState) -> Dict[str, Any]:
@@ -230,35 +217,9 @@ class HCPanelSystem:
         )
 
         log.append(f"orchestrate:specialists={len(self.specialists)}")
-        # Snapshot only new messages (bus is empty at orchestrate entry)
         return {
             "orchestration_log": log,
             "wire_trace": self.bus.messages[:],
-        }
-
-    def _node_joint_panel(self, state: DebateGraphState) -> Dict[str, Any]:
-        """Team-process preamble + SIEP star negotiation with inline CIP gating."""
-        patient = state["patient"]
-        episode_id = state["episode_id"]
-        log: List[str] = list(state.get("orchestration_log", []))
-
-        LOGGER.info("node.joint_panel episode=%s patient=%s", episode_id, patient.patient_id)
-
-        outcome = self.orchestrator.run_joint_panel(
-            patient=patient,
-            episode_id=episode_id,
-        )
-
-        log.append(
-            f"joint_panel:resolution={outcome.resolution_label}"
-            f":cause={outcome.symptom_conclusion}"
-            f":gar={outcome.gar:.4f}:scr={outcome.scr:.4f}:mpc={outcome.mpc:.4f}"
-        )
-        _offset = len(state.get("wire_trace", []))
-        return {
-            "outcome": outcome,
-            "orchestration_log": log,
-            "wire_trace": list(state["wire_trace"]) + self.bus.messages[_offset:],
         }
 
     def _node_coordination(self, state: DebateGraphState) -> Dict[str, Any]:
@@ -299,7 +260,30 @@ class HCPanelSystem:
 
     # ------------------------------------------------------------------ session
 
-    def run_session(self, patient: PatientProfile) -> HealthcareEpisode:
+    def run_tp_session(self) -> TeamProcessResult:
+        """Run team-process once. Returns a frozen TeamProcessResult for reuse."""
+        tp_episode_id = f"urn:ioc:hcpanel:tp:{uuid.uuid4()}"
+        cid = f"hcpanel-tp-{uuid.uuid4().hex[:8]}"
+        token = set_correlation_id(cid)
+        LOGGER.info("tp_session.start episode=%s", tp_episode_id)
+        try:
+            self.bus.messages = []
+            for agent in self.specialists:
+                agent.reset_session()
+            tp_result = self.orchestrator.run_tp_session(tp_episode_id=tp_episode_id)
+            tp_result.wire_trace = self.bus.messages[:]
+            LOGGER.info(
+                "tp_session.complete episode=%s mpc=%.4f gar=%.4f scr=%.4f",
+                tp_episode_id, tp_result.mpc, tp_result.gar, tp_result.scr,
+            )
+            return tp_result
+        finally:
+            reset_correlation_id(token)
+
+    def run_patient_session(
+        self, patient: PatientProfile, tp_result: TeamProcessResult
+    ) -> HealthcareEpisode:
+        """Run TW+T for one patient using a pre-computed TP result."""
         episode_id = f"urn:ioc:hcpanel:episode:{patient.patient_id}:{uuid.uuid4()}"
         run_id = f"hcpanel-{uuid.uuid4()}"
         cid = f"hcpanel-session-{patient.patient_id}-{uuid.uuid4().hex[:8]}"
@@ -314,6 +298,20 @@ class HCPanelSystem:
             for agent in self.specialists:
                 agent.reset_session()
 
+            # Apply TP result directly — specialists will also receive it via the
+            # session-open INTENT team_process payload, but seeding here ensures
+            # process_params are set before any LangGraph node runs.
+            for agent in self.specialists:
+                agent._apply_tp_result({
+                    "tp_episode_id": tp_result.episode_id,
+                    "winning_position": tp_result.winning_position,
+                    "role_assignments": tp_result.role_assignments,
+                    "specialist_process_params": tp_result.specialist_process_params,
+                    "mpc": tp_result.mpc,
+                    "gar": tp_result.gar,
+                    "scr": tp_result.scr,
+                })
+
             initial_state: DebateGraphState = {
                 "patient": patient,
                 "episode_id": episode_id,
@@ -323,7 +321,44 @@ class HCPanelSystem:
                 "outcome": None,
                 "error": None,
             }
-            final_state: DebateGraphState = self.graph.invoke(initial_state)
+
+            # Patch joint_panel node to use run_patient_session
+            _tp = tp_result
+
+            def _patched_joint_panel(state: DebateGraphState) -> Dict[str, Any]:
+                _patient = state["patient"]
+                _episode_id = state["episode_id"]
+                log: List[str] = list(state.get("orchestration_log", []))
+                LOGGER.info("node.joint_panel episode=%s patient=%s", _episode_id, _patient.patient_id)
+                outcome = self.orchestrator.run_patient_session(
+                    patient=_patient,
+                    episode_id=_episode_id,
+                    tp_result=_tp,
+                )
+                log.append(
+                    f"joint_panel:resolution={outcome.resolution_label}"
+                    f":cause={outcome.symptom_conclusion}"
+                    f":gar={outcome.gar:.4f}:scr={outcome.scr:.4f}:mpc={outcome.mpc:.4f}"
+                )
+                _offset = len(state.get("wire_trace", []))
+                return {
+                    "outcome": outcome,
+                    "orchestration_log": log,
+                    "wire_trace": list(state["wire_trace"]) + self.bus.messages[_offset:],
+                }
+
+            # Build graph with the patient-specific joint_panel node
+            _g = StateGraph(DebateGraphState)
+            _g.add_node("orchestrate", self._node_orchestrate)
+            _g.add_node("joint_panel", _patched_joint_panel)
+            _g.add_node("coordination", self._node_coordination)
+            _g.add_edge(START, "orchestrate")
+            _g.add_edge("orchestrate", "joint_panel")
+            _g.add_edge("joint_panel", "coordination")
+            _g.add_edge("coordination", END)
+            _graph = _g.compile()
+
+            final_state: DebateGraphState = _graph.invoke(initial_state)
 
             outcome: Optional[ClinicalDebateOutcome] = final_state.get("outcome")
             all_messages = list(final_state.get("wire_trace", []))
@@ -412,7 +447,13 @@ def run_simulations(
     model: str,
     patients_file: Path,
     memory_store_file: Path,
+    tp_result_file: Optional[Path] = None,
 ) -> Dict[str, Any]:
+    """Run team-process once, then run N patient TW+T sessions.
+
+    If *tp_result_file* is given, skip TP and load a pre-computed result.
+    Otherwise run TP once and (optionally) write the result to a sidecar.
+    """
     LOGGER.info(
         "simulations.start sessions=%d seed=%d backend=%s model=%s",
         sessions, seed, llm_backend, model,
@@ -424,15 +465,46 @@ def run_simulations(
         memory_store_file=memory_store_file,
     )
     patients = load_patients(patients_file)
-    outputs: List[Dict[str, Any]] = []
 
+    # ── Team process — run once ───────────────────────────────────────────
+    if tp_result_file is not None and tp_result_file.exists():
+        LOGGER.info("simulations.tp_load file=%s", tp_result_file)
+        _raw = json.loads(tp_result_file.read_text(encoding="utf-8"))
+        tp_result = TeamProcessResult(
+            winning_position=_raw["winning_position"],
+            mpc=float(_raw["mpc"]),
+            gar=float(_raw["gar"]),
+            scr=float(_raw["scr"]),
+            episode_id=_raw["episode_id"],
+            role_assignments=_raw["role_assignments"],
+            specialist_process_params=_raw["specialist_process_params"],
+        )
+    else:
+        tp_result = system.run_tp_session()
+        if tp_result_file is not None:
+            tp_result_file.write_text(
+                json.dumps({
+                    "winning_position": tp_result.winning_position,
+                    "mpc": tp_result.mpc,
+                    "gar": tp_result.gar,
+                    "scr": tp_result.scr,
+                    "episode_id": tp_result.episode_id,
+                    "role_assignments": tp_result.role_assignments,
+                    "specialist_process_params": tp_result.specialist_process_params,
+                }, indent=2),
+                encoding="utf-8",
+            )
+            LOGGER.info("simulations.tp_save file=%s", tp_result_file)
+
+    # ── Patient sessions — run N times ───────────────────────────────────
+    outputs: List[Dict[str, Any]] = []
     for index in range(sessions):
         patient = rng.choice(patients)
         LOGGER.info(
             "simulations.session_start index=%d/%d patient=%s",
             index + 1, sessions, patient.patient_id,
         )
-        episode = system.run_session(patient=patient)
+        episode = system.run_patient_session(patient=patient, tp_result=tp_result)
         outputs.append(serialize_episode_output(episode))
         LOGGER.info(
             "simulations.session_complete index=%d/%d patient=%s resolution=%s",
@@ -445,6 +517,9 @@ def run_simulations(
         "application": "HCPanel — Joint Clinical Debate",
         "overall_task": _TASK_GOAL,
         "sessions": sessions,
+        "tp_episode_id": tp_result.episode_id,
+        "tp_metrics": {"mpc": tp_result.mpc, "gar": tp_result.gar, "scr": tp_result.scr},
+        "tp_trace": tp_result.wire_trace,
         "episodes": outputs,
     }
 
@@ -453,10 +528,13 @@ def run_simulations(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="HCPanel — Joint Clinical Debate")
-    parser.add_argument("-n", "--sessions", type=int, default=1)
+    parser.add_argument(
+        "-n", "--sessions", type=int, default=1,
+        help="Number of patient TW+T sessions (TP runs once on top of this)",
+    )
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--llm-backend", choices=["azure", "anthropic", "simulated"], default="simulated")
-    parser.add_argument("--model", default="gpt-5")
+    parser.add_argument("--llm-backend", choices=["azure", "anthropic", "local", "simulated"], default="simulated")
+    parser.add_argument("--model", default=None)
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO")
     parser.add_argument("--patients-file", default=str(PATIENTS_FILE))
     parser.add_argument("--memory-store-file", default=str(MEMORY_STORE_FILE))
@@ -464,6 +542,15 @@ def main() -> None:
         "--fresh-memory",
         action="store_true",
         help="Start with an empty memory store in a private temp file",
+    )
+    parser.add_argument(
+        "--tp-result-file",
+        default=None,
+        help=(
+            "Path to a TP result JSON sidecar. If the file exists, TP is skipped "
+            "and the result is loaded from it. If it does not exist, TP is run and "
+            "the result is written to this path for reuse."
+        ),
     )
     args = parser.parse_args()
 
@@ -478,9 +565,11 @@ def main() -> None:
         os.unlink(_tmp)
         memory_file = Path(_tmp)
 
+    tp_result_file: Optional[Path] = Path(args.tp_result_file) if args.tp_result_file else None
+
     LOGGER.info(
-        "app.start sessions=%d backend=%s model=%s fresh_memory=%s",
-        args.sessions, args.llm_backend, args.model, args.fresh_memory,
+        "app.start sessions=%d backend=%s model=%s fresh_memory=%s tp_result_file=%s",
+        args.sessions, args.llm_backend, args.model, args.fresh_memory, tp_result_file,
     )
 
     try:
@@ -493,6 +582,7 @@ def main() -> None:
             model=args.model,
             patients_file=Path(args.patients_file),
             memory_store_file=memory_file,
+            tp_result_file=tp_result_file,
         )
         result["llm_backend"] = args.llm_backend
         result["model"] = args.model
